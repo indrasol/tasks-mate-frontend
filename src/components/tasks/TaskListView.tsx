@@ -1,3 +1,4 @@
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -96,9 +97,8 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewPr
                     </div>
                   )}
 
-                  {/* Single row with metadata and comments */}
-                  <div className="flex items-center justify-between mt-2">
-                    {/* Metadata as colored tags */}
+                  {/* Metadata row */}
+                  <div className="flex items-center mt-2">
                     <div className="flex flex-wrap gap-1">
                       <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                         👤 {task.createdBy || task.owner}
@@ -110,18 +110,12 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewPr
                         🎯 {task.targetDate}
                       </Badge>
                     </div>
-
-                    {/* Comments */}
-                    <div className="flex items-center space-x-1 text-gray-500">
-                      <MessageSquare className="h-4 w-4" />
-                      <span className="text-xs">{task.comments}</span>
-                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Status tag positioned at the right end */}
-              <div className="ml-4">
+              {/* Status tag and comments positioned at the right end */}
+              <div className="ml-4 flex flex-col items-end space-y-2">
                 <Badge 
                   variant="secondary" 
                   className={`text-xs ${
@@ -133,6 +127,12 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewPr
                 >
                   {getStatusText(task.status)}
                 </Badge>
+                
+                {/* Comments under status tag */}
+                <div className="flex items-center space-x-1 text-gray-500">
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="text-xs">{task.comments}</span>
+                </div>
               </div>
             </div>
           </CardContent>
