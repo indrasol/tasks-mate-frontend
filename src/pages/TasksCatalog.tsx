@@ -295,7 +295,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   onClick={() => handleTaskClick(task.id)}
                 >
                   <CardContent className="p-6">
-                    {/* Header with checkbox, task ID and status tag */}
+                    {/* Header with checkbox and task ID */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-2">
                         {/* Checkbox styled like TasksMate logo */}
@@ -319,34 +319,22 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         </Badge>
                       </div>
                       
-                      <div className="flex items-center space-x-2">
-                        <Badge 
-                          variant="secondary" 
-                          className={`text-xs ${
-                            task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                            task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {getStatusText(task.status)}
-                        </Badge>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            console.log("More options for", task.id);
-                          }}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {/* Status tag positioned at the right */}
+                      <Badge 
+                        variant="secondary" 
+                        className={`text-xs ${
+                          task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                          task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {getStatusText(task.status)}
+                      </Badge>
                     </div>
 
-                    {/* Task Info */}
-                    <div className="space-y-3">
+                    {/* Task Info - Fixed height to ensure consistent margin line alignment */}
+                    <div className="space-y-3 mb-4" style={{ minHeight: '120px' }}>
                       <div>
                         <h3 className="font-semibold text-gray-900 mb-1 hover:text-blue-600 transition-colors">{task.name}</h3>
                         <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
@@ -374,10 +362,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     </div>
 
                     {/* Footer with metadata and comments */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="pt-4 border-t border-gray-200">
                       {/* Single row with metadata and comments */}
                       <div className="flex items-center justify-between">
-                        {/* Metadata tags */}
+                        {/* Metadata as colored tags */}
                         <div className="flex flex-wrap gap-1">
                           <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                             👤 {task.createdBy || task.owner}

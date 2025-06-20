@@ -1,4 +1,3 @@
-
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -121,8 +120,8 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewPr
                 </div>
               </div>
 
-              {/* Status tag and actions */}
-              <div className="flex items-center space-x-2 ml-4">
+              {/* Status tag positioned at the right end */}
+              <div className="ml-4">
                 <Badge 
                   variant="secondary" 
                   className={`text-xs ${
@@ -134,17 +133,6 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewPr
                 >
                   {getStatusText(task.status)}
                 </Badge>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    console.log("More options for", task.id);
-                  }}
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           </CardContent>
