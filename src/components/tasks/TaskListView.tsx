@@ -1,4 +1,3 @@
-
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -91,7 +90,7 @@ const TaskListView = ({ tasks, onTaskClick }: TaskListViewProps) => {
                         <Badge
                           key={index}
                           variant="secondary"
-                          className="text-xs bg-blue-100 text-blue-800"
+                          className="text-xs bg-purple-100 text-purple-800"
                         >
                           {tag}
                         </Badge>
@@ -104,34 +103,25 @@ const TaskListView = ({ tasks, onTaskClick }: TaskListViewProps) => {
                     </div>
                   )}
 
-                  {/* Metadata */}
-                  <div className="mt-2 text-xs text-gray-500 space-y-1">
-                    <div>Created by: {task.createdBy || task.owner} | Created: {task.createdDate || 'N/A'} | Target: {task.targetDate}</div>
+                  {/* Metadata as colored tags */}
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                      👤 {task.createdBy || task.owner}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                      📅 {task.createdDate || 'N/A'}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                      🎯 {task.targetDate}
+                    </Badge>
                   </div>
                 </div>
 
-                {/* Progress bar */}
-                <div className="w-24">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-tasksmate-gradient h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${task.progress}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-500 mt-1">{task.progress}%</span>
-                </div>
-
-                {/* Owner and date */}
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    <Avatar className="w-6 h-6">
-                      <AvatarFallback className="text-xs">{task.owner}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm text-gray-600">{task.owner}</span>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {task.targetDate}
-                  </Badge>
+                {/* Owner avatar */}
+                <div className="flex items-center space-x-2">
+                  <Avatar className="w-6 h-6">
+                    <AvatarFallback className="text-xs">{task.owner}</AvatarFallback>
+                  </Avatar>
                 </div>
 
                 {/* Comments */}

@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -323,7 +322,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                             <Badge
                               key={index}
                               variant="secondary"
-                              className="text-xs bg-blue-100 text-blue-800"
+                              className="text-xs bg-purple-100 text-purple-800"
                             >
                               {tag}
                             </Badge>
@@ -336,30 +335,17 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         </div>
                       )}
 
-                      {/* Progress bar */}
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-tasksmate-gradient h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${task.progress}%` }}
-                        />
-                      </div>
-
-                      {/* AI Summary Badge */}
-                      <div className="flex justify-center">
-                        <Badge className="bg-tasksmate-gradient text-white border-0 text-xs">
-                          ✨ AI Summary
+                      {/* Metadata as colored tags */}
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                          👤 {task.createdBy || task.owner}
                         </Badge>
-                      </div>
-                    </div>
-
-                    {/* Metadata */}
-                    <div className="mt-4 pt-3 border-t border-gray-200 space-y-2 text-xs text-gray-500">
-                      <div className="flex justify-between">
-                        <span>Created by: {task.createdBy || task.owner}</span>
-                        <span>Created: {task.createdDate || 'N/A'}</span>
-                      </div>
-                      <div className="text-center">
-                        <span>Target: {task.targetDate}</span>
+                        <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                          📅 {task.createdDate || 'N/A'}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                          🎯 {task.targetDate}
+                        </Badge>
                       </div>
                     </div>
 
@@ -369,30 +355,27 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         <Avatar className="w-6 h-6">
                           <AvatarFallback className="text-xs">{task.owner}</AvatarFallback>
                         </Avatar>
-                        <Badge variant="outline" className="text-xs">
-                          {task.targetDate}
-                        </Badge>
                       </div>
                       
-                      <div className="flex items-center space-x-1 text-gray-500">
-                        <MessageSquare className="h-4 w-4" />
-                        <span className="text-xs">{task.comments}</span>
+                      <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-1 text-gray-500">
+                          <MessageSquare className="h-4 w-4" />
+                          <span className="text-xs">{task.comments}</span>
+                        </div>
+                        
+                        {/* Status */}
+                        <Badge 
+                          variant="secondary" 
+                          className={`text-xs ${
+                            task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                            task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {getStatusText(task.status)}
+                        </Badge>
                       </div>
-                    </div>
-
-                    {/* Status */}
-                    <div className="mt-2">
-                      <Badge 
-                        variant="secondary" 
-                        className={`text-xs ${
-                          task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                          task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {getStatusText(task.status)}
-                      </Badge>
                     </div>
                   </CardContent>
                 </Card>
