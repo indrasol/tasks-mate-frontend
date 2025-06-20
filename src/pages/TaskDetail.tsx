@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Check, 
   ArrowLeft, 
@@ -23,15 +25,17 @@ import {
   Circle,
   Send,
   Edit,
-  X
+  X,
+  ChevronDown
 } from "lucide-react";
-import DuplicateTaskSidebar from "@/components/tasks/DuplicateTaskSidebar";
+import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
 
 const TaskDetail = () => {
   const { taskId } = useParams();
   const [status, setStatus] = useState('active');
   const [description, setDescription] = useState('Create modern, responsive dashboard with glassmorphism effects. The design should include smooth animations, proper spacing, and intuitive navigation patterns.');
   const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(true);
 
   // Comments state
   const [comments, setComments] = useState([
@@ -261,109 +265,118 @@ const TaskDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Comments Section */}
+            {/* Comments Section - Now Collapsible */}
             <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <CardTitle className="font-sora flex items-center space-x-2">
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Comments ({comments.length})</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Add new comment */}
-                <div className="mb-6">
-                  <div className="flex space-x-3">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback>CU</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 space-y-2">
-                      <Textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Add a comment..."
-                        className="min-h-20 resize-none"
-                      />
-                      <div className="flex justify-end">
-                        <Button 
-                          onClick={handleAddComment}
-                          size="sm"
-                          className="bg-tasksmate-gradient"
-                          disabled={!newComment.trim()}
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Comment
-                        </Button>
-                      </div>
+              <Collapsible open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-gray-50/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="font-sora flex items-center space-x-2">
+                        <MessageCircle className="h-4 w-4" />
+                        <span>Comments ({comments.length})</span>
+                      </CardTitle>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${isCommentsOpen ? 'rotate-180' : ''}`} />
                     </div>
-                  </div>
-                </div>
-
-                {/* Comments list */}
-                <div className="space-y-4">
-                  {comments.map((comment) => (
-                    <div key={comment.id} className="flex space-x-3 group">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="text-xs">
-                          {comment.avatar}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm">
-                            <span className="font-medium">{comment.user}</span>
-                            <span className="text-gray-500 ml-2">{comment.time}</span>
-                          </div>
-                          <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
-                            <Button
-                              variant="ghost"
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent>
+                    {/* Add new comment */}
+                    <div className="mb-6">
+                      <div className="flex space-x-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback>CU</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-2">
+                          <Textarea
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            placeholder="Add a comment..."
+                            className="min-h-20 resize-none"
+                          />
+                          <div className="flex justify-end">
+                            <Button 
+                              onClick={handleAddComment}
                               size="sm"
-                              className="h-6 w-6 p-0"
-                              onClick={() => handleEditComment(comment.id)}
+                              className="bg-tasksmate-gradient"
+                              disabled={!newComment.trim()}
                             >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                              onClick={() => handleDeleteComment(comment.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
+                              <Send className="h-4 w-4 mr-2" />
+                              Comment
                             </Button>
                           </div>
                         </div>
-                        {editingComment === comment.id ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              value={editCommentText}
-                              onChange={(e) => setEditCommentText(e.target.value)}
-                              className="min-h-16 resize-none"
-                            />
-                            <div className="flex items-center space-x-2">
-                              <Button size="sm" onClick={handleSaveEdit}>
-                                Save
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={handleCancelEdit}>
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-                            {comment.content}
-                          </div>
-                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
+
+                    {/* Comments list */}
+                    <div className="space-y-4">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="flex space-x-3 group">
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback className="text-xs">
+                              {comment.avatar}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm">
+                                <span className="font-medium">{comment.user}</span>
+                                <span className="text-gray-500 ml-2">{comment.time}</span>
+                              </div>
+                              <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => handleEditComment(comment.id)}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            {editingComment === comment.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editCommentText}
+                                  onChange={(e) => setEditCommentText(e.target.value)}
+                                  className="min-h-16 resize-none"
+                                />
+                                <div className="flex items-center space-x-2">
+                                  <Button size="sm" onClick={handleSaveEdit}>
+                                    Save
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                                {comment.content}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
           </div>
 
           {/* Right Column - Sidebar */}
           <div className="space-y-6">
-            {/* AI Summary */}
+            {/* AI Summary - Chat input removed */}
             <Card className="glass border-0 shadow-tasksmate">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -383,9 +396,6 @@ const TaskDetail = () => {
                   <br /><br />
                   <strong>Next steps:</strong> Implement glassmorphism cards and add micro-interactions. 
                   Sarah and Alex are the primary contributors with good collaboration in comments.
-                </div>
-                <div className="pt-2 border-t border-gray-200">
-                  <Input placeholder="Ask AI about this task..." className="text-sm" />
                 </div>
               </CardContent>
             </Card>
@@ -479,8 +489,8 @@ const TaskDetail = () => {
         </div>
       </main>
 
-      {/* Duplicate Task Sidebar */}
-      <DuplicateTaskSidebar 
+      {/* Duplicate Task Modal */}
+      <DuplicateTaskModal 
         open={isDuplicateOpen} 
         onOpenChange={setIsDuplicateOpen}
         sourceTask={task}
