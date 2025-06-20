@@ -14,6 +14,20 @@ import ViewToggle from "@/components/tasks/ViewToggle";
 import TaskListView from "@/components/tasks/TaskListView";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 
+interface Task {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  owner: string;
+  targetDate: string;
+  comments: number;
+  progress: number;
+  tags?: string[];
+  createdBy?: string;
+  createdDate?: string;
+}
+
 const TasksCatalog = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
@@ -51,8 +65,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [selectedDateRange, setSelectedDateRange] = useState<string | null>(null);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
 
-  // Mock data for demonstration
-  const tasks = [
+  // Tasks state - now includes dynamic task creation
+  const [tasks, setTasks] = useState<Task[]>([
     {
       id: "T1234",
       name: "Implement user authentication",
@@ -61,7 +75,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       owner: "JD",
       targetDate: "Dec 15",
       comments: 3,
-      progress: 60
+      progress: 60,
+      tags: ["authentication", "backend", "supabase"],
+      createdBy: "JD",
+      createdDate: "Dec 8"
     },
     {
       id: "T1235", 
@@ -71,7 +88,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       owner: "SK",
       targetDate: "Dec 10",
       comments: 7,
-      progress: 100
+      progress: 100,
+      tags: ["ui", "design", "frontend"],
+      createdBy: "SK",
+      createdDate: "Dec 5"
     },
     {
       id: "T1236",
@@ -81,7 +101,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       owner: "MR",
       targetDate: "Dec 20",
       comments: 1,
-      progress: 0
+      progress: 0,
+      tags: ["devops", "automation"],
+      createdBy: "MR",
+      createdDate: "Dec 7"
     },
     {
       id: "T1237",
@@ -91,9 +114,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       owner: "AM",
       targetDate: "Dec 18",
       comments: 5,
-      progress: 25
+      progress: 25,
+      tags: ["realtime", "notifications", "backend"],
+      createdBy: "AM",
+      createdDate: "Dec 6"
     }
-  ];
+  ]);
 
   // Filter and search logic
   const filteredTasks = useMemo(() => {
@@ -102,7 +128,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       const matchesSearch = searchQuery === "" || 
         task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.id.toLowerCase().includes(searchQuery.toLowerCase());
+        task.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (task.tags && task.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
 
       // Status filter
       const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(task.status);
@@ -143,6 +170,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   const handleNewTask = () => {
     setIsNewTaskModalOpen(true);
+  };
+
+  const handleTaskCreated = (newTask: Task) => {
+    setTasks(prev => [newTask, ...prev]);
   };
 
   // Filter handlers
@@ -285,6 +316,26 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
                       </div>
 
+                      {/* Tags */}
+                      {task.tags && task.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {task.tags.slice(0, 3).map((tag, index) => (
+                            <Badge
+                              key={index}
+                              variant="secondary"
+                              className="text-xs bg-blue-100 text-blue-800"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                          {task.tags.length > 3 && (
+                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                              +{task.tags.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
                       {/* Progress bar */}
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
@@ -298,6 +349,17 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         <Badge className="bg-tasksmate-gradient text-white border-0 text-xs">
                           ✨ AI Summary
                         </Badge>
+                      </div>
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="mt-4 pt-3 border-t border-gray-200 space-y-2 text-xs text-gray-500">
+                      <div className="flex justify-between">
+                        <span>Created by: {task.createdBy || task.owner}</span>
+                        <span>Created: {task.createdDate || 'N/A'}</span>
+                      </div>
+                      <div className="text-center">
+                        <span>Target: {task.targetDate}</span>
                       </div>
                     </div>
 
@@ -357,7 +419,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       {/* New Task Modal */}
       <NewTaskModal 
         open={isNewTaskModalOpen} 
-        onOpenChange={setIsNewTaskModalOpen} 
+        onOpenChange={setIsNewTaskModalOpen}
+        onTaskCreated={handleTaskCreated}
       />
     </div>
   );

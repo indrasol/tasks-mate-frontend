@@ -18,22 +18,40 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+
+interface Task {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  owner: string;
+  targetDate: string;
+  comments: number;
+  progress: number;
+  tags: string[];
+  createdBy: string;
+  createdDate: string;
+}
 
 interface NewTaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onTaskCreated: (task: Task) => void;
 }
 
-const NewTaskModal = ({ open, onOpenChange }: NewTaskModalProps) => {
+const NewTaskModal = ({ open, onOpenChange, onTaskCreated }: NewTaskModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     status: "todo",
     owner: "",
     targetDate: "",
+    tags: [] as string[],
   });
+  const [tagInput, setTagInput] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +64,25 @@ const NewTaskModal = ({ open, onOpenChange }: NewTaskModalProps) => {
     // Generate task ID
     const taskId = `T${Math.floor(Math.random() * 9000) + 1000}`;
     
-    console.log("Creating new task:", { ...formData, id: taskId });
+    // Create new task object
+    const newTask: Task = {
+      id: taskId,
+      name: formData.name,
+      description: formData.description,
+      status: formData.status,
+      owner: formData.owner,
+      targetDate: formData.targetDate || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      comments: 0,
+      progress: 0,
+      tags: formData.tags,
+      createdBy: formData.owner, // Using owner as creator for now
+      createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    };
+    
+    console.log("Creating new task:", newTask);
+    
+    // Call the callback to add task to catalog
+    onTaskCreated(newTask);
     
     toast.success("Task created successfully!");
     
@@ -57,13 +93,39 @@ const NewTaskModal = ({ open, onOpenChange }: NewTaskModalProps) => {
       status: "todo",
       owner: "",
       targetDate: "",
+      tags: [],
     });
+    setTagInput("");
     
     onOpenChange(false);
   };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddTag = () => {
+    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tagInput.trim()]
+      }));
+      setTagInput("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
+
+  const handleTagInputKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
   };
 
   return (
@@ -108,6 +170,50 @@ const NewTaskModal = ({ open, onOpenChange }: NewTaskModalProps) => {
                 rows={4}
                 className="text-base resize-none"
               />
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="tags" className="text-sm font-semibold text-gray-700">
+                Tags
+              </Label>
+              <div className="space-y-2">
+                <div className="flex space-x-2">
+                  <Input
+                    id="tags"
+                    placeholder="Enter a tag and press Enter"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyPress={handleTagInputKeyPress}
+                    className="h-10 text-base flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddTag}
+                    variant="outline"
+                    className="h-10 px-4"
+                    disabled={!tagInput.trim()}
+                  >
+                    Add
+                  </Button>
+                </div>
+                {formData.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {formData.tags.map((tag, index) => (
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="flex items-center space-x-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
+                      >
+                        <span>{tag}</span>
+                        <X
+                          className="h-3 w-3 cursor-pointer hover:text-blue-900"
+                          onClick={() => handleRemoveTag(tag)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

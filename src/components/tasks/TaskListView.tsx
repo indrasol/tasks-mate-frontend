@@ -14,6 +14,9 @@ interface Task {
   targetDate: string;
   comments: number;
   progress: number;
+  tags?: string[];
+  createdBy?: string;
+  createdDate?: string;
 }
 
 interface TaskListViewProps {
@@ -80,6 +83,31 @@ const TaskListView = ({ tasks, onTaskClick }: TaskListViewProps) => {
                     </Badge>
                   </div>
                   <p className="text-sm text-gray-600 truncate mt-1">{task.description}</p>
+                  
+                  {/* Tags */}
+                  {task.tags && task.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {task.tags.slice(0, 3).map((tag, index) => (
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="text-xs bg-blue-100 text-blue-800"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                      {task.tags.length > 3 && (
+                        <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                          +{task.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Metadata */}
+                  <div className="mt-2 text-xs text-gray-500 space-y-1">
+                    <div>Created by: {task.createdBy || task.owner} | Created: {task.createdDate || 'N/A'} | Target: {task.targetDate}</div>
+                  </div>
                 </div>
 
                 {/* Progress bar */}
