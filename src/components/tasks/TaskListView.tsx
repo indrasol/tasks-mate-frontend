@@ -2,7 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, MoreVertical } from "lucide-react";
+import { MessageSquare, MoreVertical, Check } from "lucide-react";
 
 interface Task {
   id: string;
@@ -21,9 +21,10 @@ interface Task {
 interface TaskListViewProps {
   tasks: Task[];
   onTaskClick: (taskId: string) => void;
+  onTaskStatusToggle: (taskId: string) => void;
 }
 
-const TaskListView = ({ tasks, onTaskClick }: TaskListViewProps) => {
+const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewProps) => {
   const getStatusText = (status: string) => {
     switch (status) {
       case "completed": return "Completed";
@@ -45,19 +46,23 @@ const TaskListView = ({ tasks, onTaskClick }: TaskListViewProps) => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4 flex-1 min-w-0">
-                {/* Status tag and ID */}
+                {/* Checkbox and ID */}
                 <div className="flex items-center space-x-2">
-                  <Badge 
-                    variant="secondary" 
-                    className={`text-xs ${
-                      task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                      task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
+                  <div 
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
+                      task.status === 'completed' 
+                        ? 'bg-tasksmate-gradient border-transparent' 
+                        : 'border-gray-300 hover:border-gray-400'
                     }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTaskStatusToggle(task.id);
+                    }}
                   >
-                    {getStatusText(task.status)}
-                  </Badge>
+                    {task.status === 'completed' && (
+                      <Check className="h-3 w-3 text-white" />
+                    )}
+                  </div>
                   <Badge variant="secondary" className="text-xs font-mono">
                     {task.id}
                   </Badge>
@@ -92,39 +97,55 @@ const TaskListView = ({ tasks, onTaskClick }: TaskListViewProps) => {
                     </div>
                   )}
 
-                  {/* Metadata as colored tags */}
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                      👤 {task.createdBy || task.owner}
-                    </Badge>
-                    <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
-                      📅 {task.createdDate || 'N/A'}
-                    </Badge>
-                    <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
-                      🎯 {task.targetDate}
-                    </Badge>
-                  </div>
-                </div>
+                  {/* Single row with metadata and comments */}
+                  <div className="flex items-center justify-between mt-2">
+                    {/* Metadata as colored tags */}
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                        👤 {task.createdBy || task.owner}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                        📅 {task.createdDate || 'N/A'}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                        🎯 {task.targetDate}
+                      </Badge>
+                    </div>
 
-                {/* Comments */}
-                <div className="flex items-center space-x-1 text-gray-500">
-                  <MessageSquare className="h-4 w-4" />
-                  <span className="text-xs">{task.comments}</span>
+                    {/* Comments */}
+                    <div className="flex items-center space-x-1 text-gray-500">
+                      <MessageSquare className="h-4 w-4" />
+                      <span className="text-xs">{task.comments}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Actions */}
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="opacity-0 group-hover:opacity-100 transition-opacity ml-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  console.log("More options for", task.id);
-                }}
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
+              {/* Status tag and actions */}
+              <div className="flex items-center space-x-2 ml-4">
+                <Badge 
+                  variant="secondary" 
+                  className={`text-xs ${
+                    task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                    task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {getStatusText(task.status)}
+                </Badge>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log("More options for", task.id);
+                  }}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -203,6 +203,14 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     setSearchQuery("");
   };
 
+  const handleTaskStatusToggle = (taskId: string) => {
+    setTasks(prev => prev.map(task => 
+      task.id === taskId 
+        ? { ...task, status: task.status === 'completed' ? 'todo' : 'completed' }
+        : task
+    ));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Top Navigation */}
@@ -287,8 +295,30 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   onClick={() => handleTaskClick(task.id)}
                 >
                   <CardContent className="p-6">
-                    {/* Header with status tag and more options */}
+                    {/* Header with checkbox, task ID and status tag */}
                     <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center space-x-2">
+                        {/* Checkbox styled like TasksMate logo */}
+                        <div 
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
+                            task.status === 'completed' 
+                              ? 'bg-tasksmate-gradient border-transparent' 
+                              : 'border-gray-300 hover:border-gray-400'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTaskStatusToggle(task.id);
+                          }}
+                        >
+                          {task.status === 'completed' && (
+                            <Check className="h-3 w-3 text-white" />
+                          )}
+                        </div>
+                        <Badge variant="secondary" className="text-xs font-mono">
+                          {task.id}
+                        </Badge>
+                      </div>
+                      
                       <div className="flex items-center space-x-2">
                         <Badge 
                           variant="secondary" 
@@ -301,21 +331,18 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         >
                           {getStatusText(task.status)}
                         </Badge>
-                        <Badge variant="secondary" className="text-xs font-mono">
-                          {task.id}
-                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            console.log("More options for", task.id);
+                          }}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          console.log("More options for", task.id);
-                        }}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
                     </div>
 
                     {/* Task Info */}
@@ -348,21 +375,22 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
                     {/* Footer with metadata and comments */}
                     <div className="mt-4 pt-4 border-t border-gray-200">
-                      {/* Metadata as colored tags */}
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                          👤 {task.createdBy || task.owner}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
-                          📅 {task.createdDate || 'N/A'}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
-                          🎯 {task.targetDate}
-                        </Badge>
-                      </div>
-                      
-                      {/* Comments */}
-                      <div className="flex items-center justify-end">
+                      {/* Single row with metadata and comments */}
+                      <div className="flex items-center justify-between">
+                        {/* Metadata tags */}
+                        <div className="flex flex-wrap gap-1">
+                          <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                            👤 {task.createdBy || task.owner}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                            📅 {task.createdDate || 'N/A'}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                            🎯 {task.targetDate}
+                          </Badge>
+                        </div>
+                        
+                        {/* Comments */}
                         <div className="flex items-center space-x-1 text-gray-500">
                           <MessageSquare className="h-4 w-4" />
                           <span className="text-xs">{task.comments}</span>
@@ -374,7 +402,11 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               ))}
             </div>
           ) : (
-            <TaskListView tasks={filteredTasks} onTaskClick={handleTaskClick} />
+            <TaskListView 
+              tasks={filteredTasks} 
+              onTaskClick={handleTaskClick}
+              onTaskStatusToggle={handleTaskStatusToggle}
+            />
           )}
 
           {filteredTasks.length === 0 && (
