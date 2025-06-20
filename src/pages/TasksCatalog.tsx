@@ -96,6 +96,15 @@ const TasksCatalog = () => {
     }
   };
 
+  const handleTaskClick = (taskId: string) => {
+    navigate(`/tasks/${taskId}`);
+  };
+
+  const handleNewTask = () => {
+    console.log("Creating new task...");
+    // TODO: Implement new task creation
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Top Navigation */}
@@ -113,7 +122,10 @@ const TasksCatalog = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-            <Button className="bg-tasksmate-gradient hover:scale-105 transition-transform">
+            <Button 
+              className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+              onClick={handleNewTask}
+            >
               <Plus className="h-4 w-4 mr-2" />
               New Task
             </Button>
@@ -171,7 +183,11 @@ const TasksCatalog = () => {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {tasks.map((task) => (
-              <Card key={task.id} className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group">
+              <Card 
+                key={task.id} 
+                className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200"
+                onClick={() => handleTaskClick(task.id)}
+              >
                 <CardContent className="p-6">
                   {/* Header with status ribbon */}
                   <div className="flex items-start justify-between mb-4">
@@ -181,7 +197,15 @@ const TasksCatalog = () => {
                         {task.id}
                       </Badge>
                     </div>
-                    <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log("More options for", task.id);
+                      }}
+                    >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </div>
@@ -189,7 +213,7 @@ const TasksCatalog = () => {
                   {/* Task Info */}
                   <div className="space-y-3">
                     <div>
-                      <h3 className="font-semibold text-gray-900 mb-1">{task.name}</h3>
+                      <h3 className="font-semibold text-gray-900 mb-1 hover:text-blue-600 transition-colors">{task.name}</h3>
                       <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
                     </div>
 
