@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -21,13 +20,28 @@ import {
   Copy,
   Plus,
   CheckCircle,
-  Circle
+  Circle,
+  Send,
+  Edit,
+  X
 } from "lucide-react";
+import DuplicateTaskSidebar from "@/components/tasks/DuplicateTaskSidebar";
 
 const TaskDetail = () => {
   const { taskId } = useParams();
   const [status, setStatus] = useState('active');
   const [description, setDescription] = useState('Create modern, responsive dashboard with glassmorphism effects. The design should include smooth animations, proper spacing, and intuitive navigation patterns.');
+  const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
+
+  // Comments state
+  const [comments, setComments] = useState([
+    { id: 1, user: 'Mike R.', time: '2 hours ago', content: 'Updated the color scheme based on feedback', avatar: 'MR' },
+    { id: 2, user: 'Alex M.', time: '2 days ago', content: 'Great progress on the wireframes!', avatar: 'AM' },
+    { id: 3, user: 'Sarah K.', time: '3 days ago', content: 'Initial wireframes look promising. Let\'s iterate on the navigation flow.', avatar: 'SK' },
+  ]);
+  const [newComment, setNewComment] = useState('');
+  const [editingComment, setEditingComment] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
 
   // Mock data for the task
   const task = {
@@ -39,7 +53,7 @@ const TaskDetail = () => {
     owner: 'Sarah K.',
     targetDate: '2024-01-15',
     createdDate: '2024-01-01',
-    comments: 8
+    comments: comments.length
   };
 
   const subtasks = [
@@ -49,12 +63,49 @@ const TaskDetail = () => {
     { id: 4, name: 'Add micro-interactions', completed: false, owner: 'Alex M.', due: '2024-01-15' },
   ];
 
-  const activities = [
-    { id: 1, type: 'comment', user: 'Mike R.', time: '2 hours ago', content: 'Updated the color scheme based on feedback' },
-    { id: 2, type: 'status', user: 'Sarah K.', time: '1 day ago', content: 'Status changed from Pending to Active' },
-    { id: 3, type: 'comment', user: 'Alex M.', time: '2 days ago', content: 'Great progress on the wireframes!' },
-    { id: 4, type: 'created', user: 'Sarah K.', time: '5 days ago', content: 'Task created' },
-  ];
+  // Comment functions
+  const handleAddComment = () => {
+    if (newComment.trim()) {
+      const comment = {
+        id: Date.now(),
+        user: 'Current User',
+        time: 'Just now',
+        content: newComment,
+        avatar: 'CU'
+      };
+      setComments([comment, ...comments]);
+      setNewComment('');
+    }
+  };
+
+  const handleEditComment = (commentId: number) => {
+    const comment = comments.find(c => c.id === commentId);
+    if (comment) {
+      setEditingComment(commentId);
+      setEditCommentText(comment.content);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (editCommentText.trim() && editingComment) {
+      setComments(comments.map(comment => 
+        comment.id === editingComment 
+          ? { ...comment, content: editCommentText }
+          : comment
+      ));
+      setEditingComment(null);
+      setEditCommentText('');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingComment(null);
+    setEditCommentText('');
+  };
+
+  const handleDeleteComment = (commentId: number) => {
+    setComments(comments.filter(comment => comment.id !== commentId));
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -209,6 +260,105 @@ const TaskDetail = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Comments Section */}
+            <Card className="glass border-0 shadow-tasksmate">
+              <CardHeader>
+                <CardTitle className="font-sora flex items-center space-x-2">
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Comments ({comments.length})</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Add new comment */}
+                <div className="mb-6">
+                  <div className="flex space-x-3">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback>CU</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-2">
+                      <Textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Add a comment..."
+                        className="min-h-20 resize-none"
+                      />
+                      <div className="flex justify-end">
+                        <Button 
+                          onClick={handleAddComment}
+                          size="sm"
+                          className="bg-tasksmate-gradient"
+                          disabled={!newComment.trim()}
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Comment
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Comments list */}
+                <div className="space-y-4">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="flex space-x-3 group">
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="text-xs">
+                          {comment.avatar}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm">
+                            <span className="font-medium">{comment.user}</span>
+                            <span className="text-gray-500 ml-2">{comment.time}</span>
+                          </div>
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => handleEditComment(comment.id)}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                              onClick={() => handleDeleteComment(comment.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        {editingComment === comment.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editCommentText}
+                              onChange={(e) => setEditCommentText(e.target.value)}
+                              className="min-h-16 resize-none"
+                            />
+                            <div className="flex items-center space-x-2">
+                              <Button size="sm" onClick={handleSaveEdit}>
+                                Save
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                            {comment.content}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Right Column - Sidebar */}
@@ -277,36 +427,6 @@ const TaskDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Activity Timeline */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <CardTitle className="font-sora flex items-center space-x-2">
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Activity</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {activities.map((activity) => (
-                    <div key={activity.id} className="flex space-x-3">
-                      <Avatar className="w-6 h-6">
-                        <AvatarFallback className="text-xs">
-                          {activity.user.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-1">
-                        <div className="text-sm">
-                          <span className="font-medium">{activity.user}</span>
-                          <span className="text-gray-500 ml-2">{activity.time}</span>
-                        </div>
-                        <div className="text-sm text-gray-600">{activity.content}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Integrations */}
             <Card className="glass border-0 shadow-tasksmate">
               <CardHeader>
@@ -341,7 +461,7 @@ const TaskDetail = () => {
               <Save className="mr-2 h-4 w-4" />
               Save Changes
             </Button>
-            <Button variant="outline" className="micro-lift">
+            <Button variant="outline" className="micro-lift" onClick={() => setIsDuplicateOpen(true)}>
               <Copy className="mr-2 h-4 w-4" />
               Duplicate
             </Button>
@@ -358,6 +478,13 @@ const TaskDetail = () => {
           </div>
         </div>
       </main>
+
+      {/* Duplicate Task Sidebar */}
+      <DuplicateTaskSidebar 
+        open={isDuplicateOpen} 
+        onOpenChange={setIsDuplicateOpen}
+        sourceTask={task}
+      />
     </div>
   );
 };
