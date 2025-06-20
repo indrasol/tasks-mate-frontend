@@ -287,10 +287,20 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   onClick={() => handleTaskClick(task.id)}
                 >
                   <CardContent className="p-6">
-                    {/* Header with status ribbon */}
+                    {/* Header with status tag and more options */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-2">
-                        <div className={`w-3 h-3 rounded-full ${getStatusColor(task.status)}`} />
+                        <Badge 
+                          variant="secondary" 
+                          className={`text-xs ${
+                            task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                            task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {getStatusText(task.status)}
+                        </Badge>
                         <Badge variant="secondary" className="text-xs font-mono">
                           {task.id}
                         </Badge>
@@ -334,9 +344,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           )}
                         </div>
                       )}
+                    </div>
 
+                    {/* Footer with metadata and comments */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
                       {/* Metadata as colored tags */}
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 mb-3">
                         <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                           👤 {task.createdBy || task.owner}
                         </Badge>
@@ -347,34 +360,13 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           🎯 {task.targetDate}
                         </Badge>
                       </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-                      <div className="flex items-center space-x-2">
-                        <Avatar className="w-6 h-6">
-                          <AvatarFallback className="text-xs">{task.owner}</AvatarFallback>
-                        </Avatar>
-                      </div>
                       
-                      <div className="flex items-center space-x-3">
+                      {/* Comments */}
+                      <div className="flex items-center justify-end">
                         <div className="flex items-center space-x-1 text-gray-500">
                           <MessageSquare className="h-4 w-4" />
                           <span className="text-xs">{task.comments}</span>
                         </div>
-                        
-                        {/* Status */}
-                        <Badge 
-                          variant="secondary" 
-                          className={`text-xs ${
-                            task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                            task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {getStatusText(task.status)}
-                        </Badge>
                       </div>
                     </div>
                   </CardContent>
