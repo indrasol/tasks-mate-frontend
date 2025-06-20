@@ -18,20 +18,14 @@ const TasksCatalog = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   
-  // State management
-  const [view, setView] = useState<"grid" | "list">("grid");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
-  const [selectedDateRange, setSelectedDateRange] = useState<string | null>(null);
-  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
-
+  // Handle authentication and loading BEFORE any other hooks
   useEffect(() => {
     if (!loading && !user) {
       navigate('/');
     }
   }, [user, loading, navigate]);
 
+  // Early returns AFTER useEffect but BEFORE other hooks
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -43,6 +37,19 @@ const TasksCatalog = () => {
   if (!user) {
     return null;
   }
+
+  return <TasksCatalogContent navigate={navigate} user={user} signOut={signOut} />;
+};
+
+// Separate component to handle all the main logic
+const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user: any, signOut: () => void }) => {
+  // State management - now all hooks are called consistently
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
+  const [selectedDateRange, setSelectedDateRange] = useState<string | null>(null);
+  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
 
   // Mock data for demonstration
   const tasks = [
