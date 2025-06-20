@@ -1,12 +1,19 @@
-
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Check, MessageCircle, Zap, Users, ArrowRight, Github, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
+import { SignUpModal } from "@/components/auth/SignUpModal";
+import { SignInModal } from "@/components/auth/SignInModal";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
+  const [signUpOpen, setSignUpOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const { user } = useAuth();
+
   const features = [
     {
       icon: <Zap className="h-6 w-6 text-tasksmate-green-end" />,
@@ -58,9 +65,20 @@ const Index = () => {
             <span className="font-sora font-bold text-xl">TasksMate</span>
           </div>
           <div className="hidden md:flex items-center space-x-6">
-            <Link to="/tasks_catalog" className="text-gray-600 hover:text-gray-900 transition-colors">
-              Dashboard
-            </Link>
+            {user ? (
+              <Link to="/tasks_catalog" className="text-gray-600 hover:text-gray-900 transition-colors">
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <button 
+                  onClick={() => setSignInOpen(true)}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Sign In
+                </button>
+              </>
+            )}
             <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
               Docs
             </a>
@@ -89,15 +107,31 @@ const Index = () => {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link to="/tasks_catalog">
-                  <Button size="lg" className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate">
-                    Try the Demo
+                {user ? (
+                  <Link to="/tasks_catalog">
+                    <Button size="lg" className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate">
+                      Go to Dashboard
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button 
+                    size="lg" 
+                    className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate"
+                    onClick={() => setSignUpOpen(true)}
+                  >
+                    Sign Up
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
-                </Link>
-                <Button variant="outline" size="lg" className="micro-lift">
+                )}
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className="micro-lift"
+                  onClick={() => setSignInOpen(true)}
+                >
                   <FileText className="mr-2 h-4 w-4" />
-                  Docs
+                  Sign In
                 </Button>
               </div>
               <div className="text-sm text-gray-500">
@@ -245,6 +279,10 @@ const Index = () => {
           </div>
         </div>
       </footer>
+
+      {/* Modals */}
+      <SignUpModal open={signUpOpen} onOpenChange={setSignUpOpen} />
+      <SignInModal open={signInOpen} onOpenChange={setSignInOpen} />
     </div>
   );
 };

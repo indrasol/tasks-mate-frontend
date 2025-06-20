@@ -1,110 +1,105 @@
 
-import { useState } from "react";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Search, Plus, MessageCircle, Calendar, User, MoreHorizontal, Zap } from "lucide-react";
+import { Check, Search, Plus, Filter, Grid3X3, List, MoreVertical, MessageSquare, Calendar, User, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const TasksCatalog = () => {
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
 
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/');
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  // Mock data for demonstration
   const tasks = [
     {
-      id: 'T1234',
-      name: 'Redesign Dashboard UI',
-      description: 'Create modern, responsive dashboard with glassmorphism effects',
-      status: 'active',
-      progress: 65,
-      owner: 'Sarah K.',
-      targetDate: '2024-01-15',
-      comments: 8,
-      hasAiSummary: true
-    },
-    {
-      id: 'T1235',
-      name: 'API Integration',
-      description: 'Connect frontend with new backend endpoints',
-      status: 'blocked',
-      progress: 30,
-      owner: 'Mike R.',
-      targetDate: '2024-01-20',
-      comments: 12,
-      hasAiSummary: true
-    },
-    {
-      id: 'T1236',
-      name: 'User Testing',
-      description: 'Conduct usability tests with 10 participants',
-      status: 'completed',
-      progress: 100,
-      owner: 'Alex M.',
-      targetDate: '2024-01-10',
-      comments: 5,
-      hasAiSummary: false
-    },
-    {
-      id: 'T1237',
-      name: 'Mobile Optimization',
-      description: 'Ensure responsive design works on all devices',
-      status: 'pending',
-      progress: 0,
-      owner: 'Lisa T.',
-      targetDate: '2024-01-25',
+      id: "T1234",
+      name: "Implement user authentication",
+      description: "Set up Supabase auth with email/password login",
+      status: "in-progress",
+      owner: "JD",
+      targetDate: "Dec 15",
       comments: 3,
-      hasAiSummary: false
+      progress: 60
     },
     {
-      id: 'T1238',
-      name: 'Performance Audit',
-      description: 'Analyze and optimize application performance',
-      status: 'active',
-      progress: 45,
-      owner: 'John D.',
-      targetDate: '2024-01-18',
-      comments: 6,
-      hasAiSummary: true
+      id: "T1235", 
+      name: "Design task cards",
+      description: "Create responsive task card components with glassmorphism",
+      status: "completed",
+      owner: "SK",
+      targetDate: "Dec 10",
+      comments: 7,
+      progress: 100
     },
     {
-      id: 'T1239',
-      name: 'Documentation Update',
-      description: 'Update API documentation and user guides',
-      status: 'active',
-      progress: 80,
-      owner: 'Emma S.',
-      targetDate: '2024-01-12',
-      comments: 4,
-      hasAiSummary: false
+      id: "T1236",
+      name: "Set up CI/CD pipeline",
+      description: "Configure automated testing and deployment",
+      status: "todo",
+      owner: "MR",
+      targetDate: "Dec 20",
+      comments: 1,
+      progress: 0
+    },
+    {
+      id: "T1237",
+      name: "Add real-time notifications",
+      description: "Implement Supabase realtime for task updates",
+      status: "blocked",
+      owner: "AM",
+      targetDate: "Dec 18",
+      comments: 5,
+      progress: 25
     }
   ];
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-500';
-      case 'active': return 'bg-blue-500';
-      case 'blocked': return 'bg-red-500';
-      case 'pending': return 'bg-yellow-500';
-      default: return 'bg-gray-500';
+      case "completed": return "bg-green-500";
+      case "in-progress": return "bg-blue-500";
+      case "blocked": return "bg-red-500";
+      case "todo": return "bg-gray-400";
+      default: return "bg-gray-400";
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      completed: 'bg-green-100 text-green-800',
-      active: 'bg-blue-100 text-blue-800',
-      blocked: 'bg-red-100 text-red-800',
-      pending: 'bg-yellow-100 text-yellow-800'
-    };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "completed": return "Completed";
+      case "in-progress": return "In Progress";
+      case "blocked": return "Blocked";
+      case "todo": return "To Do";
+      default: return "Unknown";
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Top Navigation */}
-      <nav className="px-6 py-4 bg-white/50 backdrop-blur-sm border-b border-gray-200">
+      <nav className="px-6 py-4 bg-white/80 backdrop-blur-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center space-x-2">
@@ -113,182 +108,144 @@ const TasksCatalog = () => {
               </div>
               <span className="font-sora font-bold text-xl">TasksMate</span>
             </Link>
-            <div className="h-6 w-px bg-gray-300"></div>
-            <h1 className="font-sora font-semibold text-lg">Task Catalog</h1>
+            <div className="h-6 w-px bg-gray-300" />
+            <h1 className="font-sora font-semibold text-lg text-gray-700">Tasks Catalog</h1>
           </div>
           
           <div className="flex items-center space-x-4">
-            <Avatar className="w-8 h-8">
-              <AvatarFallback>SK</AvatarFallback>
-            </Avatar>
-            <Button className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200">
-              <Plus className="mr-2 h-4 w-4" />
+            <Button className="bg-tasksmate-gradient hover:scale-105 transition-transform">
+              <Plus className="h-4 w-4 mr-2" />
               New Task
+            </Button>
+            <Avatar className="cursor-pointer">
+              <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <Button variant="ghost" size="sm" onClick={signOut}>
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </nav>
 
-      {/* Secondary Navigation */}
-      <div className="px-6 py-4 bg-white/30 backdrop-blur-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+      {/* Secondary Controls */}
+      <div className="px-6 py-4 bg-white/50 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className={viewMode === 'grid' ? 'bg-tasksmate-gradient' : ''}
-              >
-                Grid
+              <Button variant="outline" size="sm">
+                <Grid3X3 className="h-4 w-4" />
               </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className={viewMode === 'list' ? 'bg-tasksmate-gradient' : ''}
-              >
-                List
+              <Button variant="ghost" size="sm">
+                <List className="h-4 w-4" />
               </Button>
             </div>
             
             <div className="flex items-center space-x-2">
-              <Select>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Owner" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="sarah">Sarah K.</SelectItem>
-                  <SelectItem value="mike">Mike R.</SelectItem>
-                  <SelectItem value="alex">Alex M.</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="blocked">Blocked</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
+              <Button variant="outline" size="sm">
+                <Filter className="h-4 w-4 mr-2" />
+                Status
+              </Button>
+              <Button variant="outline" size="sm">
+                <User className="h-4 w-4 mr-2" />
+                Owner
+              </Button>
+              <Button variant="outline" size="sm">
+                <Calendar className="h-4 w-4 mr-2" />
+                Date
+              </Button>
             </div>
           </div>
           
-          <div className="relative flex-1 max-w-md">
+          <div className="relative w-96">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search by keyword or ID (e.g. T1234)"
-              className="pl-10 glass border-0"
+            <Input 
+              placeholder="Search by keyword or ID (e.g. T1234)" 
+              className="pl-10 bg-white/80"
             />
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <main className="px-6 py-8">
+      {/* Tasks Grid */}
+      <div className="px-6 py-8">
         <div className="max-w-7xl mx-auto">
-          <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {tasks.map((task) => (
-              <Card key={task.id} className="glass border-0 shadow-tasksmate micro-lift group">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
+              <Card key={task.id} className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group">
+                <CardContent className="p-6">
+                  {/* Header with status ribbon */}
+                  <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-2">
-                      <div className={`w-1 h-8 rounded-full ${getStatusColor(task.status)}`}></div>
-                      <div>
-                        <Badge variant="secondary" className="text-xs font-mono">
-                          {task.id}
-                        </Badge>
-                      </div>
+                      <div className={`w-3 h-3 rounded-full ${getStatusColor(task.status)}`} />
+                      <Badge variant="secondary" className="text-xs font-mono">
+                        {task.id}
+                      </Badge>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {task.hasAiSummary && (
-                        <Badge className="bg-tasksmate-gradient text-white border-0 text-xs">
-                          <Zap className="mr-1 h-3 w-3" />
-                          AI
-                        </Badge>
-                      )}
-                      <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
                   </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  <Link to={`/tasks/${task.id}`}>
-                    <div className="space-y-2 cursor-pointer">
-                      <h3 className="font-sora font-semibold text-lg leading-tight hover:text-tasksmate-green-end transition-colors">
-                        {task.name}
-                      </h3>
-                      <p className="text-gray-600 text-sm line-clamp-2">
-                        {task.description}
-                      </p>
-                    </div>
-                  </Link>
-                  
+
+                  {/* Task Info */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Progress</span>
-                      <span className="text-xs font-medium">{task.progress}%</span>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-1">{task.name}</h3>
+                      <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
                     </div>
+
+                    {/* Progress bar */}
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
                         className="bg-tasksmate-gradient h-2 rounded-full transition-all duration-300"
                         style={{ width: `${task.progress}%` }}
-                      ></div>
+                      />
+                    </div>
+
+                    {/* AI Summary Badge */}
+                    <div className="flex justify-center">
+                      <Badge className="bg-tasksmate-gradient text-white border-0 text-xs">
+                        ✨ AI Summary
+                      </Badge>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center justify-between pt-2">
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
                     <div className="flex items-center space-x-2">
                       <Avatar className="w-6 h-6">
-                        <AvatarFallback className="text-xs">
-                          {task.owner.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
+                        <AvatarFallback className="text-xs">{task.owner}</AvatarFallback>
                       </Avatar>
-                      <span className="text-xs text-gray-600">{task.owner}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {task.targetDate}
+                      </Badge>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
-                      <Badge className={`${getStatusBadge(task.status)} text-xs`}>
-                        {task.status}
-                      </Badge>
-                      <div className="flex items-center space-x-1 text-gray-500">
-                        <Calendar className="h-3 w-3" />
-                        <span className="text-xs">{new Date(task.targetDate).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center space-x-1 text-gray-500">
-                        <MessageCircle className="h-3 w-3" />
-                        <span className="text-xs">{task.comments}</span>
-                      </div>
+                    <div className="flex items-center space-x-1 text-gray-500">
+                      <MessageSquare className="h-4 w-4" />
+                      <span className="text-xs">{task.comments}</span>
                     </div>
+                  </div>
+
+                  {/* Status */}
+                  <div className="mt-2">
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs ${
+                        task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                        task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {getStatusText(task.status)}
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-          
-          {tasks.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-tasksmate-gradient/20 flex items-center justify-center mx-auto mb-4">
-                <Plus className="h-8 w-8 text-tasksmate-green-end" />
-              </div>
-              <h3 className="font-sora font-semibold text-lg mb-2">No tasks yet</h3>
-              <p className="text-gray-600 mb-4">Create your first task to get started</p>
-              <Button className="bg-tasksmate-gradient">
-                <Plus className="mr-2 h-4 w-4" />
-                New Task
-              </Button>
-            </div>
-          )}
         </div>
-      </main>
+      </div>
     </div>
   );
 };
