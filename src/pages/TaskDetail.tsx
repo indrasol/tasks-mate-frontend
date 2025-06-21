@@ -1,589 +1,341 @@
-
-import { useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { 
-  Check, 
-  ArrowLeft, 
-  Calendar, 
-  User, 
-  MessageCircle, 
-  Zap, 
-  Save, 
-  Copy,
-  Plus,
-  CheckCircle,
-  Circle,
-  Send,
-  Edit,
-  X,
-  ChevronDown,
-  Upload,
-  FileText
-} from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 import { toast } from "sonner";
-import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
+
+interface Task {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  owner: string;
+  targetDate: string;
+  comments: number;
+  progress: number;
+  tags?: string[];
+  attachments?: string[];
+  createdBy?: string;
+  createdDate?: string;
+}
 
 const TaskDetail = () => {
-  const { taskId } = useParams();
+  const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('active');
-  const [taskName, setTaskName] = useState('Redesign Dashboard UI');
-  const [description, setDescription] = useState('Create modern, responsive dashboard with glassmorphism effects. The design should include smooth animations, proper spacing, and intuitive navigation patterns.');
-  const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
-  const [isCommentsOpen, setIsCommentsOpen] = useState(true);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [isDragOver, setIsDragOver] = useState(false);
 
-  // Comments state
-  const [comments, setComments] = useState([
-    { id: 1, user: 'Mike R.', time: '2 hours ago', content: 'Updated the color scheme based on feedback', avatar: 'MR' },
-    { id: 2, user: 'Alex M.', time: '2 days ago', content: 'Great progress on the wireframes!', avatar: 'AM' },
-    { id: 3, user: 'Sarah K.', time: '3 days ago', content: 'Initial wireframes look promising. Let\'s iterate on the navigation flow.', avatar: 'SK' },
-  ]);
+  const [task, setTask] = useState<Task | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus] = useState('');
+  const [owner, setOwner] = useState('');
+  const [targetDate, setTargetDate] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState('');
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [editingComment, setEditingComment] = useState<number | null>(null);
-  const [editCommentText, setEditCommentText] = useState('');
+  const [comments, setComments] = useState<string[]>([]);
 
-  // Mock data for the task
-  const task = {
-    id: taskId || 'T1234',
-    name: taskName,
-    description: description,
-    status: status,
-    progress: 65,
-    owner: 'Sarah K.',
-    targetDate: '2024-01-15',
-    createdDate: '2024-01-01',
-    comments: comments.length,
-    tags: ['UI/UX', 'Frontend', 'Dashboard']
-  };
+  useEffect(() => {
+    const storedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const foundTask = storedTasks.find((t: Task) => t.id === taskId);
 
-  const subtasks = [
-    { id: 1, name: 'Create wireframes', completed: true, owner: 'Sarah K.', due: '2024-01-05' },
-    { id: 2, name: 'Design system components', completed: true, owner: 'Mike R.', due: '2024-01-08' },
-    { id: 3, name: 'Implement glassmorphism cards', completed: false, owner: 'Sarah K.', due: '2024-01-12' },
-    { id: 4, name: 'Add micro-interactions', completed: false, owner: 'Alex M.', due: '2024-01-15' },
-  ];
-
-  // Save Changes functionality
-  const handleSaveChanges = () => {
-    // In a real app, this would save to database
-    console.log('Saving task changes:', {
-      id: task.id,
-      name: taskName,
-      description: description,
-      status: status
-    });
-    toast.success('Task changes saved successfully!');
-  };
-
-  // File upload handlers
-  const handleFileUpload = (files: FileList | null) => {
-    if (!files) return;
-    
-    const newFiles = Array.from(files).slice(0, 5 - uploadedFiles.length);
-    setUploadedFiles(prev => [...prev, ...newFiles]);
-    toast.success(`${newFiles.length} file(s) uploaded successfully!`);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    handleFileUpload(e.dataTransfer.files);
-  };
-
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  // Comment functions
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      const comment = {
-        id: Date.now(),
-        user: 'Current User',
-        time: 'Just now',
-        content: newComment,
-        avatar: 'CU'
-      };
-      setComments([comment, ...comments]);
-      setNewComment('');
+    if (foundTask) {
+      setTask(foundTask);
+      setName(foundTask.name);
+      setDescription(foundTask.description);
+      setStatus(foundTask.status);
+      setOwner(foundTask.owner);
+      setTargetDate(foundTask.targetDate);
+      setTags(foundTask.tags || []);
+      setAttachments(foundTask.attachments || []);
+    } else {
+      toast.error('Task not found');
+      navigate('/tasks_catalog');
     }
+  }, [taskId, navigate]);
+
+  const handleEditClick = () => {
+    setEditMode(true);
   };
 
-  const handleEditComment = (commentId: number) => {
-    const comment = comments.find(c => c.id === commentId);
-    if (comment) {
-      setEditingComment(commentId);
-      setEditCommentText(comment.content);
+  const handleSaveClick = () => {
+    if (!name.trim() || !description.trim() || !status.trim() || !owner.trim() || !targetDate.trim()) {
+      toast.error('Please fill in all required fields.');
+      return;
     }
-  };
 
-  const handleSaveEdit = () => {
-    if (editCommentText.trim() && editingComment) {
-      setComments(comments.map(comment => 
-        comment.id === editingComment 
-          ? { ...comment, content: editCommentText }
-          : comment
-      ));
-      setEditingComment(null);
-      setEditCommentText('');
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingComment(null);
-    setEditCommentText('');
-  };
-
-  const handleDeleteComment = (commentId: number) => {
-    setComments(comments.filter(comment => comment.id !== commentId));
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-green-500';
-      case 'active': return 'bg-blue-500';
-      case 'blocked': return 'bg-red-500';
-      case 'pending': return 'bg-yellow-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      completed: 'bg-green-100 text-green-800',
-      active: 'bg-blue-100 text-blue-800',
-      blocked: 'bg-red-100 text-red-800',
-      pending: 'bg-yellow-100 text-yellow-800'
+    const updatedTask = {
+      ...task,
+      name,
+      description,
+      status,
+      owner,
+      targetDate,
+      tags,
+      attachments,
     };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+
+    const storedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const updatedTasks = storedTasks.map((t: Task) => (t.id === taskId ? updatedTask : t));
+    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+    localStorage.setItem('taskDetails', JSON.stringify(updatedTask));
+
+    setTask(updatedTask);
+    setEditMode(false);
+    toast.success('Task updated successfully!');
   };
+
+  const handleCancelClick = () => {
+    setEditMode(false);
+    setName(task?.name || '');
+    setDescription(task?.description || '');
+    setStatus(task?.status || '');
+    setOwner(task?.owner || '');
+    setTargetDate(task?.targetDate || '');
+    setTags(task?.tags || []);
+    setAttachments(task?.attachments || []);
+  };
+
+  const handleAddTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      setTags([...tags, newTag.trim()]);
+      setNewTag('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleFileUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.pdf,.doc,.docx,.txt,.jpg,.png';
+    input.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files) {
+        handleFilesSelected(Array.from(target.files));
+      }
+    };
+    input.click(); // Fixed: cast to HTMLInputElement to access click method
+  };
+
+  const handleFilesSelected = (files: File[]) => {
+    const newAttachments = files.map(file => file.name);
+    setAttachments([...attachments, ...newAttachments]);
+    toast.success(`${files.length} files attached!`);
+  };
+
+  const handleRemoveAttachment = (attachmentToRemove: string) => {
+    setAttachments(attachments.filter(attachment => attachment !== attachmentToRemove));
+  };
+
+  const handleAddComment = useCallback(() => {
+    if (newComment.trim()) {
+      setComments([...comments, newComment.trim()]);
+      setNewComment('');
+      toast.success('Comment added!');
+    }
+  }, [newComment, comments]);
+
+  if (!task) {
+    return <div>Loading...</div>;
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Navigation */}
-      <nav className="px-6 py-4 bg-white/50 backdrop-blur-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link to="/tasks_catalog" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors">
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back to Catalog</span>
-            </Link>
-            <div className="h-6 w-px bg-gray-300"></div>
-            <div className="flex items-center space-x-2">
-              <Link to="/" className="flex items-center space-x-2">
-                <div className="w-6 h-6 rounded-full bg-tasksmate-gradient flex items-center justify-center">
-                  <Check className="h-4 w-4 text-white" />
-                </div>
-                <span className="font-sora font-bold">TasksMate</span>
-              </Link>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <Avatar className="w-8 h-8">
-              <AvatarFallback>SK</AvatarFallback>
-            </Avatar>
-          </div>
-        </div>
-      </nav>
+    <div className="container mx-auto p-8">
+      <h1 className="text-2xl font-bold mb-4">Task Detail</h1>
 
-      {/* Header */}
-      <header className="px-6 py-6 bg-white/30 backdrop-blur-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className={`w-1 h-12 rounded-full ${getStatusColor(task.status)}`}></div>
-              <div>
-                <Badge variant="secondary" className="text-xs font-mono mb-2">
-                  {task.id}
-                </Badge>
-                <Input 
-                  value={taskName}
-                  onChange={(e) => setTaskName(e.target.value)}
-                  className="text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
-              </div>
-            </div>
-            
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold">Task ID: {task.id}</h2>
+      </div>
+
+      {editMode ? (
+        <div>
+          <div className="mb-4">
+            <Label htmlFor="name">Task Name</Label>
+            <Input
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full"
+            />
+          </div>
+
+          <div className="mb-4">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full"
+            />
+          </div>
+
+          <div className="mb-4">
+            <Label htmlFor="status">Status</Label>
             <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">🟡 Pending</SelectItem>
-                <SelectItem value="active">🔵 Active</SelectItem>
-                <SelectItem value="blocked">🔴 Blocked</SelectItem>
-                <SelectItem value="completed">🟢 Completed</SelectItem>
+              <SelectContent className="bg-white border shadow-lg z-50">
+                <SelectItem value="todo">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                    <span>To Do</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="in-progress">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span>In Progress</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="completed">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span>Completed</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="blocked">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span>Blocked</span>
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="px-6 py-8">
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Description */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <CardTitle className="font-sora">Description</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-32 border-0 bg-transparent resize-none focus-visible:ring-0"
-                  placeholder="Add a description..."
-                />
-              </CardContent>
-            </Card>
-
-            {/* Subtasks */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="font-sora">Subtasks</CardTitle>
-                  <Button size="sm" variant="outline" className="micro-lift">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Subtask
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {subtasks.map((subtask) => (
-                  <div key={subtask.id} className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 micro-lift">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-0 h-auto"
-                    >
-                      {subtask.completed ? (
-                        <CheckCircle className="h-5 w-5 text-tasksmate-green-end" />
-                      ) : (
-                        <Circle className="h-5 w-5 text-gray-400" />
-                      )}
-                    </Button>
-                    <div className="flex-1">
-                      <div className={`font-medium ${subtask.completed ? 'line-through text-gray-500' : ''}`}>
-                        {subtask.name}
-                      </div>
-                      <div className="text-sm text-gray-500 flex items-center space-x-2">
-                        <span>{subtask.owner}</span>
-                        <span>•</span>
-                        <span>{new Date(subtask.due).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Documents Section - Enhanced */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <CardTitle className="font-sora">Documents</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div 
-                  className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                    isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  <div className="flex flex-col items-center space-y-2">
-                    <Upload className="h-8 w-8 text-gray-400" />
-                    <p className="text-gray-500">Drop files here or click to upload</p>
-                    <p className="text-xs text-gray-400">Max 5 files</p>
-                  </div>
-                  
-                  <input
-                    type="file"
-                    multiple
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={(e) => handleFileUpload(e.target.files)}
-                    accept="*/*"
-                  />
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="absolute top-4 right-4"
-                    onClick={() => document.querySelector('input[type="file"]')?.click()}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <h4 className="font-medium text-sm text-gray-700">Uploaded Files:</h4>
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-2">
-                          <FileText className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm">{file.name}</span>
-                          <span className="text-xs text-gray-400">({(file.size / 1024).toFixed(1)} KB)</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(index)}
-                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Comments Section - Collapsible */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <Collapsible open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="cursor-pointer hover:bg-gray-50/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="font-sora flex items-center space-x-2">
-                        <MessageCircle className="h-4 w-4" />
-                        <span>Comments ({comments.length})</span>
-                      </CardTitle>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${isCommentsOpen ? 'rotate-180' : ''}`} />
-                    </div>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent>
-                    {/* Add new comment */}
-                    <div className="mb-6">
-                      <div className="flex space-x-3">
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback>CU</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 space-y-2">
-                          <Textarea
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            placeholder="Add a comment..."
-                            className="min-h-20 resize-none"
-                          />
-                          <div className="flex justify-end">
-                            <Button 
-                              onClick={handleAddComment}
-                              size="sm"
-                              className="bg-tasksmate-gradient"
-                              disabled={!newComment.trim()}
-                            >
-                              <Send className="h-4 w-4 mr-2" />
-                              Comment
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Comments list */}
-                    <div className="space-y-4">
-                      {comments.map((comment) => (
-                        <div key={comment.id} className="flex space-x-3 group">
-                          <Avatar className="w-8 h-8">
-                            <AvatarFallback className="text-xs">
-                              {comment.avatar}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <div className="text-sm">
-                                <span className="font-medium">{comment.user}</span>
-                                <span className="text-gray-500 ml-2">{comment.time}</span>
-                              </div>
-                              <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => handleEditComment(comment.id)}
-                                >
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                  onClick={() => handleDeleteComment(comment.id)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                            {editingComment === comment.id ? (
-                              <div className="space-y-2">
-                                <Textarea
-                                  value={editCommentText}
-                                  onChange={(e) => setEditCommentText(e.target.value)}
-                                  className="min-h-16 resize-none"
-                                />
-                                <div className="flex items-center space-x-2">
-                                  <Button size="sm" onClick={handleSaveEdit}>
-                                    Save
-                                  </Button>
-                                  <Button size="sm" variant="outline" onClick={handleCancelEdit}>
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-                                {comment.content}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
+          <div className="mb-4">
+            <Label htmlFor="owner">Owner</Label>
+            <Select value={owner} onValueChange={setOwner}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select owner" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border shadow-lg z-50">
+                <SelectItem value="JD">John Doe (JD)</SelectItem>
+                <SelectItem value="SK">Sarah Kim (SK)</SelectItem>
+                <SelectItem value="MR">Mike Rodriguez (MR)</SelectItem>
+                <SelectItem value="AM">Anna Miller (AM)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Right Column - Sidebar */}
-          <div className="space-y-6">
-            {/* AI Summary - Chat input removed */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="font-sora flex items-center space-x-2">
-                    <Zap className="h-4 w-4 text-tasksmate-green-end" />
-                    <span>AI Summary</span>
-                  </CardTitle>
-                  <Button size="sm" variant="outline" className="text-xs">
-                    Regen
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-sm text-gray-700 leading-relaxed">
-                  This UI redesign task is <strong>65% complete</strong> and on track for the January 15th deadline. 
-                  The team has successfully completed wireframes and design system components. 
-                  <br /><br />
-                  <strong>Next steps:</strong> Implement glassmorphism cards and add micro-interactions. 
-                  Sarah and Alex are the primary contributors with good collaboration in comments.
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Metadata */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <CardTitle className="font-sora">Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm text-gray-600">Created</Label>
-                    <span className="text-sm">{new Date(task.createdDate).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm text-gray-600">Target Date</Label>
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="h-3 w-3 text-gray-400" />
-                      <span className="text-sm">{new Date(task.targetDate).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm text-gray-600">Owner</Label>
-                    <div className="flex items-center space-x-2">
-                      <Avatar className="w-5 h-5">
-                        <AvatarFallback className="text-xs">SK</AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm">{task.owner}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm text-gray-600">Status</Label>
-                    <Badge className={`${getStatusBadge(task.status)} text-xs`}>
-                      {task.status}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Integrations */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <CardTitle className="font-sora">Integrations</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-purple-500 rounded"></div>
-                    <span className="text-sm">Slack</span>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">Connected</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                    <span className="text-sm">Teams</span>
-                  </div>
-                  <Button variant="outline" size="sm" className="text-xs">
-                    Connect
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="mb-4">
+            <Label htmlFor="targetDate">Target Date</Label>
+            <Input
+              type="date"
+              id="targetDate"
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+              className="w-full"
+            />
           </div>
-        </div>
 
-        {/* Footer Actions - Updated */}
-        <div className="max-w-7xl mx-auto mt-8 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Button className="bg-tasksmate-gradient" onClick={handleSaveChanges}>
-              <Save className="mr-2 h-4 w-4" />
-              Save Changes
+          <div className="mb-4">
+            <Label>Tags</Label>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag, index) => (
+                <Badge key={index} variant="secondary" className="flex items-center space-x-1 bg-blue-100 text-blue-800 hover:bg-blue-200">
+                  <span>{tag}</span>
+                  <X className="h-3 w-3 cursor-pointer hover:text-blue-900" onClick={() => handleRemoveTag(tag)} />
+                </Badge>
+              ))}
+            </div>
+            <div className="flex mt-2">
+              <Input
+                type="text"
+                placeholder="Add a tag"
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                className="mr-2"
+              />
+              <Button type="button" variant="outline" onClick={handleAddTag} disabled={!newTag.trim()}>
+                Add Tag
+              </Button>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <Label>Attachments</Label>
+            <div className="flex flex-wrap gap-2">
+              {attachments.map((attachment, index) => (
+                <Badge key={index} variant="secondary" className="flex items-center space-x-1 bg-green-100 text-green-800 hover:bg-green-200">
+                  <span>{attachment}</span>
+                  <X className="h-3 w-3 cursor-pointer hover:text-green-900" onClick={() => handleRemoveAttachment(attachment)} />
+                </Badge>
+              ))}
+            </div>
+            <Button type="button" variant="outline" onClick={handleFileUpload} className="mt-2">
+              Upload Files
             </Button>
-            <Button variant="outline" className="micro-lift" onClick={() => setIsDuplicateOpen(true)}>
-              <Copy className="mr-2 h-4 w-4" />
-              Duplicate
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={handleCancelClick}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSaveClick}>
+              Save
             </Button>
           </div>
         </div>
-      </main>
+      ) : (
+        <div>
+          <div className="mb-4">
+            <Label>Description</Label>
+            <p>{task.description}</p>
+          </div>
 
-      {/* Duplicate Task Modal */}
-      <DuplicateTaskModal 
-        open={isDuplicateOpen} 
-        onOpenChange={setIsDuplicateOpen}
-        sourceTask={task}
-      />
+          <div className="mb-4">
+            <Label>Status</Label>
+            <p>{task.status}</p>
+          </div>
+
+          <div className="mb-4">
+            <Label>Owner</Label>
+            <p>{task.owner}</p>
+          </div>
+
+          <div className="mb-4">
+            <Label>Target Date</Label>
+            <p>{task.targetDate}</p>
+          </div>
+
+          <div className="mb-4">
+            <Label>Tags</Label>
+            <div className="flex flex-wrap gap-2">
+              {task.tags && task.tags.map((tag, index) => (
+                <Badge key={index} variant="secondary">{tag}</Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <Label>Attachments</Label>
+            <div className="flex flex-wrap gap-2">
+              {attachments.map((attachment, index) => (
+                <Badge key={index} variant="secondary" className="flex items-center space-x-1 bg-green-100 text-green-800 hover:bg-green-200">
+                  <span>{attachment}</span>
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleEditClick}>Edit</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
