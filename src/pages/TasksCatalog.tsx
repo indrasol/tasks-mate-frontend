@@ -120,6 +120,38 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     }
   ]);
 
+  // Add useEffect to listen for task creation events
+  useEffect(() => {
+    const handleTaskCreated = (event: CustomEvent) => {
+      const newTask = event.detail;
+      setTasks(prev => [newTask, ...prev]);
+    };
+
+    window.addEventListener('taskCreated', handleTaskCreated as EventListener);
+
+    return () => {
+      window.removeEventListener('taskCreated', handleTaskCreated as EventListener);
+    };
+  }, []);
+
+  // Load tasks from localStorage on component mount
+  useEffect(() => {
+    const storedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    if (storedTasks.length > 0) {
+      // Merge stored tasks with initial tasks, avoiding duplicates
+      const initialTaskIds = tasks.map(t => t.id);
+      const newTasks = storedTasks.filter((task: Task) => !initialTaskIds.includes(task.id));
+      if (newTasks.length > 0) {
+        setTasks(prev => [...newTasks, ...prev]);
+      }
+    }
+  }, []);
+
+  // Save tasks to localStorage whenever tasks change
+  useEffect(() => {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
   // Filter and search logic
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {

@@ -77,11 +77,13 @@ const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskMod
     
     console.log("Duplicating task:", duplicatedTask);
     
-    const existingTasks = JSON.parse(localStorage.getItem('duplicatedTasks') || '[]');
-    existingTasks.push(duplicatedTask);
-    localStorage.setItem('duplicatedTasks', JSON.stringify(existingTasks));
+    // Store in the same 'tasks' key that TaskDetail and TasksCatalog use
+    const existingTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const updatedTasks = [duplicatedTask, ...existingTasks];
+    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
     
-    window.dispatchEvent(new CustomEvent('taskDuplicated', { detail: duplicatedTask }));
+    // Dispatch event to notify TasksCatalog of the new task
+    window.dispatchEvent(new CustomEvent('taskCreated', { detail: duplicatedTask }));
     
     toast.success(`Task ${duplicatedTask.id} created successfully!`);
     
