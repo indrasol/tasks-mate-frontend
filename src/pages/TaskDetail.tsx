@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
+import AddSubtaskModal from "@/components/tasks/AddSubtaskModal";
 
 const TaskDetail = () => {
   const { taskId } = useParams();
@@ -39,6 +40,7 @@ const TaskDetail = () => {
   const [taskName, setTaskName] = useState('Redesign Dashboard UI');
   const [description, setDescription] = useState('Create modern, responsive dashboard with glassmorphism effects. The design should include smooth animations, proper spacing, and intuitive navigation patterns.');
   const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
+  const [isAddSubtaskOpen, setIsAddSubtaskOpen] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(true);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -67,12 +69,12 @@ const TaskDetail = () => {
     tags: ['UI/UX', 'Frontend', 'Dashboard']
   };
 
-  const subtasks = [
-    { id: 1, name: 'Create wireframes', completed: true, owner: 'Sarah K.', due: '2024-01-05' },
-    { id: 2, name: 'Design system components', completed: true, owner: 'Mike R.', due: '2024-01-08' },
-    { id: 3, name: 'Implement glassmorphism cards', completed: false, owner: 'Sarah K.', due: '2024-01-12' },
-    { id: 4, name: 'Add micro-interactions', completed: false, owner: 'Alex M.', due: '2024-01-15' },
-  ];
+  const [subtasks, setSubtasks] = useState([
+    { id: 1, name: 'Create wireframes', completed: true, owner: 'Sarah K.', due: '2024-01-05', taskId: 'T1001' },
+    { id: 2, name: 'Design system components', completed: true, owner: 'Mike R.', due: '2024-01-08', taskId: 'T1002' },
+    { id: 3, name: 'Implement glassmorphism cards', completed: false, owner: 'Sarah K.', due: '2024-01-12', taskId: 'T1003' },
+    { id: 4, name: 'Add micro-interactions', completed: false, owner: 'Alex M.', due: '2024-01-15', taskId: 'T1004' },
+  ]);
 
   // Save Changes functionality
   const handleSaveChanges = () => {
@@ -113,6 +115,11 @@ const TaskDetail = () => {
 
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFileInputClick = () => {
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    input?.click();
   };
 
   // Comment functions
@@ -157,6 +164,19 @@ const TaskDetail = () => {
 
   const handleDeleteComment = (commentId: number) => {
     setComments(comments.filter(comment => comment.id !== commentId));
+  };
+
+  const handleAddSubtask = (selectedTask: any) => {
+    const newSubtask = {
+      id: Date.now(),
+      name: selectedTask.name,
+      completed: false,
+      owner: selectedTask.owner,
+      due: selectedTask.targetDate,
+      taskId: selectedTask.id
+    };
+    setSubtasks(prev => [...prev, newSubtask]);
+    toast.success(`Subtask "${selectedTask.name}" added successfully!`);
   };
 
   const getStatusColor = (status: string) => {
@@ -266,7 +286,12 @@ const TaskDetail = () => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="font-sora">Subtasks</CardTitle>
-                  <Button size="sm" variant="outline" className="micro-lift">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="micro-lift"
+                    onClick={() => setIsAddSubtaskOpen(true)}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Subtask
                   </Button>
@@ -294,6 +319,10 @@ const TaskDetail = () => {
                         <span>{subtask.owner}</span>
                         <span>•</span>
                         <span>{new Date(subtask.due).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {subtask.taskId}
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -333,7 +362,7 @@ const TaskDetail = () => {
                     variant="outline"
                     size="sm"
                     className="absolute top-4 right-4"
-                    onClick={() => document.querySelector('input[type="file"]')?.click()}
+                    onClick={handleFileInputClick}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -578,11 +607,16 @@ const TaskDetail = () => {
         </div>
       </main>
 
-      {/* Duplicate Task Modal */}
+      {/* Modals */}
       <DuplicateTaskModal 
         open={isDuplicateOpen} 
         onOpenChange={setIsDuplicateOpen}
         sourceTask={task}
+      />
+      <AddSubtaskModal 
+        open={isAddSubtaskOpen} 
+        onOpenChange={setIsAddSubtaskOpen}
+        onSubtaskAdded={handleAddSubtask}
       />
     </div>
   );

@@ -120,6 +120,21 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     }
   ]);
 
+  // Listen for new task creation events
+  useEffect(() => {
+    const handleTaskCreated = (event: CustomEvent) => {
+      const newTask = event.detail;
+      console.log("New task created:", newTask);
+      setTasks(prev => [newTask, ...prev]);
+    };
+
+    window.addEventListener('taskCreated', handleTaskCreated as EventListener);
+    
+    return () => {
+      window.removeEventListener('taskCreated', handleTaskCreated as EventListener);
+    };
+  }, []);
+
   // Filter and search logic
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
