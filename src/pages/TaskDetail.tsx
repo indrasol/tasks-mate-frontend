@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,6 @@ import {
   MessageCircle, 
   Zap, 
   Save, 
-  Trash2, 
   Copy,
   Plus,
   CheckCircle,
@@ -26,16 +25,23 @@ import {
   Send,
   Edit,
   X,
-  ChevronDown
+  ChevronDown,
+  Upload,
+  FileText
 } from "lucide-react";
+import { toast } from "sonner";
 import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
 
 const TaskDetail = () => {
   const { taskId } = useParams();
+  const navigate = useNavigate();
   const [status, setStatus] = useState('active');
+  const [taskName, setTaskName] = useState('Redesign Dashboard UI');
   const [description, setDescription] = useState('Create modern, responsive dashboard with glassmorphism effects. The design should include smooth animations, proper spacing, and intuitive navigation patterns.');
   const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(true);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Comments state
   const [comments, setComments] = useState([
@@ -50,14 +56,15 @@ const TaskDetail = () => {
   // Mock data for the task
   const task = {
     id: taskId || 'T1234',
-    name: 'Redesign Dashboard UI',
+    name: taskName,
     description: description,
     status: status,
     progress: 65,
     owner: 'Sarah K.',
     targetDate: '2024-01-15',
     createdDate: '2024-01-01',
-    comments: comments.length
+    comments: comments.length,
+    tags: ['UI/UX', 'Frontend', 'Dashboard']
   };
 
   const subtasks = [
@@ -66,6 +73,47 @@ const TaskDetail = () => {
     { id: 3, name: 'Implement glassmorphism cards', completed: false, owner: 'Sarah K.', due: '2024-01-12' },
     { id: 4, name: 'Add micro-interactions', completed: false, owner: 'Alex M.', due: '2024-01-15' },
   ];
+
+  // Save Changes functionality
+  const handleSaveChanges = () => {
+    // In a real app, this would save to database
+    console.log('Saving task changes:', {
+      id: task.id,
+      name: taskName,
+      description: description,
+      status: status
+    });
+    toast.success('Task changes saved successfully!');
+  };
+
+  // File upload handlers
+  const handleFileUpload = (files: FileList | null) => {
+    if (!files) return;
+    
+    const newFiles = Array.from(files).slice(0, 5 - uploadedFiles.length);
+    setUploadedFiles(prev => [...prev, ...newFiles]);
+    toast.success(`${newFiles.length} file(s) uploaded successfully!`);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    handleFileUpload(e.dataTransfer.files);
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Comment functions
   const handleAddComment = () => {
@@ -171,7 +219,8 @@ const TaskDetail = () => {
                   {task.id}
                 </Badge>
                 <Input 
-                  value={task.name}
+                  value={taskName}
+                  onChange={(e) => setTaskName(e.target.value)}
                   className="text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
@@ -252,20 +301,70 @@ const TaskDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Uploaded Documents */}
+            {/* Documents Section - Enhanced */}
             <Card className="glass border-0 shadow-tasksmate">
               <CardHeader>
                 <CardTitle className="font-sora">Documents</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <p className="text-gray-500">Drop files here or click to upload</p>
-                  <p className="text-xs text-gray-400 mt-1">Max 5 files</p>
+                <div 
+                  className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <div className="flex flex-col items-center space-y-2">
+                    <Upload className="h-8 w-8 text-gray-400" />
+                    <p className="text-gray-500">Drop files here or click to upload</p>
+                    <p className="text-xs text-gray-400">Max 5 files</p>
+                  </div>
+                  
+                  <input
+                    type="file"
+                    multiple
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => handleFileUpload(e.target.files)}
+                    accept="*/*"
+                  />
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="absolute top-4 right-4"
+                    onClick={() => document.querySelector('input[type="file"]')?.click()}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
+                
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <h4 className="font-medium text-sm text-gray-700">Uploaded Files:</h4>
+                    {uploadedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <FileText className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm">{file.name}</span>
+                          <span className="text-xs text-gray-400">({(file.size / 1024).toFixed(1)} KB)</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Comments Section - Now Collapsible */}
+            {/* Comments Section - Collapsible */}
             <Card className="glass border-0 shadow-tasksmate">
               <Collapsible open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
                 <CollapsibleTrigger asChild>
@@ -339,7 +438,7 @@ const TaskDetail = () => {
                                   className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                                   onClick={() => handleDeleteComment(comment.id)}
                                 >
-                                  <Trash2 className="h-3 w-3" />
+                                  <X className="h-3 w-3" />
                                 </Button>
                               </div>
                             </div>
@@ -464,26 +563,16 @@ const TaskDetail = () => {
           </div>
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions - Updated */}
         <div className="max-w-7xl mx-auto mt-8 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Button className="bg-tasksmate-gradient">
+            <Button className="bg-tasksmate-gradient" onClick={handleSaveChanges}>
               <Save className="mr-2 h-4 w-4" />
               Save Changes
             </Button>
             <Button variant="outline" className="micro-lift" onClick={() => setIsDuplicateOpen(true)}>
               <Copy className="mr-2 h-4 w-4" />
               Duplicate
-            </Button>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <Button variant="outline" className="micro-lift">
-              Open in Slack
-            </Button>
-            <Button variant="destructive" size="sm">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
             </Button>
           </div>
         </div>

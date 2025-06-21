@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -53,7 +52,7 @@ const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskMod
     id: generateTaskId(),
     name: `Copy of ${sourceTask.name}`,
     description: sourceTask.description,
-    status: "todo", // Reset to todo for new task
+    status: "todo",
     owner: "",
     targetDate: "",
     tags: sourceTask.tags || [],
@@ -85,8 +84,14 @@ const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskMod
     
     console.log("Duplicating task:", duplicatedTask);
     
-    // In a real app, you would add this task to your global state or database
-    // For now, we'll just show success and navigate to catalog
+    // Store the new task in localStorage for the catalog to pick up
+    const existingTasks = JSON.parse(localStorage.getItem('duplicatedTasks') || '[]');
+    existingTasks.push(duplicatedTask);
+    localStorage.setItem('duplicatedTasks', JSON.stringify(existingTasks));
+    
+    // Dispatch custom event to notify catalog of new task
+    window.dispatchEvent(new CustomEvent('taskDuplicated', { detail: duplicatedTask }));
+    
     toast.success(`Task ${duplicatedTask.id} created successfully!`);
     
     onOpenChange(false);
