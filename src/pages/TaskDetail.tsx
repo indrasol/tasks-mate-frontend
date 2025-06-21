@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -124,7 +125,7 @@ const TaskDetail = () => {
         handleFilesSelected(Array.from(target.files));
       }
     };
-    input.click(); // Fixed: cast to HTMLInputElement to access click method
+    input.click();
   };
 
   const handleFilesSelected = (files: File[]) => {
