@@ -107,23 +107,14 @@ const Index = () => {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                {user ? (
-                  <Link to="/tasks_catalog">
-                    <Button size="lg" className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate">
-                      Go to Dashboard
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </Link>
-                ) : (
-                  <Button 
-                    size="lg" 
-                    className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate"
-                    onClick={() => setSignUpOpen(true)}
-                  >
-                    Sign Up
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                )}
+                <Button 
+                  size="lg" 
+                  className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate"
+                  onClick={() => setSignUpOpen(true)}
+                >
+                  Sign Up
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
                 <Button 
                   variant="outline" 
                   size="lg" 

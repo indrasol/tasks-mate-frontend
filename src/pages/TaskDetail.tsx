@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -70,10 +69,10 @@ const TaskDetail = () => {
   };
 
   const [subtasks, setSubtasks] = useState([
-    { id: 1, name: 'Create wireframes', completed: true, owner: 'Sarah K.', due: '2024-01-05', taskId: 'T1001' },
-    { id: 2, name: 'Design system components', completed: true, owner: 'Mike R.', due: '2024-01-08', taskId: 'T1002' },
-    { id: 3, name: 'Implement glassmorphism cards', completed: false, owner: 'Sarah K.', due: '2024-01-12', taskId: 'T1003' },
-    { id: 4, name: 'Add micro-interactions', completed: false, owner: 'Alex M.', due: '2024-01-15', taskId: 'T1004' },
+    { id: 1, name: 'Create wireframes', completed: true, owner: 'Sarah K.', due: '2024-01-05', taskId: 'T1001', status: 'completed' },
+    { id: 2, name: 'Design system components', completed: true, owner: 'Mike R.', due: '2024-01-08', taskId: 'T1002', status: 'completed' },
+    { id: 3, name: 'Implement glassmorphism cards', completed: false, owner: 'Sarah K.', due: '2024-01-12', taskId: 'T1003', status: 'in-progress' },
+    { id: 4, name: 'Add micro-interactions', completed: false, owner: 'Alex M.', due: '2024-01-15', taskId: 'T1004', status: 'todo' },
   ]);
 
   // Save Changes functionality
@@ -173,10 +172,25 @@ const TaskDetail = () => {
       completed: false,
       owner: selectedTask.owner,
       due: selectedTask.targetDate,
-      taskId: selectedTask.id
+      taskId: selectedTask.id,
+      status: selectedTask.status
     };
     setSubtasks(prev => [...prev, newSubtask]);
     toast.success(`Subtask "${selectedTask.name}" added successfully!`);
+  };
+
+  const handleSubtaskToggle = (subtaskId: number) => {
+    setSubtasks(prev => prev.map(subtask => {
+      if (subtask.id === subtaskId) {
+        const newCompleted = !subtask.completed;
+        return {
+          ...subtask,
+          completed: newCompleted,
+          status: newCompleted ? 'completed' : 'in-progress'
+        };
+      }
+      return subtask;
+    }));
   };
 
   const getStatusColor = (status: string) => {
@@ -304,6 +318,7 @@ const TaskDetail = () => {
                       variant="ghost"
                       size="sm"
                       className="p-0 h-auto"
+                      onClick={() => handleSubtaskToggle(subtask.id)}
                     >
                       {subtask.completed ? (
                         <CheckCircle className="h-5 w-5 text-tasksmate-green-end" />
@@ -325,6 +340,19 @@ const TaskDetail = () => {
                         </Badge>
                       </div>
                     </div>
+                    <Badge 
+                      className={`text-xs ml-auto ${
+                        subtask.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        subtask.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                        subtask.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {subtask.status === 'completed' ? 'Completed' :
+                       subtask.status === 'in-progress' ? 'In Progress' :
+                       subtask.status === 'blocked' ? 'Blocked' :
+                       'To Do'}
+                    </Badge>
                   </div>
                 ))}
               </CardContent>
