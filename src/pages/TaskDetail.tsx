@@ -193,6 +193,14 @@ const TaskDetail = () => {
     }));
   };
 
+  const handleDeleteSubtask = (subtaskId: number) => {
+    const subtaskToDelete = subtasks.find(s => s.id === subtaskId);
+    setSubtasks(prev => prev.filter(subtask => subtask.id !== subtaskId));
+    if (subtaskToDelete) {
+      toast.success(`Subtask "${subtaskToDelete.name}" deleted successfully!`);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-500';
@@ -313,7 +321,7 @@ const TaskDetail = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 {subtasks.map((subtask) => (
-                  <div key={subtask.id} className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 micro-lift">
+                  <div key={subtask.id} className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 micro-lift group">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -341,7 +349,7 @@ const TaskDetail = () => {
                       </div>
                     </div>
                     <Badge 
-                      className={`text-xs ml-auto ${
+                      className={`text-xs ${
                         subtask.status === 'completed' ? 'bg-green-100 text-green-800' :
                         subtask.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
                         subtask.status === 'blocked' ? 'bg-red-100 text-red-800' :
@@ -353,6 +361,14 @@ const TaskDetail = () => {
                        subtask.status === 'blocked' ? 'Blocked' :
                        'To Do'}
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleDeleteSubtask(subtask.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
                 ))}
               </CardContent>
