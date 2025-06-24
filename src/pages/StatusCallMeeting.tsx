@@ -338,9 +338,9 @@ const StatusCallMeeting = () => {
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="flex items-start justify-between">
-                  <span className="text-sm flex-1 font-medium text-gray-800 leading-relaxed break-words whitespace-pre-wrap overflow-wrap-anywhere max-w-full">{item.text}</span>
-                  <div className="flex gap-1 ml-2 flex-shrink-0">
+                <div className="flex items-start gap-3">
+                  <span className="text-sm flex-1 font-medium text-gray-800 leading-relaxed break-words whitespace-pre-wrap overflow-wrap-anywhere min-w-0">{item.text}</span>
+                  <div className="flex flex-col gap-1 flex-shrink-0 self-start">
                     <Button
                       variant="ghost"
                       size="sm"
