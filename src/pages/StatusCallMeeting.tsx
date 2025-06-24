@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
@@ -311,10 +310,11 @@ const StatusCallMeeting = () => {
           >
             {editingItem === item.id ? (
               <div className="space-y-3">
-                <Input
+                <Textarea
                   value={editingText}
                   onChange={(e) => setEditingText(e.target.value)}
-                  className="text-sm bg-white/80 backdrop-blur-sm border-white/40"
+                  className="text-sm bg-white/80 backdrop-blur-sm border-white/40 min-h-[60px] resize-none"
+                  placeholder="Edit item..."
                 />
                 <div className="flex gap-2">
                   <Button
@@ -339,8 +339,8 @@ const StatusCallMeeting = () => {
             ) : (
               <div className="space-y-2">
                 <div className="flex items-start justify-between">
-                  <span className="text-sm flex-1 font-medium text-gray-800">{item.text}</span>
-                  <div className="flex gap-1">
+                  <span className="text-sm flex-1 font-medium text-gray-800 leading-relaxed break-words">{item.text}</span>
+                  <div className="flex gap-1 ml-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -368,11 +368,11 @@ const StatusCallMeeting = () => {
         {addingToSection?.section === status && addingToSection?.project === project && addingToSection?.user === user ? (
           <div className="p-4 rounded-xl border-2 border-dashed border-gray-300 bg-white/40 backdrop-blur-sm">
             <div className="space-y-3">
-              <Input
+              <Textarea
                 value={newItemText}
                 onChange={(e) => setNewItemText(e.target.value)}
                 placeholder="Enter new item..."
-                className="text-sm bg-white/80 backdrop-blur-sm border-white/40"
+                className="text-sm bg-white/80 backdrop-blur-sm border-white/40 min-h-[60px] resize-none"
               />
               <div className="flex gap-2">
                 <Button
@@ -423,7 +423,7 @@ const StatusCallMeeting = () => {
       <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
       <CardHeader className="pb-3 relative">
         <CardTitle className="flex items-center gap-3">
-          <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+          <div className="p-2 rounded-full bg-gradient-to-r from-white/50 backdrop-blur-sm">
             {icon}
           </div>
           <div>
@@ -502,7 +502,7 @@ const StatusCallMeeting = () => {
       );
     }
 
-    // Grid view
+    // Grid view - changed from 4 columns to 2 columns
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 ml-8">
@@ -514,7 +514,7 @@ const StatusCallMeeting = () => {
           </h4>
         </div>
         
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4 ml-12">
+        <div className="grid gap-6 lg:grid-cols-2 ml-12">
           {renderStatusCard(
             "Completed",
             <CheckCircle className="w-5 h-5 text-blue-600" />,
