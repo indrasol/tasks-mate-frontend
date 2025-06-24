@@ -1,39 +1,29 @@
 
-import { useState } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu";
+import React, { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { 
+  Search, 
+  Plus, 
+  Bell, 
+  Settings, 
+  User, 
+  LogOut,
+  ChevronDown,
+  Calendar,
+  ClipboardList,
+  BarChart3,
+  Home
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  Check, 
-  Plus, 
-  LogOut, 
-  Calendar, 
-  Users, 
-  BarChart3, 
-  Settings,
-  FileText,
-  Bell,
-  Search
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/dropdown-menu';
 
 interface MainNavigationProps {
   onNewTask?: () => void;
@@ -41,202 +31,153 @@ interface MainNavigationProps {
 }
 
 const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
-  const [notifications] = useState(3); // Placeholder for notification count
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const navigationItems = [
-    {
-      title: "Tasks",
-      href: "/tasks_catalog",
-      icon: Check,
-      description: "Manage and track your tasks",
-      isActive: location.pathname.includes("/tasks")
+    { 
+      name: 'Dashboard', 
+      path: '/', 
+      icon: Home,
+      isActive: location.pathname === '/'
     },
-    {
-      title: "Meetings",
-      href: "/meetings",
+    { 
+      name: 'Tasks', 
+      path: '/tasks_catalog', 
+      icon: ClipboardList,
+      isActive: location.pathname.startsWith('/tasks')
+    },
+    { 
+      name: 'Meetings', 
+      path: '/meetings', 
       icon: Calendar,
-      description: "Schedule and manage meetings",
-      isActive: location.pathname.includes("/meetings"),
-      badge: "New"
+      isActive: location.pathname.startsWith('/meetings')
     },
-    {
-      title: "Reports",
-      href: "/reports",
+    { 
+      name: 'Reports', 
+      path: '/reports', 
       icon: BarChart3,
-      description: "View analytics and insights",
-      isActive: location.pathname.includes("/reports"),
-      badge: "Soon"
+      isActive: location.pathname.startsWith('/reports')
     }
   ];
 
-  const quickActions = [
-    {
-      title: "New Task",
-      icon: Check,
-      action: onNewTask,
-      shortcut: "⌘T"
-    },
-    {
-      title: "New Meeting",
-      icon: Calendar,
-      action: onNewMeeting,
-      shortcut: "⌘M"
+  const handleQuickAction = () => {
+    if (location.pathname.startsWith('/meetings')) {
+      onNewMeeting?.();
+    } else if (location.pathname.startsWith('/tasks')) {
+      onNewTask?.();
+    } else {
+      // Default to new task
+      onNewTask?.();
     }
-  ];
+  };
+
+  const getQuickActionText = () => {
+    if (location.pathname.startsWith('/meetings')) {
+      return 'New Meeting';
+    } else if (location.pathname.startsWith('/tasks')) {
+      return 'New Task';
+    }
+    return 'Quick Add';
+  };
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <div className="container flex h-16 items-center px-6">
-        {/* Logo and Brand */}
-        <div className="flex items-center space-x-4">
-          <Link to="/" className="flex items-center space-x-2 group">
-            <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-              <Check className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-sora font-bold text-xl bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-              TasksMate
-            </span>
-          </Link>
-          
-          {/* Divider */}
-          <div className="h-6 w-px bg-gray-300" />
-        </div>
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      <div className="container mx-auto px-6">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo & Brand */}
+          <div className="flex items-center space-x-8">
+            <Link to="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-tasksmate-gradient rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">TM</span>
+              </div>
+              <span className="font-sora font-bold text-xl text-gray-900">TasksMate</span>
+            </Link>
 
-        {/* Main Navigation */}
-        <div className="flex flex-1 items-center justify-between">
-          <NavigationMenu className="ml-6">
-            <NavigationMenuList>
-              {navigationItems.map((item) => (
-                <NavigationMenuItem key={item.title}>
-                  <NavigationMenuTrigger className={cn(
-                    navigationMenuTriggerStyle(),
-                    "bg-transparent hover:bg-gray-100/80 data-[state=open]:bg-gray-100/80",
-                    item.isActive && "bg-tasksmate-gradient-soft text-tasksmate-green-end font-semibold"
-                  )}>
-                    <item.icon className="h-4 w-4 mr-2" />
-                    {item.title}
-                    {item.badge && (
-                      <Badge 
-                        variant="secondary" 
-                        className={cn(
-                          "ml-2 text-xs",
-                          item.badge === "New" && "bg-green-100 text-green-700",
-                          item.badge === "Soon" && "bg-blue-100 text-blue-700"
-                        )}
-                      >
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent>
-                    <div className="grid gap-3 p-6 w-80">
-                      <div className="grid gap-1">
-                        <NavigationMenuLink 
-                          href={item.href}
-                          className="group grid h-auto w-full justify-start gap-1 rounded-md bg-white p-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50"
-                        >
-                          <div className="flex items-center gap-2">
-                            <item.icon className="h-5 w-5 text-tasksmate-green-end" />
-                            <div className="text-sm font-medium leading-none">{item.title}</div>
-                          </div>
-                          <div className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                            {item.description}
-                          </div>
-                        </NavigationMenuLink>
-                      </div>
-                    </div>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-              ))}
-            </NavigationMenuList>
-          </NavigationMenu>
-
-          {/* Right Side Actions */}
-          <div className="flex items-center space-x-3">
-            {/* Quick Actions Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="bg-tasksmate-gradient hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-white/95 backdrop-blur">
-                {quickActions.map((action, index) => (
-                  <DropdownMenuItem 
-                    key={index}
-                    onClick={action.action}
-                    className="flex items-center justify-between cursor-pointer hover:bg-gray-50"
+            {/* Main Navigation */}
+            <div className="hidden md:flex items-center space-x-1">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      item.isActive
+                        ? 'bg-tasksmate-gradient-soft text-tasksmate-green-end shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
                   >
-                    <div className="flex items-center">
-                      <action.icon className="h-4 w-4 mr-3 text-tasksmate-green-end" />
-                      {action.title}
-                    </div>
-                    <Badge variant="secondary" className="text-xs font-mono">
-                      {action.shortcut}
-                    </Badge>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <Icon className="w-4 h-4" />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
 
-            {/* Search Button */}
-            <Button variant="ghost" size="icon" className="hover:bg-gray-100/80">
-              <Search className="h-4 w-4" />
+          {/* Search Bar */}
+          <div className="hidden lg:flex flex-1 max-w-md mx-8">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search tasks, meetings, or reports..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-gray-50 border-gray-200 focus:bg-white focus:border-tasksmate-green-end focus:ring-tasksmate-green-end/20"
+              />
+            </div>
+          </div>
+
+          {/* Right Actions */}
+          <div className="flex items-center space-x-3">
+            {/* Quick Action Button */}
+            <Button
+              onClick={handleQuickAction}
+              className="bg-tasksmate-gradient hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {getQuickActionText()}
             </Button>
 
             {/* Notifications */}
             <div className="relative">
-              <Button variant="ghost" size="icon" className="hover:bg-gray-100/80">
-                <Bell className="h-4 w-4" />
-                {notifications > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs bg-red-500 text-white border-2 border-white">
-                    {notifications}
-                  </Badge>
-                )}
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="w-5 h-5 text-gray-600" />
+                <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 bg-red-500 text-white text-xs flex items-center justify-center">
+                  3
+                </Badge>
               </Button>
             </div>
 
             {/* User Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-gray-100/80">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-tasksmate-gradient text-white">
-                      {user?.email?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                <Button variant="ghost" className="flex items-center space-x-2 hover:bg-gray-50">
+                  <div className="w-8 h-8 bg-tasksmate-gradient rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="hidden md:block text-sm font-medium text-gray-700">John Doe</span>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-white/95 backdrop-blur" align="end" forceMount>
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium text-sm">{user?.email}</p>
-                    <p className="text-xs text-muted-foreground">Free Plan</p>
-                  </div>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900">John Doe</p>
+                  <p className="text-xs text-gray-500">john.doe@company.com</p>
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="hover:bg-gray-50 cursor-pointer">
-                  <Users className="mr-2 h-4 w-4" />
-                  Team Settings
+                <DropdownMenuItem>
+                  <User className="w-4 h-4 mr-2" />
+                  Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem className="hover:bg-gray-50 cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Preferences
-                </DropdownMenuItem>
-                <DropdownMenuItem className="hover:bg-gray-50 cursor-pointer">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Documentation
+                <DropdownMenuItem>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  className="hover:bg-red-50 text-red-600 cursor-pointer"
-                  onClick={signOut}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
+                <DropdownMenuItem className="text-red-600 focus:text-red-600">
+                  <LogOut className="w-4 h-4 mr-2" />
                   Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
