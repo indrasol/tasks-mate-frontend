@@ -365,10 +365,10 @@ const StatusCallMeeting = () => {
         {consolidatedData.map((projectGroup, projectIndex) => (
           <div key={projectGroup.project} className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500">
+              <div className="p-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500">
                 <Briefcase className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">
                 {projectGroup.project}
               </h3>
             </div>
@@ -376,83 +376,89 @@ const StatusCallMeeting = () => {
             {projectGroup.users.map((userGroup, userIndex) => (
               <div key={userGroup.user} className="space-y-4">
                 <div className="flex items-center gap-2 ml-8">
-                  <div className="p-1 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500">
+                  <div className="p-1 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500">
                     <User className="w-4 h-4 text-white" />
                   </div>
-                  <h4 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  <h4 className="text-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
                     {userGroup.user}
                   </h4>
                 </div>
                 
                 <div className="grid gap-6 lg:grid-cols-3 ml-12">
-                  {/* Completed */}
-                  {userGroup.items.completed.length > 0 && (
-                    <Card className={`relative overflow-hidden bg-gradient-to-br ${getStatusGradient('completed')} hover:shadow-xl transition-all duration-300 animate-fade-in border-2`}>
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-                      <CardHeader className="pb-3 relative">
-                        <CardTitle className="flex items-center gap-3">
-                          <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                            <CheckCircle className="w-5 h-5 text-emerald-600" />
-                          </div>
-                          <div>
-                            <span className="text-lg font-semibold">Completed</span>
-                            <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
-                              {userGroup.items.completed.length}
-                            </Badge>
-                          </div>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3 relative">
-                        {renderStatusItems(userGroup.items.completed, 'completed')}
-                      </CardContent>
-                    </Card>
-                  )}
+                  {/* Always show Completed card */}
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50/80 to-indigo-100/80 border-blue-200/60 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+                    <CardHeader className="pb-3 relative">
+                      <CardTitle className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+                          <CheckCircle className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <span className="text-lg font-semibold">Completed</span>
+                          <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
+                            {userGroup.items.completed.length}
+                          </Badge>
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 relative">
+                      {userGroup.items.completed.length > 0 ? (
+                        renderStatusItems(userGroup.items.completed, 'completed')
+                      ) : (
+                        <div className="text-sm text-gray-500 italic">No completed items</div>
+                      )}
+                    </CardContent>
+                  </Card>
                   
-                  {/* In Progress */}
-                  {userGroup.items.inProgress.length > 0 && (
-                    <Card className={`relative overflow-hidden bg-gradient-to-br ${getStatusGradient('in-progress')} hover:shadow-xl transition-all duration-300 animate-fade-in border-2`}>
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-                      <CardHeader className="pb-3 relative">
-                        <CardTitle className="flex items-center gap-3">
-                          <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                            <Loader className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <span className="text-lg font-semibold">In Progress</span>
-                            <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
-                              {userGroup.items.inProgress.length}
-                            </Badge>
-                          </div>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3 relative">
-                        {renderStatusItems(userGroup.items.inProgress, 'in-progress')}
-                      </CardContent>
-                    </Card>
-                  )}
+                  {/* Always show In Progress card */}
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-green-50/80 to-emerald-100/80 border-green-200/60 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+                    <CardHeader className="pb-3 relative">
+                      <CardTitle className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+                          <Loader className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <span className="text-lg font-semibold">In Progress</span>
+                          <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
+                            {userGroup.items.inProgress.length}
+                          </Badge>
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 relative">
+                      {userGroup.items.inProgress.length > 0 ? (
+                        renderStatusItems(userGroup.items.inProgress, 'in-progress')
+                      ) : (
+                        <div className="text-sm text-gray-500 italic">No items in progress</div>
+                      )}
+                    </CardContent>
+                  </Card>
                   
-                  {/* Blocked */}
-                  {userGroup.items.blocked.length > 0 && (
-                    <Card className={`relative overflow-hidden bg-gradient-to-br ${getStatusGradient('blocked')} hover:shadow-xl transition-all duration-300 animate-fade-in border-2`}>
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-                      <CardHeader className="pb-3 relative">
-                        <CardTitle className="flex items-center gap-3">
-                          <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                            <XCircle className="w-5 h-5 text-red-600" />
-                          </div>
-                          <div>
-                            <span className="text-lg font-semibold">Blocked</span>
-                            <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
-                              {userGroup.items.blocked.length}
-                            </Badge>
-                          </div>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3 relative">
-                        {renderStatusItems(userGroup.items.blocked, 'blocked')}
-                      </CardContent>
-                    </Card>
-                  )}
+                  {/* Always show Blocked card */}
+                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50/60 to-indigo-100/60 border-blue-200/50 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+                    <CardHeader className="pb-3 relative">
+                      <CardTitle className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+                          <XCircle className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <span className="text-lg font-semibold">Blocked</span>
+                          <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
+                            {userGroup.items.blocked.length}
+                          </Badge>
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 relative">
+                      {userGroup.items.blocked.length > 0 ? (
+                        renderStatusItems(userGroup.items.blocked, 'blocked')
+                      ) : (
+                        <div className="text-sm text-gray-500 italic">No blocked items</div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
             ))}
@@ -545,16 +551,16 @@ const StatusCallMeeting = () => {
                 {/* Project Filter */}
                 <div className="relative">
                   <Select value={selectedProject} onValueChange={setSelectedProject}>
-                    <SelectTrigger className="w-48 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200 hover:from-purple-100 hover:to-pink-100 transition-all duration-200 backdrop-blur-sm">
+                    <SelectTrigger className="w-48 bg-gradient-to-r from-blue-50/80 to-indigo-100/80 border-blue-200/60 hover:from-blue-100/80 hover:to-indigo-200/80 transition-all duration-200 backdrop-blur-sm">
                       <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-purple-600" />
+                        <Briefcase className="h-4 w-4 text-blue-600" />
                         <SelectValue placeholder="Select Project" />
                       </div>
                     </SelectTrigger>
-                    <SelectContent className="bg-white/95 backdrop-blur-md border border-purple-200 shadow-xl">
-                      <SelectItem value="all" className="hover:bg-purple-50">All Projects</SelectItem>
+                    <SelectContent className="bg-white/95 backdrop-blur-md border border-blue-200 shadow-xl">
+                      <SelectItem value="all" className="hover:bg-blue-50">All Projects</SelectItem>
                       {allProjects.map((project) => (
-                        <SelectItem key={project} value={project} className="hover:bg-purple-50">
+                        <SelectItem key={project} value={project} className="hover:bg-blue-50">
                           {project}
                         </SelectItem>
                       ))}
@@ -565,16 +571,16 @@ const StatusCallMeeting = () => {
                 {/* User Filter */}
                 <div className="relative">
                   <Select value={selectedUser} onValueChange={setSelectedUser}>
-                    <SelectTrigger className="w-48 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:from-blue-100 hover:to-indigo-100 transition-all duration-200 backdrop-blur-sm">
+                    <SelectTrigger className="w-48 bg-gradient-to-r from-green-50/80 to-emerald-100/80 border-green-200/60 hover:from-green-100/80 hover:to-emerald-200/80 transition-all duration-200 backdrop-blur-sm">
                       <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-blue-600" />
+                        <User className="h-4 w-4 text-green-600" />
                         <SelectValue placeholder="Select User" />
                       </div>
                     </SelectTrigger>
-                    <SelectContent className="bg-white/95 backdrop-blur-md border border-blue-200 shadow-xl">
-                      <SelectItem value="all" className="hover:bg-blue-50">All Users</SelectItem>
+                    <SelectContent className="bg-white/95 backdrop-blur-md border border-green-200 shadow-xl">
+                      <SelectItem value="all" className="hover:bg-green-50">All Users</SelectItem>
                       {allUsers.map((user) => (
-                        <SelectItem key={user} value={user} className="hover:bg-blue-50">
+                        <SelectItem key={user} value={user} className="hover:bg-green-50">
                           {user}
                         </SelectItem>
                       ))}
@@ -602,12 +608,12 @@ const StatusCallMeeting = () => {
           {renderConsolidatedView()}
 
           {/* Notes Section */}
-          <Card className="relative overflow-hidden bg-gradient-to-br from-purple-50 to-pink-100 border-purple-200 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
+          <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50/60 to-indigo-100/60 border-blue-200/50 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
             <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
             <CardHeader className="relative">
               <CardTitle className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                  <FileText className="w-5 h-5 text-purple-600" />
+                  <FileText className="w-5 h-5 text-blue-600" />
                 </div>
                 <span className="text-lg font-semibold">Meeting Notes</span>
               </CardTitle>
