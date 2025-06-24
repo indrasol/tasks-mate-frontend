@@ -1,98 +1,81 @@
 
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  Plus, 
-  Search, 
-  Users, 
-  User, 
-  Edit, 
-  Trash2, 
-  MoreVertical,
-  ArrowLeft
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { useState } from "react";
+import { Search, Plus, Users, User, Grid3X3, List, MoreVertical, Edit, Eye, Trash2 } from "lucide-react";
+import MainNavigation from "@/components/navigation/MainNavigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import ViewToggle from '@/components/tasks/ViewToggle';
-import AddProjectModal from '@/components/meetings/AddProjectModal';
-import { useToast } from '@/hooks/use-toast';
-import MainNavigation from '@/components/navigation/MainNavigation';
-
-interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-}
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 
 interface Project {
   id: string;
   name: string;
   description: string;
   teamLead: string;
-  members: TeamMember[];
+  teamMembers: string[];
+  status: 'active' | 'completed' | 'on-hold';
+  createdAt: string;
 }
+
+// Mock data
+const initialProjects: Project[] = [
+  {
+    id: "1",
+    name: "TasksMate Mobile App",
+    description: "Mobile application for task management with real-time collaboration features",
+    teamLead: "Sarah Johnson",
+    teamMembers: ["John Doe", "Alice Smith", "Bob Wilson"],
+    status: "active",
+    createdAt: "2024-06-20"
+  },
+  {
+    id: "2", 
+    name: "Analytics Dashboard",
+    description: "Comprehensive analytics dashboard for business intelligence and reporting",
+    teamLead: "Mike Chen",
+    teamMembers: ["Emma Davis", "James Brown", "Lisa Garcia"],
+    status: "active",
+    createdAt: "2024-06-18"
+  },
+  {
+    id: "3",
+    name: "API Integration",
+    description: "Third-party API integration for enhanced platform capabilities",
+    teamLead: "David Rodriguez",
+    teamMembers: ["Anna Taylor", "Tom Anderson"],
+    status: "completed",
+    createdAt: "2024-06-15"
+  }
+];
 
 const Projects = () => {
   const { toast } = useToast();
-  const [view, setView] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
-  
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: "1",
-      name: "TasksMate",
-      description: "Main task management platform for organizing team workflows and tracking project progress",
-      teamLead: "John Doe",
-      members: [
-        { id: "john", name: "John Doe", role: "Team Lead" },
-        { id: "jane", name: "Jane Smith", role: "Developer" },
-        { id: "alex", name: "Alex Johnson", role: "Designer" }
-      ]
-    },
-    {
-      id: "2",
-      name: "Mobile App",
-      description: "Cross-platform mobile application for iOS and Android with real-time synchronization",
-      teamLead: "Mike Wilson",
-      members: [
-        { id: "mike", name: "Mike Wilson", role: "Team Lead" },
-        { id: "sarah", name: "Sarah Davis", role: "Developer" },
-        { id: "tom", name: "Tom Brown", role: "QA Engineer" }
-      ]
-    },
-    {
-      id: "3",
-      name: "Analytics Dashboard",
-      description: "Real-time analytics and reporting dashboard with advanced data visualization and insights",
-      teamLead: "Emily Chen",
-      members: [
-        { id: "emily", name: "Emily Chen", role: "Team Lead" },
-        { id: "david", name: "David Lee", role: "Data Scientist" },
-        { id: "lisa", name: "Lisa Wang", role: "Frontend Developer" }
-      ]
-    },
-    {
-      id: "4",
-      name: "E-commerce Platform",
-      description: "Full-featured e-commerce solution with payment integration and inventory management",
-      teamLead: "Robert Taylor",
-      members: [
-        { id: "robert", name: "Robert Taylor", role: "Team Lead" },
-        { id: "maria", name: "Maria Garcia", role: "Backend Developer" },
-        { id: "james", name: "James Wilson", role: "Frontend Developer" },
-        { id: "anna", name: "Anna Brown", role: "UX Designer" }
-      ]
-    }
-  ]);
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    teamLead: '',
+    teamMembers: [] as string[],
+    newMember: ''
+  });
 
   const filteredProjects = projects.filter(project =>
     project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -100,227 +83,363 @@ const Projects = () => {
     project.teamLead.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddProject = (projectData: Project) => {
-    setProjects(prev => [...prev, projectData]);
-  };
+  const handleCreateProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name.trim() || !formData.teamLead.trim()) {
+      toast({
+        title: "Error",
+        description: "Project name and team lead are required",
+        variant: "destructive"
+      });
+      return;
+    }
 
-  const handleEditProject = (projectId: string) => {
-    toast({
-      title: "Edit Project",
-      description: "Edit functionality will be implemented soon.",
+    const newProject: Project = {
+      id: Date.now().toString(),
+      name: formData.name,
+      description: formData.description,
+      teamLead: formData.teamLead,
+      teamMembers: formData.teamMembers,
+      status: 'active',
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+
+    setProjects(prev => [newProject, ...prev]);
+    
+    // Reset form
+    setFormData({
+      name: '',
+      description: '',
+      teamLead: '',
+      teamMembers: [],
+      newMember: ''
     });
-  };
-
-  const handleDeleteProject = (projectId: string) => {
-    setProjects(prev => prev.filter(p => p.id !== projectId));
+    
+    setIsNewProjectModalOpen(false);
+    
     toast({
       title: "Success",
-      description: "Project deleted successfully!",
+      description: "Project created successfully!",
     });
   };
 
-  const ProjectCard = ({ project }: { project: Project }) => (
-    <Card className="group hover:shadow-lg transition-all duration-200 border border-gray-200 hover:border-green-200">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg text-gray-900 mb-2">{project.name}</h3>
-            <p className="text-sm text-gray-600 line-clamp-2 mb-3">{project.description}</p>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-gray-500" />
-                <Badge className="bg-blue-100 text-blue-700 text-xs">{project.teamLead}</Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-500">{project.members.length} members</span>
-              </div>
-            </div>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-              <DropdownMenuItem onClick={() => handleEditProject(project.id)}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-red-600 focus:text-red-600"
-                onClick={() => handleDeleteProject(project.id)}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="flex flex-wrap gap-2">
-          {project.members.slice(0, 3).map((member) => (
-            <div key={member.id} className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1 text-xs">
-              <span>{member.name}</span>
-            </div>
-          ))}
-          {project.members.length > 3 && (
-            <div className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1 text-xs">
-              <span>+{project.members.length - 3} more</span>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+  const addTeamMember = () => {
+    if (formData.newMember.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        teamMembers: [...prev.teamMembers, prev.newMember.trim()],
+        newMember: ''
+      }));
+    }
+  };
 
-  const ProjectListItem = ({ project }: { project: Project }) => (
-    <Card className="group hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-green-200">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start gap-4">
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg text-gray-900 mb-1">{project.name}</h3>
-                <p className="text-sm text-gray-600 mb-2 line-clamp-1">{project.description}</p>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-gray-500" />
-                    <Badge className="bg-blue-100 text-blue-700 text-xs">{project.teamLead}</Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-500">{project.members.length} members</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1 max-w-xs">
-                {project.members.slice(0, 4).map((member) => (
-                  <div key={member.id} className="bg-gray-100 rounded-full px-2 py-1 text-xs">
-                    {member.name}
-                  </div>
-                ))}
-                {project.members.length > 4 && (
-                  <div className="bg-gray-100 rounded-full px-2 py-1 text-xs">
-                    +{project.members.length - 4}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-              <DropdownMenuItem onClick={() => handleEditProject(project.id)}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-red-600 focus:text-red-600"
-                onClick={() => handleDeleteProject(project.id)}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardContent>
-    </Card>
+  const removeTeamMember = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      teamMembers: prev.teamMembers.filter((_, i) => i !== index)
+    }));
+  };
+
+  const getStatusBadge = (status: Project['status']) => {
+    const statusConfig = {
+      active: { bg: 'bg-green-100', text: 'text-green-700', label: 'Active' },
+      completed: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Completed' },
+      'on-hold': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'On Hold' }
+    };
+    
+    const config = statusConfig[status];
+    return (
+      <Badge className={`${config.bg} ${config.text} hover:${config.bg}`}>
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      <div className="w-32 h-32 mb-6 bg-green-50 rounded-full flex items-center justify-center">
+        <Users className="w-16 h-16 text-green-500" />
+      </div>
+      <h3 className="text-xl font-semibold text-gray-900 mb-2">No projects yet</h3>
+      <p className="text-gray-600 text-center mb-6 max-w-md">
+        Create your first project to start organizing your team and track progress.
+      </p>
+      <Button 
+        onClick={() => setIsNewProjectModalOpen(true)}
+        className="bg-green-500 hover:bg-green-600 hover:scale-105 transition-all duration-200"
+      >
+        <Plus className="w-4 h-4 mr-2" />
+        Create Your First Project
+      </Button>
+    </div>
   );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <MainNavigation />
       
-      <div className="container mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link to="/meetings">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-          </Link>
+      <main className="container mx-auto px-6 py-8">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-            <p className="text-gray-600 mt-1">Manage your team projects and collaborate effectively</p>
-          </div>
-        </div>
-
-        {/* Actions Bar */}
-        <div className="flex items-center justify-between gap-4 mb-8">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="relative max-w-md flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search projects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+            <h1 className="text-3xl font-bold font-sora text-gray-900">Projects</h1>
+            <p className="text-gray-600 mt-1">Manage and track your team projects</p>
           </div>
           
-          <div className="flex items-center gap-3">
-            <ViewToggle view={view} onViewChange={setView} />
-            <Button 
-              onClick={() => setIsAddProjectModalOpen(true)}
-              className="bg-green-500 hover:bg-green-600"
+          <Button 
+            onClick={() => setIsNewProjectModalOpen(true)}
+            className="bg-green-500 hover:bg-green-600 hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Project
+          </Button>
+        </div>
+
+        {/* Search and View Toggle */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search projects by name, description, or team lead..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white border-gray-200 focus:border-green-500 focus:ring-green-500/20"
+            />
+          </div>
+          
+          <div className="flex bg-white rounded-lg p-1 border border-gray-200">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+              className={viewMode === 'grid' ? 'bg-green-500 hover:bg-green-600' : ''}
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Project
+              <Grid3X3 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className={viewMode === 'list' ? 'bg-green-500 hover:bg-green-600' : ''}
+            >
+              <List className="w-4 h-4" />
             </Button>
           </div>
         </div>
 
         {/* Projects Display */}
-        <div className="space-y-6">
-          {filteredProjects.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+        {filteredProjects.length === 0 ? (
+          searchQuery ? (
+            <div className="text-center py-16">
+              <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-              <p className="text-gray-600 mb-4">
-                {searchQuery ? "Try adjusting your search terms" : "Get started by creating your first project"}
-              </p>
-              <Button 
-                onClick={() => setIsAddProjectModalOpen(true)}
-                className="bg-green-500 hover:bg-green-600"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Project
-              </Button>
+              <p className="text-gray-600">Try adjusting your search terms</p>
             </div>
           ) : (
-            <>
-              {view === "grid" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProjects.map((project) => (
-                    <ProjectCard key={project.id} project={project} />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredProjects.map((project) => (
-                    <ProjectListItem key={project.id} project={project} />
+            <EmptyState />
+          )
+        ) : (
+          <div className={viewMode === 'grid' ? 'grid gap-6 sm:grid-cols-2 lg:grid-cols-3' : 'space-y-4'}>
+            {filteredProjects.map((project) => (
+              <Card 
+                key={project.id} 
+                className={`hover:shadow-lg transition-all duration-200 cursor-pointer border-gray-200 hover:border-green-500/30 group ${
+                  viewMode === 'list' ? 'flex flex-row' : ''
+                }`}
+              >
+                <CardContent className={`p-6 ${viewMode === 'list' ? 'flex-1 flex items-center justify-between' : ''}`}>
+                  {viewMode === 'grid' ? (
+                    <>
+                      {/* Grid View */}
+                      <div className="flex items-center justify-between mb-4">
+                        {getStatusBadge(project.status)}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-600 focus:text-red-600">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      <h3 className="font-semibold text-gray-900 mb-2 group-hover:text-green-600 transition-colors">
+                        {project.name}
+                      </h3>
+                      
+                      <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                        {project.description}
+                      </p>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">{project.teamLead}</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {project.teamMembers.length} team members
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* List View */}
+                      <div className="flex items-center gap-6">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <h3 className="font-semibold text-gray-900 group-hover:text-green-600 transition-colors">
+                              {project.name}
+                            </h3>
+                            {getStatusBadge(project.status)}
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2 line-clamp-1">
+                            {project.description}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <span>Lead: {project.teamLead}</span>
+                            <span>{project.teamMembers.length} members</span>
+                          </div>
+                        </div>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-600 focus:text-red-600">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {/* New Project Modal */}
+      <Dialog open={isNewProjectModalOpen} onOpenChange={setIsNewProjectModalOpen}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-green-500" />
+              Create New Project
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateProject} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Project Name *</Label>
+              <Input
+                id="name"
+                placeholder="e.g., Mobile App Development"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Brief description of the project..."
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="teamLead">Team Lead *</Label>
+              <Input
+                id="teamLead"
+                placeholder="e.g., Sarah Johnson"
+                value={formData.teamLead}
+                onChange={(e) => setFormData(prev => ({ ...prev, teamLead: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Team Members</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add team member name"
+                  value={formData.newMember}
+                  onChange={(e) => setFormData(prev => ({ ...prev, newMember: e.target.value }))}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTeamMember())}
+                />
+                <Button type="button" onClick={addTeamMember} size="icon" variant="outline">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              {formData.teamMembers.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.teamMembers.map((member, index) => (
+                    <div key={index} className="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1 text-sm">
+                      <span>{member}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeTeamMember(index)}
+                        className="text-gray-500 hover:text-red-500"
+                      >
+                        <span className="w-3 h-3">×</span>
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
-            </>
-          )}
-        </div>
-      </div>
+            </div>
 
-      <AddProjectModal
-        open={isAddProjectModalOpen}
-        onOpenChange={setIsAddProjectModalOpen}
-        onAddProject={handleAddProject}
-      />
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsNewProjectModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-green-500 hover:bg-green-600">
+                Create Project
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
