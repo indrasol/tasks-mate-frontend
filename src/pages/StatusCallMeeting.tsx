@@ -339,8 +339,8 @@ const StatusCallMeeting = () => {
             ) : (
               <div className="space-y-2">
                 <div className="flex items-start justify-between">
-                  <span className="text-sm flex-1 font-medium text-gray-800 leading-relaxed break-words">{item.text}</span>
-                  <div className="flex gap-1 ml-2">
+                  <span className="text-sm flex-1 font-medium text-gray-800 leading-relaxed break-words whitespace-pre-wrap overflow-wrap-anywhere max-w-full">{item.text}</span>
+                  <div className="flex gap-1 ml-2 flex-shrink-0">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -548,7 +548,7 @@ const StatusCallMeeting = () => {
           {/* Notes Card */}
           <Card className="relative overflow-hidden bg-gradient-to-br from-indigo-50/60 to-purple-100/60 border-indigo-200/50 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
             <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-            <CardHeader className="pb-3 relative">
+            <CardHeader className="relative">
               <CardTitle className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
                   <FileText className="w-5 h-5 text-indigo-600" />
