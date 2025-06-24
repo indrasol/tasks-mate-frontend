@@ -601,8 +601,8 @@ const StatusCallMeeting = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <MainNavigation />
       
-      {/* Top Bar */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-white/20 sticky top-16 z-40 shadow-sm">
+      {/* Top Bar - Fixed with proper spacing */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-white/20 sticky top-16 z-30 shadow-sm">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -622,8 +622,8 @@ const StatusCallMeeting = () => {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-6 py-6">
+      {/* Main Content - Added proper top padding to avoid overlap */}
+      <div className="container mx-auto px-6 py-6 pt-8">
         <div className="space-y-6">
           {/* Meeting Header */}
           <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300">
@@ -687,7 +687,7 @@ const StatusCallMeeting = () => {
                         <SelectValue placeholder="Select Project" />
                       </div>
                     </SelectTrigger>
-                    <SelectContent className="bg-white/95 backdrop-blur-md border border-blue-200 shadow-xl">
+                    <SelectContent className="bg-white/95 backdrop-blur-md border border-blue-200 shadow-xl z-50">
                       <SelectItem value="all" className="hover:bg-blue-50">All Projects</SelectItem>
                       {allProjects.map((project) => (
                         <SelectItem key={project} value={project} className="hover:bg-blue-50">
@@ -708,7 +708,7 @@ const StatusCallMeeting = () => {
                         <SelectValue placeholder="Select User" />
                       </div>
                     </SelectTrigger>
-                    <SelectContent className="bg-white/95 backdrop-blur-md border border-green-200 shadow-xl">
+                    <SelectContent className="bg-white/95 backdrop-blur-md border border-green-200 shadow-xl z-50">
                       <SelectItem value="all" className="hover:bg-green-50">All Users</SelectItem>
                       {allUsers.map((user) => (
                         <SelectItem key={user} value={user} className="hover:bg-green-50">
