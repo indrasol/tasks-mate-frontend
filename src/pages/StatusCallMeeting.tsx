@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import StatusViewToggle from "@/components/meetings/StatusViewToggle";
 
 interface Meeting {
   id: string;
@@ -63,9 +64,15 @@ interface ProjectGroup {
   }[];
 }
 
+interface UserNotes {
+  [key: string]: string; // key format: "project-user"
+}
+
 const StatusCallMeeting = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  
+  const [view, setView] = useState<"grid" | "list">("grid");
   
   const [meeting, setMeeting] = useState<Meeting>({
     id: "1",
@@ -99,6 +106,12 @@ const StatusCallMeeting = () => {
     { id: "12", text: "Frontend library update blocked by dependencies", status: "blocked", project: "Frontend", assignedTo: "Sarah" }
   ]);
 
+  const [userNotes, setUserNotes] = useState<UserNotes>({
+    "Backend-John": "Working on database optimization next sprint",
+    "Frontend-Mike": "Need to coordinate with design team for new components",
+    "DevOps-Alex": "Infrastructure review scheduled for next week"
+  });
+
   const [notes, setNotes] = useState<string>(
     "Team discussed the upcoming sprint goals and identified key blockers that need immediate attention. Follow-up meetings scheduled with stakeholders for API approvals."
   );
@@ -110,7 +123,7 @@ const StatusCallMeeting = () => {
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>("");
   const [newItemText, setNewItemText] = useState<string>("");
-  const [addingToSection, setAddingToSection] = useState<'completed' | 'in-progress' | 'blocked' | null>(null);
+  const [addingToSection, setAddingToSection] = useState<{section: 'completed' | 'in-progress' | 'blocked', project: string, user: string} | null>(null);
 
   const allProjects = ["Frontend", "Backend", "Mobile", "Integration", "DevOps"];
   const allUsers = ["John", "Sarah", "Mike", "Alex"];
@@ -128,26 +141,13 @@ const StatusCallMeeting = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-5 h-5 text-emerald-500" />;
+        return <CheckCircle className="w-5 h-5 text-blue-600" />;
       case 'in-progress':
-        return <Loader className="w-5 h-5 text-blue-500" />;
+        return <Loader className="w-5 h-5 text-green-600" />;
       case 'blocked':
-        return <XCircle className="w-5 h-5 text-red-500" />;
+        return <XCircle className="w-5 h-5 text-blue-600" />;
       default:
         return null;
-    }
-  };
-
-  const getStatusGradient = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'from-emerald-50 to-green-100 border-emerald-200 hover:from-emerald-100 hover:to-green-200';
-      case 'in-progress':
-        return 'from-blue-50 to-indigo-100 border-blue-200 hover:from-blue-100 hover:to-indigo-200';
-      case 'blocked':
-        return 'from-red-50 to-rose-100 border-red-200 hover:from-red-100 hover:to-rose-200';
-      default:
-        return 'from-gray-50 to-slate-100 border-gray-200';
     }
   };
 
@@ -257,15 +257,15 @@ const StatusCallMeeting = () => {
     setEditingText("");
   };
 
-  const handleAddItem = (status: 'completed' | 'in-progress' | 'blocked') => {
+  const handleAddItem = (status: 'completed' | 'in-progress' | 'blocked', project: string, user: string) => {
     if (!newItemText.trim()) return;
 
     const newItem: StatusItem = {
       id: Date.now().toString(),
       text: newItemText,
       status,
-      project: selectedProject !== "all" ? selectedProject : "General",
-      assignedTo: selectedUser !== "all" ? selectedUser : "Unassigned"
+      project: project,
+      assignedTo: user
     };
 
     if (status === 'completed') {
@@ -292,69 +292,282 @@ const StatusCallMeeting = () => {
     }
   };
 
-  const renderStatusItems = (items: StatusItem[], status: 'completed' | 'in-progress' | 'blocked') => {
-    if (items.length === 0) return null;
+  const handleNotesChange = (project: string, user: string, value: string) => {
+    const key = `${project}-${user}`;
+    setUserNotes(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
 
-    return items.map((item, index) => (
-      <div
-        key={item.id}
-        className={`p-4 rounded-xl border-2 bg-white/60 backdrop-blur-sm transition-all duration-300 hover:bg-white/80 hover:scale-[1.02] hover:shadow-lg animate-fade-in`}
-        style={{ animationDelay: `${index * 100}ms` }}
-      >
-        {editingItem === item.id ? (
-          <div className="space-y-3">
-            <Input
-              value={editingText}
-              onChange={(e) => setEditingText(e.target.value)}
-              className="text-sm bg-white/80 backdrop-blur-sm border-white/40"
-            />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => handleSaveEdit(item.id, status)}
-                className="h-8 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-              >
-                <Save className="w-3 h-3 mr-1" />
-                Save
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditingItem(null)}
-                className="h-8 bg-white/80 backdrop-blur-sm border-white/40"
-              >
-                <X className="w-3 h-3 mr-1" />
-                Cancel
-              </Button>
-            </div>
+  const renderStatusItems = (items: StatusItem[], status: 'completed' | 'in-progress' | 'blocked', project: string, user: string) => {
+    return (
+      <div className="space-y-3">
+        {items.map((item, index) => (
+          <div
+            key={item.id}
+            className={`p-4 rounded-xl border-2 bg-white/60 backdrop-blur-sm transition-all duration-300 hover:bg-white/80 hover:scale-[1.02] hover:shadow-lg animate-fade-in`}
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
+            {editingItem === item.id ? (
+              <div className="space-y-3">
+                <Input
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  className="text-sm bg-white/80 backdrop-blur-sm border-white/40"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleSaveEdit(item.id, status)}
+                    className="h-8 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
+                  >
+                    <Save className="w-3 h-3 mr-1" />
+                    Save
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingItem(null)}
+                    className="h-8 bg-white/80 backdrop-blur-sm border-white/40"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-start justify-between">
+                  <span className="text-sm flex-1 font-medium text-gray-800">{item.text}</span>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditItem(item.id, item.text)}
+                      className="h-8 w-8 p-0 hover:bg-white/60 rounded-full transition-all duration-200 hover:scale-110"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteItem(item.id, status)}
+                      className="h-8 w-8 p-0 hover:bg-red-100 text-red-500 hover:text-red-700 rounded-full transition-all duration-200 hover:scale-110"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex items-start justify-between">
-              <span className="text-sm flex-1 font-medium text-gray-800">{item.text}</span>
-              <div className="flex gap-1">
+        ))}
+        
+        {/* Add new item section */}
+        {addingToSection?.section === status && addingToSection?.project === project && addingToSection?.user === user ? (
+          <div className="p-4 rounded-xl border-2 border-dashed border-gray-300 bg-white/40 backdrop-blur-sm">
+            <div className="space-y-3">
+              <Input
+                value={newItemText}
+                onChange={(e) => setNewItemText(e.target.value)}
+                placeholder="Enter new item..."
+                className="text-sm bg-white/80 backdrop-blur-sm border-white/40"
+              />
+              <div className="flex gap-2">
                 <Button
-                  variant="ghost"
                   size="sm"
-                  onClick={() => handleEditItem(item.id, item.text)}
-                  className="h-8 w-8 p-0 hover:bg-white/60 rounded-full transition-all duration-200 hover:scale-110"
+                  onClick={() => handleAddItem(status, project, user)}
+                  className="h-8 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white border-0"
                 >
-                  <Edit2 className="w-3 h-3" />
+                  <Plus className="w-3 h-3 mr-1" />
+                  Add
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleDeleteItem(item.id, status)}
-                  className="h-8 w-8 p-0 hover:bg-red-100 text-red-500 hover:text-red-700 rounded-full transition-all duration-200 hover:scale-110"
+                  onClick={() => setAddingToSection(null)}
+                  className="h-8 bg-white/80 backdrop-blur-sm border-white/40"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3 h-3 mr-1" />
+                  Cancel
                 </Button>
               </div>
             </div>
           </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAddingToSection({section: status, project, user})}
+            className="w-full h-10 border-2 border-dashed border-gray-300 bg-white/20 hover:bg-white/40 text-gray-600 hover:text-gray-800 rounded-xl transition-all duration-200"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Item
+          </Button>
         )}
       </div>
-    ));
+    );
+  };
+
+  const renderStatusCard = (
+    title: string, 
+    icon: React.ReactNode, 
+    items: StatusItem[], 
+    status: 'completed' | 'in-progress' | 'blocked',
+    project: string,
+    user: string,
+    gradientClasses: string
+  ) => (
+    <Card className={`relative overflow-hidden ${gradientClasses} hover:shadow-xl transition-all duration-300 animate-fade-in border-2`}>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+      <CardHeader className="pb-3 relative">
+        <CardTitle className="flex items-center gap-3">
+          <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+            {icon}
+          </div>
+          <div>
+            <span className="text-lg font-semibold">{title}</span>
+            <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
+              {items.length}
+            </Badge>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 relative">
+        {renderStatusItems(items, status, project, user)}
+      </CardContent>
+    </Card>
+  );
+
+  const renderUserCards = (userGroup: any, project: string) => {
+    const notesKey = `${project}-${userGroup.user}`;
+    const userNoteValue = userNotes[notesKey] || "";
+
+    if (view === "list") {
+      return (
+        <div className="space-y-4 ml-12">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500">
+              <User className="w-4 h-4 text-white" />
+            </div>
+            <h4 className="text-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
+              {userGroup.user}
+            </h4>
+          </div>
+          
+          <div className="space-y-4 ml-8">
+            {/* Completed Items */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/80 to-indigo-100/80 border border-blue-200/60">
+              <h5 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                Completed ({userGroup.items.completed.length})
+              </h5>
+              {renderStatusItems(userGroup.items.completed, 'completed', project, userGroup.user)}
+            </div>
+
+            {/* In Progress Items */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-green-50/80 to-emerald-100/80 border border-green-200/60">
+              <h5 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
+                <Loader className="w-4 h-4" />
+                In Progress ({userGroup.items.inProgress.length})
+              </h5>
+              {renderStatusItems(userGroup.items.inProgress, 'in-progress', project, userGroup.user)}
+            </div>
+
+            {/* Blocked Items */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/60 to-indigo-100/60 border border-blue-200/50">
+              <h5 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+                <XCircle className="w-4 h-4" />
+                Blocked ({userGroup.items.blocked.length})
+              </h5>
+              {renderStatusItems(userGroup.items.blocked, 'blocked', project, userGroup.user)}
+            </div>
+
+            {/* Notes Section */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50/60 to-purple-100/60 border border-indigo-200/50">
+              <h5 className="font-semibold text-indigo-700 mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Notes
+              </h5>
+              <Textarea
+                value={userNoteValue}
+                onChange={(e) => handleNotesChange(project, userGroup.user, e.target.value)}
+                placeholder="Add notes for this user..."
+                className="min-h-[80px] resize-none bg-white/60 backdrop-blur-sm border-white/40 transition-all duration-200 focus:bg-white/80"
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Grid view
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 ml-8">
+          <div className="p-1 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500">
+            <User className="w-4 h-4 text-white" />
+          </div>
+          <h4 className="text-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
+            {userGroup.user}
+          </h4>
+        </div>
+        
+        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4 ml-12">
+          {renderStatusCard(
+            "Completed",
+            <CheckCircle className="w-5 h-5 text-blue-600" />,
+            userGroup.items.completed,
+            'completed',
+            project,
+            userGroup.user,
+            "bg-gradient-to-br from-blue-50/80 to-indigo-100/80 border-blue-200/60"
+          )}
+          
+          {renderStatusCard(
+            "In Progress",
+            <Loader className="w-5 h-5 text-green-600" />,
+            userGroup.items.inProgress,
+            'in-progress',
+            project,
+            userGroup.user,
+            "bg-gradient-to-br from-green-50/80 to-emerald-100/80 border-green-200/60"
+          )}
+          
+          {renderStatusCard(
+            "Blocked",
+            <XCircle className="w-5 h-5 text-blue-600" />,
+            userGroup.items.blocked,
+            'blocked',
+            project,
+            userGroup.user,
+            "bg-gradient-to-br from-blue-50/60 to-indigo-100/60 border-blue-200/50"
+          )}
+
+          {/* Notes Card */}
+          <Card className="relative overflow-hidden bg-gradient-to-br from-indigo-50/60 to-purple-100/60 border-indigo-200/50 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+            <CardHeader className="pb-3 relative">
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+                  <FileText className="w-5 h-5 text-indigo-600" />
+                </div>
+                <span className="text-lg font-semibold">Notes</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="relative">
+              <Textarea
+                value={userNoteValue}
+                onChange={(e) => handleNotesChange(project, userGroup.user, e.target.value)}
+                placeholder="Add notes for this user..."
+                className="min-h-[120px] resize-none bg-white/60 backdrop-blur-sm border-white/40 transition-all duration-200 focus:bg-white/80"
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   };
 
   const renderConsolidatedView = () => {
@@ -374,92 +587,8 @@ const StatusCallMeeting = () => {
             </div>
             
             {projectGroup.users.map((userGroup, userIndex) => (
-              <div key={userGroup.user} className="space-y-4">
-                <div className="flex items-center gap-2 ml-8">
-                  <div className="p-1 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500">
-                    <User className="w-4 h-4 text-white" />
-                  </div>
-                  <h4 className="text-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
-                    {userGroup.user}
-                  </h4>
-                </div>
-                
-                <div className="grid gap-6 lg:grid-cols-3 ml-12">
-                  {/* Always show Completed card */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50/80 to-indigo-100/80 border-blue-200/60 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-                    <CardHeader className="pb-3 relative">
-                      <CardTitle className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                          <CheckCircle className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <span className="text-lg font-semibold">Completed</span>
-                          <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
-                            {userGroup.items.completed.length}
-                          </Badge>
-                        </div>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 relative">
-                      {userGroup.items.completed.length > 0 ? (
-                        renderStatusItems(userGroup.items.completed, 'completed')
-                      ) : (
-                        <div className="text-sm text-gray-500 italic">No completed items</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Always show In Progress card */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-green-50/80 to-emerald-100/80 border-green-200/60 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-                    <CardHeader className="pb-3 relative">
-                      <CardTitle className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                          <Loader className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <span className="text-lg font-semibold">In Progress</span>
-                          <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
-                            {userGroup.items.inProgress.length}
-                          </Badge>
-                        </div>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 relative">
-                      {userGroup.items.inProgress.length > 0 ? (
-                        renderStatusItems(userGroup.items.inProgress, 'in-progress')
-                      ) : (
-                        <div className="text-sm text-gray-500 italic">No items in progress</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Always show Blocked card */}
-                  <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50/60 to-indigo-100/60 border-blue-200/50 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-                    <CardHeader className="pb-3 relative">
-                      <CardTitle className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                          <XCircle className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <span className="text-lg font-semibold">Blocked</span>
-                          <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
-                            {userGroup.items.blocked.length}
-                          </Badge>
-                        </div>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 relative">
-                      {userGroup.items.blocked.length > 0 ? (
-                        renderStatusItems(userGroup.items.blocked, 'blocked')
-                      ) : (
-                        <div className="text-sm text-gray-500 italic">No blocked items</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
+              <div key={userGroup.user}>
+                {renderUserCards(userGroup, projectGroup.project)}
               </div>
             ))}
           </div>
@@ -544,12 +673,13 @@ const StatusCallMeeting = () => {
             </div>
           </div>
 
-          {/* Enhanced Filters */}
+          {/* Enhanced Filters and View Toggle */}
           <div className="bg-white/80 backdrop-blur-md rounded-xl border border-white/20 p-4 shadow-lg">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-6">
                 {/* Project Filter */}
-                <div className="relative">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-700">Projects:</span>
                   <Select value={selectedProject} onValueChange={setSelectedProject}>
                     <SelectTrigger className="w-48 bg-gradient-to-r from-blue-50/80 to-indigo-100/80 border-blue-200/60 hover:from-blue-100/80 hover:to-indigo-200/80 transition-all duration-200 backdrop-blur-sm">
                       <div className="flex items-center gap-2">
@@ -569,7 +699,8 @@ const StatusCallMeeting = () => {
                 </div>
 
                 {/* User Filter */}
-                <div className="relative">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-700">Users:</span>
                   <Select value={selectedUser} onValueChange={setSelectedUser}>
                     <SelectTrigger className="w-48 bg-gradient-to-r from-green-50/80 to-emerald-100/80 border-green-200/60 hover:from-green-100/80 hover:to-emerald-200/80 transition-all duration-200 backdrop-blur-sm">
                       <div className="flex items-center gap-2">
@@ -589,25 +720,30 @@ const StatusCallMeeting = () => {
                 </div>
               </div>
 
-              {/* Clear Filters */}
-              {hasActiveFilters && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={clearAllFilters} 
-                  className="text-gray-500 hover:text-gray-700 hover:bg-white/60 rounded-full transition-all duration-200"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Clear All
-                </Button>
-              )}
+              <div className="flex items-center space-x-4">
+                {/* View Toggle */}
+                <StatusViewToggle view={view} onViewChange={setView} />
+
+                {/* Clear Filters */}
+                {hasActiveFilters && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={clearAllFilters} 
+                    className="text-gray-500 hover:text-gray-700 hover:bg-white/60 rounded-full transition-all duration-200"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear All
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Consolidated View */}
           {renderConsolidatedView()}
 
-          {/* Notes Section */}
+          {/* Global Notes Section */}
           <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50/60 to-indigo-100/60 border-blue-200/50 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
             <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
             <CardHeader className="relative">
