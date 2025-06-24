@@ -140,11 +140,11 @@ const StatusCallMeeting = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-5 h-5 text-blue-600" />;
+        return <CheckCircle className="w-5 h-5 text-green-600" />;
       case 'in-progress':
-        return <Loader className="w-5 h-5 text-green-600" />;
+        return <Loader className="w-5 h-5 text-blue-600" />;
       case 'blocked':
-        return <XCircle className="w-5 h-5 text-blue-600" />;
+        return <XCircle className="w-5 h-5 text-orange-600" />;
       default:
         return null;
     }
@@ -458,8 +458,8 @@ const StatusCallMeeting = () => {
           
           <div className="space-y-4 ml-8">
             {/* Completed Items */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/80 to-indigo-100/80 border border-blue-200/60">
-              <h5 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-gradient-to-r from-green-50/80 to-emerald-100/80 border border-green-200/60">
+              <h5 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
                 <CheckCircle className="w-4 h-4" />
                 Completed ({userGroup.items.completed.length})
               </h5>
@@ -467,8 +467,8 @@ const StatusCallMeeting = () => {
             </div>
 
             {/* In Progress Items */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-green-50/80 to-emerald-100/80 border border-green-200/60">
-              <h5 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/80 to-blue-100/80 border border-blue-200/60">
+              <h5 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
                 <Loader className="w-4 h-4" />
                 In Progress ({userGroup.items.inProgress.length})
               </h5>
@@ -476,8 +476,8 @@ const StatusCallMeeting = () => {
             </div>
 
             {/* Blocked Items */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/60 to-indigo-100/60 border border-blue-200/50">
-              <h5 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-gradient-to-r from-orange-50/80 to-yellow-100/80 border border-orange-200/60">
+              <h5 className="font-semibold text-orange-700 mb-3 flex items-center gap-2">
                 <XCircle className="w-4 h-4" />
                 Blocked ({userGroup.items.blocked.length})
               </h5>
@@ -485,8 +485,8 @@ const StatusCallMeeting = () => {
             </div>
 
             {/* Notes Section */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50/60 to-purple-100/60 border border-indigo-200/50">
-              <h5 className="font-semibold text-indigo-700 mb-3 flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-gradient-to-r from-gray-50/80 to-slate-100/80 border border-gray-200/60">
+              <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 Notes
               </h5>
@@ -517,41 +517,41 @@ const StatusCallMeeting = () => {
         <div className="grid gap-6 lg:grid-cols-2 ml-12">
           {renderStatusCard(
             "Completed",
-            <CheckCircle className="w-5 h-5 text-blue-600" />,
+            <CheckCircle className="w-5 h-5 text-green-600" />,
             userGroup.items.completed,
             'completed',
-            project,
-            userGroup.user,
-            "bg-gradient-to-br from-blue-50/80 to-indigo-100/80 border-blue-200/60"
-          )}
-          
-          {renderStatusCard(
-            "In Progress",
-            <Loader className="w-5 h-5 text-green-600" />,
-            userGroup.items.inProgress,
-            'in-progress',
             project,
             userGroup.user,
             "bg-gradient-to-br from-green-50/80 to-emerald-100/80 border-green-200/60"
           )}
           
           {renderStatusCard(
+            "In Progress",
+            <Loader className="w-5 h-5 text-blue-600" />,
+            userGroup.items.inProgress,
+            'in-progress',
+            project,
+            userGroup.user,
+            "bg-gradient-to-br from-blue-50/80 to-blue-100/80 border-blue-200/60"
+          )}
+          
+          {renderStatusCard(
             "Blocked",
-            <XCircle className="w-5 h-5 text-blue-600" />,
+            <XCircle className="w-5 h-5 text-orange-600" />,
             userGroup.items.blocked,
             'blocked',
             project,
             userGroup.user,
-            "bg-gradient-to-br from-blue-50/60 to-indigo-100/60 border-blue-200/50"
+            "bg-gradient-to-br from-orange-50/80 to-yellow-100/80 border-orange-200/60"
           )}
 
           {/* Notes Card */}
-          <Card className="relative overflow-hidden bg-gradient-to-br from-indigo-50/60 to-purple-100/60 border-indigo-200/50 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
+          <Card className="relative overflow-hidden bg-gradient-to-br from-gray-50/80 to-slate-100/80 border-gray-200/60 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
             <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
             <CardHeader className="relative">
               <CardTitle className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                  <FileText className="w-5 h-5 text-indigo-600" />
+                  <FileText className="w-5 h-5 text-gray-600" />
                 </div>
                 <span className="text-lg font-semibold">Notes</span>
               </CardTitle>
@@ -744,12 +744,12 @@ const StatusCallMeeting = () => {
           {renderConsolidatedView()}
 
           {/* Global Notes Section */}
-          <Card className="relative overflow-hidden bg-gradient-to-br from-blue-50/60 to-indigo-100/60 border-blue-200/50 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
+          <Card className="relative overflow-hidden bg-gradient-to-br from-gray-50/80 to-slate-100/80 border-gray-200/60 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
             <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
             <CardHeader className="relative">
               <CardTitle className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                  <FileText className="w-5 h-5 text-blue-600" />
+                  <FileText className="w-5 h-5 text-gray-600" />
                 </div>
                 <span className="text-lg font-semibold">Meeting Notes</span>
               </CardTitle>
