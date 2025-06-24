@@ -1,8 +1,8 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Calendar, MoreVertical, Edit, Eye, Trash2 } from "lucide-react";
 import MainNavigation from "@/components/navigation/MainNavigation";
+import NewMeetingModal from "@/components/meetings/NewMeetingModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,7 @@ interface Meeting {
 }
 
 // Mock data - in real app this would come from an API
-const mockMeetings: Meeting[] = [
+const initialMeetings: Meeting[] = [
   {
     id: "1",
     title: "Product Strategy Review",
@@ -54,7 +54,8 @@ const mockMeetings: Meeting[] = [
 const Meetings = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [meetings] = useState<Meeting[]>(mockMeetings);
+  const [meetings, setMeetings] = useState<Meeting[]>(initialMeetings);
+  const [isNewMeetingModalOpen, setIsNewMeetingModalOpen] = useState(false);
 
   const filteredMeetings = meetings.filter(meeting =>
     meeting.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -62,8 +63,21 @@ const Meetings = () => {
   );
 
   const handleNewMeeting = () => {
-    // TODO: Open Meeting Wizard modal
-    console.log("Opening Meeting Wizard...");
+    setIsNewMeetingModalOpen(true);
+  };
+
+  const handleCreateMeeting = (meetingData: any) => {
+    const newMeeting: Meeting = {
+      id: meetingData.id,
+      title: meetingData.title,
+      date: meetingData.date,
+      product: meetingData.product,
+      status: 'draft',
+      lastUpdated: 'just now'
+    };
+    
+    setMeetings(prev => [newMeeting, ...prev]);
+    console.log("Created new meeting:", newMeeting);
   };
 
   const handleMeetingClick = (meetingId: string) => {
@@ -107,14 +121,14 @@ const Meetings = () => {
 
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="w-32 h-32 mb-6 bg-tasksmate-gradient-soft rounded-full flex items-center justify-center">
-        <Calendar className="w-16 h-16 text-tasksmate-green-end" />
+      <div className="w-32 h-32 mb-6 bg-green-50 rounded-full flex items-center justify-center">
+        <Calendar className="w-16 h-16 text-green-500" />
       </div>
       <h3 className="text-xl font-semibold text-gray-900 mb-2">No meetings yet</h3>
       <p className="text-gray-600 text-center mb-6 max-w-md">
         Create your first meeting to start organizing your team discussions and track action items.
       </p>
-      <Button onClick={handleNewMeeting} className="bg-tasksmate-gradient hover:scale-105 transition-all duration-200">
+      <Button onClick={handleNewMeeting} className="bg-green-500 hover:bg-green-600 hover:scale-105 transition-all duration-200">
         <Plus className="w-4 h-4 mr-2" />
         Create Your First Meeting
       </Button>
@@ -135,7 +149,7 @@ const Meetings = () => {
           
           <Button 
             onClick={handleNewMeeting}
-            className="bg-tasksmate-gradient hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+            className="bg-green-500 hover:bg-green-600 hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             <Plus className="w-4 h-4 mr-2" />
             New Meeting
@@ -149,7 +163,7 @@ const Meetings = () => {
             placeholder="Search meetings by title or product..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white border-gray-200 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end/20"
+            className="pl-10 bg-white border-gray-200 focus:border-green-500 focus:ring-green-500/20"
           />
         </div>
 
@@ -169,7 +183,7 @@ const Meetings = () => {
             {filteredMeetings.map((meeting) => (
               <Card 
                 key={meeting.id} 
-                className="hover:shadow-tasksmate-hover transition-all duration-200 cursor-pointer border-gray-200 hover:border-tasksmate-green-end/30 group"
+                className="hover:shadow-lg transition-all duration-200 cursor-pointer border-gray-200 hover:border-green-500/30 group"
                 onClick={() => handleMeetingClick(meeting.id)}
               >
                 <CardContent className="p-6">
@@ -214,7 +228,7 @@ const Meetings = () => {
                   </div>
 
                   {/* Title */}
-                  <h3 className="font-semibold text-gray-900 mb-3 line-clamp-2 group-hover:text-tasksmate-green-end transition-colors">
+                  <h3 className="font-semibold text-gray-900 mb-3 line-clamp-2 group-hover:text-green-600 transition-colors">
                     {meeting.title}
                   </h3>
 
@@ -234,6 +248,12 @@ const Meetings = () => {
           </div>
         )}
       </main>
+
+      <NewMeetingModal
+        open={isNewMeetingModalOpen}
+        onOpenChange={setIsNewMeetingModalOpen}
+        onCreateMeeting={handleCreateMeeting}
+      />
     </div>
   );
 };

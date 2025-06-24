@@ -12,7 +12,8 @@ import {
   Calendar,
   ClipboardList,
   BarChart3,
-  Home
+  Home,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,8 +90,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
           {/* Logo & Brand */}
           <div className="flex items-center space-x-8">
             <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-tasksmate-gradient rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">TM</span>
+              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                <Check className="w-5 h-5 text-white" />
               </div>
               <span className="font-sora font-bold text-xl text-gray-900">TasksMate</span>
             </Link>
@@ -105,7 +106,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
                     to={item.path}
                     className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       item.isActive
-                        ? 'bg-tasksmate-gradient-soft text-tasksmate-green-end shadow-sm'
+                        ? 'bg-green-50 text-green-700 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                   >
@@ -125,7 +126,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
                 placeholder="Search tasks, meetings, or reports..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-gray-50 border-gray-200 focus:bg-white focus:border-tasksmate-green-end focus:ring-tasksmate-green-end/20"
+                className="pl-10 bg-gray-50 border-gray-200 focus:bg-white focus:border-green-500 focus:ring-green-500/20"
               />
             </div>
           </div>
@@ -135,7 +136,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
             {/* Quick Action Button */}
             <Button
               onClick={handleQuickAction}
-              className="bg-tasksmate-gradient hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="bg-green-500 hover:bg-green-600 hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
               {getQuickActionText()}
@@ -155,7 +156,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-2 hover:bg-gray-50">
-                  <div className="w-8 h-8 bg-tasksmate-gradient rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                     <User className="w-4 h-4 text-white" />
                   </div>
                   <span className="hidden md:block text-sm font-medium text-gray-700">John Doe</span>
