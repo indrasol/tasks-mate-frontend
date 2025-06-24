@@ -1,16 +1,13 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import MainNavigation from "@/components/navigation/MainNavigation";
-import ScratchpadButton from "@/components/scratchpad/ScratchpadButton";
-import ScratchpadDrawer from "@/components/scratchpad/ScratchpadDrawer";
 
 const Projects = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [isScratchpadOpen, setIsScratchpadOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -33,7 +30,7 @@ const Projects = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Navigation */}
-      <MainNavigation onScratchpadOpen={() => setIsScratchpadOpen(true)} />
+      <MainNavigation />
 
       {/* Main Content - adjusted for left sidebar */}
       <div className="ml-64 transition-all duration-300">
@@ -54,13 +51,6 @@ const Projects = () => {
           </div>
         </div>
       </div>
-
-      {/* Scratchpad Components */}
-      <ScratchpadButton onClick={() => setIsScratchpadOpen(true)} />
-      <ScratchpadDrawer 
-        open={isScratchpadOpen} 
-        onOpenChange={setIsScratchpadOpen} 
-      />
     </div>
   );
 };

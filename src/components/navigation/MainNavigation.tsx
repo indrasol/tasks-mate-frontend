@@ -70,10 +70,9 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     },
     { 
       name: 'Scratchpad', 
-      path: '#', 
+      path: '/scratchpad', 
       icon: Edit3,
-      isActive: false,
-      onClick: onScratchpadOpen
+      isActive: location.pathname.startsWith('/scratchpad')
     }
   ];
 
@@ -105,20 +104,12 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
           <div className="space-y-1 px-3">
             {navigationItems.map((item) => {
               const Icon = item.icon;
-              const handleClick = (e: React.MouseEvent) => {
-                if (item.onClick) {
-                  e.preventDefault();
-                  item.onClick();
-                } else if (item.path !== '#') {
-                  navigate(item.path);
-                }
-              };
 
               return (
-                <button
-                  key={item.name}
-                  onClick={handleClick}
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 w-full text-left ${
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     item.isActive
                       ? 'bg-green-50 text-green-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -127,7 +118,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   {!isCollapsed && <span>{item.name}</span>}
-                </button>
+                </Link>
               );
             })}
           </div>

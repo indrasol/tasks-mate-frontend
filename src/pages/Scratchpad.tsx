@@ -1,0 +1,160 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { Check, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import MainNavigation from "@/components/navigation/MainNavigation";
+
+const Scratchpad = () => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [content, setContent] = useState('');
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [showSaveCheck, setShowSaveCheck] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/');
+    }
+  }, [user, loading, navigate]);
+
+  // Auto-save with debounce
+  useEffect(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    if (content.trim()) {
+      saveTimeoutRef.current = setTimeout(() => {
+        // Save to localStorage for persistence
+        localStorage.setItem('scratchpad-content', content);
+        setLastSaved(new Date());
+        setShowSaveCheck(true);
+        
+        // Hide checkmark after animation
+        setTimeout(() => setShowSaveCheck(false), 2000);
+      }, 500);
+    }
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [content]);
+
+  // Load content on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('scratchpad-content');
+    if (saved) {
+      setContent(saved);
+    }
+  }, []);
+
+  // Format current date and time
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    return now.toLocaleString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleClear = () => {
+    setContent('');
+    localStorage.removeItem('scratchpad-content');
+    setLastSaved(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle slash commands
+    if (e.key === '/') {
+      // TODO: Implement slash menu for /task and /meeting
+      console.log('Slash command triggered');
+    }
+    
+    // Handle Cmd+Enter for todo conversion
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      // TODO: Implement "Convert highlighted todos" modal
+      console.log('Convert todos triggered');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Navigation */}
+      <MainNavigation />
+
+      {/* Main Content - adjusted for left sidebar */}
+      <div className="ml-64 transition-all duration-300">
+        {/* Page Header */}
+        <div className="px-6 py-4 bg-white/50 border-b border-gray-200">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="font-sora font-bold text-2xl text-gray-900 mb-1">Scratchpad</h1>
+              <p className="text-sm text-gray-500">{getCurrentDateTime()}</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              {showSaveCheck && (
+                <div className="flex items-center text-green-600 animate-fade-in">
+                  <Check className="w-4 h-4 mr-1" />
+                  <span className="text-sm">Saved</span>
+                </div>
+              )}
+              <Button variant="ghost" onClick={handleClear}>
+                Clear
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Scratchpad Content */}
+        <div className="px-6 py-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <Textarea
+                ref={textareaRef}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Start typing… Use /task or /meeting for quick actions"
+                className="min-h-[calc(100vh-300px)] resize-none border-0 focus:ring-0 focus-visible:ring-0 p-6 text-base leading-relaxed"
+                style={{
+                  fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
+                }}
+              />
+            </div>
+            
+            {lastSaved && (
+              <div className="mt-4 text-center text-sm text-gray-500">
+                Last saved: {lastSaved.toLocaleTimeString()}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Scratchpad;
