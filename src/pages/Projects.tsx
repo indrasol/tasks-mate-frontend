@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import NewProjectModal from '@/components/projects/NewProjectModal';
 
 interface Project {
   id: string;
@@ -39,7 +40,6 @@ interface Project {
   tasksCount: number;
   completedTasks: number;
   priority: 'high' | 'medium' | 'low';
-  budget?: number;
   category: string;
 }
 
@@ -48,6 +48,7 @@ const Projects = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -56,7 +57,7 @@ const Projects = () => {
   }, [user, loading, navigate]);
 
   // Sample projects data
-  const [projects] = useState<Project[]>([
+  const [projects, setProjects] = useState<Project[]>([
     {
       id: "P001",
       name: "TasksMate Mobile App",
@@ -69,7 +70,6 @@ const Projects = () => {
       tasksCount: 24,
       completedTasks: 16,
       priority: "high",
-      budget: 50000,
       category: "Development"
     },
     {
@@ -84,7 +84,6 @@ const Projects = () => {
       tasksCount: 18,
       completedTasks: 7,
       priority: "medium",
-      budget: 25000,
       category: "Design"
     },
     {
@@ -99,7 +98,6 @@ const Projects = () => {
       tasksCount: 12,
       completedTasks: 12,
       priority: "high",
-      budget: 15000,
       category: "Security"
     },
     {
@@ -170,6 +168,30 @@ const Projects = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const handleProjectClick = (projectId: string) => {
+    navigate(`/projects/${projectId}`);
+  };
+
+  const handleNewProject = (projectData: any) => {
+    const newProject: Project = {
+      id: `P${(projects.length + 1).toString().padStart(3, '0')}`,
+      name: projectData.name,
+      description: projectData.description,
+      status: 'planning',
+      progress: 0,
+      startDate: projectData.startDate,
+      endDate: projectData.endDate,
+      teamMembers: [],
+      tasksCount: 0,
+      completedTasks: 0,
+      priority: projectData.priority,
+      category: projectData.category
+    };
+    
+    setProjects([...projects, newProject]);
+    setIsNewProjectModalOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <MainNavigation />
@@ -182,7 +204,10 @@ const Projects = () => {
               <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Projects</h1>
               <p className="text-gray-600">Manage and track all your projects in one place</p>
             </div>
-            <Button className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2">
+            <Button 
+              className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
+              onClick={() => setIsNewProjectModalOpen(true)}
+            >
               <Plus className="w-4 h-4" />
               <span>New Project</span>
             </Button>
@@ -242,7 +267,11 @@ const Projects = () => {
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProjects.map((project) => (
-                <Card key={project.id} className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200">
+                <Card 
+                  key={project.id} 
+                  className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200"
+                  onClick={() => handleProjectClick(project.id)}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
@@ -329,16 +358,6 @@ const Projects = () => {
                         )}
                       </div>
                     </div>
-                    
-                    {/* Budget */}
-                    {project.budget && (
-                      <div className="pt-2 border-t border-gray-200">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Budget</span>
-                          <span className="font-medium text-green-600">${project.budget.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -349,7 +368,10 @@ const Projects = () => {
                 <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg mb-2">No projects found</p>
                 <p className="text-gray-400 mb-4">Create your first project to get started</p>
-                <Button className="bg-tasksmate-gradient hover:scale-105 transition-transform">
+                <Button 
+                  className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                  onClick={() => setIsNewProjectModalOpen(true)}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   New Project
                 </Button>
@@ -358,6 +380,12 @@ const Projects = () => {
           </div>
         </div>
       </div>
+
+      <NewProjectModal 
+        isOpen={isNewProjectModalOpen} 
+        onClose={() => setIsNewProjectModalOpen(false)}
+        onSubmit={handleNewProject}
+      />
     </div>
   );
 };

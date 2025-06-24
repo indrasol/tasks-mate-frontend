@@ -33,9 +33,9 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   Activity,
-  DollarSign
+  BookOpen,
+  FolderOpen
 } from 'lucide-react';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import {
   Table,
   TableBody,
@@ -80,20 +80,27 @@ const Reports = () => {
     { name: 'Anna Martinez', tasksCompleted: 27, efficiency: 90 },
   ];
 
-  const revenueData = [
-    { month: 'Jan', revenue: 45000, expenses: 32000 },
-    { month: 'Feb', revenue: 52000, expenses: 35000 },
-    { month: 'Mar', revenue: 48000, expenses: 33000 },
-    { month: 'Apr', revenue: 61000, expenses: 38000 },
-    { month: 'May', revenue: 55000, expenses: 36000 },
-    { month: 'Jun', revenue: 67000, expenses: 41000 },
+  const meetingData = [
+    { month: 'Jan', statusCalls: 8, retrospectives: 4, knowshare: 6, adhoc: 12 },
+    { month: 'Feb', statusCalls: 10, retrospectives: 3, knowshare: 8, adhoc: 15 },
+    { month: 'Mar', statusCalls: 9, retrospectives: 5, knowshare: 7, adhoc: 10 },
+    { month: 'Apr', statusCalls: 12, retrospectives: 4, knowshare: 9, adhoc: 18 },
+    { month: 'May', statusCalls: 11, retrospectives: 6, knowshare: 5, adhoc: 14 },
+    { month: 'Jun', statusCalls: 13, retrospectives: 4, knowshare: 11, adhoc: 16 },
+  ];
+
+  const projectProgressData = [
+    { name: 'TasksMate Mobile', progress: 65, tasks: 24, completed: 16 },
+    { name: 'UI/UX Redesign', progress: 40, tasks: 18, completed: 7 },
+    { name: 'Security Audit', progress: 100, tasks: 12, completed: 12 },
+    { name: 'API Integration', progress: 10, tasks: 8, completed: 1 },
   ];
 
   const topProjects = [
-    { name: "TasksMate Mobile App", progress: 65, budget: 50000, team: 3 },
-    { name: "UI/UX Redesign", progress: 40, budget: 25000, team: 2 },
-    { name: "Security Audit", progress: 100, budget: 15000, team: 2 },
-    { name: "API Integration", progress: 10, budget: 30000, team: 2 },
+    { name: "TasksMate Mobile App", progress: 65, tasks: 24, team: 3, status: "Active" },
+    { name: "UI/UX Redesign", progress: 40, tasks: 18, team: 2, status: "Active" },
+    { name: "Security Audit", progress: 100, tasks: 12, team: 2, status: "Completed" },
+    { name: "API Integration", progress: 10, tasks: 8, team: 2, status: "Planning" },
   ];
 
   if (loading) {
@@ -118,7 +125,7 @@ const Reports = () => {
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div>
               <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Reports & Analytics</h1>
-              <p className="text-gray-600">Comprehensive insights into your projects and team performance</p>
+              <p className="text-gray-600">Comprehensive insights into your projects, tasks, and meetings</p>
             </div>
             <div className="flex items-center space-x-2">
               <Button 
@@ -182,7 +189,7 @@ const Reports = () => {
                       </div>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <Target className="w-6 h-6 text-green-600" />
+                      <FolderOpen className="w-6 h-6 text-green-600" />
                     </div>
                   </div>
                 </CardContent>
@@ -210,15 +217,15 @@ const Reports = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Revenue</p>
-                      <p className="text-2xl font-bold text-gray-900">$67k</p>
+                      <p className="text-sm text-gray-600">Meeting Books</p>
+                      <p className="text-2xl font-bold text-gray-900">156</p>
                       <div className="flex items-center mt-1">
                         <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-600 ml-1">+18% vs last month</span>
+                        <span className="text-sm text-green-600 ml-1">+8 this week</span>
                       </div>
                     </div>
                     <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                      <DollarSign className="w-6 h-6 text-yellow-600" />
+                      <BookOpen className="w-6 h-6 text-yellow-600" />
                     </div>
                   </div>
                 </CardContent>
@@ -243,9 +250,9 @@ const Reports = () => {
                         <XAxis dataKey="month" />
                         <YAxis />
                         <Tooltip />
-                        <Bar dataKey="completed" stackId="a" fill="#10B981" />
-                        <Bar dataKey="pending" stackId="a" fill="#F59E0B" />
-                        <Bar dataKey="blocked" stackId="a" fill="#EF4444" />
+                        <Bar dataKey="completed" stackId="a" fill="#10B981" name="Completed" />
+                        <Bar dataKey="pending" stackId="a" fill="#F59E0B" name="Pending" />
+                        <Bar dataKey="blocked" stackId="a" fill="#EF4444" name="Blocked" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -287,24 +294,26 @@ const Reports = () => {
 
             {/* Charts Row 2 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Revenue vs Expenses */}
+              {/* Meeting Books Analytics */}
               <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Activity className="w-5 h-5" />
-                    Revenue vs Expenses
+                    <BookOpen className="w-5 h-5" />
+                    Meeting Books Activity
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={revenueData}>
+                      <AreaChart data={meetingData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="month" />
                         <YAxis />
-                        <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, '']} />
-                        <Area type="monotone" dataKey="revenue" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.6} />
-                        <Area type="monotone" dataKey="expenses" stackId="2" stroke="#EF4444" fill="#EF4444" fillOpacity={0.6} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="statusCalls" stackId="1" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} name="Status Calls" />
+                        <Area type="monotone" dataKey="retrospectives" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.6} name="Retrospectives" />
+                        <Area type="monotone" dataKey="knowshare" stackId="1" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.6} name="Knowshare" />
+                        <Area type="monotone" dataKey="adhoc" stackId="1" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.6} name="Ad-hoc" />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -345,12 +354,35 @@ const Reports = () => {
               </Card>
             </div>
 
+            {/* Project Progress Chart */}
+            <Card className="glass border-0 shadow-tasksmate">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  Project Progress Overview
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={projectProgressData} layout="horizontal">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" domain={[0, 100]} />
+                      <YAxis dataKey="name" type="category" width={120} />
+                      <Tooltip formatter={(value) => [`${value}%`, 'Progress']} />
+                      <Bar dataKey="progress" fill="#10B981" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Top Projects Table */}
             <Card className="glass border-0 shadow-tasksmate">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Target className="w-5 h-5" />
-                  Top Projects Performance
+                  Project Performance Summary
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -359,7 +391,7 @@ const Reports = () => {
                     <TableRow>
                       <TableHead>Project Name</TableHead>
                       <TableHead>Progress</TableHead>
-                      <TableHead>Budget</TableHead>
+                      <TableHead>Tasks</TableHead>
                       <TableHead>Team Size</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -379,20 +411,17 @@ const Reports = () => {
                             <span className="text-sm text-gray-600">{project.progress}%</span>
                           </div>
                         </TableCell>
-                        <TableCell>${project.budget.toLocaleString()}</TableCell>
+                        <TableCell>{project.tasks} total</TableCell>
                         <TableCell>{project.team} members</TableCell>
                         <TableCell>
                           <Badge 
                             className={
-                              project.progress === 100 ? "bg-green-100 text-green-800" :
-                              project.progress > 50 ? "bg-blue-100 text-blue-800" :
-                              project.progress > 0 ? "bg-yellow-100 text-yellow-800" :
+                              project.status === "Completed" ? "bg-green-100 text-green-800" :
+                              project.status === "Active" ? "bg-blue-100 text-blue-800" :
                               "bg-gray-100 text-gray-800"
                             }
                           >
-                            {project.progress === 100 ? "Completed" :
-                             project.progress > 50 ? "Active" :
-                             project.progress > 0 ? "In Progress" : "Planning"}
+                            {project.status}
                           </Badge>
                         </TableCell>
                       </TableRow>
