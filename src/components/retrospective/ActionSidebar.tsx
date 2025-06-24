@@ -12,7 +12,7 @@ interface RetroItem {
   authorAvatar?: string;
   votes: number;
   votedBy: string[];
-  lane: '`went-well`' | 'didnt-go-well' | 'ideas';
+  lane: 'went-well' | 'didnt-go-well' | 'ideas';
 }
 
 interface ActionSidebarProps {
