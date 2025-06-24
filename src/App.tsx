@@ -10,6 +10,11 @@ import TasksCatalog from "./pages/TasksCatalog";
 import TaskDetail from "./pages/TaskDetail";
 import Meetings from "./pages/Meetings";
 import MeetingNotebook from "./pages/MeetingNotebook";
+import StatusCallMeeting from "./pages/StatusCallMeeting";
+import RetrospectiveMeeting from "./pages/RetrospectiveMeeting";
+import KnowshareMeeting from "./pages/KnowshareMeeting";
+import ProductCallMeeting from "./pages/ProductCallMeeting";
+import AdHocMeeting from "./pages/AdHocMeeting";
 import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
 
@@ -28,6 +33,11 @@ const App = () => (
             <Route path="/tasks/:taskId" element={<TaskDetail />} />
             <Route path="/meetings" element={<Meetings />} />
             <Route path="/meetings/:id" element={<MeetingNotebook />} />
+            <Route path="/meetings/status-call/:id" element={<StatusCallMeeting />} />
+            <Route path="/meetings/retrospective/:id" element={<RetrospectiveMeeting />} />
+            <Route path="/meetings/knowshare/:id" element={<KnowshareMeeting />} />
+            <Route path="/meetings/product-call/:id" element={<ProductCallMeeting />} />
+            <Route path="/meetings/ad-hoc/:id" element={<AdHocMeeting />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

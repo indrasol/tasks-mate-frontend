@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -127,7 +126,15 @@ const Meetings = () => {
   };
 
   const handleMeetingClick = (meetingId: string) => {
-    navigate(`/meetings/${meetingId}`);
+    // Find the meeting to get its type
+    const meeting = meetings.find(m => m.id === meetingId);
+    if (meeting && meeting.meetingType) {
+      const meetingTypeRoute = meeting.meetingType.toLowerCase().replace(/\s+/g, '-');
+      navigate(`/meetings/${meetingTypeRoute}/${meetingId}`);
+    } else {
+      // Fallback to original route if no meeting type is found
+      navigate(`/meetings/${meetingId}`);
+    }
   };
 
   const getMeetingsForDate = (date: Date) => {
