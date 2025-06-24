@@ -15,7 +15,8 @@ import {
   X,
   Filter,
   User,
-  Briefcase
+  Briefcase,
+  ChevronDown
 } from "lucide-react";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Meeting {
   id: string;
@@ -48,6 +51,18 @@ interface StatusItem {
   assignedTo?: string;
 }
 
+interface ProjectGroup {
+  project: string;
+  users: {
+    user: string;
+    items: {
+      completed: StatusItem[];
+      inProgress: StatusItem[];
+      blocked: StatusItem[];
+    };
+  }[];
+}
+
 const StatusCallMeeting = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -66,18 +81,22 @@ const StatusCallMeeting = () => {
   const [completedItems, setCompletedItems] = useState<StatusItem[]>([
     { id: "1", text: "Database migration completed successfully", status: "completed", project: "Backend", assignedTo: "John" },
     { id: "2", text: "API endpoints updated with new authentication", status: "completed", project: "Backend", assignedTo: "Sarah" },
-    { id: "3", text: "User authentication flow redesigned and tested", status: "completed", project: "Frontend", assignedTo: "Mike" }
+    { id: "3", text: "User authentication flow redesigned and tested", status: "completed", project: "Frontend", assignedTo: "Mike" },
+    { id: "9", text: "Mobile app login screen completed", status: "completed", project: "Mobile", assignedTo: "Alex" },
+    { id: "10", text: "Integration testing completed", status: "completed", project: "Integration", assignedTo: "John" }
   ]);
 
   const [inProgressItems, setInProgressItems] = useState<StatusItem[]>([
     { id: "4", text: "Frontend dashboard redesign with new components", status: "in-progress", project: "Frontend", assignedTo: "Alex" },
     { id: "5", text: "Performance optimization for database queries", status: "in-progress", project: "Backend", assignedTo: "Sarah" },
-    { id: "6", text: "Mobile responsive design implementation", status: "in-progress", project: "Mobile", assignedTo: "John" }
+    { id: "6", text: "Mobile responsive design implementation", status: "in-progress", project: "Mobile", assignedTo: "John" },
+    { id: "11", text: "DevOps pipeline optimization", status: "in-progress", project: "DevOps", assignedTo: "Mike" }
   ]);
 
   const [blockedItems, setBlockedItems] = useState<StatusItem[]>([
     { id: "7", text: "Third-party API integration pending security approval", status: "blocked", project: "Integration", assignedTo: "Mike" },
-    { id: "8", text: "Server deployment blocked by infrastructure team review", status: "blocked", project: "DevOps", assignedTo: "Alex" }
+    { id: "8", text: "Server deployment blocked by infrastructure team review", status: "blocked", project: "DevOps", assignedTo: "Alex" },
+    { id: "12", text: "Frontend library update blocked by dependencies", status: "blocked", project: "Frontend", assignedTo: "Sarah" }
   ]);
 
   const [notes, setNotes] = useState<string>(
@@ -85,9 +104,8 @@ const StatusCallMeeting = () => {
   );
 
   // Filter states
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [selectedUser, setSelectedUser] = useState<string>("all");
 
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>("");
@@ -133,30 +151,90 @@ const StatusCallMeeting = () => {
     }
   };
 
-  const filterItems = (items: StatusItem[]) => {
-    return items.filter(item => {
-      const statusMatch = selectedStatuses.length === 0 || selectedStatuses.includes(item.status);
-      const projectMatch = selectedProjects.length === 0 || selectedProjects.includes(item.project || '');
-      const userMatch = selectedUsers.length === 0 || selectedUsers.includes(item.assignedTo || '');
-      return statusMatch && projectMatch && userMatch;
-    });
-  };
-
-  const toggleFilter = (value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
-    setter(prev => 
-      prev.includes(value) 
-        ? prev.filter(item => item !== value)
-        : [...prev, value]
+  const getConsolidatedData = (): ProjectGroup[] => {
+    const allItems = [...completedItems, ...inProgressItems, ...blockedItems];
+    
+    if (selectedProject === "all" && selectedUser === "all") {
+      // All Projects + All users - consolidated by Projects and users inside each project
+      return allProjects.map(project => ({
+        project,
+        users: allUsers.map(user => ({
+          user,
+          items: {
+            completed: completedItems.filter(item => item.project === project && item.assignedTo === user),
+            inProgress: inProgressItems.filter(item => item.project === project && item.assignedTo === user),
+            blocked: blockedItems.filter(item => item.project === project && item.assignedTo === user)
+          }
+        })).filter(userGroup => 
+          userGroup.items.completed.length > 0 || 
+          userGroup.items.inProgress.length > 0 || 
+          userGroup.items.blocked.length > 0
+        )
+      })).filter(projectGroup => projectGroup.users.length > 0);
+    }
+    
+    if (selectedProject === "all" && selectedUser !== "all") {
+      // All Projects + Specific user - consolidated by Projects and specific user inside each project
+      return allProjects.map(project => ({
+        project,
+        users: [{
+          user: selectedUser,
+          items: {
+            completed: completedItems.filter(item => item.project === project && item.assignedTo === selectedUser),
+            inProgress: inProgressItems.filter(item => item.project === project && item.assignedTo === selectedUser),
+            blocked: blockedItems.filter(item => item.project === project && item.assignedTo === selectedUser)
+          }
+        }]
+      })).filter(projectGroup => 
+        projectGroup.users[0].items.completed.length > 0 || 
+        projectGroup.users[0].items.inProgress.length > 0 || 
+        projectGroup.users[0].items.blocked.length > 0
+      );
+    }
+    
+    if (selectedProject !== "all" && selectedUser === "all") {
+      // Specific Project + All users - consolidated by users in project
+      return [{
+        project: selectedProject,
+        users: allUsers.map(user => ({
+          user,
+          items: {
+            completed: completedItems.filter(item => item.project === selectedProject && item.assignedTo === user),
+            inProgress: inProgressItems.filter(item => item.project === selectedProject && item.assignedTo === user),
+            blocked: blockedItems.filter(item => item.project === selectedProject && item.assignedTo === user)
+          }
+        })).filter(userGroup => 
+          userGroup.items.completed.length > 0 || 
+          userGroup.items.inProgress.length > 0 || 
+          userGroup.items.blocked.length > 0
+        )
+      }].filter(projectGroup => projectGroup.users.length > 0);
+    }
+    
+    // Specific Project + Specific user - show user with status cards
+    return [{
+      project: selectedProject,
+      users: [{
+        user: selectedUser,
+        items: {
+          completed: completedItems.filter(item => item.project === selectedProject && item.assignedTo === selectedUser),
+          inProgress: inProgressItems.filter(item => item.project === selectedProject && item.assignedTo === selectedUser),
+          blocked: blockedItems.filter(item => item.project === selectedProject && item.assignedTo === selectedUser)
+        }
+      }]
+    }].filter(projectGroup => 
+      projectGroup.users[0].items.completed.length > 0 || 
+      projectGroup.users[0].items.inProgress.length > 0 || 
+      projectGroup.users[0].items.blocked.length > 0
     );
   };
 
   const clearAllFilters = () => {
-    setSelectedStatuses([]);
-    setSelectedProjects([]);
-    setSelectedUsers([]);
+    setSelectedProject("all");
+    setSelectedUser("all");
   };
 
-  const hasActiveFilters = selectedStatuses.length > 0 || selectedProjects.length > 0 || selectedUsers.length > 0;
+  const hasActiveFilters = selectedProject !== "all" || selectedUser !== "all";
 
   const handleEditItem = (itemId: string, currentText: string) => {
     setEditingItem(itemId);
@@ -186,8 +264,8 @@ const StatusCallMeeting = () => {
       id: Date.now().toString(),
       text: newItemText,
       status,
-      project: "General",
-      assignedTo: "Unassigned"
+      project: selectedProject !== "all" ? selectedProject : "General",
+      assignedTo: selectedUser !== "all" ? selectedUser : "Unassigned"
     };
 
     if (status === 'completed') {
@@ -214,143 +292,173 @@ const StatusCallMeeting = () => {
     }
   };
 
-  const renderStatusSection = (
-    title: string,
-    items: StatusItem[],
-    status: 'completed' | 'in-progress' | 'blocked',
-    icon: React.ReactNode
-  ) => {
-    const filteredItems = filterItems(items);
-    
+  const renderStatusItems = (items: StatusItem[], status: 'completed' | 'in-progress' | 'blocked') => {
+    if (items.length === 0) return null;
+
+    return items.map((item, index) => (
+      <div
+        key={item.id}
+        className={`p-4 rounded-xl border-2 bg-white/60 backdrop-blur-sm transition-all duration-300 hover:bg-white/80 hover:scale-[1.02] hover:shadow-lg animate-fade-in`}
+        style={{ animationDelay: `${index * 100}ms` }}
+      >
+        {editingItem === item.id ? (
+          <div className="space-y-3">
+            <Input
+              value={editingText}
+              onChange={(e) => setEditingText(e.target.value)}
+              className="text-sm bg-white/80 backdrop-blur-sm border-white/40"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => handleSaveEdit(item.id, status)}
+                className="h-8 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
+              >
+                <Save className="w-3 h-3 mr-1" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingItem(null)}
+                className="h-8 bg-white/80 backdrop-blur-sm border-white/40"
+              >
+                <X className="w-3 h-3 mr-1" />
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-start justify-between">
+              <span className="text-sm flex-1 font-medium text-gray-800">{item.text}</span>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditItem(item.id, item.text)}
+                  className="h-8 w-8 p-0 hover:bg-white/60 rounded-full transition-all duration-200 hover:scale-110"
+                >
+                  <Edit2 className="w-3 h-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteItem(item.id, status)}
+                  className="h-8 w-8 p-0 hover:bg-red-100 text-red-500 hover:text-red-700 rounded-full transition-all duration-200 hover:scale-110"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    ));
+  };
+
+  const renderConsolidatedView = () => {
+    const consolidatedData = getConsolidatedData();
+
     return (
-      <Card className={`relative overflow-hidden bg-gradient-to-br ${getStatusGradient(status)} hover:shadow-xl transition-all duration-300 animate-fade-in border-2`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-        <CardHeader className="pb-3 relative">
-          <CardTitle className="flex items-center justify-between">
+      <div className="space-y-8">
+        {consolidatedData.map((projectGroup, projectIndex) => (
+          <div key={projectGroup.project} className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                {icon}
+              <div className="p-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500">
+                <Briefcase className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <span className="text-lg font-semibold">{title}</span>
-                <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
-                  {filteredItems.length}
-                </Badge>
-              </div>
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                {projectGroup.project}
+              </h3>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setAddingToSection(status)}
-              className="hover:bg-white/40 backdrop-blur-sm rounded-full transition-all duration-200 hover:scale-105"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 relative">
-          {filteredItems.map((item, index) => (
-            <div
-              key={item.id}
-              className={`p-4 rounded-xl border-2 bg-white/60 backdrop-blur-sm transition-all duration-300 hover:bg-white/80 hover:scale-[1.02] hover:shadow-lg animate-fade-in`}
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              {editingItem === item.id ? (
-                <div className="space-y-3">
-                  <Input
-                    value={editingText}
-                    onChange={(e) => setEditingText(e.target.value)}
-                    className="text-sm bg-white/80 backdrop-blur-sm border-white/40"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleSaveEdit(item.id, status)}
-                      className="h-8 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-                    >
-                      <Save className="w-3 h-3 mr-1" />
-                      Save
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingItem(null)}
-                      className="h-8 bg-white/80 backdrop-blur-sm border-white/40"
-                    >
-                      <X className="w-3 h-3 mr-1" />
-                      Cancel
-                    </Button>
+            
+            {projectGroup.users.map((userGroup, userIndex) => (
+              <div key={userGroup.user} className="space-y-4">
+                <div className="flex items-center gap-2 ml-8">
+                  <div className="p-1 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500">
+                    <User className="w-4 h-4 text-white" />
                   </div>
+                  <h4 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    {userGroup.user}
+                  </h4>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between">
-                    <span className="text-sm flex-1 font-medium text-gray-800">{item.text}</span>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditItem(item.id, item.text)}
-                        className="h-8 w-8 p-0 hover:bg-white/60 rounded-full transition-all duration-200 hover:scale-110"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteItem(item.id, status)}
-                        className="h-8 w-8 p-0 hover:bg-red-100 text-red-500 hover:text-red-700 rounded-full transition-all duration-200 hover:scale-110"
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge variant="outline" className="text-xs bg-white/60 backdrop-blur-sm border-white/40">
-                      📁 {item.project}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs bg-white/60 backdrop-blur-sm border-white/40">
-                      👤 {item.assignedTo}
-                    </Badge>
-                  </div>
+                
+                <div className="grid gap-6 lg:grid-cols-3 ml-12">
+                  {/* Completed */}
+                  {userGroup.items.completed.length > 0 && (
+                    <Card className={`relative overflow-hidden bg-gradient-to-br ${getStatusGradient('completed')} hover:shadow-xl transition-all duration-300 animate-fade-in border-2`}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+                      <CardHeader className="pb-3 relative">
+                        <CardTitle className="flex items-center gap-3">
+                          <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+                            <CheckCircle className="w-5 h-5 text-emerald-600" />
+                          </div>
+                          <div>
+                            <span className="text-lg font-semibold">Completed</span>
+                            <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
+                              {userGroup.items.completed.length}
+                            </Badge>
+                          </div>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3 relative">
+                        {renderStatusItems(userGroup.items.completed, 'completed')}
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {/* In Progress */}
+                  {userGroup.items.inProgress.length > 0 && (
+                    <Card className={`relative overflow-hidden bg-gradient-to-br ${getStatusGradient('in-progress')} hover:shadow-xl transition-all duration-300 animate-fade-in border-2`}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+                      <CardHeader className="pb-3 relative">
+                        <CardTitle className="flex items-center gap-3">
+                          <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+                            <Loader className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <span className="text-lg font-semibold">In Progress</span>
+                            <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
+                              {userGroup.items.inProgress.length}
+                            </Badge>
+                          </div>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3 relative">
+                        {renderStatusItems(userGroup.items.inProgress, 'in-progress')}
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {/* Blocked */}
+                  {userGroup.items.blocked.length > 0 && (
+                    <Card className={`relative overflow-hidden bg-gradient-to-br ${getStatusGradient('blocked')} hover:shadow-xl transition-all duration-300 animate-fade-in border-2`}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+                      <CardHeader className="pb-3 relative">
+                        <CardTitle className="flex items-center gap-3">
+                          <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+                            <XCircle className="w-5 h-5 text-red-600" />
+                          </div>
+                          <div>
+                            <span className="text-lg font-semibold">Blocked</span>
+                            <Badge variant="outline" className="ml-3 bg-white/60 backdrop-blur-sm border-white/40">
+                              {userGroup.items.blocked.length}
+                            </Badge>
+                          </div>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3 relative">
+                        {renderStatusItems(userGroup.items.blocked, 'blocked')}
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
-          
-          {addingToSection === status && (
-            <div className="space-y-3 p-4 border-2 border-dashed border-white/60 rounded-xl bg-white/40 backdrop-blur-sm animate-fade-in">
-              <Input
-                placeholder="Enter new item..."
-                value={newItemText}
-                onChange={(e) => setNewItemText(e.target.value)}
-                className="text-sm bg-white/80 backdrop-blur-sm border-white/40"
-              />
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => handleAddItem(status)}
-                  className="h-8 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white border-0"
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Add
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setAddingToSection(null);
-                    setNewItemText("");
-                  }}
-                  className="h-8 bg-white/80 backdrop-blur-sm border-white/40"
-                >
-                  Cancel
-                </Button>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            ))}
+          </div>
+        ))}
+      </div>
     );
   };
 
@@ -408,7 +516,7 @@ const StatusCallMeeting = () => {
                 )}
               </div>
               
-              {/* Attendees Section - Moved to Right */}
+              {/* Attendees Section - Right Side */}
               {meeting.attendees && meeting.attendees.length > 0 && (
                 <div className="ml-8 bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-white/40">
                   <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -430,112 +538,49 @@ const StatusCallMeeting = () => {
             </div>
           </div>
 
-          {/* Filters */}
+          {/* Enhanced Filters */}
           <div className="bg-white/80 backdrop-blur-md rounded-xl border border-white/20 p-4 shadow-lg">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                {/* Status Filter */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="bg-white/60 backdrop-blur-sm border-white/40 hover:bg-white/80 transition-all duration-200">
-                      <Filter className="h-4 w-4 mr-2" />
-                      Status
-                      {selectedStatuses.length > 0 && (
-                        <Badge className="ml-2 h-5 w-5 p-0 text-xs bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-0">
-                          {selectedStatuses.length}
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-3 bg-white/90 backdrop-blur-md border border-white/40 shadow-xl">
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-sm">Filter by Status</h4>
-                      <div className="space-y-2">
-                        {[
-                          { value: "completed", label: "Completed", color: "text-emerald-600" },
-                          { value: "in-progress", label: "In Progress", color: "text-blue-600" },
-                          { value: "blocked", label: "Blocked", color: "text-red-600" },
-                        ].map((status) => (
-                          <label key={status.value} className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedStatuses.includes(status.value)}
-                              onChange={() => toggleFilter(status.value, setSelectedStatuses)}
-                              className="rounded border-gray-300"
-                            />
-                            <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
+              <div className="flex items-center space-x-4">
                 {/* Project Filter */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="bg-white/60 backdrop-blur-sm border-white/40 hover:bg-white/80 transition-all duration-200">
-                      <Briefcase className="h-4 w-4 mr-2" />
-                      Projects
-                      {selectedProjects.length > 0 && (
-                        <Badge className="ml-2 h-5 w-5 p-0 text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
-                          {selectedProjects.length}
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-3 bg-white/90 backdrop-blur-md border border-white/40 shadow-xl">
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-sm">Filter by Project</h4>
-                      <div className="space-y-2">
-                        {allProjects.map((project) => (
-                          <label key={project} className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedProjects.includes(project)}
-                              onChange={() => toggleFilter(project, setSelectedProjects)}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm">{project}</span>
-                          </label>
-                        ))}
+                <div className="relative">
+                  <Select value={selectedProject} onValueChange={setSelectedProject}>
+                    <SelectTrigger className="w-48 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200 hover:from-purple-100 hover:to-pink-100 transition-all duration-200 backdrop-blur-sm">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-purple-600" />
+                        <SelectValue placeholder="Select Project" />
                       </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                    </SelectTrigger>
+                    <SelectContent className="bg-white/95 backdrop-blur-md border border-purple-200 shadow-xl">
+                      <SelectItem value="all" className="hover:bg-purple-50">All Projects</SelectItem>
+                      {allProjects.map((project) => (
+                        <SelectItem key={project} value={project} className="hover:bg-purple-50">
+                          {project}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* User Filter */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="bg-white/60 backdrop-blur-sm border-white/40 hover:bg-white/80 transition-all duration-200">
-                      <User className="h-4 w-4 mr-2" />
-                      Users
-                      {selectedUsers.length > 0 && (
-                        <Badge className="ml-2 h-5 w-5 p-0 text-xs bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">
-                          {selectedUsers.length}
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-3 bg-white/90 backdrop-blur-md border border-white/40 shadow-xl">
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-sm">Filter by User</h4>
-                      <div className="space-y-2">
-                        {allUsers.map((user) => (
-                          <label key={user} className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedUsers.includes(user)}
-                              onChange={() => toggleFilter(user, setSelectedUsers)}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm">{user}</span>
-                          </label>
-                        ))}
+                <div className="relative">
+                  <Select value={selectedUser} onValueChange={setSelectedUser}>
+                    <SelectTrigger className="w-48 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:from-blue-100 hover:to-indigo-100 transition-all duration-200 backdrop-blur-sm">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-blue-600" />
+                        <SelectValue placeholder="Select User" />
                       </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                    </SelectTrigger>
+                    <SelectContent className="bg-white/95 backdrop-blur-md border border-blue-200 shadow-xl">
+                      <SelectItem value="all" className="hover:bg-blue-50">All Users</SelectItem>
+                      {allUsers.map((user) => (
+                        <SelectItem key={user} value={user} className="hover:bg-blue-50">
+                          {user}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Clear Filters */}
@@ -553,52 +598,29 @@ const StatusCallMeeting = () => {
             </div>
           </div>
 
-          {/* Status Sections */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {renderStatusSection(
-              "Completed",
-              completedItems,
-              "completed",
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
-            )}
-            
-            {renderStatusSection(
-              "In Progress",
-              inProgressItems,
-              "in-progress",
-              <Loader className="w-5 h-5 text-blue-600" />
-            )}
-          </div>
+          {/* Consolidated View */}
+          {renderConsolidatedView()}
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            {renderStatusSection(
-              "Blocked",
-              blockedItems,
-              "blocked",
-              <XCircle className="w-5 h-5 text-red-600" />
-            )}
-
-            {/* Notes Section */}
-            <Card className="relative overflow-hidden bg-gradient-to-br from-purple-50 to-pink-100 border-purple-200 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-              <CardHeader className="relative">
-                <CardTitle className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                    <FileText className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <span className="text-lg font-semibold">Meeting Notes</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="relative">
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add meeting notes..."
-                  className="min-h-[140px] resize-none bg-white/60 backdrop-blur-sm border-white/40 transition-all duration-200 focus:bg-white/80"
-                />
-              </CardContent>
-            </Card>
-          </div>
+          {/* Notes Section */}
+          <Card className="relative overflow-hidden bg-gradient-to-br from-purple-50 to-pink-100 border-purple-200 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+            <CardHeader className="relative">
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+                  <FileText className="w-5 h-5 text-purple-600" />
+                </div>
+                <span className="text-lg font-semibold">Meeting Notes</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="relative">
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add meeting notes..."
+                className="min-h-[140px] resize-none bg-white/60 backdrop-blur-sm border-white/40 transition-all duration-200 focus:bg-white/80"
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
