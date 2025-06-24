@@ -33,7 +33,7 @@ const Projects = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Navigation */}
-      <MainNavigation />
+      <MainNavigation onScratchpadOpen={() => setIsScratchpadOpen(true)} />
 
       {/* Main Content - adjusted for left sidebar */}
       <div className="ml-64 transition-all duration-300">
