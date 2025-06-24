@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Plus, X } from 'lucide-react';
 import {
   Dialog,
@@ -24,9 +24,10 @@ interface NewMeetingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreateMeeting: (meetingData: any) => void;
+  defaultDate?: string;
 }
 
-const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting }: NewMeetingModalProps) => {
+const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: NewMeetingModalProps) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     title: '',
@@ -39,6 +40,13 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting }: NewMeetingModa
   });
 
   const products = ['TasksMate', 'Core Platform', 'Analytics Suite'];
+
+  // Set default date when modal opens
+  useEffect(() => {
+    if (open && defaultDate) {
+      setFormData(prev => ({ ...prev, date: defaultDate }));
+    }
+  }, [open, defaultDate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

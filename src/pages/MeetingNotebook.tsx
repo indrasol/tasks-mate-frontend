@@ -3,17 +3,15 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, 
-  CheckSquare,
-  Clock,
-  AlertTriangle,
-  FileText,
-  GripVertical
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon
 } from "lucide-react";
 import MainNavigation from "@/components/navigation/MainNavigation";
+import NewMeetingModal from "@/components/meetings/NewMeetingModal";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -21,433 +19,274 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import StatusViewToggle from "@/components/meetings/StatusViewToggle";
 
-interface MeetingItem {
+interface Meeting {
   id: string;
-  content: string;
-  section: 'completed' | 'in-progress' | 'blocked' | 'notes';
-  order: number;
-  isTask?: boolean;
-  userId?: string;
-  date?: string;
-  projectId?: string;
-}
-
-interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-}
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  teamLead: string;
-  members: TeamMember[];
+  title: string;
+  date: string;
+  time?: string;
+  product: string;
+  description?: string;
 }
 
 const MeetingNotebook = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  // Status tab state
-  const [selectedUser, setSelectedUser] = useState<string>('all');
-  const [selectedProject, setSelectedProject] = useState<string>('all');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [meetingItems, setMeetingItems] = useState<MeetingItem[]>([
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
+  const [isNewMeetingModalOpen, setIsNewMeetingModalOpen] = useState(false);
+  const [newMeetingDate, setNewMeetingDate] = useState<string>('');
+  
+  // Sample meetings data
+  const [meetings, setMeetings] = useState<Meeting[]>([
     {
       id: "1",
-      content: "Review Q3 roadmap priorities",
-      section: "completed",
-      order: 0,
-      userId: "john",
-      date: new Date().toISOString().split('T')[0],
-      projectId: "1"
-    },
-    {
-      id: "2", 
-      content: "[ ] Update user feedback integration timeline",
-      section: "in-progress",
-      order: 0,
-      isTask: true,
-      userId: "jane",
-      date: new Date().toISOString().split('T')[0],
-      projectId: "1"
-    },
-    {
-      id: "3",
-      content: "Database optimization completed",
-      section: "completed",
-      order: 1,
-      userId: "mike",
-      date: new Date().toISOString().split('T')[0],
-      projectId: "2"
-    },
-    {
-      id: "4",
-      content: "[ ] API endpoint testing",
-      section: "in-progress",
-      order: 1,
-      isTask: true,
-      userId: "sarah",
-      date: new Date().toISOString().split('T')[0],
-      projectId: "2"
-    },
-    {
-      id: "5",
-      content: "Server deployment issue - need DevOps support",
-      section: "blocked",
-      order: 0,
-      userId: "john",
-      date: new Date().toISOString().split('T')[0],
-      projectId: "1"
-    },
-    {
-      id: "6",
-      content: "Meeting notes: Discussed new feature requirements",
-      section: "notes",
-      order: 0,
-      userId: "jane",
-      date: new Date().toISOString().split('T')[0],
-      projectId: "1"
-    }
-  ]);
-
-  // Projects state with expanded dummy data
-  const [projects] = useState<Project[]>([
-    {
-      id: "1",
-      name: "TasksMate",
-      description: "Main task management platform",
-      teamLead: "John Doe",
-      members: [
-        { id: "john", name: "John Doe", role: "Team Lead" },
-        { id: "jane", name: "Jane Smith", role: "Developer" },
-        { id: "alex", name: "Alex Johnson", role: "Designer" }
-      ]
+      title: "Product Strategy Review",
+      date: "2024-06-25",
+      time: "10:00",
+      product: "TasksMate",
+      description: "Quarterly review meeting"
     },
     {
       id: "2",
-      name: "Mobile App",
-      description: "Cross-platform mobile application",
-      teamLead: "Mike Wilson",
-      members: [
-        { id: "mike", name: "Mike Wilson", role: "Team Lead" },
-        { id: "sarah", name: "Sarah Davis", role: "Developer" },
-        { id: "tom", name: "Tom Brown", role: "QA Engineer" }
-      ]
+      title: "Sprint Planning",
+      date: "2024-06-26",
+      time: "14:00",
+      product: "Core Platform"
     },
     {
       id: "3",
-      name: "Analytics Dashboard",
-      description: "Real-time analytics and reporting dashboard",
-      teamLead: "Emily Chen",
-      members: [
-        { id: "emily", name: "Emily Chen", role: "Team Lead" },
-        { id: "david", name: "David Lee", role: "Data Scientist" },
-        { id: "lisa", name: "Lisa Wang", role: "Frontend Developer" }
-      ]
+      title: "Client Feedback Session",
+      date: "2024-06-27",
+      time: "09:00",
+      product: "Analytics Suite"
     }
   ]);
 
-  const [newItemInputs, setNewItemInputs] = useState({
-    completed: '',
-    'in-progress': '',
-    blocked: '',
-    notes: ''
-  });
-
-  // Get users based on selected project
-  const getProjectUsers = () => {
-    const baseUsers = [{ id: 'all', name: 'All Users' }];
-    
-    if (selectedProject === 'all') {
-      // Return all unique users from all projects
-      const allUsers = projects.flatMap(project => {
-        const teamLeadUser = { id: project.teamLead.toLowerCase().replace(' ', ''), name: project.teamLead };
-        return [teamLeadUser, ...project.members];
-      });
-      const uniqueUsers = allUsers.filter((user, index, self) => 
-        index === self.findIndex(u => u.id === user.id)
-      );
-      return [...baseUsers, ...uniqueUsers];
-    } else {
-      const project = projects.find(p => p.id === selectedProject);
-      if (project) {
-        const teamLeadUser = { id: project.teamLead.toLowerCase().replace(' ', ''), name: project.teamLead };
-        return [
-          ...baseUsers,
-          teamLeadUser,
-          ...project.members
-        ];
-      }
-    }
-    
-    return baseUsers;
-  };
-
-  const [statusView, setStatusView] = useState<'grid' | 'list'>('grid');
-
-  const sections = [
-    {
-      key: 'completed' as const,
-      title: 'Completed',
-      icon: CheckSquare,
-      color: 'bg-green-50 border-green-200',
-      headerColor: 'bg-green-100 text-green-800'
-    },
-    {
-      key: 'in-progress' as const,
-      title: 'In Progress', 
-      icon: Clock,
-      color: 'bg-amber-50 border-amber-200',
-      headerColor: 'bg-amber-100 text-amber-800'
-    },
-    {
-      key: 'blocked' as const,
-      title: 'Blocked',
-      icon: AlertTriangle,
-      color: 'bg-red-50 border-red-200', 
-      headerColor: 'bg-red-100 text-red-800'
-    },
-    {
-      key: 'notes' as const,
-      title: 'Notes',
-      icon: FileText,
-      color: 'bg-gray-50 border-gray-200',
-      headerColor: 'bg-gray-100 text-gray-800'
-    }
-  ];
-
-  const handleAddItem = (section: MeetingItem['section'], projectId?: string, userId?: string) => {
-    const content = newItemInputs[section].trim();
-    if (!content) return;
-
-    const newItem: MeetingItem = {
-      id: Date.now().toString(),
-      content,
-      section,
-      order: meetingItems.filter(item => item.section === section).length,
-      isTask: content.startsWith('[ ]'),
-      userId: userId || (selectedUser === 'all' ? 'john' : selectedUser),
-      date: selectedDate,
-      projectId: projectId || (selectedProject === 'all' ? undefined : selectedProject)
+  const handleCreateMeeting = (meetingData: any) => {
+    const newMeeting: Meeting = {
+      id: meetingData.id,
+      title: meetingData.title,
+      date: meetingData.date,
+      time: meetingData.time,
+      product: meetingData.product,
+      description: meetingData.description
     };
-
-    setMeetingItems(prev => [...prev, newItem]);
-    setNewItemInputs(prev => ({ ...prev, [section]: '' }));
+    
+    setMeetings(prev => [newMeeting, ...prev]);
+    console.log("Created new meeting:", newMeeting);
   };
 
-  const getFilteredItems = (section: MeetingItem['section'], projectId?: string, userId?: string) => {
-    return meetingItems.filter(item => {
-      const userMatch = userId ? item.userId === userId : (selectedUser === 'all' || item.userId === selectedUser);
-      const dateMatch = item.date === selectedDate;
-      const sectionMatch = item.section === section;
-      const projectMatch = projectId ? item.projectId === projectId : (selectedProject === 'all' || item.projectId === selectedProject);
-      return userMatch && dateMatch && sectionMatch && projectMatch;
+  const handleDateClick = (date: Date) => {
+    const dateString = date.toISOString().split('T')[0];
+    setNewMeetingDate(dateString);
+    setIsNewMeetingModalOpen(true);
+  };
+
+  const getMeetingsForDate = (date: Date) => {
+    const dateString = date.toISOString().split('T')[0];
+    return meetings.filter(meeting => meeting.date === dateString);
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long',
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
     });
   };
 
-  const renderStatusCards = (projectId?: string, userId?: string, showAddItems = true) => {
-    return statusView === 'grid' ? (
-      <div className="grid grid-cols-2 gap-4 h-[calc(100vh-400px)]">
-        {sections.map((section) => {
-          const items = getFilteredItems(section.key, projectId, userId);
-          const SectionIcon = section.icon;
-          
-          return (
-            <Card key={section.key} className={`${section.color} flex flex-col border-2 transition-all duration-200 hover:shadow-lg`}>
-              <CardHeader className={`${section.headerColor} py-3 rounded-t-lg`}>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <SectionIcon className="w-4 h-4" />
-                  {section.title}
-                  <Badge variant="secondary" className="ml-auto text-xs bg-white/80">
-                    {items.length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              
-              <CardContent className="flex-1 p-4 space-y-3 overflow-y-auto">
-                {items.map((item) => (
-                  <div key={item.id} className="group relative">
-                    <div className="bg-white p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-sm">
-                      <div className="flex items-start gap-2">
-                        <GripVertical className="w-4 h-4 text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900 break-words">
-                            {item.content}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                            <span>{getProjectUsers().find(u => u.id === item.userId)?.name}</span>
-                            <span>•</span>
-                            <span>{projects.find(p => p.id === item.projectId)?.name || 'Unassigned'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Add New Item */}
-                {showAddItems && (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-green-400 transition-colors">
-                    <Input
-                      placeholder="+ Add item"
-                      value={newItemInputs[section.key]}
-                      onChange={(e) => setNewItemInputs(prev => ({
-                        ...prev,
-                        [section.key]: e.target.value
-                      }))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAddItem(section.key, projectId, userId);
-                        }
-                      }}
-                      className="border-none p-0 bg-transparent focus-visible:ring-0"
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    ) : (
-      <div className="space-y-4">
-        {sections.map((section) => {
-          const items = getFilteredItems(section.key, projectId, userId);
-          const SectionIcon = section.icon;
-          
-          return (
-            <Card key={section.key} className="border border-gray-200">
-              <CardHeader className="py-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <SectionIcon className="w-4 h-4" />
-                  {section.title}
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    {items.length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-2">
-                  {items.map((item) => (
-                    <div key={item.id} className="bg-gray-50 p-3 rounded border hover:bg-gray-100 transition-colors">
-                      <p className="text-sm text-gray-900">{item.content}</p>
-                      <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                        <span>{getProjectUsers().find(u => u.id === item.userId)?.name}</span>
-                        <span>•</span>
-                        <span>{projects.find(p => p.id === item.projectId)?.name || 'Unassigned'}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {showAddItems && (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-green-400 transition-colors">
-                      <Input
-                        placeholder="+ Add item"
-                        value={newItemInputs[section.key]}
-                        onChange={(e) => setNewItemInputs(prev => ({
-                          ...prev,
-                          [section.key]: e.target.value
-                        }))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleAddItem(section.key, projectId, userId);
-                          }
-                        }}
-                        className="border-none p-0 bg-transparent focus-visible:ring-0"
-                      />
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    );
+  const navigateDate = (direction: 'prev' | 'next') => {
+    const newDate = new Date(selectedDate);
+    
+    if (calendarView === 'month') {
+      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+    } else if (calendarView === 'week') {
+      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
+    } else {
+      newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
+    }
+    
+    setSelectedDate(newDate);
   };
 
-  const renderConsolidatedView = () => {
-    if (selectedProject === 'all' && selectedUser !== 'all') {
-      // All Projects + Specific User: Group by project
-      const projectsWithItems = projects.filter(project => {
-        const hasItems = meetingItems.some(item => 
-          item.projectId === project.id && 
-          item.userId === selectedUser && 
-          item.date === selectedDate
-        );
-        return hasItems;
-      });
+  const renderCalendarView = () => {
+    if (calendarView === 'month') {
+      const today = new Date();
+      const currentMonth = selectedDate.getMonth();
+      const currentYear = selectedDate.getFullYear();
+      const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+      const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+      const startDate = new Date(firstDayOfMonth);
+      startDate.setDate(startDate.getDate() - firstDayOfMonth.getDay());
+      
+      const days = [];
+      const currentDate = new Date(startDate);
+      
+      for (let i = 0; i < 42; i++) {
+        days.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
 
       return (
-        <div className="space-y-8">
-          {projectsWithItems.map((project) => (
-            <div key={project.id} className="space-y-4">
-              <div className="flex items-center gap-3 border-b border-gray-200 pb-3">
-                <h3 className="text-xl font-semibold text-gray-900">{project.name}</h3>
-                <Badge variant="outline" className="text-sm">
-                  {getProjectUsers().find(u => u.id === selectedUser)?.name}
-                </Badge>
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-lg overflow-hidden">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="bg-gray-50 px-3 py-2 text-center text-sm font-medium text-gray-700">
+                {day}
               </div>
-              {renderStatusCards(project.id, selectedUser, true)}
-            </div>
-          ))}
-        </div>
-      );
-    } else if (selectedProject === 'all' && selectedUser === 'all') {
-      // All Projects + All Users: Group by project, then by user
-      const projectsWithItems = projects.filter(project => {
-        const hasItems = meetingItems.some(item => 
-          item.projectId === project.id && 
-          item.date === selectedDate
-        );
-        return hasItems;
-      });
-
-      return (
-        <div className="space-y-8">
-          {projectsWithItems.map((project) => {
-            const teamLeadUser = { id: project.teamLead.toLowerCase().replace(' ', ''), name: project.teamLead, role: 'Team Lead' };
-            const usersWithItems = [
-              teamLeadUser,
-              ...project.members
-            ].filter(user => {
-              const hasItems = meetingItems.some(item => 
-                item.projectId === project.id && 
-                item.userId === user.id && 
-                item.date === selectedDate
-              );
-              return hasItems;
-            });
-
-            return (
-              <div key={project.id} className="space-y-6">
-                <h3 className="text-xl font-semibold text-gray-900 border-b border-gray-200 pb-3">
-                  {project.name}
-                </h3>
-                <div className="space-y-6">
-                  {usersWithItems.map((user) => (
-                    <div key={user.id} className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <h4 className="text-lg font-medium text-gray-800">{user.name}</h4>
-                        <Badge variant="outline" className="text-sm">{user.role}</Badge>
+            ))}
+            {days.map((day, index) => {
+              const isCurrentMonth = day.getMonth() === currentMonth;
+              const isToday = day.toDateString() === today.toDateString();
+              const dayMeetings = getMeetingsForDate(day);
+              
+              return (
+                <div
+                  key={index}
+                  className={`bg-white min-h-[120px] p-2 relative group hover:bg-gray-50 transition-colors ${
+                    !isCurrentMonth ? 'text-gray-400' : ''
+                  } ${isToday ? 'bg-blue-50' : ''}`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-sm font-medium ${isToday ? 'text-blue-600' : ''}`}>
+                      {day.getDate()}
+                    </span>
+                    <button
+                      onClick={() => handleDateClick(day)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-green-500 hover:text-white rounded-full"
+                      title="Add meeting"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {dayMeetings.slice(0, 3).map((meeting) => (
+                      <div
+                        key={meeting.id}
+                        className="text-xs p-1 bg-green-100 text-green-800 rounded cursor-pointer hover:bg-green-200 transition-colors truncate"
+                        title={meeting.title}
+                      >
+                        {meeting.time && `${meeting.time} `}{meeting.title}
                       </div>
-                      {renderStatusCards(project.id, user.id, true)}
-                    </div>
-                  ))}
+                    ))}
+                    {dayMeetings.length > 3 && (
+                      <div className="text-xs text-gray-500">
+                        +{dayMeetings.length - 3} more
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       );
     }
 
-    // Specific project + specific user: Regular view
-    return renderStatusCards();
+    if (calendarView === 'week') {
+      const startOfWeek = new Date(selectedDate);
+      startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
+      
+      const weekDays = [];
+      for (let i = 0; i < 7; i++) {
+        const day = new Date(startOfWeek);
+        day.setDate(startOfWeek.getDate() + i);
+        weekDays.push(day);
+      }
+
+      return (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="grid grid-cols-7 gap-4">
+            {weekDays.map((day, index) => {
+              const isToday = day.toDateString() === new Date().toDateString();
+              const dayMeetings = getMeetingsForDate(day);
+              
+              return (
+                <div key={index} className="space-y-2">
+                  <div className={`text-center p-3 rounded-lg ${isToday ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}>
+                    <div className="text-sm font-medium">
+                      {day.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </div>
+                    <div className={`text-2xl font-bold ${isToday ? 'text-blue-600' : ''}`}>
+                      {day.getDate()}
+                    </div>
+                  </div>
+                  <div className="space-y-2 min-h-[300px] relative group">
+                    <button
+                      onClick={() => handleDateClick(day)}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-green-500 hover:text-white rounded-full z-10"
+                      title="Add meeting"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    {dayMeetings.map((meeting) => (
+                      <div
+                        key={meeting.id}
+                        className="p-2 bg-green-100 text-green-800 rounded text-sm cursor-pointer hover:bg-green-200 transition-colors"
+                      >
+                        <div className="font-medium">{meeting.time}</div>
+                        <div className="truncate">{meeting.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // Day view
+    const dayMeetings = getMeetingsForDate(selectedDate);
+    
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-semibold text-gray-900">
+            {formatDate(selectedDate)}
+          </h3>
+          <Button
+            onClick={() => handleDateClick(selectedDate)}
+            className="bg-green-500 hover:bg-green-600"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Meeting
+          </Button>
+        </div>
+        
+        <div className="space-y-3">
+          {dayMeetings.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <CalendarIcon className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>No meetings scheduled for this day</p>
+            </div>
+          ) : (
+            dayMeetings.map((meeting) => (
+              <div
+                key={meeting.id}
+                className="p-4 border border-gray-200 rounded-lg hover:border-green-500 hover:shadow-sm transition-all cursor-pointer"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">{meeting.title}</h4>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {meeting.time} • {meeting.product}
+                    </p>
+                    {meeting.description && (
+                      <p className="text-sm text-gray-600 mt-2">{meeting.description}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -478,61 +317,67 @@ const MeetingNotebook = () => {
       {/* Main Content */}
       <div className="container mx-auto px-6 py-6">
         <div className="space-y-6">
-          {/* Status Controls */}
-          <div className="flex gap-4 items-center bg-white p-4 rounded-lg border border-gray-200 flex-wrap">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Date:</label>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-40"
-              />
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Project:</label>
-              <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger className="w-48 bg-white border-gray-300 focus:border-green-500 focus:ring-green-500/20">
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border border-gray-200 shadow-lg">
-                  <SelectItem value="all">All Projects</SelectItem>
-                  {projects.map(project => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Calendar Controls */}
+          <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigateDate('prev')}
+                className="hover:bg-gray-100"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              
+              <div className="text-lg font-semibold text-gray-900 min-w-[200px] text-center">
+                {calendarView === 'month' && selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                {calendarView === 'week' && `Week of ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                {calendarView === 'day' && formatDate(selectedDate)}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigateDate('next')}
+                className="hover:bg-gray-100"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">User:</label>
-              <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger className="w-40 bg-white border-gray-300 focus:border-green-500 focus:ring-green-500/20">
+            <div className="flex items-center gap-4">
+              <Select value={calendarView} onValueChange={(value: 'month' | 'week' | 'day') => setCalendarView(value)}>
+                <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white border border-gray-200 shadow-lg">
-                  {getProjectUsers().map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
-                    </SelectItem>
-                  ))}
+                <SelectContent>
+                  <SelectItem value="month">Month</SelectItem>
+                  <SelectItem value="week">Week</SelectItem>
+                  <SelectItem value="day">Day</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
 
-            <div className="flex items-center gap-2 ml-auto">
-              <label className="text-sm font-medium">View:</label>
-              <StatusViewToggle view={statusView} onViewChange={setStatusView} />
+              <Button
+                onClick={() => setSelectedDate(new Date())}
+                variant="outline"
+                className="hover:bg-gray-100"
+              >
+                Today
+              </Button>
             </div>
           </div>
 
-          {/* Status Content */}
-          {renderConsolidatedView()}
+          {/* Calendar Content */}
+          {renderCalendarView()}
         </div>
       </div>
+
+      <NewMeetingModal
+        open={isNewMeetingModalOpen}
+        onOpenChange={setIsNewMeetingModalOpen}
+        onCreateMeeting={handleCreateMeeting}
+        defaultDate={newMeetingDate}
+      />
     </div>
   );
 };
