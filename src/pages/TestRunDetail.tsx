@@ -87,21 +87,6 @@ const TestRunDetail = () => {
             </div>
           </div>
 
-          {/* Summary Matrix */}
-          <div className="grid grid-cols-5 gap-1 mb-6 bg-gray-50 rounded-lg p-4">
-            <div className="font-semibold text-sm text-gray-700 p-2">Status</div>
-            <div className="font-semibold text-sm text-gray-700 p-2 text-center">High</div>
-            <div className="font-semibold text-sm text-gray-700 p-2 text-center">Medium</div>
-            <div className="font-semibold text-sm text-gray-700 p-2 text-center">Low</div>
-            <div className="font-semibold text-sm text-gray-700 p-2 text-center">Total</div>
-            
-            <div className="p-2 text-sm">Bugs</div>
-            <div className="p-2 text-sm text-center bg-red-50 text-red-700 font-medium">{testRun.summary.high}</div>
-            <div className="p-2 text-sm text-center bg-orange-50 text-orange-700 font-medium">{testRun.summary.medium}</div>
-            <div className="p-2 text-sm text-center bg-blue-50 text-blue-700 font-medium">{testRun.summary.low}</div>
-            <div className="p-2 text-sm text-center bg-gray-100 font-medium">{testRun.summary.total}</div>
-          </div>
-
           {/* Meta row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
