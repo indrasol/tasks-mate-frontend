@@ -16,6 +16,7 @@ import KnowshareMeeting from "./pages/KnowshareMeeting";
 import ProductCallMeeting from "./pages/ProductCallMeeting";
 import AdHocMeeting from "./pages/AdHocMeeting";
 import Projects from "./pages/Projects";
+import Reports from "./pages/Reports";
 import Scratchpad from "./pages/Scratchpad";
 import NotFound from "./pages/NotFound";
 
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/meetings/product-call/:id" element={<ProductCallMeeting />} />
             <Route path="/meetings/ad-hoc/:id" element={<AdHocMeeting />} />
             <Route path="/projects" element={<Projects />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/scratchpad" element={<Scratchpad />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
