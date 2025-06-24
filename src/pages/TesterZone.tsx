@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Filter, FileText, Bug, Eye } from 'lucide-react';
+import { Plus, Filter, FileText, Bug, Eye, Beaker } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
