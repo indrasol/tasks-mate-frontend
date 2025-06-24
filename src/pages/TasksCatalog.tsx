@@ -12,6 +12,7 @@ import TaskFilters from "@/components/tasks/TaskFilters";
 import ViewToggle from "@/components/tasks/ViewToggle";
 import TaskListView from "@/components/tasks/TaskListView";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
+import MainNavigation from "@/components/navigation/MainNavigation";
 
 interface Task {
   id: string;
@@ -186,6 +187,11 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     setIsNewTaskModalOpen(true);
   };
 
+  const handleNewMeeting = () => {
+    // Placeholder for future meeting creation
+    console.log("New meeting clicked");
+  };
+
   const handleTaskCreated = (newTask: Task) => {
     setTasks(prev => [newTask, ...prev]);
   };
@@ -228,40 +234,22 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Top Navigation */}
-      <nav className="px-6 py-4 bg-white/80 backdrop-blur-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center">
-                <Check className="h-5 w-5 text-white" />
-              </div>
-              <span className="font-sora font-bold text-xl">TasksMate</span>
-            </Link>
-            <div className="h-6 w-px bg-gray-300" />
-            <h1 className="font-sora font-semibold text-lg text-gray-700">Tasks Catalog</h1>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <Button 
-              className="bg-tasksmate-gradient hover:scale-105 transition-transform"
-              onClick={handleNewTask}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Task
-            </Button>
-            <Avatar className="cursor-pointer">
-              <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
+      {/* New Navigation */}
+      <MainNavigation 
+        onNewTask={handleNewTask}
+        onNewMeeting={handleNewMeeting}
+      />
+
+      {/* Page Header */}
+      <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Tasks Catalog</h1>
+          <p className="text-gray-600">Manage and track all your tasks in one place</p>
         </div>
-      </nav>
+      </div>
 
       {/* Secondary Controls */}
-      <div className="px-6 py-4 bg-white/50 border-b border-gray-200">
+      <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <ViewToggle view={view} onViewChange={setView} />
@@ -281,7 +269,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input 
               placeholder="Search by keyword or ID (e.g. T1234)" 
-              className="pl-10 bg-white/80"
+              className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
