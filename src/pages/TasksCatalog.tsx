@@ -13,6 +13,8 @@ import ViewToggle from "@/components/tasks/ViewToggle";
 import TaskListView from "@/components/tasks/TaskListView";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 import MainNavigation from "@/components/navigation/MainNavigation";
+import ScratchpadButton from "@/components/scratchpad/ScratchpadButton";
+import ScratchpadDrawer from "@/components/scratchpad/ScratchpadDrawer";
 
 interface Task {
   id: string;
