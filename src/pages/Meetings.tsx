@@ -213,10 +213,10 @@ const Meetings = () => {
                     </span>
                     <button
                       onClick={() => handleDateClick(day)}
-                      className="p-1 bg-green-500 text-white rounded-full hover:bg-green-600 transition-all"
+                      className="p-0.5 bg-gray-300 hover:bg-gray-400 text-gray-600 hover:text-gray-800 rounded-full transition-all opacity-60 hover:opacity-100"
                       title="Add meeting"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-3 h-3" />
                     </button>
                   </div>
                   <div className="space-y-1">
@@ -287,10 +287,10 @@ const Meetings = () => {
                   <div className="space-y-2 min-h-[300px] relative">
                     <button
                       onClick={() => handleDateClick(day)}
-                      className="absolute top-2 right-2 p-1 bg-green-500 text-white rounded-full hover:bg-green-600 z-10 transition-all"
+                      className="absolute top-2 right-2 p-0.5 bg-gray-300 hover:bg-gray-400 text-gray-600 hover:text-gray-800 rounded-full transition-all opacity-60 hover:opacity-100"
                       title="Add meeting"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-3 h-3" />
                     </button>
                     {dayMeetings.map((meeting) => (
                       <div
