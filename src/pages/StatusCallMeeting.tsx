@@ -601,8 +601,8 @@ const StatusCallMeeting = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <MainNavigation />
       
-      {/* Top Bar - Fixed with proper spacing */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-white/20 sticky top-16 z-30 shadow-sm">
+      {/* Top Bar - Fixed breadcrumb header */}
+      <div className="bg-white/90 backdrop-blur-md border-b border-white/30 sticky top-16 z-20 shadow-sm">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -622,148 +622,146 @@ const StatusCallMeeting = () => {
         </div>
       </div>
 
-      {/* Main Content - Added proper top padding to avoid overlap */}
-      <div className="container mx-auto px-6 py-6 pt-8">
-        <div className="space-y-6">
-          {/* Meeting Header */}
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">
-                  {meeting.title}
-                </h2>
-                <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                  <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-3 py-1 rounded-full">
-                    <Clock className="w-4 h-4" />
-                    {formatDate(meeting.date)} {meeting.time && `at ${meeting.time}`}
-                  </div>
+      {/* Main Content - Proper spacing to avoid header overlap */}
+      <div className="container mx-auto px-6 py-8 space-y-6">
+        {/* Meeting Header */}
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">
+                {meeting.title}
+              </h2>
+              <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-3 py-1 rounded-full">
+                  <Clock className="w-4 h-4" />
+                  {formatDate(meeting.date)} {meeting.time && `at ${meeting.time}`}
                 </div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Badge className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 border-0">
-                    Status Call
-                  </Badge>
-                  <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 border-0">
-                    Published
-                  </Badge>
-                </div>
-                {meeting.description && (
-                  <p className="text-gray-700 leading-relaxed">{meeting.description}</p>
-                )}
               </div>
-              
-              {/* Attendees Section - Right Side */}
-              {meeting.attendees && meeting.attendees.length > 0 && (
-                <div className="ml-8 bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-white/40">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Attendees ({meeting.attendees.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {meeting.attendees.map((attendee, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                          {attendee.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="text-xs text-gray-700">{attendee}</span>
+              <div className="flex items-center gap-2 mb-4">
+                <Badge className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 border-0">
+                  Status Call
+                </Badge>
+                <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 border-0">
+                  Published
+                </Badge>
+              </div>
+              {meeting.description && (
+                <p className="text-gray-700 leading-relaxed">{meeting.description}</p>
+              )}
+            </div>
+            
+            {/* Attendees Section - Right Side */}
+            {meeting.attendees && meeting.attendees.length > 0 && (
+              <div className="ml-8 bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-white/40">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Attendees ({meeting.attendees.length})
+                </h3>
+                <div className="space-y-2">
+                  {meeting.attendees.map((attendee, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                        {attendee.charAt(0).toUpperCase()}
                       </div>
-                    ))}
-                  </div>
+                      <span className="text-xs text-gray-700">{attendee}</span>
+                    </div>
+                  ))}
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Enhanced Filters and View Toggle */}
+        <div className="bg-white/80 backdrop-blur-md rounded-xl border border-white/20 p-4 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              {/* Project Filter */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-700">Projects:</span>
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger className="w-48 bg-gradient-to-r from-blue-50/80 to-indigo-100/80 border-blue-200/60 hover:from-blue-100/80 hover:to-indigo-200/80 transition-all duration-200 backdrop-blur-sm">
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-blue-600" />
+                      <SelectValue placeholder="Select Project" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 backdrop-blur-md border border-blue-200 shadow-xl z-50">
+                    <SelectItem value="all" className="hover:bg-blue-50">All Projects</SelectItem>
+                    {allProjects.map((project) => (
+                      <SelectItem key={project} value={project} className="hover:bg-blue-50">
+                        {project}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* User Filter */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-700">Users:</span>
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                  <SelectTrigger className="w-48 bg-gradient-to-r from-green-50/80 to-emerald-100/80 border-green-200/60 hover:from-green-100/80 hover:to-emerald-200/80 transition-all duration-200 backdrop-blur-sm">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-green-600" />
+                      <SelectValue placeholder="Select User" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 backdrop-blur-md border border-green-200 shadow-xl z-50">
+                    <SelectItem value="all" className="hover:bg-green-50">All Users</SelectItem>
+                    {allUsers.map((user) => (
+                      <SelectItem key={user} value={user} className="hover:bg-green-50">
+                        {user}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              {/* View Toggle */}
+              <StatusViewToggle view={view} onViewChange={setView} />
+
+              {/* Clear Filters */}
+              {hasActiveFilters && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={clearAllFilters} 
+                  className="text-gray-500 hover:text-gray-700 hover:bg-white/60 rounded-full transition-all duration-200"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear All
+                </Button>
               )}
             </div>
           </div>
-
-          {/* Enhanced Filters and View Toggle */}
-          <div className="bg-white/80 backdrop-blur-md rounded-xl border border-white/20 p-4 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-6">
-                {/* Project Filter */}
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700">Projects:</span>
-                  <Select value={selectedProject} onValueChange={setSelectedProject}>
-                    <SelectTrigger className="w-48 bg-gradient-to-r from-blue-50/80 to-indigo-100/80 border-blue-200/60 hover:from-blue-100/80 hover:to-indigo-200/80 transition-all duration-200 backdrop-blur-sm">
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-blue-600" />
-                        <SelectValue placeholder="Select Project" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent className="bg-white/95 backdrop-blur-md border border-blue-200 shadow-xl z-50">
-                      <SelectItem value="all" className="hover:bg-blue-50">All Projects</SelectItem>
-                      {allProjects.map((project) => (
-                        <SelectItem key={project} value={project} className="hover:bg-blue-50">
-                          {project}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* User Filter */}
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700">Users:</span>
-                  <Select value={selectedUser} onValueChange={setSelectedUser}>
-                    <SelectTrigger className="w-48 bg-gradient-to-r from-green-50/80 to-emerald-100/80 border-green-200/60 hover:from-green-100/80 hover:to-emerald-200/80 transition-all duration-200 backdrop-blur-sm">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-green-600" />
-                        <SelectValue placeholder="Select User" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent className="bg-white/95 backdrop-blur-md border border-green-200 shadow-xl z-50">
-                      <SelectItem value="all" className="hover:bg-green-50">All Users</SelectItem>
-                      {allUsers.map((user) => (
-                        <SelectItem key={user} value={user} className="hover:bg-green-50">
-                          {user}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                {/* View Toggle */}
-                <StatusViewToggle view={view} onViewChange={setView} />
-
-                {/* Clear Filters */}
-                {hasActiveFilters && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={clearAllFilters} 
-                    className="text-gray-500 hover:text-gray-700 hover:bg-white/60 rounded-full transition-all duration-200"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Clear All
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Consolidated View */}
-          {renderConsolidatedView()}
-
-          {/* Global Notes Section */}
-          <Card className="relative overflow-hidden bg-gradient-to-br from-gray-50/80 to-slate-100/80 border-gray-200/60 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
-            <CardHeader className="relative">
-              <CardTitle className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
-                  <FileText className="w-5 h-5 text-gray-600" />
-                </div>
-                <span className="text-lg font-semibold">Meeting Notes</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="relative">
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add meeting notes..."
-                className="min-h-[140px] resize-none bg-white/60 backdrop-blur-sm border-white/40 transition-all duration-200 focus:bg-white/80"
-              />
-            </CardContent>
-          </Card>
         </div>
+
+        {/* Consolidated View */}
+        {renderConsolidatedView()}
+
+        {/* Global Notes Section */}
+        <Card className="relative overflow-hidden bg-gradient-to-br from-gray-50/80 to-slate-100/80 border-gray-200/60 hover:shadow-xl transition-all duration-300 animate-fade-in border-2">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent pointer-events-none" />
+          <CardHeader className="relative">
+            <CardTitle className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-white/50 backdrop-blur-sm">
+                <FileText className="w-5 h-5 text-gray-600" />
+              </div>
+              <span className="text-lg font-semibold">Meeting Notes</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="relative">
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add meeting notes..."
+              className="min-h-[140px] resize-none bg-white/60 backdrop-blur-sm border-white/40 transition-all duration-200 focus:bg-white/80"
+            />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
