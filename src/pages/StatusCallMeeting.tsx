@@ -601,8 +601,8 @@ const StatusCallMeeting = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <MainNavigation />
       
-      {/* Top Bar - Fixed breadcrumb header */}
-      <div className="bg-white/90 backdrop-blur-md border-b border-white/30 sticky top-16 z-20 shadow-sm">
+      {/* Top Bar - Changed from sticky to normal positioning */}
+      <div className="bg-white/90 backdrop-blur-md border-b border-white/30 shadow-sm">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -622,7 +622,7 @@ const StatusCallMeeting = () => {
         </div>
       </div>
 
-      {/* Main Content - Proper spacing to avoid header overlap */}
+      {/* Main Content - Adjusted spacing */}
       <div className="container mx-auto px-6 py-8 space-y-6">
         {/* Meeting Header */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300">
