@@ -84,7 +84,7 @@ const Meetings = () => {
         title: meetingData.title,
         date: date,
         time: meetingData.time,
-        product: meetingData.product,
+        product: 'General', // Default value since product is removed from form
         status: 'draft',
         lastUpdated: 'just now',
         description: meetingData.description,
@@ -99,7 +99,15 @@ const Meetings = () => {
       // Create recurring meetings
       for (let i = 0; i < meetingData.recurringDays; i++) {
         const recurringDate = new Date(meetingData.date);
-        recurringDate.setDate(recurringDate.getDate() + i);
+        
+        if (meetingData.isSameDay) {
+          // Weekly recurring - same day every week
+          recurringDate.setDate(recurringDate.getDate() + (i * 7));
+        } else {
+          // Daily recurring
+          recurringDate.setDate(recurringDate.getDate() + i);
+        }
+        
         const dateString = recurringDate.toISOString().split('T')[0];
         newMeetings.push(createMeetingForDate(dateString));
       }
@@ -195,7 +203,7 @@ const Meetings = () => {
               return (
                 <div
                   key={index}
-                  className={`bg-white min-h-[120px] p-2 relative group hover:bg-gray-50 transition-colors ${
+                  className={`bg-white min-h-[120px] p-2 relative hover:bg-gray-50 transition-colors ${
                     !isCurrentMonth ? 'text-gray-400' : ''
                   } ${isToday ? 'bg-blue-50' : ''}`}
                 >
@@ -205,7 +213,7 @@ const Meetings = () => {
                     </span>
                     <button
                       onClick={() => handleDateClick(day)}
-                      className="p-1 hover:bg-green-500 hover:text-white rounded-full transition-all opacity-70 hover:opacity-100"
+                      className="p-1 bg-green-500 text-white rounded-full hover:bg-green-600 transition-all"
                       title="Add meeting"
                     >
                       <Plus className="w-4 h-4" />
@@ -276,10 +284,10 @@ const Meetings = () => {
                       {day.getDate()}
                     </div>
                   </div>
-                  <div className="space-y-2 min-h-[300px] relative group">
+                  <div className="space-y-2 min-h-[300px] relative">
                     <button
                       onClick={() => handleDateClick(day)}
-                      className="absolute top-2 right-2 p-1 hover:bg-green-500 hover:text-white rounded-full z-10 transition-all opacity-70 hover:opacity-100"
+                      className="absolute top-2 right-2 p-1 bg-green-500 text-white rounded-full hover:bg-green-600 z-10 transition-all"
                       title="Add meeting"
                     >
                       <Plus className="w-4 h-4" />
@@ -346,7 +354,7 @@ const Meetings = () => {
                   <div>
                     <h4 className="font-medium text-gray-900">{meeting.title}</h4>
                     <p className="text-sm text-gray-500 mt-1">
-                      {meeting.time} • {meeting.product}
+                      {meeting.time}
                     </p>
                     {meeting.description && (
                       <p className="text-sm text-gray-600 mt-2">{meeting.description}</p>

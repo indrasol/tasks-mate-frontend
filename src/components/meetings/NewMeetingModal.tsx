@@ -34,16 +34,15 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
     title: '',
     date: '',
     time: '',
-    product: '',
     meetingType: '',
     description: '',
     attendees: [] as string[],
     newAttendee: '',
     isRecurring: false,
-    recurringDays: 1
+    recurringDays: 1,
+    isSameDay: false
   });
 
-  const products = ['TasksMate', 'Core Platform', 'Analytics Suite'];
   const meetingTypes = ['Status Call', 'Retrospective', 'Knowshare', 'Product Call', 'Ad-hoc'];
 
   // Set default date when modal opens
@@ -75,15 +74,6 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
       return;
     }
 
-    if (!formData.product) {
-      toast({
-        title: "Error",
-        description: "Please select a product",
-        variant: "destructive"
-      });
-      return;
-    }
-
     if (!formData.meetingType) {
       toast({
         title: "Error",
@@ -107,19 +97,19 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
       title: '',
       date: '',
       time: '',
-      product: '',
       meetingType: '',
       description: '',
       attendees: [],
       newAttendee: '',
       isRecurring: false,
-      recurringDays: 1
+      recurringDays: 1,
+      isSameDay: false
     });
     
     toast({
       title: "Success",
       description: formData.isRecurring 
-        ? `Recurring meeting created for ${formData.recurringDays} days!`
+        ? `Recurring meeting created for ${formData.recurringDays} ${formData.isSameDay ? 'weeks' : 'days'}!`
         : "Meeting created successfully!",
     });
     
@@ -188,22 +178,6 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="product">Product *</Label>
-            <Select value={formData.product} onValueChange={(value) => setFormData(prev => ({ ...prev, product: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a product" />
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((product) => (
-                  <SelectItem key={product} value={product}>
-                    {product}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="meetingType">Meeting Type *</Label>
             <Select value={formData.meetingType} onValueChange={(value) => setFormData(prev => ({ ...prev, meetingType: value }))}>
               <SelectTrigger>
@@ -232,20 +206,38 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
             </div>
             
             {formData.isRecurring && (
-              <div className="space-y-2 ml-6">
-                <Label htmlFor="recurringDays">Number of days to repeat</Label>
-                <Input
-                  id="recurringDays"
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={formData.recurringDays}
-                  onChange={(e) => setFormData(prev => ({ ...prev, recurringDays: parseInt(e.target.value) || 1 }))}
-                  placeholder="e.g., 30"
-                />
-                <p className="text-xs text-gray-500">
-                  This will create the meeting for {formData.recurringDays} consecutive days
-                </p>
+              <div className="space-y-3 ml-6">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="sameDay"
+                    checked={formData.isSameDay}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isSameDay: !!checked }))}
+                  />
+                  <Label htmlFor="sameDay" className="text-sm font-medium">
+                    Same day every week
+                  </Label>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="recurringDays">
+                    Number of {formData.isSameDay ? 'weeks' : 'days'} to repeat
+                  </Label>
+                  <Input
+                    id="recurringDays"
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={formData.recurringDays}
+                    onChange={(e) => setFormData(prev => ({ ...prev, recurringDays: parseInt(e.target.value) || 1 }))}
+                    placeholder={formData.isSameDay ? "e.g., 4" : "e.g., 30"}
+                  />
+                  <p className="text-xs text-gray-500">
+                    {formData.isSameDay 
+                      ? `This will create the meeting every week on the same day for ${formData.recurringDays} weeks`
+                      : `This will create the meeting for ${formData.recurringDays} consecutive days`
+                    }
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -297,7 +289,10 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
               Cancel
             </Button>
             <Button type="submit" className="bg-green-500 hover:bg-green-600">
-              {formData.isRecurring ? `Create ${formData.recurringDays} Meetings` : 'Create Meeting'}
+              {formData.isRecurring 
+                ? `Create ${formData.recurringDays} ${formData.isSameDay ? 'Weekly' : 'Daily'} Meetings` 
+                : 'Create Meeting'
+              }
             </Button>
           </div>
         </form>
