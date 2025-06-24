@@ -48,7 +48,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
       isActive: location.pathname.startsWith('/tasks')
     },
     { 
-      name: 'Meet books', 
+      name: 'Meeting books', 
       path: '/meetings', 
       icon: Calendar,
       isActive: location.pathname.startsWith('/meetings')
