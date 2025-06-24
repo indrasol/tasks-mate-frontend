@@ -1,13 +1,11 @@
 
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronRight, FileText, Users, Calendar, Settings, Download, CheckCircle } from 'lucide-react';
+import { ChevronRight, Users, Calendar, Download } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -16,35 +14,38 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import TestCases from '@/components/tester/TestCases';
 import BugBoardTab from '@/components/tester/BugBoardTab';
-import EvidenceGallery from '@/components/tester/EvidenceGallery';
 
 const TestRunDetail = () => {
   const { id } = useParams();
-  const [activeTab, setActiveTab] = useState('test-cases');
+  const [activeTab, setActiveTab] = useState('bug-board');
 
   // Mock data - replace with actual data fetching
   const testRun = {
     id: id || 'TB-001',
-    product: 'TasksMate Web',
+    name: 'Sprint 12 Testing',
+    project: 'TasksMate Web',
     date: '2024-12-20',
-    tester: 'John Doe',
+    testedBy: 'John Doe',
+    assignedTo: ['Jane Smith', 'Mike Johnson'],
     status: 'running',
     progress: 65,
     summary: {
-      pending: 5,
-      solved: 3,
       high: 2,
       medium: 3,
       low: 5,
-      total: 13
+      total: 10
     }
   };
 
-  const participants = [
-    { id: 1, name: 'John Doe', avatar: 'JD' },
-    { id: 2, name: 'Jane Smith', avatar: 'JS' }
+  const allParticipants = [
+    { id: 1, name: testRun.testedBy, avatar: 'JD', role: 'tester' },
+    ...testRun.assignedTo.map((name, index) => ({
+      id: index + 2,
+      name,
+      avatar: name.split(' ').map(n => n[0]).join(''),
+      role: 'assigned'
+    }))
   ];
 
   return (
@@ -64,7 +65,7 @@ const TestRunDetail = () => {
               <ChevronRight className="h-4 w-4" />
             </BreadcrumbSeparator>
             <BreadcrumbItem>
-              <BreadcrumbPage>{testRun.product}</BreadcrumbPage>
+              <BreadcrumbPage>{testRun.name}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -74,14 +75,14 @@ const TestRunDetail = () => {
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
-                {testRun.product}
+                {testRun.name}
               </h1>
               <div className="flex items-center gap-4 text-sm text-gray-600">
                 <span className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
                   {new Date(testRun.date).toLocaleDateString()}
                 </span>
-                <Badge variant="outline">{testRun.tester}</Badge>
+                <Badge variant="outline">{testRun.project}</Badge>
               </div>
             </div>
             
@@ -97,18 +98,14 @@ const TestRunDetail = () => {
           </div>
 
           {/* Summary Matrix */}
-          <div className="grid grid-cols-7 gap-1 mb-6 bg-gray-50 rounded-lg p-4">
+          <div className="grid grid-cols-5 gap-1 mb-6 bg-gray-50 rounded-lg p-4">
             <div className="font-semibold text-sm text-gray-700 p-2">Status</div>
-            <div className="font-semibold text-sm text-gray-700 p-2 text-center">Pending</div>
-            <div className="font-semibold text-sm text-gray-700 p-2 text-center">Solved</div>
             <div className="font-semibold text-sm text-gray-700 p-2 text-center">High</div>
             <div className="font-semibold text-sm text-gray-700 p-2 text-center">Medium</div>
             <div className="font-semibold text-sm text-gray-700 p-2 text-center">Low</div>
             <div className="font-semibold text-sm text-gray-700 p-2 text-center">Total</div>
             
             <div className="p-2 text-sm">Bugs</div>
-            <div className="p-2 text-sm text-center bg-yellow-50 text-yellow-700 font-medium">{testRun.summary.pending}</div>
-            <div className="p-2 text-sm text-center bg-green-50 text-green-700 font-medium">{testRun.summary.solved}</div>
             <div className="p-2 text-sm text-center bg-red-50 text-red-700 font-medium">{testRun.summary.high}</div>
             <div className="p-2 text-sm text-center bg-orange-50 text-orange-700 font-medium">{testRun.summary.medium}</div>
             <div className="p-2 text-sm text-center bg-blue-50 text-blue-700 font-medium">{testRun.summary.low}</div>
@@ -121,20 +118,30 @@ const TestRunDetail = () => {
               {/* Participants */}
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-gray-500" />
-                <div className="flex -space-x-2">
-                  {participants.map((participant) => (
-                    <div
-                      key={participant.id}
-                      className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-medium border-2 border-white"
-                      title={participant.name}
-                    >
-                      {participant.avatar}
-                    </div>
-                  ))}
+                <div className="flex items-center gap-2">
+                  {/* Assigned to members as tags */}
+                  <div className="flex flex-wrap gap-1">
+                    {testRun.assignedTo.map((member) => (
+                      <Badge key={member} variant="secondary" className="text-xs">
+                        {member}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex -space-x-2 ml-2">
+                    {allParticipants.map((participant) => (
+                      <div
+                        key={participant.id}
+                        className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-medium border-2 border-white"
+                        title={participant.name}
+                      >
+                        {participant.avatar}
+                      </div>
+                    ))}
+                  </div>
+                  <Button variant="ghost" size="sm" className="ml-2 text-gray-500">
+                    + Invite
+                  </Button>
                 </div>
-                <Button variant="ghost" size="sm" className="ml-2 text-gray-500">
-                  + Invite
-                </Button>
               </div>
 
               {/* Progress */}
@@ -159,7 +166,6 @@ const TestRunDetail = () => {
                     <span className="text-xs font-medium text-gray-700">{testRun.progress}%</span>
                   </div>
                 </div>
-                <span className="text-sm text-gray-600">Cases Passed</span>
               </div>
             </div>
           </div>
@@ -168,21 +174,11 @@ const TestRunDetail = () => {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
-            <TabsTrigger value="test-cases">Test Cases</TabsTrigger>
             <TabsTrigger value="bug-board">Bug Board</TabsTrigger>
-            <TabsTrigger value="evidence">Evidence</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="test-cases">
-            <TestCases runId={testRun.id} />
-          </TabsContent>
           
           <TabsContent value="bug-board">
             <BugBoardTab runId={testRun.id} />
-          </TabsContent>
-          
-          <TabsContent value="evidence">
-            <EvidenceGallery runId={testRun.id} />
           </TabsContent>
         </Tabs>
       </div>

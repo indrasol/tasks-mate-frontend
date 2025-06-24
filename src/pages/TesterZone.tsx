@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Filter, FileText, Bug, Eye, Beaker } from 'lucide-react';
+import { Plus, Filter, Bug, Beaker } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,50 +13,47 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import NewRunModal from '@/components/tester/NewRunModal';
 
 interface TestRun {
   id: string;
-  product: string;
-  date: string;
-  owner: string;
+  name: string;
+  project: string;
+  testedBy: string;
+  assignedTo: string[];
   status: 'running' | 'completed' | 'failed';
   bugs: {
     critical: number;
     major: number;
     minor: number;
   };
-  hasEvidence: boolean;
+  date: string;
 }
 
 const TesterZone = () => {
   const [showNewRunModal, setShowNewRunModal] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState({
-    product: '',
-    status: '',
-    severity: ''
-  });
 
   // Mock data - replace with actual data fetching
   const testRuns: TestRun[] = [
     {
       id: 'TB-001',
-      product: 'TasksMate Web',
-      date: '2024-12-20',
-      owner: 'John Doe',
+      name: 'Sprint 12 Testing',
+      project: 'TasksMate Web',
+      testedBy: 'John Doe',
+      assignedTo: ['Jane Smith', 'Mike Johnson'],
       status: 'running',
       bugs: { critical: 2, major: 3, minor: 5 },
-      hasEvidence: true
+      date: '2024-12-20'
     },
     {
       id: 'TB-002',
-      product: 'TasksMate Mobile',
-      date: '2024-12-18',
-      owner: 'Jane Smith',
+      name: 'Mobile App Beta',
+      project: 'TasksMate Mobile',
+      testedBy: 'Jane Smith',
+      assignedTo: ['Sarah Wilson'],
       status: 'completed',
       bugs: { critical: 0, major: 1, minor: 2 },
-      hasEvidence: true
+      date: '2024-12-18'
     }
   ];
 
@@ -102,7 +99,7 @@ const TesterZone = () => {
         {/* Filter Bar */}
         <div className="flex gap-3 mb-6">
           <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
-            Product <Filter className="w-3 h-3 ml-1" />
+            Project <Filter className="w-3 h-3 ml-1" />
           </Badge>
           <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
             Status <Filter className="w-3 h-3 ml-1" />
@@ -134,13 +131,13 @@ const TesterZone = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Book ID</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Owner</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Tested By</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>🐞 Bugs</TableHead>
-                  <TableHead>Evidence</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead>Assigned To</TableHead>
+                  <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -154,9 +151,9 @@ const TesterZone = () => {
                         {run.id}
                       </Link>
                     </TableCell>
-                    <TableCell>{run.product}</TableCell>
-                    <TableCell>{new Date(run.date).toLocaleDateString()}</TableCell>
-                    <TableCell>{run.owner}</TableCell>
+                    <TableCell className="font-medium">{run.name}</TableCell>
+                    <TableCell>{run.project}</TableCell>
+                    <TableCell>{run.testedBy}</TableCell>
                     <TableCell>
                       <Badge className={`${getStatusColor(run.status)} border-0`}>
                         {run.status}
@@ -182,17 +179,15 @@ const TesterZone = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {run.hasEvidence && (
-                        <FileText className="w-4 h-4 text-gray-500" />
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {run.assignedTo.map((member) => (
+                          <Badge key={member} variant="secondary" className="text-xs">
+                            {member}
+                          </Badge>
+                        ))}
+                      </div>
                     </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/tester-zone/runs/${run.id}`}>
-                          <Eye className="w-4 h-4" />
-                        </Link>
-                      </Button>
-                    </TableCell>
+                    <TableCell>{new Date(run.date).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
