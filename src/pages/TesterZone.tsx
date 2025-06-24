@@ -19,8 +19,6 @@ import NewRunModal from '@/components/tester/NewRunModal';
 interface TestRun {
   id: string;
   product: string;
-  version: string;
-  environment: string;
   date: string;
   owner: string;
   status: 'running' | 'completed' | 'failed';
@@ -36,7 +34,6 @@ const TesterZone = () => {
   const [showNewRunModal, setShowNewRunModal] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState({
     product: '',
-    version: '',
     status: '',
     severity: ''
   });
@@ -44,10 +41,8 @@ const TesterZone = () => {
   // Mock data - replace with actual data fetching
   const testRuns: TestRun[] = [
     {
-      id: 'TR-001',
+      id: 'TB-001',
       product: 'TasksMate Web',
-      version: '2.1.0',
-      environment: 'Staging',
       date: '2024-12-20',
       owner: 'John Doe',
       status: 'running',
@@ -55,10 +50,8 @@ const TesterZone = () => {
       hasEvidence: true
     },
     {
-      id: 'TR-002',
+      id: 'TB-002',
       product: 'TasksMate Mobile',
-      version: '1.8.2',
-      environment: 'Production',
       date: '2024-12-18',
       owner: 'Jane Smith',
       status: 'completed',
@@ -93,7 +86,7 @@ const TesterZone = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 font-sora">Test Runs</h1>
+            <h1 className="text-3xl font-bold text-gray-900 font-sora">Test Books</h1>
             <p className="text-gray-600 mt-1">Manage and track your testing activities</p>
           </div>
           
@@ -102,7 +95,7 @@ const TesterZone = () => {
             className="bg-green-500 hover:bg-green-600 text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
-            New Run
+            New Book
           </Button>
         </div>
 
@@ -110,9 +103,6 @@ const TesterZone = () => {
         <div className="flex gap-3 mb-6">
           <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
             Product <Filter className="w-3 h-3 ml-1" />
-          </Badge>
-          <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
-            Version <Filter className="w-3 h-3 ml-1" />
           </Badge>
           <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
             Status <Filter className="w-3 h-3 ml-1" />
@@ -128,14 +118,14 @@ const TesterZone = () => {
             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Beaker className="w-12 h-12 text-green-600" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No test runs yet</h3>
-            <p className="text-gray-500 mb-6">Create your first test run to get started</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No test books yet</h3>
+            <p className="text-gray-500 mb-6">Create your first test book to get started</p>
             <Button 
               onClick={() => setShowNewRunModal(true)}
               className="bg-green-500 hover:bg-green-600 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
-              New Run
+              New Book
             </Button>
           </div>
         ) : (
@@ -143,10 +133,8 @@ const TesterZone = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Run ID</TableHead>
+                  <TableHead>Book ID</TableHead>
                   <TableHead>Product</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Environment</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Owner</TableHead>
                   <TableHead>Status</TableHead>
@@ -167,8 +155,6 @@ const TesterZone = () => {
                       </Link>
                     </TableCell>
                     <TableCell>{run.product}</TableCell>
-                    <TableCell>{run.version}</TableCell>
-                    <TableCell>{run.environment}</TableCell>
                     <TableCell>{new Date(run.date).toLocaleDateString()}</TableCell>
                     <TableCell>{run.owner}</TableCell>
                     <TableCell>

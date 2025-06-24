@@ -14,21 +14,17 @@ interface NewRunModalProps {
 const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
   const [formData, setFormData] = useState({
     product: '',
-    version: '',
-    environment: '',
     testPlan: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Handle form submission here
-    console.log('Creating new test run:', formData);
+    console.log('Creating new test book:', formData);
     onOpenChange(false);
     // Reset form
     setFormData({
       product: '',
-      version: '',
-      environment: '',
       testPlan: ''
     });
   };
@@ -37,7 +33,7 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Test Run</DialogTitle>
+          <DialogTitle>Create New Test Book</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -51,31 +47,6 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
                 <SelectItem value="tasksmate-web">TasksMate Web</SelectItem>
                 <SelectItem value="tasksmate-mobile">TasksMate Mobile</SelectItem>
                 <SelectItem value="tasksmate-api">TasksMate API</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="version">Version</Label>
-            <Input
-              id="version"
-              placeholder="e.g., 2.1.0"
-              value={formData.version}
-              onChange={(e) => setFormData({...formData, version: e.target.value})}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="environment">Environment</Label>
-            <Select value={formData.environment} onValueChange={(value) => setFormData({...formData, environment: value})}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select environment" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="development">Development</SelectItem>
-                <SelectItem value="staging">Staging</SelectItem>
-                <SelectItem value="production">Production</SelectItem>
               </SelectContent>
             </Select>
           </div>

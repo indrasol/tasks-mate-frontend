@@ -26,10 +26,8 @@ const TestRunDetail = () => {
 
   // Mock data - replace with actual data fetching
   const testRun = {
-    id: id || 'TR-001',
+    id: id || 'TB-001',
     product: 'TasksMate Web',
-    version: '2.1.0',
-    environment: 'Staging',
     date: '2024-12-20',
     tester: 'John Doe',
     status: 'running',
@@ -59,14 +57,14 @@ const TestRunDetail = () => {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/tester-zone">Test Runs</Link>
+                <Link to="/tester-zone">Test Books</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
             </BreadcrumbSeparator>
             <BreadcrumbItem>
-              <BreadcrumbPage>{testRun.product} {testRun.version}</BreadcrumbPage>
+              <BreadcrumbPage>{testRun.product}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -76,7 +74,7 @@ const TestRunDetail = () => {
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
-                {testRun.product} {testRun.version} – {testRun.environment}
+                {testRun.product}
               </h1>
               <div className="flex items-center gap-4 text-sm text-gray-600">
                 <span className="flex items-center gap-1">

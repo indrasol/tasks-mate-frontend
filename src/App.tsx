@@ -22,6 +22,7 @@ import Scratchpad from "./pages/Scratchpad";
 import TesterZone from "./pages/TesterZone";
 import TestRunDetail from "./pages/TestRunDetail";
 import BugBoard from "./pages/BugBoard";
+import BugDetail from "./pages/BugDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/tester-zone" element={<TesterZone />} />
             <Route path="/tester-zone/runs/:id" element={<TestRunDetail />} />
             <Route path="/tester-zone/runs/:id/bugs" element={<BugBoard />} />
+            <Route path="/tester-zone/runs/:id/bugs/:bugId" element={<BugDetail />} />
             <Route path="/scratchpad" element={<Scratchpad />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

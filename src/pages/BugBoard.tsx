@@ -1,11 +1,15 @@
 
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ChevronRight, Plus, Settings, Rocket, Edit, Trash2, Eye } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ChevronRight, Plus, Settings, Edit, Trash2, Eye } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -18,48 +22,51 @@ import {
 interface Bug {
   id: string;
   title: string;
+  description: string;
   severity: 'critical' | 'major' | 'minor';
   status: 'new' | 'confirmed' | 'fixed' | 'retest';
-  category: string;
-  location: string;
+  tags: string[];
   votes: number;
   thumbnail?: string;
-  description: string;
 }
 
 const BugBoard = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [showNewBugModal, setShowNewBugModal] = useState(false);
+  const [newBugForm, setNewBugForm] = useState({
+    title: '',
+    description: '',
+    tags: ''
+  });
   
   const [bugs, setBugs] = useState<Bug[]>([
     {
       id: 'BUG-001',
       title: 'Login button not responsive on mobile',
+      description: 'The login button becomes unclickable on mobile devices under 768px width',
       severity: 'major',
       status: 'new',
-      category: 'UI Bug',
-      location: '/login',
+      tags: ['UI', 'Mobile', 'Authentication'],
       votes: 3,
-      description: 'The login button becomes unclickable on mobile devices under 768px width'
     },
     {
       id: 'BUG-002',
       title: 'Task deletion confirmation missing',
+      description: 'Tasks can be deleted without confirmation, leading to accidental data loss',
       severity: 'critical',
       status: 'confirmed',
-      category: 'Input Validation',
-      location: '/tasks',
+      tags: ['UX', 'Data Loss', 'Confirmation'],
       votes: 5,
-      description: 'Tasks can be deleted without confirmation, leading to accidental data loss'
     },
     {
       id: 'BUG-003',
       title: 'Profile image upload fails silently',
+      description: 'Profile image upload shows success but image is not saved',
       severity: 'minor',
       status: 'fixed',
-      category: 'Upload Bug',
-      location: '/profile',
+      tags: ['Upload', 'Profile', 'Feedback'],
       votes: 1,
-      description: 'Profile image upload shows success but image is not saved'
     }
   ]);
 
@@ -82,12 +89,26 @@ const BugBoard = () => {
     }
   };
 
-  const columns = [
-    { id: 'new', title: 'New', bugs: bugs.filter(b => b.status === 'new') },
-    { id: 'confirmed', title: 'Confirmed', bugs: bugs.filter(b => b.status === 'confirmed') },
-    { id: 'fixed', title: 'Fixed', bugs: bugs.filter(b => b.status === 'fixed') },
-    { id: 'retest', title: 'Retest', bugs: bugs.filter(b => b.status === 'retest') },
-  ];
+  const handleNewBugSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newBug: Bug = {
+      id: `BUG-${String(bugs.length + 1).padStart(3, '0')}`,
+      title: newBugForm.title,
+      description: newBugForm.description,
+      severity: 'minor',
+      status: 'new',
+      tags: newBugForm.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+      votes: 0
+    };
+    
+    setBugs([...bugs, newBug]);
+    setNewBugForm({ title: '', description: '', tags: '' });
+    setShowNewBugModal(false);
+  };
+
+  const handleBugClick = (bugId: string) => {
+    navigate(`/tester-zone/runs/${id}/bugs/${bugId}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -99,7 +120,7 @@ const BugBoard = () => {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/tester-zone">Test Runs</Link>
+                <Link to="/tester-zone">Test Books</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
@@ -107,7 +128,7 @@ const BugBoard = () => {
             </BreadcrumbSeparator>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to={`/tester-zone/runs/${id}`}>Test Run {id}</Link>
+                <Link to={`/tester-zone/runs/${id}`}>Test Book {id}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
@@ -123,7 +144,7 @@ const BugBoard = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 font-sora">Bug Board</h1>
-            <p className="text-gray-600 mt-1">Track and manage bugs through their lifecycle</p>
+            <p className="text-gray-600 mt-1">Track and manage bugs for this test book</p>
           </div>
           
           <div className="flex gap-3">
@@ -131,100 +152,140 @@ const BugBoard = () => {
               <Settings className="w-4 h-4 mr-2" />
               Board Settings
             </Button>
-            <Button className="bg-red-500 hover:bg-red-600 text-white">
+            <Button 
+              onClick={() => setShowNewBugModal(true)}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
               <Plus className="w-4 h-4 mr-2" />
               New Bug
             </Button>
           </div>
         </div>
 
-        {/* Kanban Board */}
-        <div className="grid grid-cols-4 gap-6">
-          {columns.map((column) => (
-            <div key={column.id} className="bg-white rounded-lg border shadow-sm">
-              <div className="p-4 border-b">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900">{column.title}</h3>
-                  <Badge variant="outline" className="bg-gray-50">
-                    {column.bugs.length}
+        {/* Bug Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {bugs.map((bug) => (
+            <Card 
+              key={bug.id} 
+              className="cursor-pointer hover:shadow-lg transition-all duration-200 group border-l-4 border-l-green-500"
+              onClick={() => handleBugClick(bug.id)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between mb-2">
+                  <Badge className={`${getSeverityColor(bug.severity)} border text-xs font-medium`}>
+                    {bug.severity.toUpperCase()}
+                  </Badge>
+                  <Badge className={`${getStatusColor(bug.status)} border-0 text-xs`}>
+                    {bug.status}
                   </Badge>
                 </div>
-              </div>
+                <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2 group-hover:text-green-600 transition-colors">
+                  {bug.title}
+                </CardTitle>
+              </CardHeader>
               
-              <div className="p-4 space-y-3">
-                {column.bugs.map((bug) => (
-                  <Card key={bug.id} className="cursor-pointer hover:shadow-md transition-shadow group">
-                    <CardContent className="p-4">
-                      {/* Header with severity and status */}
-                      <div className="flex items-start justify-between mb-3">
-                        <Badge className={`${getSeverityColor(bug.severity)} border text-xs font-medium`}>
-                          {bug.severity.toUpperCase()}
-                        </Badge>
-                        <Badge className={`${getStatusColor(bug.status)} border-0 text-xs`}>
-                          {column.title}
-                        </Badge>
-                      </div>
-                      
-                      {/* Title */}
-                      <h4 className="font-medium text-gray-900 mb-2 line-clamp-2">
-                        {bug.title}
-                      </h4>
-                      
-                      {/* Category and Location */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                          {bug.category}
-                        </Badge>
-                        <a 
-                          href={bug.location}
-                          className="text-xs text-green-600 hover:text-green-700 hover:underline flex items-center gap-1"
-                        >
-                          🌐 {bug.location}
-                        </a>
-                      </div>
-                      
-                      {/* Votes */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500">Votes:</span>
-                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
-                            {bug.votes}
-                          </Badge>
-                        </div>
-                        
-                        {/* Toolbar (visible on hover) */}
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                            <Rocket className="w-3 h-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-600">
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {/* Thumbnail placeholder */}
-                      {bug.thumbnail && (
-                        <div className="mt-3 w-full h-16 bg-gray-100 rounded border flex items-center justify-center">
-                          <Eye className="w-4 h-4 text-gray-400" />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+              <CardContent className="pt-0">
+                <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                  {bug.description}
+                </p>
                 
-                {/* Add bug button */}
-                <button className="w-full p-4 border-2 border-dashed border-gray-200 rounded-lg text-gray-500 hover:border-gray-300 hover:text-gray-600 transition-colors">
-                  <Plus className="w-5 h-5 mx-auto mb-1" />
-                  <span className="text-sm">Add bug</span>
-                </button>
-              </div>
-            </div>
+                {/* Tags */}
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {bug.tags.slice(0, 3).map((tag, index) => (
+                    <Badge key={index} variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {bug.tags.length > 3 && (
+                    <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500">
+                      +{bug.tags.length - 3}
+                    </Badge>
+                  )}
+                </div>
+                
+                {/* Footer */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-500">Votes:</span>
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                      {bug.votes}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={(e) => e.stopPropagation()}>
+                      <Edit className="w-3 h-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-600" onClick={(e) => e.stopPropagation()}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
+
+        {/* New Bug Modal */}
+        <Dialog open={showNewBugModal} onOpenChange={setShowNewBugModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New Bug</DialogTitle>
+            </DialogHeader>
+            
+            <form onSubmit={handleNewBugSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Bug Name</Label>
+                <Input
+                  id="title"
+                  placeholder="Enter bug title..."
+                  value={newBugForm.title}
+                  onChange={(e) => setNewBugForm({...newBugForm, title: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Bug Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Describe the bug in detail..."
+                  value={newBugForm.description}
+                  onChange={(e) => setNewBugForm({...newBugForm, description: e.target.value})}
+                  required
+                  rows={4}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tags">Tags</Label>
+                <Input
+                  id="tags"
+                  placeholder="Enter tags separated by commas..."
+                  value={newBugForm.tags}
+                  onChange={(e) => setNewBugForm({...newBugForm, tags: e.target.value})}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowNewBugModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                >
+                  Create Bug
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

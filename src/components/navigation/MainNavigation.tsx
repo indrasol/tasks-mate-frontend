@@ -70,7 +70,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       isActive: location.pathname.startsWith('/reports')
     },
     { 
-      name: 'Tester zone', 
+      name: 'Testing Books', 
       path: '/tester-zone', 
       icon: Beaker,
       isActive: location.pathname.startsWith('/tester-zone')
