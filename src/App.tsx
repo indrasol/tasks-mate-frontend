@@ -8,6 +8,8 @@ import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import TasksCatalog from "./pages/TasksCatalog";
 import TaskDetail from "./pages/TaskDetail";
+import Meetings from "./pages/Meetings";
+import MeetingNotebook from "./pages/MeetingNotebook";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +25,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/tasks_catalog" element={<TasksCatalog />} />
             <Route path="/tasks/:taskId" element={<TaskDetail />} />
+            <Route path="/meetings" element={<Meetings />} />
+            <Route path="/meetings/:id" element={<MeetingNotebook />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
