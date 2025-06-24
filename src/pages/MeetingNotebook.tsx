@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
@@ -11,7 +12,10 @@ import {
   AlertTriangle,
   FileText,
   GripVertical,
-  MoreVertical
+  MoreVertical,
+  Users,
+  Calendar,
+  Settings
 } from "lucide-react";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import { Button } from "@/components/ui/button";
@@ -19,6 +23,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,64 +44,102 @@ interface MeetingItem {
   section: 'completed' | 'in-progress' | 'blocked' | 'notes';
   order: number;
   isTask?: boolean;
+  userId?: string;
+  date?: string;
 }
 
-interface MeetingData {
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  avatar?: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  teamLead: string;
+  members: TeamMember[];
+}
+
+interface Session {
   id: string;
   title: string;
   date: string;
-  product: string;
-  status: 'draft' | 'published';
-  items: MeetingItem[];
+  time: string;
+  description: string;
+  attendees: string[];
 }
 
-// Mock data
-const mockMeetingData: MeetingData = {
-  id: "1",
-  title: "Product Strategy Review",
-  date: "2024-06-25",
-  product: "TasksMate",
-  status: "draft",
-  items: [
+const MeetingNotebook = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  
+  // Status tab state
+  const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [meetingItems, setMeetingItems] = useState<MeetingItem[]>([
     {
       id: "1",
       content: "Review Q3 roadmap priorities",
       section: "completed",
-      order: 0
+      order: 0,
+      userId: "john",
+      date: new Date().toISOString().split('T')[0]
     },
     {
       id: "2", 
       content: "[ ] Update user feedback integration timeline",
       section: "in-progress",
       order: 0,
-      isTask: true
-    },
-    {
-      id: "3",
-      content: "Waiting for legal approval on data retention policy",
-      section: "blocked", 
-      order: 0
-    },
-    {
-      id: "4",
-      content: "Key insights from user research:\n- Users want better mobile experience\n- Integration requests are increasing\n- Performance is critical for enterprise clients",
-      section: "notes",
-      order: 0
+      isTask: true,
+      userId: "jane",
+      date: new Date().toISOString().split('T')[0]
     }
-  ]
-};
+  ]);
 
-const MeetingNotebook = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [meetingData, setMeetingData] = useState<MeetingData>(mockMeetingData);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  // Products tab state
+  const [products, setProducts] = useState<Product[]>([
+    {
+      id: "1",
+      name: "TasksMate",
+      description: "Main task management platform",
+      teamLead: "John Doe",
+      members: [
+        { id: "1", name: "John Doe", role: "Team Lead" },
+        { id: "2", name: "Jane Smith", role: "Developer" },
+        { id: "3", name: "Mike Johnson", role: "Designer" }
+      ]
+    }
+  ]);
+
+  // Sessions tab state
+  const [sessions, setSessions] = useState<Session[]>([
+    {
+      id: "1",
+      title: "Sprint Planning",
+      date: "2024-06-25",
+      time: "14:00",
+      description: "Planning for next sprint activities",
+      attendees: ["john@company.com", "jane@company.com"]
+    }
+  ]);
+
   const [newItemInputs, setNewItemInputs] = useState({
     completed: '',
     'in-progress': '',
     blocked: '',
     notes: ''
   });
+
+  const users = [
+    { id: 'all', name: 'All Users' },
+    { id: 'john', name: 'John Doe' },
+    { id: 'jane', name: 'Jane Smith' },
+    { id: 'mike', name: 'Mike Johnson' }
+  ];
 
   const sections = [
     {
@@ -140,38 +190,47 @@ const MeetingNotebook = () => {
       id: Date.now().toString(),
       content,
       section,
-      order: meetingData.items.filter(item => item.section === section).length,
-      isTask: content.startsWith('[ ]')
+      order: meetingItems.filter(item => item.section === section).length,
+      isTask: content.startsWith('[ ]'),
+      userId: selectedUser === 'all' ? 'john' : selectedUser,
+      date: selectedDate
     };
 
-    setMeetingData(prev => ({
-      ...prev,
-      items: [...prev.items, newItem]
-    }));
-
-    setNewItemInputs(prev => ({
-      ...prev,
-      [section]: ''
-    }));
-
+    setMeetingItems(prev => [...prev, newItem]);
+    setNewItemInputs(prev => ({ ...prev, [section]: '' }));
     setSaveStatus('saving');
   };
 
-  const handlePublish = () => {
-    console.log("Publishing meeting summary...");
-    // TODO: Open publish modal
+  const getFilteredItems = (section: MeetingItem['section']) => {
+    return meetingItems.filter(item => {
+      const userMatch = selectedUser === 'all' || item.userId === selectedUser;
+      const dateMatch = item.date === selectedDate;
+      const sectionMatch = item.section === section;
+      return userMatch && dateMatch && sectionMatch;
+    });
   };
 
-  const handleExport = () => {
-    console.log("Exporting to PDF...");
+  const addProduct = () => {
+    const newProduct: Product = {
+      id: Date.now().toString(),
+      name: "New Product",
+      description: "Product description",
+      teamLead: "Team Lead",
+      members: []
+    };
+    setProducts(prev => [...prev, newProduct]);
   };
 
-  const getTaskItems = () => {
-    return meetingData.items.filter(item => item.isTask);
-  };
-
-  const getSectionItems = (section: MeetingItem['section']) => {
-    return meetingData.items.filter(item => item.section === section);
+  const addSession = () => {
+    const newSession: Session = {
+      id: Date.now().toString(),
+      title: "New Session",
+      date: new Date().toISOString().split('T')[0],
+      time: "14:00",
+      description: "",
+      attendees: []
+    };
+    setSessions(prev => [...prev, newSession]);
   };
 
   return (
@@ -182,7 +241,6 @@ const MeetingNotebook = () => {
       <div className="bg-white border-b border-gray-200 sticky top-16 z-40">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            {/* Breadcrumb */}
             <div className="flex items-center gap-3">
               <Button 
                 variant="ghost" 
@@ -194,121 +252,116 @@ const MeetingNotebook = () => {
                 Meetings
               </Button>
               <span className="text-gray-400">/</span>
-              <h1 className="font-semibold text-gray-900">{meetingData.title}</h1>
+              <h1 className="font-semibold text-gray-900">Product Strategy Review</h1>
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-3">
-              {/* Auto-save Status */}
-              <div className="flex items-center gap-2 text-sm">
-                {saveStatus === 'saved' && (
-                  <>
-                    <Save className="w-4 h-4 text-green-600" />
-                    <span className="text-green-600">Saved</span>
-                  </>
-                )}
-                {saveStatus === 'saving' && (
-                  <>
-                    <div className="w-4 h-4 border-2 border-amber-300 border-t-amber-600 rounded-full animate-spin" />
-                    <span className="text-amber-600">Saving...</span>
-                  </>
-                )}
-              </div>
-
-              <Button variant="outline" onClick={handlePublish}>
-                <Share className="w-4 h-4 mr-2" />
-                Publish Summary
-              </Button>
-              
-              <Button variant="outline" onClick={handleExport}>
-                <FileDown className="w-4 h-4 mr-2" />
-                Export PDF
-              </Button>
+              {saveStatus === 'saved' && (
+                <>
+                  <Save className="w-4 h-4 text-green-600" />
+                  <span className="text-green-600 text-sm">Saved</span>
+                </>
+              )}
+              {saveStatus === 'saving' && (
+                <>
+                  <div className="w-4 h-4 border-2 border-amber-300 border-t-amber-600 rounded-full animate-spin" />
+                  <span className="text-amber-600 text-sm">Saving...</span>
+                </>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content with Tabs */}
       <div className="container mx-auto px-6 py-6">
-        <div className="flex gap-6 h-[calc(100vh-200px)]">
-          {/* Left Panel - Section Columns */}
-          <div className="flex-1 grid grid-cols-2 gap-4 overflow-hidden">
-            {sections.map((section) => {
-              const items = getSectionItems(section.key);
-              const SectionIcon = section.icon;
-              
-              return (
-                <Card key={section.key} className={`${section.color} flex flex-col`}>
-                  <CardHeader className={`${section.headerColor} py-3 rounded-t-lg`}>
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <SectionIcon className="w-4 h-4" />
-                      {section.title}
-                      <Badge variant="secondary" className="ml-auto text-xs">
-                        {items.length}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  
-                  <CardContent className="flex-1 p-4 space-y-3 overflow-y-auto">
-                    {/* Existing Items */}
-                    {items.map((item) => (
-                      <div key={item.id} className="group relative">
-                        <div className="bg-white p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
-                          <div className="flex items-start gap-2">
-                            <GripVertical className="w-4 h-4 text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
-                            <div className="flex-1 min-w-0">
-                              {section.key === 'notes' ? (
-                                <Textarea
-                                  value={item.content}
-                                  onChange={(e) => {
-                                    // TODO: Update item content
-                                    setSaveStatus('saving');
-                                  }}
-                                  className="border-none p-0 resize-none bg-transparent focus-visible:ring-0 min-h-[60px]"
-                                  placeholder="Add notes..."
-                                />
-                              ) : (
+        <Tabs defaultValue="status" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3">
+            <TabsTrigger value="status" className="flex items-center gap-2">
+              <CheckSquare className="w-4 h-4" />
+              Status
+            </TabsTrigger>
+            <TabsTrigger value="products" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Products
+            </TabsTrigger>
+            <TabsTrigger value="sessions" className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Sessions
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Status Tab */}
+          <TabsContent value="status" className="space-y-4">
+            {/* Status Controls */}
+            <div className="flex gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">User:</label>
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Date:</label>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+            </div>
+
+            {/* Status Cards Grid */}
+            <div className="grid grid-cols-2 gap-4 h-[calc(100vh-300px)]">
+              {sections.map((section) => {
+                const items = getFilteredItems(section.key);
+                const SectionIcon = section.icon;
+                
+                return (
+                  <Card key={section.key} className={`${section.color} flex flex-col`}>
+                    <CardHeader className={`${section.headerColor} py-3 rounded-t-lg`}>
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <SectionIcon className="w-4 h-4" />
+                        {section.title}
+                        <Badge variant="secondary" className="ml-auto text-xs">
+                          {items.length}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    
+                    <CardContent className="flex-1 p-4 space-y-3 overflow-y-auto">
+                      {items.map((item) => (
+                        <div key={item.id} className="group relative">
+                          <div className="bg-white p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                            <div className="flex items-start gap-2">
+                              <GripVertical className="w-4 h-4 text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
+                              <div className="flex-1 min-w-0">
                                 <p className="text-sm text-gray-900 break-words">
                                   {item.content}
                                 </p>
-                              )}
+                                <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                  <span>{users.find(u => u.id === item.userId)?.name}</span>
+                                  <span>•</span>
+                                  <span>{item.date}</span>
+                                </div>
+                              </div>
                             </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <MoreVertical className="w-3 h-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>Edit</DropdownMenuItem>
-                                <DropdownMenuItem>Move to...</DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
 
-                    {/* Add New Item */}
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-gray-400 transition-colors">
-                      {section.key === 'notes' ? (
-                        <Textarea
-                          placeholder="Add notes..."
-                          value={newItemInputs[section.key]}
-                          onChange={(e) => setNewItemInputs(prev => ({
-                            ...prev,
-                            [section.key]: e.target.value
-                          }))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.ctrlKey) {
-                              handleAddItem(section.key);
-                            }
-                          }}
-                          className="border-none p-0 resize-none bg-transparent focus-visible:ring-0 min-h-[60px]"
-                        />
-                      ) : (
+                      {/* Add New Item */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-gray-400 transition-colors">
                         <Input
                           placeholder="+ Add item"
                           value={newItemInputs[section.key]}
@@ -323,71 +376,131 @@ const MeetingNotebook = () => {
                           }}
                           className="border-none p-0 bg-transparent focus-visible:ring-0"
                         />
-                      )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </TabsContent>
+
+          {/* Products Tab */}
+          <TabsContent value="products" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Product Teams</h2>
+              <Button onClick={addProduct} className="bg-green-500 hover:bg-green-600">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Product
+              </Button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {products.map((product) => (
+                <Card key={product.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="text-lg">{product.name}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          <DropdownMenuItem>Add Member</DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-gray-600">{product.description}</p>
+                    
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Team Lead</h4>
+                      <Badge className="bg-blue-100 text-blue-700">{product.teamLead}</Badge>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Team Members ({product.members.length})</h4>
+                      <div className="space-y-2">
+                        {product.members.map((member) => (
+                          <div key={member.id} className="flex items-center justify-between text-sm">
+                            <span>{member.name}</span>
+                            <Badge variant="outline" className="text-xs">{member.role}</Badge>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          </TabsContent>
 
-          {/* Right Panel - Action Drawer */}
-          <div className="w-80 space-y-4">
-            {/* Metadata Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">{meetingData.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Date:</span>
-                  <span className="font-medium">{new Date(meetingData.date).toLocaleDateString()}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Product:</span>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    {meetingData.product}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Status:</span>
-                  <Badge className={meetingData.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}>
-                    {meetingData.status}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Sessions Tab */}
+          <TabsContent value="sessions" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Meeting Sessions</h2>
+              <Button onClick={addSession} className="bg-green-500 hover:bg-green-600">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Session
+              </Button>
+            </div>
 
-            {/* Action Items */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center justify-between">
-                  Action Items
-                  <Badge variant="secondary">{getTaskItems().length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {getTaskItems().length === 0 ? (
-                  <p className="text-sm text-gray-500 italic">No action items yet</p>
-                ) : (
-                  getTaskItems().map((item) => (
-                    <div key={item.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded border text-sm">
-                      <CheckSquare className="w-4 h-4 text-tasksmate-green-end mt-0.5 flex-shrink-0" />
-                      <span className="flex-1">{item.content.replace('[ ]', '').trim()}</span>
+            <div className="grid gap-4 md:grid-cols-2">
+              {sessions.map((session) => (
+                <Card key={session.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="text-lg">{session.title}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <span>{new Date(session.date).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        <span>{session.time}</span>
+                      </div>
                     </div>
-                  ))
-                )}
-                
-                {getTaskItems().length > 0 && (
-                  <Button className="w-full mt-3 bg-tasksmate-gradient hover:scale-105 transition-all duration-200">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Tasks
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+
+                    {session.description && (
+                      <p className="text-sm text-gray-600">{session.description}</p>
+                    )}
+
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Attendees ({session.attendees.length})</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {session.attendees.map((attendee, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {attendee}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 interface NewMeetingModalProps {
   open: boolean;
@@ -26,6 +27,7 @@ interface NewMeetingModalProps {
 }
 
 const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting }: NewMeetingModalProps) => {
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     title: '',
     date: '',
@@ -40,16 +42,43 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting }: NewMeetingModa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title || !formData.date || !formData.product) {
+    
+    // Validation
+    if (!formData.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Meeting title is required",
+        variant: "destructive"
+      });
       return;
     }
 
-    onCreateMeeting({
+    if (!formData.date) {
+      toast({
+        title: "Error", 
+        description: "Meeting date is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.product) {
+      toast({
+        title: "Error",
+        description: "Please select a product",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const meetingData = {
       ...formData,
       id: Date.now().toString(),
       status: 'draft',
       lastUpdated: 'just now'
-    });
+    };
+
+    onCreateMeeting(meetingData);
 
     // Reset form
     setFormData({
@@ -60,6 +89,11 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting }: NewMeetingModa
       description: '',
       attendees: [],
       newAttendee: ''
+    });
+    
+    toast({
+      title: "Success",
+      description: "Meeting created successfully!",
     });
     
     onOpenChange(false);
@@ -84,7 +118,7 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting }: NewMeetingModa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-green-500" />
