@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  Search, 
   Plus, 
   Calendar, 
   ChevronLeft,
@@ -11,7 +10,6 @@ import {
 import MainNavigation from "@/components/navigation/MainNavigation";
 import NewMeetingModal from "@/components/meetings/NewMeetingModal";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -19,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 interface Meeting {
   id: string;
@@ -29,6 +28,7 @@ interface Meeting {
   status: 'draft' | 'published';
   lastUpdated: string;
   description?: string;
+  meetingType?: string;
 }
 
 // Mock data - in real app this would come from an API
@@ -40,7 +40,8 @@ const initialMeetings: Meeting[] = [
     time: "10:00",
     product: "TasksMate",
     status: "published",
-    lastUpdated: "2 hours ago"
+    lastUpdated: "2 hours ago",
+    meetingType: "Product Call"
   },
   {
     id: "2", 
@@ -49,7 +50,8 @@ const initialMeetings: Meeting[] = [
     time: "14:00",
     product: "Core Platform",
     status: "draft",
-    lastUpdated: "1 day ago"
+    lastUpdated: "1 day ago",
+    meetingType: "Status Call"
   },
   {
     id: "3",
@@ -58,13 +60,13 @@ const initialMeetings: Meeting[] = [
     time: "09:00",
     product: "TasksMate",
     status: "published",
-    lastUpdated: "2 days ago"
+    lastUpdated: "2 days ago",
+    meetingType: "Retrospective"
   }
 ];
 
 const Meetings = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
   const [meetings, setMeetings] = useState<Meeting[]>(initialMeetings);
   const [isNewMeetingModalOpen, setIsNewMeetingModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -76,19 +78,38 @@ const Meetings = () => {
   };
 
   const handleCreateMeeting = (meetingData: any) => {
-    const newMeeting: Meeting = {
-      id: meetingData.id,
-      title: meetingData.title,
-      date: meetingData.date,
-      time: meetingData.time,
-      product: meetingData.product,
-      status: 'draft',
-      lastUpdated: 'just now',
-      description: meetingData.description
+    const createMeetingForDate = (date: string) => {
+      const newMeeting: Meeting = {
+        id: `${Date.now()}-${date}`,
+        title: meetingData.title,
+        date: date,
+        time: meetingData.time,
+        product: meetingData.product,
+        status: 'draft',
+        lastUpdated: 'just now',
+        description: meetingData.description,
+        meetingType: meetingData.meetingType
+      };
+      return newMeeting;
     };
+
+    const newMeetings: Meeting[] = [];
     
-    setMeetings(prev => [newMeeting, ...prev]);
-    console.log("Created new meeting:", newMeeting);
+    if (meetingData.isRecurring && meetingData.recurringDays > 0) {
+      // Create recurring meetings
+      for (let i = 0; i < meetingData.recurringDays; i++) {
+        const recurringDate = new Date(meetingData.date);
+        recurringDate.setDate(recurringDate.getDate() + i);
+        const dateString = recurringDate.toISOString().split('T')[0];
+        newMeetings.push(createMeetingForDate(dateString));
+      }
+    } else {
+      // Create single meeting
+      newMeetings.push(createMeetingForDate(meetingData.date));
+    }
+    
+    setMeetings(prev => [...newMeetings, ...prev]);
+    console.log("Created new meeting(s):", newMeetings);
   };
 
   const handleDateClick = (date: Date) => {
@@ -127,6 +148,17 @@ const Meetings = () => {
     }
     
     setSelectedDate(newDate);
+  };
+
+  const getMeetingTypeColor = (meetingType: string) => {
+    const colors = {
+      'Status Call': 'bg-blue-100 text-blue-800 border-blue-200',
+      'Retrospective': 'bg-purple-100 text-purple-800 border-purple-200',
+      'Knowshare': 'bg-green-100 text-green-800 border-green-200',
+      'Product Call': 'bg-orange-100 text-orange-800 border-orange-200',
+      'Ad-hoc': 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+    return colors[meetingType as keyof typeof colors] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   const renderCalendarView = () => {
@@ -173,26 +205,38 @@ const Meetings = () => {
                     </span>
                     <button
                       onClick={() => handleDateClick(day)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-green-500 hover:text-white rounded-full"
+                      className="p-1 hover:bg-green-500 hover:text-white rounded-full transition-all opacity-70 hover:opacity-100"
                       title="Add meeting"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
                   <div className="space-y-1">
-                    {dayMeetings.slice(0, 3).map((meeting) => (
+                    {dayMeetings.slice(0, 2).map((meeting) => (
                       <div
                         key={meeting.id}
-                        className="text-xs p-1 bg-green-100 text-green-800 rounded cursor-pointer hover:bg-green-200 transition-colors truncate"
+                        className="text-xs p-1 bg-green-100 text-green-800 rounded cursor-pointer hover:bg-green-200 transition-colors"
                         title={meeting.title}
                         onClick={() => handleMeetingClick(meeting.id)}
                       >
-                        {meeting.time && `${meeting.time} `}{meeting.title}
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="truncate font-medium">
+                            {meeting.time && `${meeting.time} `}{meeting.title}
+                          </span>
+                        </div>
+                        {meeting.meetingType && (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs px-1 py-0 ${getMeetingTypeColor(meeting.meetingType)}`}
+                          >
+                            {meeting.meetingType}
+                          </Badge>
+                        )}
                       </div>
                     ))}
-                    {dayMeetings.length > 3 && (
+                    {dayMeetings.length > 2 && (
                       <div className="text-xs text-gray-500">
-                        +{dayMeetings.length - 3} more
+                        +{dayMeetings.length - 2} more
                       </div>
                     )}
                   </div>
@@ -235,7 +279,7 @@ const Meetings = () => {
                   <div className="space-y-2 min-h-[300px] relative group">
                     <button
                       onClick={() => handleDateClick(day)}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-green-500 hover:text-white rounded-full z-10"
+                      className="absolute top-2 right-2 p-1 hover:bg-green-500 hover:text-white rounded-full z-10 transition-all opacity-70 hover:opacity-100"
                       title="Add meeting"
                     >
                       <Plus className="w-4 h-4" />
@@ -248,6 +292,14 @@ const Meetings = () => {
                       >
                         <div className="font-medium">{meeting.time}</div>
                         <div className="truncate">{meeting.title}</div>
+                        {meeting.meetingType && (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs mt-1 ${getMeetingTypeColor(meeting.meetingType)}`}
+                          >
+                            {meeting.meetingType}
+                          </Badge>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -299,6 +351,14 @@ const Meetings = () => {
                     {meeting.description && (
                       <p className="text-sm text-gray-600 mt-2">{meeting.description}</p>
                     )}
+                    {meeting.meetingType && (
+                      <Badge 
+                        variant="outline" 
+                        className={`mt-2 ${getMeetingTypeColor(meeting.meetingType)}`}
+                      >
+                        {meeting.meetingType}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
@@ -328,17 +388,6 @@ const Meetings = () => {
             <Plus className="w-4 h-4 mr-2" />
             New Meeting
           </Button>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative mb-8">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            placeholder="Search meetings by title or product..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white border-gray-200 focus:border-green-500 focus:ring-green-500/20"
-          />
         </div>
 
         {/* Calendar Controls */}

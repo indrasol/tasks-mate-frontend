@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 
 interface NewMeetingModalProps {
@@ -34,12 +35,16 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
     date: '',
     time: '',
     product: '',
+    meetingType: '',
     description: '',
     attendees: [] as string[],
-    newAttendee: ''
+    newAttendee: '',
+    isRecurring: false,
+    recurringDays: 1
   });
 
   const products = ['TasksMate', 'Core Platform', 'Analytics Suite'];
+  const meetingTypes = ['Status Call', 'Retrospective', 'Knowshare', 'Product Call', 'Ad-hoc'];
 
   // Set default date when modal opens
   useEffect(() => {
@@ -79,6 +84,15 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
       return;
     }
 
+    if (!formData.meetingType) {
+      toast({
+        title: "Error",
+        description: "Please select a meeting type",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const meetingData = {
       ...formData,
       id: Date.now().toString(),
@@ -94,14 +108,19 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
       date: '',
       time: '',
       product: '',
+      meetingType: '',
       description: '',
       attendees: [],
-      newAttendee: ''
+      newAttendee: '',
+      isRecurring: false,
+      recurringDays: 1
     });
     
     toast({
       title: "Success",
-      description: "Meeting created successfully!",
+      description: formData.isRecurring 
+        ? `Recurring meeting created for ${formData.recurringDays} days!`
+        : "Meeting created successfully!",
     });
     
     onOpenChange(false);
@@ -185,6 +204,53 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="meetingType">Meeting Type *</Label>
+            <Select value={formData.meetingType} onValueChange={(value) => setFormData(prev => ({ ...prev, meetingType: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select meeting type" />
+              </SelectTrigger>
+              <SelectContent>
+                {meetingTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="recurring"
+                checked={formData.isRecurring}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isRecurring: !!checked }))}
+              />
+              <Label htmlFor="recurring" className="text-sm font-medium">
+                Make this a recurring meeting
+              </Label>
+            </div>
+            
+            {formData.isRecurring && (
+              <div className="space-y-2 ml-6">
+                <Label htmlFor="recurringDays">Number of days to repeat</Label>
+                <Input
+                  id="recurringDays"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={formData.recurringDays}
+                  onChange={(e) => setFormData(prev => ({ ...prev, recurringDays: parseInt(e.target.value) || 1 }))}
+                  placeholder="e.g., 30"
+                />
+                <p className="text-xs text-gray-500">
+                  This will create the meeting for {formData.recurringDays} consecutive days
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
@@ -231,7 +297,7 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
               Cancel
             </Button>
             <Button type="submit" className="bg-green-500 hover:bg-green-600">
-              Create Meeting
+              {formData.isRecurring ? `Create ${formData.recurringDays} Meetings` : 'Create Meeting'}
             </Button>
           </div>
         </form>
