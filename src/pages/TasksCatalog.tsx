@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,8 +14,6 @@ import ViewToggle from "@/components/tasks/ViewToggle";
 import TaskListView from "@/components/tasks/TaskListView";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 import MainNavigation from "@/components/navigation/MainNavigation";
-import ScratchpadButton from "@/components/scratchpad/ScratchpadButton";
-import ScratchpadDrawer from "@/components/scratchpad/ScratchpadDrawer";
 
 interface Task {
   id: string;
@@ -236,192 +235,204 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* New Navigation */}
+      {/* Navigation */}
       <MainNavigation 
         onNewTask={handleNewTask}
         onNewMeeting={handleNewMeeting}
       />
 
-      {/* Page Header */}
-      <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Tasks Catalog</h1>
-          <p className="text-gray-600">Manage and track all your tasks in one place</p>
+      {/* Main Content - adjusted for left sidebar */}
+      <div className="ml-64 transition-all duration-300">
+        {/* Page Header */}
+        <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Tasks Catalog</h1>
+              <p className="text-gray-600">Manage and track all your tasks in one place</p>
+            </div>
+            <Button 
+              onClick={handleNewTask}
+              className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Task</span>
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Secondary Controls */}
-      <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <ViewToggle view={view} onViewChange={setView} />
+        {/* Secondary Controls */}
+        <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <ViewToggle view={view} onViewChange={setView} />
+              
+              <TaskFilters
+                selectedStatuses={selectedStatuses}
+                selectedOwners={selectedOwners}
+                selectedDateRange={selectedDateRange}
+                onStatusToggle={handleStatusToggle}
+                onOwnerToggle={handleOwnerToggle}
+                onDateRangeChange={handleDateRangeChange}
+                onClearFilters={handleClearFilters}
+              />
+            </div>
             
-            <TaskFilters
-              selectedStatuses={selectedStatuses}
-              selectedOwners={selectedOwners}
-              selectedDateRange={selectedDateRange}
-              onStatusToggle={handleStatusToggle}
-              onOwnerToggle={handleOwnerToggle}
-              onDateRangeChange={handleDateRangeChange}
-              onClearFilters={handleClearFilters}
-            />
-          </div>
-          
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input 
-              placeholder="Search by keyword or ID (e.g. T1234)" 
-              className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            <div className="relative w-96">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input 
+                placeholder="Search by keyword or ID (e.g. T1234)" 
+                className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Results count */}
-      <div className="px-6 py-2">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-sm text-gray-600">
-            Showing {filteredTasks.length} of {tasks.length} tasks
-          </p>
+        {/* Results count */}
+        <div className="px-6 py-2">
+          <div className="max-w-7xl mx-auto">
+            <p className="text-sm text-gray-600">
+              Showing {filteredTasks.length} of {tasks.length} tasks
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Tasks Display */}
-      <div className="px-6 py-6">
-        <div className="max-w-7xl mx-auto">
-          {view === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredTasks.map((task) => (
-                <Card 
-                  key={task.id} 
-                  className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200"
-                  onClick={() => handleTaskClick(task.id)}
-                >
-                  <CardContent className="p-6">
-                    {/* Header with checkbox and task ID */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-2">
-                        {/* Checkbox styled like TasksMate logo */}
-                        <div 
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                            task.status === 'completed' 
-                              ? 'bg-tasksmate-gradient border-transparent' 
-                              : 'border-gray-300 hover:border-gray-400'
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTaskStatusToggle(task.id);
-                          }}
-                        >
-                          {task.status === 'completed' && (
-                            <Check className="h-3 w-3 text-white" />
-                          )}
-                        </div>
-                        <Badge variant="secondary" className="text-xs font-mono">
-                          {task.id}
-                        </Badge>
-                      </div>
-                      
-                      {/* Status tag positioned at the right */}
-                      <Badge 
-                        variant="secondary" 
-                        className={`text-xs ${
-                          task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                          task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {getStatusText(task.status)}
-                      </Badge>
-                    </div>
-
-                    {/* Task Info - Fixed height to ensure consistent margin line alignment */}
-                    <div className="space-y-3 mb-4" style={{ minHeight: '120px' }}>
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-1 hover:text-blue-600 transition-colors">{task.name}</h3>
-                        <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
-                      </div>
-
-                      {/* Tags */}
-                      {task.tags && task.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {task.tags.slice(0, 3).map((tag, index) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="text-xs bg-purple-100 text-purple-800"
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                          {task.tags.length > 3 && (
-                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                              +{task.tags.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Footer with metadata and comments */}
-                    <div className="pt-4 border-t border-gray-200">
-                      {/* Single row with metadata and comments */}
-                      <div className="flex items-center justify-between">
-                        {/* Metadata as colored tags */}
-                        <div className="flex flex-wrap gap-1">
-                          <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                            👤 {task.createdBy || task.owner}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
-                            📅 {task.createdDate || 'N/A'}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
-                            🎯 {task.targetDate}
+        {/* Tasks Display */}
+        <div className="px-6 py-6">
+          <div className="max-w-7xl mx-auto">
+            {view === "grid" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredTasks.map((task) => (
+                  <Card 
+                    key={task.id} 
+                    className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200"
+                    onClick={() => handleTaskClick(task.id)}
+                  >
+                    <CardContent className="p-6">
+                      {/* Header with checkbox and task ID */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-2">
+                          {/* Checkbox styled like TasksMate logo */}
+                          <div 
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
+                              task.status === 'completed' 
+                                ? 'bg-tasksmate-gradient border-transparent' 
+                                : 'border-gray-300 hover:border-gray-400'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTaskStatusToggle(task.id);
+                            }}
+                          >
+                            {task.status === 'completed' && (
+                              <Check className="h-3 w-3 text-white" />
+                            )}
+                          </div>
+                          <Badge variant="secondary" className="text-xs font-mono">
+                            {task.id}
                           </Badge>
                         </div>
                         
-                        {/* Comments */}
-                        <div className="flex items-center space-x-1 text-gray-500">
-                          <MessageSquare className="h-4 w-4" />
-                          <span className="text-xs">{task.comments}</span>
+                        {/* Status tag positioned at the right */}
+                        <Badge 
+                          variant="secondary" 
+                          className={`text-xs ${
+                            task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                            task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {getStatusText(task.status)}
+                        </Badge>
+                      </div>
+
+                      {/* Task Info - Fixed height to ensure consistent margin line alignment */}
+                      <div className="space-y-3 mb-4" style={{ minHeight: '120px' }}>
+                        <div>
+                          <h3 className="font-semibold text-gray-900 mb-1 hover:text-blue-600 transition-colors">{task.name}</h3>
+                          <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
+                        </div>
+
+                        {/* Tags */}
+                        {task.tags && task.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {task.tags.slice(0, 3).map((tag, index) => (
+                              <Badge
+                                key={index}
+                                variant="secondary"
+                                className="text-xs bg-purple-100 text-purple-800"
+                              >
+                                {tag}
+                              </Badge>
+                            ))}
+                            {task.tags.length > 3 && (
+                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                                +{task.tags.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer with metadata and comments */}
+                      <div className="pt-4 border-t border-gray-200">
+                        {/* Single row with metadata and comments */}
+                        <div className="flex items-center justify-between">
+                          {/* Metadata as colored tags */}
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                              👤 {task.createdBy || task.owner}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                              📅 {task.createdDate || 'N/A'}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                              🎯 {task.targetDate}
+                            </Badge>
+                          </div>
+                          
+                          {/* Comments */}
+                          <div className="flex items-center space-x-1 text-gray-500">
+                            <MessageSquare className="h-4 w-4" />
+                            <span className="text-xs">{task.comments}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <TaskListView 
-              tasks={filteredTasks} 
-              onTaskClick={handleTaskClick}
-              onTaskStatusToggle={handleTaskStatusToggle}
-            />
-          )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <TaskListView 
+                tasks={filteredTasks} 
+                onTaskClick={handleTaskClick}
+                onTaskStatusToggle={handleTaskStatusToggle}
+              />
+            )}
 
-          {filteredTasks.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No tasks found matching your criteria</p>
-              <Button 
-                className="mt-4 bg-tasksmate-gradient hover:scale-105 transition-transform"
-                onClick={handleClearFilters}
-              >
-                Clear Filters
-              </Button>
-            </div>
-          )}
+            {filteredTasks.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-500 text-lg">No tasks found matching your criteria</p>
+                <Button 
+                  className="mt-4 bg-tasksmate-gradient hover:scale-105 transition-transform"
+                  onClick={handleClearFilters}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* New Task Modal */}
-      <NewTaskModal 
-        open={isNewTaskModalOpen} 
-        onOpenChange={setIsNewTaskModalOpen}
-        onTaskCreated={handleTaskCreated}
-      />
+        {/* New Task Modal */}
+        <NewTaskModal 
+          open={isNewTaskModalOpen} 
+          onOpenChange={setIsNewTaskModalOpen}
+          onTaskCreated={handleTaskCreated}
+        />
+      </div>
     </div>
   );
 };
