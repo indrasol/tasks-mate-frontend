@@ -3,30 +3,17 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, 
-  Save, 
-  Share, 
-  FileDown, 
-  Plus,
   CheckSquare,
   Clock,
   AlertTriangle,
   FileText,
-  GripVertical,
-  MoreVertical,
-  Users,
-  Calendar,
-  Settings,
-  Edit,
-  Trash2
+  GripVertical
 } from "lucide-react";
 import MainNavigation from "@/components/navigation/MainNavigation";
-import AddProjectModal from "@/components/meetings/AddProjectModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -34,13 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useToast } from '@/hooks/use-toast';
 import StatusViewToggle from "@/components/meetings/StatusViewToggle";
 
 interface MeetingItem {
@@ -58,7 +38,6 @@ interface TeamMember {
   id: string;
   name: string;
   role: string;
-  avatar?: string;
 }
 
 interface Project {
@@ -69,20 +48,9 @@ interface Project {
   members: TeamMember[];
 }
 
-interface Session {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  description: string;
-  attendees: string[];
-}
-
 const MeetingNotebook = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   
   // Status tab state
   const [selectedUser, setSelectedUser] = useState<string>('all');
@@ -147,8 +115,8 @@ const MeetingNotebook = () => {
     }
   ]);
 
-  // Projects tab state with expanded dummy data
-  const [projects, setProjects] = useState<Project[]>([
+  // Projects state with expanded dummy data
+  const [projects] = useState<Project[]>([
     {
       id: "1",
       name: "TasksMate",
@@ -184,18 +152,6 @@ const MeetingNotebook = () => {
     }
   ]);
 
-  // Sessions tab state
-  const [sessions, setSessions] = useState<Session[]>([
-    {
-      id: "1",
-      title: "Sprint Planning",
-      date: "2024-06-25",
-      time: "14:00",
-      description: "Planning for next sprint activities",
-      attendees: ["john@company.com", "jane@company.com"]
-    }
-  ]);
-
   const [newItemInputs, setNewItemInputs] = useState({
     completed: '',
     'in-progress': '',
@@ -203,17 +159,16 @@ const MeetingNotebook = () => {
     notes: ''
   });
 
-  const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
-
   // Get users based on selected project
   const getProjectUsers = () => {
     const baseUsers = [{ id: 'all', name: 'All Users' }];
     
     if (selectedProject === 'all') {
       // Return all unique users from all projects
-      const allUsers = projects.flatMap(project => 
-        [{ id: project.teamLead.toLowerCase().replace(' ', ''), name: project.teamLead }, ...project.members]
-      );
+      const allUsers = projects.flatMap(project => {
+        const teamLeadUser = { id: project.teamLead.toLowerCase().replace(' ', ''), name: project.teamLead };
+        return [teamLeadUser, ...project.members];
+      });
       const uniqueUsers = allUsers.filter((user, index, self) => 
         index === self.findIndex(u => u.id === user.id)
       );
@@ -221,9 +176,10 @@ const MeetingNotebook = () => {
     } else {
       const project = projects.find(p => p.id === selectedProject);
       if (project) {
+        const teamLeadUser = { id: project.teamLead.toLowerCase().replace(' ', ''), name: project.teamLead };
         return [
           ...baseUsers,
-          { id: project.teamLead.toLowerCase().replace(' ', ''), name: project.teamLead },
+          teamLeadUser,
           ...project.members
         ];
       }
@@ -265,16 +221,6 @@ const MeetingNotebook = () => {
     }
   ];
 
-  // Auto-save simulation
-  useEffect(() => {
-    if (saveStatus === 'saving') {
-      const timer = setTimeout(() => {
-        setSaveStatus('saved');
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [saveStatus]);
-
   const handleAddItem = (section: MeetingItem['section'], projectId?: string, userId?: string) => {
     const content = newItemInputs[section].trim();
     if (!content) return;
@@ -292,7 +238,6 @@ const MeetingNotebook = () => {
 
     setMeetingItems(prev => [...prev, newItem]);
     setNewItemInputs(prev => ({ ...prev, [section]: '' }));
-    setSaveStatus('saving');
   };
 
   const getFilteredItems = (section: MeetingItem['section'], projectId?: string, userId?: string) => {
@@ -465,8 +410,9 @@ const MeetingNotebook = () => {
       return (
         <div className="space-y-8">
           {projectsWithItems.map((project) => {
+            const teamLeadUser = { id: project.teamLead.toLowerCase().replace(' ', ''), name: project.teamLead, role: 'Team Lead' };
             const usersWithItems = [
-              { id: project.teamLead.toLowerCase().replace(' ', ''), name: project.teamLead },
+              teamLeadUser,
               ...project.members
             ].filter(user => {
               const hasItems = meetingItems.some(item => 
@@ -504,37 +450,6 @@ const MeetingNotebook = () => {
     return renderStatusCards();
   };
 
-  const handleAddProject = (projectData: Project) => {
-    setProjects(prev => [...prev, projectData]);
-  };
-
-  const handleEditProject = (projectId: string) => {
-    toast({
-      title: "Edit Project",
-      description: "Edit functionality will be implemented soon.",
-    });
-  };
-
-  const handleDeleteProject = (projectId: string) => {
-    setProjects(prev => prev.filter(p => p.id !== projectId));
-    toast({
-      title: "Success",
-      description: "Project deleted successfully!",
-    });
-  };
-
-  const addSession = () => {
-    const newSession: Session = {
-      id: Date.now().toString(),
-      title: "New Session",
-      date: new Date().toISOString().split('T')[0],
-      time: "14:00",
-      description: "",
-      attendees: []
-    };
-    setSessions(prev => [...prev, newSession]);
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <MainNavigation />
@@ -551,265 +466,73 @@ const MeetingNotebook = () => {
                 className="text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft className="w-4 h-4 mr-1" />
-                Meetings
+                Meet books
               </Button>
               <span className="text-gray-400">/</span>
               <h1 className="font-semibold text-gray-900">Product Strategy Review</h1>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {saveStatus === 'saved' && (
-                <>
-                  <Save className="w-4 h-4 text-green-600" />
-                  <span className="text-green-600 text-sm">Saved</span>
-                </>
-              )}
-              {saveStatus === 'saving' && (
-                <>
-                  <div className="w-4 h-4 border-2 border-amber-300 border-t-amber-600 rounded-full animate-spin" />
-                  <span className="text-amber-600 text-sm">Saving...</span>
-                </>
-              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content with Tabs */}
+      {/* Main Content */}
       <div className="container mx-auto px-6 py-6">
-        <Tabs defaultValue="status" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3 bg-white border border-gray-200 rounded-lg p-1">
-            <TabsTrigger 
-              value="status" 
-              className="flex items-center gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:border-green-200 transition-all duration-200"
-            >
-              <CheckSquare className="w-4 h-4" />
-              Status
-            </TabsTrigger>
-            <TabsTrigger 
-              value="projects" 
-              className="flex items-center gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:border-green-200 transition-all duration-200"
-            >
-              <Users className="w-4 h-4" />
-              Projects
-            </TabsTrigger>
-            <TabsTrigger 
-              value="sessions" 
-              className="flex items-center gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:border-green-200 transition-all duration-200"
-            >
-              <Calendar className="w-4 h-4" />
-              Sessions
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Status Tab */}
-          <TabsContent value="status" className="space-y-4">
-            {/* Status Controls */}
-            <div className="flex gap-4 items-center bg-white p-4 rounded-lg border border-gray-200 flex-wrap">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Date:</label>
-                <Input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Project:</label>
-                <Select value={selectedProject} onValueChange={(value) => {
-                  if (value === 'add-new') {
-                    setIsAddProjectModalOpen(true);
-                  } else {
-                    setSelectedProject(value);
-                  }
-                }}>
-                  <SelectTrigger className="w-48 bg-white border-gray-300 focus:border-green-500 focus:ring-green-500/20">
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-lg">
-                    <SelectItem value="all">All Projects</SelectItem>
-                    {projects.map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="add-new" className="text-green-600 font-medium">
-                      <div className="flex items-center gap-2">
-                        <Plus className="w-4 h-4" />
-                        Add Project
-                      </div>
+        <div className="space-y-6">
+          {/* Status Controls */}
+          <div className="flex gap-4 items-center bg-white p-4 rounded-lg border border-gray-200 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Date:</label>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Project:</label>
+              <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <SelectTrigger className="w-48 bg-white border-gray-300 focus:border-green-500 focus:ring-green-500/20">
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {projects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
                     </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">User:</label>
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
-                  <SelectTrigger className="w-40 bg-white border-gray-300 focus:border-green-500 focus:ring-green-500/20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-lg">
-                    {getProjectUsers().map(user => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2 ml-auto">
-                <label className="text-sm font-medium">View:</label>
-                <StatusViewToggle view={statusView} onViewChange={setStatusView} />
-              </div>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Status Content */}
-            {renderConsolidatedView()}
-          </TabsContent>
-
-          {/* Projects Tab */}
-          <TabsContent value="projects" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Project Teams</h2>
-              <Button 
-                onClick={() => setIsAddProjectModalOpen(true)} 
-                className="bg-green-500 hover:bg-green-600 transition-all duration-200 hover:scale-105 shadow-lg"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Project
-              </Button>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">User:</label>
+              <Select value={selectedUser} onValueChange={setSelectedUser}>
+                <SelectTrigger className="w-40 bg-white border-gray-300 focus:border-green-500 focus:ring-green-500/20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                  {getProjectUsers().map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project) => (
-                <Card key={project.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 hover:border-green-200">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="text-lg">{project.name}</span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-                          <DropdownMenuItem onClick={() => handleEditProject(project.id)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Member
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-red-600 focus:text-red-600"
-                            onClick={() => handleDeleteProject(project.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-gray-600">{project.description}</p>
-                    
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Team Lead</h4>
-                      <Badge className="bg-blue-100 text-blue-700">{project.teamLead}</Badge>
-                    </div>
-
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Team Members ({project.members.length})</h4>
-                      <div className="space-y-2">
-                        {project.members.map((member) => (
-                          <div key={member.id} className="flex items-center justify-between text-sm">
-                            <span>{member.name}</span>
-                            <Badge variant="outline" className="text-xs">{member.role}</Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="flex items-center gap-2 ml-auto">
+              <label className="text-sm font-medium">View:</label>
+              <StatusViewToggle view={statusView} onViewChange={setStatusView} />
             </div>
-          </TabsContent>
+          </div>
 
-          {/* Sessions Tab */}
-          <TabsContent value="sessions" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Meeting Sessions</h2>
-              <Button onClick={addSession} className="bg-green-500 hover:bg-green-600 transition-all duration-200 hover:scale-105 shadow-lg">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Session
-              </Button>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {sessions.map((session) => (
-                <Card key={session.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 hover:border-green-200">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="text-lg">{session.title}</span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4 text-gray-500" />
-                        <span>{new Date(session.date).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        <span>{session.time}</span>
-                      </div>
-                    </div>
-
-                    {session.description && (
-                      <p className="text-sm text-gray-600">{session.description}</p>
-                    )}
-
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Attendees ({session.attendees.length})</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {session.attendees.map((attendee, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {attendee}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
+          {/* Status Content */}
+          {renderConsolidatedView()}
+        </div>
       </div>
-
-      <AddProjectModal
-        open={isAddProjectModalOpen}
-        onOpenChange={setIsAddProjectModalOpen}
-        onAddProject={handleAddProject}
-      />
     </div>
   );
 };
