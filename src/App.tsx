@@ -10,6 +10,7 @@ import TasksCatalog from "./pages/TasksCatalog";
 import TaskDetail from "./pages/TaskDetail";
 import Meetings from "./pages/Meetings";
 import MeetingNotebook from "./pages/MeetingNotebook";
+import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/tasks/:taskId" element={<TaskDetail />} />
             <Route path="/meetings" element={<Meetings />} />
             <Route path="/meetings/:id" element={<MeetingNotebook />} />
+            <Route path="/projects" element={<Projects />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
