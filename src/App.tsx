@@ -19,6 +19,9 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Reports from "./pages/Reports";
 import Scratchpad from "./pages/Scratchpad";
+import TesterZone from "./pages/TesterZone";
+import TestRunDetail from "./pages/TestRunDetail";
+import BugBoard from "./pages/BugBoard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +47,9 @@ const App = () => (
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/tester-zone" element={<TesterZone />} />
+            <Route path="/tester-zone/runs/:id" element={<TestRunDetail />} />
+            <Route path="/tester-zone/runs/:id/bugs" element={<BugBoard />} />
             <Route path="/scratchpad" element={<Scratchpad />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -15,7 +15,8 @@ import {
   Users,
   Menu,
   X,
-  Edit3
+  Edit3,
+  Beaker
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -67,6 +68,12 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       path: '/reports', 
       icon: BarChart3,
       isActive: location.pathname.startsWith('/reports')
+    },
+    { 
+      name: 'Tester zone', 
+      path: '/tester-zone', 
+      icon: Beaker,
+      isActive: location.pathname.startsWith('/tester-zone')
     },
     { 
       name: 'Scratchpad', 
