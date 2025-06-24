@@ -77,7 +77,7 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
     if (!formData.meetingType) {
       toast({
         title: "Error",
-        description: "Please select a meeting type",
+        description: "Please select a book type",
         variant: "destructive"
       });
       return;
@@ -109,8 +109,8 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
     toast({
       title: "Success",
       description: formData.isRecurring 
-        ? `Recurring meeting created for ${formData.recurringDays} ${formData.isSameDay ? 'weeks' : 'days'}!`
-        : "Meeting created successfully!",
+        ? `Recurring Meeting book created for ${formData.recurringDays} ${formData.isSameDay ? 'weeks' : 'days'}!`
+        : "Meeting book created successfully!",
     });
     
     onOpenChange(false);
@@ -139,7 +139,7 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-green-500" />
-            Create New Meeting
+            Create New Meeting Book
           </DialogTitle>
         </DialogHeader>
 
@@ -178,10 +178,10 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="meetingType">Meeting Type *</Label>
+            <Label htmlFor="meetingType">Book Type *</Label>
             <Select value={formData.meetingType} onValueChange={(value) => setFormData(prev => ({ ...prev, meetingType: value }))}>
               <SelectTrigger>
-                <SelectValue placeholder="Select meeting type" />
+                <SelectValue placeholder="Select book type" />
               </SelectTrigger>
               <SelectContent>
                 {meetingTypes.map((type) => (
@@ -201,7 +201,7 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isRecurring: !!checked }))}
               />
               <Label htmlFor="recurring" className="text-sm font-medium">
-                Make this a recurring meeting
+                Make this a recurring Meeting book
               </Label>
             </div>
             
@@ -290,8 +290,8 @@ const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: N
             </Button>
             <Button type="submit" className="bg-green-500 hover:bg-green-600">
               {formData.isRecurring 
-                ? `Create ${formData.recurringDays} ${formData.isSameDay ? 'Weekly' : 'Daily'} Meetings` 
-                : 'Create Meeting'
+                ? `Create ${formData.recurringDays} ${formData.isSameDay ? 'Weekly' : 'Daily'} Meeting Books` 
+                : 'Create Meeting Book'
               }
             </Button>
           </div>

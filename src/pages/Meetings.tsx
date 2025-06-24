@@ -340,7 +340,7 @@ const Meetings = () => {
             className="bg-green-500 hover:bg-green-600"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Add Meeting
+            Add Meeting book
           </Button>
         </div>
         
@@ -401,7 +401,7 @@ const Meetings = () => {
             className="bg-green-500 hover:bg-green-600 hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             <Plus className="w-4 h-4 mr-2" />
-            New Meeting
+            Add Meeting book
           </Button>
         </div>
 
