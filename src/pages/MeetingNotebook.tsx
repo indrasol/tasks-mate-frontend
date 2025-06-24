@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
+import StatusViewToggle from "@/components/meetings/StatusViewToggle";
 
 interface MeetingItem {
   id: string;
@@ -176,6 +177,8 @@ const MeetingNotebook = () => {
     return baseUsers;
   };
 
+  const [statusView, setStatusView] = useState<'grid' | 'list'>('grid');
+
   const sections = [
     {
       key: 'completed' as const,
@@ -235,6 +238,60 @@ const MeetingNotebook = () => {
     setMeetingItems(prev => [...prev, newItem]);
     setNewItemInputs(prev => ({ ...prev, [section]: '' }));
     setSaveStatus('saving');
+  };
+
+  const getConsolidatedItems = () => {
+    const filteredItems = meetingItems.filter(item => {
+      const dateMatch = item.date === selectedDate;
+      const projectMatch = selectedProject === 'all' || item.projectId === selectedProject;
+      const userMatch = selectedUser === 'all' || item.userId === selectedUser;
+      return dateMatch && projectMatch && userMatch;
+    });
+
+    if (selectedProject === 'all' && selectedUser === 'all') {
+      // Group by both project and user
+      const grouped = filteredItems.reduce((acc, item) => {
+        const projectName = projects.find(p => p.id === item.projectId)?.name || 'Unassigned';
+        const userName = getProjectUsers().find(u => u.id === item.userId)?.name || 'Unknown';
+        const key = `${projectName} - ${userName}`;
+        
+        if (!acc[key]) {
+          acc[key] = { title: key, items: [] };
+        }
+        acc[key].items.push(item);
+        return acc;
+      }, {} as Record<string, { title: string; items: MeetingItem[] }>);
+      
+      return Object.values(grouped);
+    } else if (selectedProject === 'all') {
+      // Group by project only
+      const grouped = filteredItems.reduce((acc, item) => {
+        const projectName = projects.find(p => p.id === item.projectId)?.name || 'Unassigned';
+        
+        if (!acc[projectName]) {
+          acc[projectName] = { title: projectName, items: [] };
+        }
+        acc[projectName].items.push(item);
+        return acc;
+      }, {} as Record<string, { title: string; items: MeetingItem[] }>);
+      
+      return Object.values(grouped);
+    } else if (selectedUser === 'all') {
+      // Group by user only
+      const grouped = filteredItems.reduce((acc, item) => {
+        const userName = getProjectUsers().find(u => u.id === item.userId)?.name || 'Unknown';
+        
+        if (!acc[userName]) {
+          acc[userName] = { title: userName, items: [] };
+        }
+        acc[userName].items.push(item);
+        return acc;
+      }, {} as Record<string, { title: string; items: MeetingItem[] }>);
+      
+      return Object.values(grouped);
+    }
+    
+    return [{ title: 'Items', items: filteredItems }];
   };
 
   const getFilteredItems = (section: MeetingItem['section']) => {
@@ -348,7 +405,7 @@ const MeetingNotebook = () => {
           {/* Status Tab */}
           <TabsContent value="status" className="space-y-4">
             {/* Status Controls */}
-            <div className="flex gap-4 items-center bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex gap-4 items-center bg-white p-4 rounded-lg border border-gray-200 flex-wrap">
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">Date:</label>
                 <Input
@@ -361,7 +418,13 @@ const MeetingNotebook = () => {
               
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">Project:</label>
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <Select value={selectedProject} onValueChange={(value) => {
+                  if (value === 'add-new') {
+                    setIsAddProjectModalOpen(true);
+                  } else {
+                    setSelectedProject(value);
+                  }
+                }}>
                   <SelectTrigger className="w-48 bg-white border-gray-300 focus:border-green-500 focus:ring-green-500/20">
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
@@ -397,69 +460,190 @@ const MeetingNotebook = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="text-sm font-medium">View:</label>
+                <StatusViewToggle view={statusView} onViewChange={setStatusView} />
+              </div>
             </div>
 
-            {/* Status Cards Grid */}
-            <div className="grid grid-cols-2 gap-4 h-[calc(100vh-300px)]">
-              {sections.map((section) => {
-                const items = getFilteredItems(section.key);
-                const SectionIcon = section.icon;
-                
-                return (
-                  <Card key={section.key} className={`${section.color} flex flex-col border-2 transition-all duration-200 hover:shadow-lg`}>
-                    <CardHeader className={`${section.headerColor} py-3 rounded-t-lg`}>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <SectionIcon className="w-4 h-4" />
-                        {section.title}
-                        <Badge variant="secondary" className="ml-auto text-xs bg-white/80">
-                          {items.length}
-                        </Badge>
-                      </CardTitle>
-                    </CardHeader>
+            {/* Consolidated View or Regular Cards */}
+            {(selectedProject === 'all' || selectedUser === 'all') ? (
+              <div className="space-y-6">
+                {getConsolidatedItems().map((group, groupIndex) => (
+                  <div key={groupIndex} className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+                      {group.title}
+                    </h3>
                     
-                    <CardContent className="flex-1 p-4 space-y-3 overflow-y-auto">
-                      {items.map((item) => (
-                        <div key={item.id} className="group relative">
-                          <div className="bg-white p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-sm">
-                            <div className="flex items-start gap-2">
-                              <GripVertical className="w-4 h-4 text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-gray-900 break-words">
-                                  {item.content}
-                                </p>
-                                <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                                  <span>{getProjectUsers().find(u => u.id === item.userId)?.name}</span>
-                                  <span>•</span>
-                                  <span>{item.date}</span>
+                    {statusView === 'grid' ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        {sections.map((section) => {
+                          const items = group.items.filter(item => item.section === section.key);
+                          const SectionIcon = section.icon;
+                          
+                          return (
+                            <Card key={section.key} className={`${section.color} flex flex-col border-2 transition-all duration-200 hover:shadow-lg h-64`}>
+                              <CardHeader className={`${section.headerColor} py-3 rounded-t-lg`}>
+                                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                  <SectionIcon className="w-4 h-4" />
+                                  {section.title}
+                                  <Badge variant="secondary" className="ml-auto text-xs bg-white/80">
+                                    {items.length}
+                                  </Badge>
+                                </CardTitle>
+                              </CardHeader>
+                              
+                              <CardContent className="flex-1 p-4 space-y-2 overflow-y-auto">
+                                {items.map((item) => (
+                                  <div key={item.id} className="bg-white p-2 rounded border border-gray-200 text-sm">
+                                    {item.content}
+                                  </div>
+                                ))}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {sections.map((section) => {
+                          const items = group.items.filter(item => item.section === section.key);
+                          const SectionIcon = section.icon;
+                          
+                          return (
+                            <Card key={section.key} className="border border-gray-200">
+                              <CardHeader className="py-3">
+                                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                  <SectionIcon className="w-4 h-4" />
+                                  {section.title}
+                                  <Badge variant="secondary" className="ml-auto text-xs">
+                                    {items.length}
+                                  </Badge>
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="pt-0">
+                                <div className="space-y-2">
+                                  {items.map((item) => (
+                                    <div key={item.id} className="bg-gray-50 p-3 rounded border text-sm">
+                                      {item.content}
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Regular Status Cards Grid */
+              <div className={statusView === 'grid' ? "grid grid-cols-2 gap-4 h-[calc(100vh-300px)]" : "space-y-4"}>
+                {sections.map((section) => {
+                  const items = getFilteredItems(section.key);
+                  const SectionIcon = section.icon;
+                  
+                  return statusView === 'grid' ? (
+                    <Card key={section.key} className={`${section.color} flex flex-col border-2 transition-all duration-200 hover:shadow-lg`}>
+                      <CardHeader className={`${section.headerColor} py-3 rounded-t-lg`}>
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <SectionIcon className="w-4 h-4" />
+                          {section.title}
+                          <Badge variant="secondary" className="ml-auto text-xs bg-white/80">
+                            {items.length}
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      
+                      <CardContent className="flex-1 p-4 space-y-3 overflow-y-auto">
+                        {items.map((item) => (
+                          <div key={item.id} className="group relative">
+                            <div className="bg-white p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-sm">
+                              <div className="flex items-start gap-2">
+                                <GripVertical className="w-4 h-4 text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-gray-900 break-words">
+                                    {item.content}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                    <span>{getProjectUsers().find(u => u.id === item.userId)?.name}</span>
+                                    <span>•</span>
+                                    <span>{item.date}</span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
 
-                      {/* Add New Item */}
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-green-400 transition-colors">
-                        <Input
-                          placeholder="+ Add item"
-                          value={newItemInputs[section.key]}
-                          onChange={(e) => setNewItemInputs(prev => ({
-                            ...prev,
-                            [section.key]: e.target.value
-                          }))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleAddItem(section.key);
-                            }
-                          }}
-                          className="border-none p-0 bg-transparent focus-visible:ring-0"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                        {/* Add New Item */}
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-green-400 transition-colors">
+                          <Input
+                            placeholder="+ Add item"
+                            value={newItemInputs[section.key]}
+                            onChange={(e) => setNewItemInputs(prev => ({
+                              ...prev,
+                              [section.key]: e.target.value
+                            }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleAddItem(section.key);
+                              }
+                            }}
+                            className="border-none p-0 bg-transparent focus-visible:ring-0"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card key={section.key} className="border border-gray-200">
+                      <CardHeader className="py-3">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <SectionIcon className="w-4 h-4" />
+                          {section.title}
+                          <Badge variant="secondary" className="ml-auto text-xs">
+                            {items.length}
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="space-y-2">
+                          {items.map((item) => (
+                            <div key={item.id} className="bg-gray-50 p-3 rounded border hover:bg-gray-100 transition-colors">
+                              <p className="text-sm text-gray-900">{item.content}</p>
+                              <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                <span>{getProjectUsers().find(u => u.id === item.userId)?.name}</span>
+                                <span>•</span>
+                                <span>{item.date}</span>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-green-400 transition-colors">
+                            <Input
+                              placeholder="+ Add item"
+                              value={newItemInputs[section.key]}
+                              onChange={(e) => setNewItemInputs(prev => ({
+                                ...prev,
+                                [section.key]: e.target.value
+                              }))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleAddItem(section.key);
+                                }
+                              }}
+                              className="border-none p-0 bg-transparent focus-visible:ring-0"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
           {/* Projects Tab */}

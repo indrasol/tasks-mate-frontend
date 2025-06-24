@@ -98,6 +98,13 @@ const AddProjectModal = ({ open, onOpenChange, onAddProject }: AddProjectModalPr
     }));
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addMember();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -146,9 +153,15 @@ const AddProjectModal = ({ open, onOpenChange, onAddProject }: AddProjectModalPr
                 placeholder="Add team member name"
                 value={formData.newMember}
                 onChange={(e) => setFormData(prev => ({ ...prev, newMember: e.target.value }))}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addMember())}
+                onKeyDown={handleKeyDown}
               />
-              <Button type="button" onClick={addMember} size="icon" variant="outline">
+              <Button 
+                type="button" 
+                onClick={addMember} 
+                size="icon" 
+                variant="outline"
+                className="shrink-0"
+              >
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -160,7 +173,7 @@ const AddProjectModal = ({ open, onOpenChange, onAddProject }: AddProjectModalPr
                     <button
                       type="button"
                       onClick={() => removeMember(index)}
-                      className="text-gray-500 hover:text-red-500"
+                      className="text-gray-500 hover:text-red-500 ml-1"
                     >
                       <X className="w-3 h-3" />
                     </button>
