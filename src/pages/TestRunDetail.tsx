@@ -38,16 +38,6 @@ const TestRunDetail = () => {
     }
   };
 
-  const allParticipants = [
-    { id: 1, name: testRun.testedBy, avatar: 'JD', role: 'tester' },
-    ...testRun.assignedTo.map((name, index) => ({
-      id: index + 2,
-      name,
-      avatar: name.split(' ').map(n => n[0]).join(''),
-      role: 'assigned'
-    }))
-  ];
-
   return (
     <div className="min-h-screen bg-gray-50">
       <MainNavigation />
@@ -58,7 +48,7 @@ const TestRunDetail = () => {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/tester-zone">Test Books</Link>
+                <Link to="/tester-zone">Testing Books</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
@@ -127,17 +117,6 @@ const TestRunDetail = () => {
                       </Badge>
                     ))}
                   </div>
-                  <div className="flex -space-x-2 ml-2">
-                    {allParticipants.map((participant) => (
-                      <div
-                        key={participant.id}
-                        className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-medium border-2 border-white"
-                        title={participant.name}
-                      >
-                        {participant.avatar}
-                      </div>
-                    ))}
-                  </div>
                   <Button variant="ghost" size="sm" className="ml-2 text-gray-500">
                     + Invite
                   </Button>
@@ -173,9 +152,19 @@ const TestRunDetail = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="bug-board">Bug Board</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between mb-6">
+            <TabsList>
+              <TabsTrigger value="bug-board">Bug Board</TabsTrigger>
+            </TabsList>
+            
+            {activeTab === 'bug-board' && (
+              <Button asChild className="bg-green-500 hover:bg-green-600 text-white">
+                <Link to={`/tester-zone/runs/${testRun.id}/bugs`}>
+                  Open Bug Board
+                </Link>
+              </Button>
+            )}
+          </div>
           
           <TabsContent value="bug-board">
             <BugBoardTab runId={testRun.id} />
