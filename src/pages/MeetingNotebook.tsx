@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
@@ -15,9 +14,12 @@ import {
   MoreVertical,
   Users,
   Calendar,
-  Settings
+  Settings,
+  Edit,
+  Trash2
 } from "lucide-react";
 import MainNavigation from "@/components/navigation/MainNavigation";
+import AddProjectModal from "@/components/meetings/AddProjectModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +39,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useToast } from '@/hooks/use-toast';
 
 interface MeetingItem {
   id: string;
@@ -46,6 +49,7 @@ interface MeetingItem {
   isTask?: boolean;
   userId?: string;
   date?: string;
+  projectId?: string;
 }
 
 interface TeamMember {
@@ -55,7 +59,7 @@ interface TeamMember {
   avatar?: string;
 }
 
-interface Product {
+interface Project {
   id: string;
   name: string;
   description: string;
@@ -75,10 +79,12 @@ interface Session {
 const MeetingNotebook = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   
   // Status tab state
   const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [meetingItems, setMeetingItems] = useState<MeetingItem[]>([
     {
@@ -100,8 +106,8 @@ const MeetingNotebook = () => {
     }
   ]);
 
-  // Products tab state
-  const [products, setProducts] = useState<Product[]>([
+  // Projects tab state
+  const [projects, setProjects] = useState<Project[]>([
     {
       id: "1",
       name: "TasksMate",
@@ -134,12 +140,41 @@ const MeetingNotebook = () => {
     notes: ''
   });
 
-  const users = [
-    { id: 'all', name: 'All Users' },
-    { id: 'john', name: 'John Doe' },
-    { id: 'jane', name: 'Jane Smith' },
-    { id: 'mike', name: 'Mike Johnson' }
-  ];
+  const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
+
+  // Get users based on selected project
+  const getProjectUsers = () => {
+    const baseUsers = [{ id: 'all', name: 'All Users' }];
+    
+    if (selectedProject === 'all') {
+      // Return all unique users from all projects
+      const allUsers = projects.flatMap(project => 
+        [project.teamLead, ...project.members.map(m => m.name)]
+      );
+      const uniqueUsers = [...new Set(allUsers)];
+      return [
+        ...baseUsers,
+        ...uniqueUsers.map((name, index) => ({ 
+          id: `user-${index}`, 
+          name 
+        }))
+      ];
+    } else {
+      const project = projects.find(p => p.id === selectedProject);
+      if (project) {
+        return [
+          ...baseUsers,
+          { id: 'lead', name: project.teamLead },
+          ...project.members.map(member => ({ 
+            id: member.id, 
+            name: member.name 
+          }))
+        ];
+      }
+    }
+    
+    return baseUsers;
+  };
 
   const sections = [
     {
@@ -193,7 +228,8 @@ const MeetingNotebook = () => {
       order: meetingItems.filter(item => item.section === section).length,
       isTask: content.startsWith('[ ]'),
       userId: selectedUser === 'all' ? 'john' : selectedUser,
-      date: selectedDate
+      date: selectedDate,
+      projectId: selectedProject === 'all' ? undefined : selectedProject
     };
 
     setMeetingItems(prev => [...prev, newItem]);
@@ -206,19 +242,28 @@ const MeetingNotebook = () => {
       const userMatch = selectedUser === 'all' || item.userId === selectedUser;
       const dateMatch = item.date === selectedDate;
       const sectionMatch = item.section === section;
-      return userMatch && dateMatch && sectionMatch;
+      const projectMatch = selectedProject === 'all' || item.projectId === selectedProject;
+      return userMatch && dateMatch && sectionMatch && projectMatch;
     });
   };
 
-  const addProduct = () => {
-    const newProduct: Product = {
-      id: Date.now().toString(),
-      name: "New Product",
-      description: "Product description",
-      teamLead: "Team Lead",
-      members: []
-    };
-    setProducts(prev => [...prev, newProduct]);
+  const handleAddProject = (projectData: Project) => {
+    setProjects(prev => [...prev, projectData]);
+  };
+
+  const handleEditProject = (projectId: string) => {
+    toast({
+      title: "Edit Project",
+      description: "Edit functionality will be implemented soon.",
+    });
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+    toast({
+      title: "Success",
+      description: "Project deleted successfully!",
+    });
   };
 
   const addSession = () => {
@@ -276,16 +321,25 @@ const MeetingNotebook = () => {
       {/* Main Content with Tabs */}
       <div className="container mx-auto px-6 py-6">
         <Tabs defaultValue="status" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3">
-            <TabsTrigger value="status" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3 bg-white border border-gray-200 rounded-lg p-1">
+            <TabsTrigger 
+              value="status" 
+              className="flex items-center gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:border-green-200 transition-all duration-200"
+            >
               <CheckSquare className="w-4 h-4" />
               Status
             </TabsTrigger>
-            <TabsTrigger value="products" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="projects" 
+              className="flex items-center gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:border-green-200 transition-all duration-200"
+            >
               <Users className="w-4 h-4" />
-              Products
+              Projects
             </TabsTrigger>
-            <TabsTrigger value="sessions" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="sessions" 
+              className="flex items-center gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:border-green-200 transition-all duration-200"
+            >
               <Calendar className="w-4 h-4" />
               Sessions
             </TabsTrigger>
@@ -294,22 +348,7 @@ const MeetingNotebook = () => {
           {/* Status Tab */}
           <TabsContent value="status" className="space-y-4">
             {/* Status Controls */}
-            <div className="flex gap-4 items-center">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">User:</label>
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map(user => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex gap-4 items-center bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">Date:</label>
                 <Input
@@ -318,6 +357,45 @@ const MeetingNotebook = () => {
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="w-40"
                 />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Project:</label>
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger className="w-48 bg-white border-gray-300 focus:border-green-500 focus:ring-green-500/20">
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {projects.map(project => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="add-new" className="text-green-600 font-medium">
+                      <div className="flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        Add Project
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">User:</label>
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                  <SelectTrigger className="w-40 bg-white border-gray-300 focus:border-green-500 focus:ring-green-500/20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                    {getProjectUsers().map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -328,12 +406,12 @@ const MeetingNotebook = () => {
                 const SectionIcon = section.icon;
                 
                 return (
-                  <Card key={section.key} className={`${section.color} flex flex-col`}>
+                  <Card key={section.key} className={`${section.color} flex flex-col border-2 transition-all duration-200 hover:shadow-lg`}>
                     <CardHeader className={`${section.headerColor} py-3 rounded-t-lg`}>
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <SectionIcon className="w-4 h-4" />
                         {section.title}
-                        <Badge variant="secondary" className="ml-auto text-xs">
+                        <Badge variant="secondary" className="ml-auto text-xs bg-white/80">
                           {items.length}
                         </Badge>
                       </CardTitle>
@@ -342,7 +420,7 @@ const MeetingNotebook = () => {
                     <CardContent className="flex-1 p-4 space-y-3 overflow-y-auto">
                       {items.map((item) => (
                         <div key={item.id} className="group relative">
-                          <div className="bg-white p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                          <div className="bg-white p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-sm">
                             <div className="flex items-start gap-2">
                               <GripVertical className="w-4 h-4 text-gray-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
                               <div className="flex-1 min-w-0">
@@ -350,7 +428,7 @@ const MeetingNotebook = () => {
                                   {item.content}
                                 </p>
                                 <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                                  <span>{users.find(u => u.id === item.userId)?.name}</span>
+                                  <span>{getProjectUsers().find(u => u.id === item.userId)?.name}</span>
                                   <span>•</span>
                                   <span>{item.date}</span>
                                 </div>
@@ -361,7 +439,7 @@ const MeetingNotebook = () => {
                       ))}
 
                       {/* Add New Item */}
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-gray-400 transition-colors">
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-green-400 transition-colors">
                         <Input
                           placeholder="+ Add item"
                           value={newItemInputs[section.key]}
@@ -384,48 +462,63 @@ const MeetingNotebook = () => {
             </div>
           </TabsContent>
 
-          {/* Products Tab */}
-          <TabsContent value="products" className="space-y-4">
+          {/* Projects Tab */}
+          <TabsContent value="projects" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Product Teams</h2>
-              <Button onClick={addProduct} className="bg-green-500 hover:bg-green-600">
+              <h2 className="text-xl font-semibold">Project Teams</h2>
+              <Button 
+                onClick={() => setIsAddProjectModalOpen(true)} 
+                className="bg-green-500 hover:bg-green-600 transition-all duration-200 hover:scale-105 shadow-lg"
+              >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Product
+                Add Project
               </Button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {products.map((product) => (
-                <Card key={product.id} className="hover:shadow-lg transition-shadow">
+              {projects.map((project) => (
+                <Card key={project.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 hover:border-green-200">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                      <span className="text-lg">{product.name}</span>
+                      <span className="text-lg">{project.name}</span>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem>Add Member</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                        <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
+                          <DropdownMenuItem onClick={() => handleEditProject(project.id)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Member
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => handleDeleteProject(project.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <p className="text-sm text-gray-600">{product.description}</p>
+                    <p className="text-sm text-gray-600">{project.description}</p>
                     
                     <div>
                       <h4 className="font-medium text-sm mb-2">Team Lead</h4>
-                      <Badge className="bg-blue-100 text-blue-700">{product.teamLead}</Badge>
+                      <Badge className="bg-blue-100 text-blue-700">{project.teamLead}</Badge>
                     </div>
 
                     <div>
-                      <h4 className="font-medium text-sm mb-2">Team Members ({product.members.length})</h4>
+                      <h4 className="font-medium text-sm mb-2">Team Members ({project.members.length})</h4>
                       <div className="space-y-2">
-                        {product.members.map((member) => (
+                        {project.members.map((member) => (
                           <div key={member.id} className="flex items-center justify-between text-sm">
                             <span>{member.name}</span>
                             <Badge variant="outline" className="text-xs">{member.role}</Badge>
@@ -443,7 +536,7 @@ const MeetingNotebook = () => {
           <TabsContent value="sessions" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Meeting Sessions</h2>
-              <Button onClick={addSession} className="bg-green-500 hover:bg-green-600">
+              <Button onClick={addSession} className="bg-green-500 hover:bg-green-600 transition-all duration-200 hover:scale-105 shadow-lg">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Session
               </Button>
@@ -451,7 +544,7 @@ const MeetingNotebook = () => {
 
             <div className="grid gap-4 md:grid-cols-2">
               {sessions.map((session) => (
-                <Card key={session.id} className="hover:shadow-lg transition-shadow">
+                <Card key={session.id} className="hover:shadow-lg transition-all duration-200 border border-gray-200 hover:border-green-200">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <span className="text-lg">{session.title}</span>
@@ -461,7 +554,7 @@ const MeetingNotebook = () => {
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
+                        <DropdownMenuContent className="bg-white border border-gray-200 shadow-lg">
                           <DropdownMenuItem>Edit</DropdownMenuItem>
                           <DropdownMenuItem>Duplicate</DropdownMenuItem>
                           <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
@@ -502,6 +595,12 @@ const MeetingNotebook = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <AddProjectModal
+        open={isAddProjectModalOpen}
+        onOpenChange={setIsAddProjectModalOpen}
+        onAddProject={handleAddProject}
+      />
     </div>
   );
 };

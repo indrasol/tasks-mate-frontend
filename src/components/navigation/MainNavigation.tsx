@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Search, 
   Plus, 
   Bell, 
   Settings, 
@@ -16,7 +15,6 @@ import {
   Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -34,7 +32,6 @@ interface MainNavigationProps {
 const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
 
   const navigationItems = [
     { 
@@ -62,26 +59,6 @@ const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
       isActive: location.pathname.startsWith('/reports')
     }
   ];
-
-  const handleQuickAction = () => {
-    if (location.pathname.startsWith('/meetings')) {
-      onNewMeeting?.();
-    } else if (location.pathname.startsWith('/tasks')) {
-      onNewTask?.();
-    } else {
-      // Default to new task
-      onNewTask?.();
-    }
-  };
-
-  const getQuickActionText = () => {
-    if (location.pathname.startsWith('/meetings')) {
-      return 'New Meeting';
-    } else if (location.pathname.startsWith('/tasks')) {
-      return 'New Task';
-    }
-    return 'Quick Add';
-  };
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
@@ -118,30 +95,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting }: MainNavigationProps) => {
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="hidden lg:flex flex-1 max-w-md mx-8">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search tasks, meetings, or reports..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-gray-50 border-gray-200 focus:bg-white focus:border-green-500 focus:ring-green-500/20"
-              />
-            </div>
-          </div>
-
           {/* Right Actions */}
           <div className="flex items-center space-x-3">
-            {/* Quick Action Button */}
-            <Button
-              onClick={handleQuickAction}
-              className="bg-green-500 hover:bg-green-600 hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              {getQuickActionText()}
-            </Button>
-
             {/* Notifications */}
             <div className="relative">
               <Button variant="ghost" size="icon" className="relative">
