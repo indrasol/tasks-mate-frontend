@@ -15,7 +15,7 @@ import {
   Menu,
   X,
   Edit3,
-  TestTube,
+  Monitor,
   TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -66,7 +66,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     { 
       name: 'Testing Books', 
       path: '/tester-zone', 
-      icon: TestTube,
+      icon: Monitor,
       isActive: location.pathname.startsWith('/tester-zone')
     },
     { 
