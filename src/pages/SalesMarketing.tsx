@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Phone, Mail, Users, TrendingUp, Calendar, Target, Eye, Search, Filter, X, Edit, Trash2 } from 'lucide-react';
+import { Plus, Phone, Mail, Users, TrendingUp, Calendar, Target, Eye, Search, Filter, X, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const SalesMarketing = () => {
@@ -24,6 +24,17 @@ const SalesMarketing = () => {
   const [leadDateFilter, setLeadDateFilter] = useState('');
   const [editingUpdate, setEditingUpdate] = useState<any>(null);
   const [editingLead, setEditingLead] = useState<any>(null);
+
+  // Calendar View state
+  const [calendarView, setCalendarView] = useState<'monthly' | 'weekly' | 'daily'>('monthly');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [dailyStats, setDailyStats] = useState<Record<string, { calls: number; emails: number; messages: number }>>({
+    '2024-12-25': { calls: 5, emails: 12, messages: 3 },
+    '2024-12-24': { calls: 8, emails: 15, messages: 5 },
+    '2024-12-23': { calls: 3, emails: 8, messages: 2 }
+  });
 
   // Mock data for sales activities
   const salesStats = {
@@ -167,6 +178,48 @@ const SalesMarketing = () => {
     setIsNewLeadOpen(true);
   };
 
+  // Calendar navigation functions
+  const navigateCalendar = (direction: 'prev' | 'next') => {
+    if (calendarView === 'monthly') {
+      setCurrentDate(direction === 'next' ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
+    } else if (calendarView === 'weekly') {
+      setCurrentDate(direction === 'next' ? addWeeks(currentDate, 1) : subWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(direction === 'next' ? addDays(currentDate, 1) : subDays(currentDate, 1));
+    }
+  };
+
+  // Get calendar days based on view
+  const getCalendarDays = () => {
+    if (calendarView === 'monthly') {
+      const start = startOfWeek(startOfMonth(currentDate));
+      const end = endOfWeek(endOfMonth(currentDate));
+      return eachDayOfInterval({ start, end });
+    } else if (calendarView === 'weekly') {
+      const start = startOfWeek(currentDate);
+      const end = endOfWeek(currentDate);
+      return eachDayOfInterval({ start, end });
+    } else {
+      return [currentDate];
+    }
+  };
+
+  // Handle adding daily stats
+  const handleAddDailyStats = (statsData: { calls: number; emails: number; messages: number }) => {
+    const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    setDailyStats(prev => ({
+      ...prev,
+      [dateKey]: statsData
+    }));
+    setIsStatsModalOpen(false);
+  };
+
+  // Get stats for a specific date
+  const getStatsForDate = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    return dailyStats[dateKey] || { calls: 0, emails: 0, messages: 0 };
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'hot': return 'bg-red-100 text-red-700 border-red-200';
@@ -281,7 +334,7 @@ const SalesMarketing = () => {
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="updates">Important Updates</TabsTrigger>
             <TabsTrigger value="leads">Lead Management</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar View</TabsTrigger>
           </TabsList>
 
           <TabsContent value="updates" className="space-y-6">
@@ -476,19 +529,127 @@ const SalesMarketing = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="analytics" className="space-y-6">
+          <TabsContent value="calendar" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Sales Analytics Dashboard</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Calendar View</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Select value={calendarView} onValueChange={(value: 'monthly' | 'weekly' | 'daily') => setCalendarView(value)}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="sm" onClick={() => navigateCalendar('prev')}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => navigateCalendar('next')}>
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-12">
-                  <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Analytics Coming Soon</h3>
-                  <p className="text-gray-500">Detailed analytics and reporting features will be available here.</p>
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold">
+                    {calendarView === 'monthly' && format(currentDate, 'MMMM yyyy')}
+                    {calendarView === 'weekly' && `Week of ${format(startOfWeek(currentDate), 'MMM dd, yyyy')}`}
+                    {calendarView === 'daily' && format(currentDate, 'EEEE, MMMM dd, yyyy')}
+                  </h3>
+                </div>
+
+                <div className={cn(
+                  "grid gap-2",
+                  calendarView === 'monthly' && "grid-cols-7",
+                  calendarView === 'weekly' && "grid-cols-7",
+                  calendarView === 'daily' && "grid-cols-1"
+                )}>
+                  {calendarView !== 'daily' && (
+                    <>
+                      <div className="p-2 text-center font-medium text-gray-500">Sun</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Mon</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Tue</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Wed</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Thu</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Fri</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Sat</div>
+                    </>
+                  )}
+
+                  {getCalendarDays().map((day) => {
+                    const stats = getStatsForDate(day);
+                    const hasStats = stats.calls > 0 || stats.emails > 0 || stats.messages > 0;
+                    
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className={cn(
+                          "relative p-3 border rounded-lg min-h-20 hover:bg-gray-50 transition-colors",
+                          calendarView === 'monthly' && !isSameDay(day, startOfMonth(currentDate)) && !isSameDay(day, endOfMonth(currentDate)) && "text-gray-400",
+                          calendarView === 'daily' && "min-h-40"
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">{format(day, 'd')}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedDate(day);
+                              setIsStatsModalOpen(true);
+                            }}
+                            className="w-6 h-6 p-0 hover:bg-green-100"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        
+                        {hasStats && (
+                          <div className="space-y-1">
+                            {stats.calls > 0 && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                                <Phone className="w-3 h-3 mr-1" />
+                                {stats.calls}
+                              </Badge>
+                            )}
+                            {stats.emails > 0 && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">
+                                <Mail className="w-3 h-3 mr-1" />
+                                {stats.emails}
+                              </Badge>
+                            )}
+                            {stats.messages > 0 && (
+                              <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700">
+                                <Users className="w-3 h-3 mr-1" />
+                                {stats.messages}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
+
+            {/* Stats Modal */}
+            <Dialog open={isStatsModalOpen} onOpenChange={setIsStatsModalOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Daily Stats - {format(selectedDate, 'MMMM dd, yyyy')}</DialogTitle>
+                </DialogHeader>
+                <DailyStatsForm 
+                  onSubmit={handleAddDailyStats} 
+                  initialData={getStatsForDate(selectedDate)}
+                />
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
       </div>
@@ -775,6 +936,58 @@ const LeadForm = ({ onSubmit, initialData }: { onSubmit: (data: any) => void; in
       </div>
       <Button type="submit" className="w-full">
         {initialData ? 'Update Lead' : 'Add Lead'}
+      </Button>
+    </form>
+  );
+};
+
+// Daily Stats Form Component
+const DailyStatsForm = ({ onSubmit, initialData }: { onSubmit: (data: { calls: number; emails: number; messages: number }) => void; initialData?: { calls: number; emails: number; messages: number } }) => {
+  const [formData, setFormData] = useState({
+    calls: initialData?.calls || 0,
+    emails: initialData?.emails || 0,
+    messages: initialData?.messages || 0
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="calls">Number of Calls</Label>
+        <Input
+          id="calls"
+          type="number"
+          value={formData.calls}
+          onChange={(e) => setFormData({...formData, calls: parseInt(e.target.value) || 0})}
+          min="0"
+        />
+      </div>
+      <div>
+        <Label htmlFor="emails">Number of Emails</Label>
+        <Input
+          id="emails"
+          type="number"
+          value={formData.emails}
+          onChange={(e) => setFormData({...formData, emails: parseInt(e.target.value) || 0})}
+          min="0"
+        />
+      </div>
+      <div>
+        <Label htmlFor="messages">Number of Messages</Label>
+        <Input
+          id="messages"
+          type="number"
+          value={formData.messages}
+          onChange={(e) => setFormData({...formData, messages: parseInt(e.target.value) || 0})}
+          min="0"
+        />
+      </div>
+      <Button type="submit" className="w-full">
+        Save Daily Stats
       </Button>
     </form>
   );
