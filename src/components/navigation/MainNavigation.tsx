@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -16,7 +15,8 @@ import {
   Menu,
   X,
   Edit3,
-  Beaker
+  Beaker,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -62,6 +62,12 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       path: '/projects', 
       icon: Users,
       isActive: location.pathname.startsWith('/projects')
+    },
+    { 
+      name: 'Sales / Marketing Books', 
+      path: '/sales-marketing', 
+      icon: TrendingUp,
+      isActive: location.pathname.startsWith('/sales-marketing')
     },
     { 
       name: 'Reports', 
