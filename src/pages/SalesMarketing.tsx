@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Users, TrendingUp, Plus, ChevronLeft, ChevronRight, Phone, Mail, MessageSquare, Edit, Trash2 } from 'lucide-react';
+import { Calendar, Users, TrendingUp, Plus, ChevronLeft, ChevronRight, Phone, Mail, MessageSquare, Edit, Trash2, Tag, Building, User, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 import MainNavigation from '@/components/navigation/MainNavigation';
 
 interface DayStats {
@@ -25,7 +28,9 @@ interface Update {
   id: number;
   title: string;
   description: string;
-  type: 'success' | 'info' | 'warning';
+  contactName: string;
+  contactCompany: string;
+  lastContacted: Date | null;
   timestamp: string;
 }
 
@@ -33,7 +38,7 @@ interface Lead {
   id: number;
   name: string;
   status: 'Hot' | 'Warm' | 'Cold';
-  value: string;
+  source: string;
   contact: string;
   email: string;
   phone: string;
@@ -51,24 +56,49 @@ const SalesMarketing = () => {
 
   // Updates state
   const [updates, setUpdates] = useState<Update[]>([
-    { id: 1, title: 'New lead added: TechCorp Solutions', description: 'Potential client from tech industry', type: 'success', timestamp: '2 hours ago' },
-    { id: 2, title: 'Follow-up call scheduled with Acme Corp', description: 'Meeting scheduled for next week', type: 'info', timestamp: '4 hours ago' },
-    { id: 3, title: 'Email campaign sent to 50 prospects', description: 'Marketing campaign launched successfully', type: 'warning', timestamp: '1 day ago' },
+    { 
+      id: 1, 
+      title: 'New lead added: TechCorp Solutions', 
+      description: 'Potential client from tech industry', 
+      contactName: 'John Smith',
+      contactCompany: 'TechCorp Solutions',
+      lastContacted: new Date('2024-01-15'),
+      timestamp: '2 hours ago' 
+    },
+    { 
+      id: 2, 
+      title: 'Follow-up call scheduled with Acme Corp', 
+      description: 'Meeting scheduled for next week', 
+      contactName: 'Sarah Johnson',
+      contactCompany: 'Acme Corp',
+      lastContacted: new Date('2024-01-14'),
+      timestamp: '4 hours ago' 
+    },
   ]);
   const [isAddUpdateOpen, setIsAddUpdateOpen] = useState(false);
-  const [newUpdate, setNewUpdate] = useState({ title: '', description: '', type: 'info' as const });
+  const [isEditUpdateOpen, setIsEditUpdateOpen] = useState(false);
+  const [editingUpdate, setEditingUpdate] = useState<Update | null>(null);
+  const [newUpdate, setNewUpdate] = useState({ 
+    title: '', 
+    description: '', 
+    contactName: '', 
+    contactCompany: '', 
+    lastContacted: null as Date | null 
+  });
 
   // Leads state
   const [leads, setLeads] = useState<Lead[]>([
-    { id: 1, name: 'Acme Corp', status: 'Hot', value: '$50,000', contact: 'John Smith', email: 'john@acme.com', phone: '+1-555-0123', notes: 'Very interested in our services' },
-    { id: 2, name: 'Tech Solutions', status: 'Warm', value: '$25,000', contact: 'Sarah Johnson', email: 'sarah@tech.com', phone: '+1-555-0456', notes: 'Needs more information' },
-    { id: 3, name: 'Global Industries', status: 'Cold', value: '$75,000', contact: 'Mike Davis', email: 'mike@global.com', phone: '+1-555-0789', notes: 'Initial contact made' },
+    { id: 1, name: 'Acme Corp', status: 'Hot', source: 'LinkedIn', contact: 'John Smith', email: 'john@acme.com', phone: '+1-555-0123', notes: 'Very interested in our services' },
+    { id: 2, name: 'Tech Solutions', status: 'Warm', source: 'Referral', contact: 'Sarah Johnson', email: 'sarah@tech.com', phone: '+1-555-0456', notes: 'Needs more information' },
+    { id: 3, name: 'Global Industries', status: 'Cold', source: 'Cold Email', contact: 'Mike Davis', email: 'mike@global.com', phone: '+1-555-0789', notes: 'Initial contact made' },
   ]);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  const [isEditLeadOpen, setIsEditLeadOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [newLead, setNewLead] = useState({
     name: '',
     status: 'Warm' as const,
-    value: '',
+    source: '',
     contact: '',
     email: '',
     phone: '',
@@ -113,12 +143,46 @@ const SalesMarketing = () => {
       id: Date.now(),
       title: newUpdate.title,
       description: newUpdate.description,
-      type: newUpdate.type,
+      contactName: newUpdate.contactName,
+      contactCompany: newUpdate.contactCompany,
+      lastContacted: newUpdate.lastContacted,
       timestamp: 'Just now'
     };
     setUpdates(prev => [update, ...prev]);
-    setNewUpdate({ title: '', description: '', type: 'info' });
+    setNewUpdate({ title: '', description: '', contactName: '', contactCompany: '', lastContacted: null });
     setIsAddUpdateOpen(false);
+  };
+
+  const handleEditUpdate = (update: Update) => {
+    setEditingUpdate(update);
+    setNewUpdate({
+      title: update.title,
+      description: update.description,
+      contactName: update.contactName,
+      contactCompany: update.contactCompany,
+      lastContacted: update.lastContacted
+    });
+    setIsEditUpdateOpen(true);
+  };
+
+  const handleUpdateEdit = () => {
+    if (!editingUpdate) return;
+    
+    const updatedUpdate: Update = {
+      ...editingUpdate,
+      title: newUpdate.title,
+      description: newUpdate.description,
+      contactName: newUpdate.contactName,
+      contactCompany: newUpdate.contactCompany,
+      lastContacted: newUpdate.lastContacted,
+    };
+    
+    setUpdates(prev => prev.map(update => 
+      update.id === editingUpdate.id ? updatedUpdate : update
+    ));
+    setNewUpdate({ title: '', description: '', contactName: '', contactCompany: '', lastContacted: null });
+    setIsEditUpdateOpen(false);
+    setEditingUpdate(null);
   };
 
   const handleDeleteUpdate = (id: number) => {
@@ -134,13 +198,51 @@ const SalesMarketing = () => {
     setNewLead({
       name: '',
       status: 'Warm',
-      value: '',
+      source: '',
       contact: '',
       email: '',
       phone: '',
       notes: ''
     });
     setIsAddLeadOpen(false);
+  };
+
+  const handleEditLead = (lead: Lead) => {
+    setEditingLead(lead);
+    setNewLead({
+      name: lead.name,
+      status: lead.status,
+      source: lead.source,
+      contact: lead.contact,
+      email: lead.email,
+      phone: lead.phone,
+      notes: lead.notes
+    });
+    setIsEditLeadOpen(true);
+  };
+
+  const handleLeadEdit = () => {
+    if (!editingLead) return;
+    
+    const updatedLead: Lead = {
+      ...editingLead,
+      ...newLead
+    };
+    
+    setLeads(prev => prev.map(lead => 
+      lead.id === editingLead.id ? updatedLead : lead
+    ));
+    setNewLead({
+      name: '',
+      status: 'Warm',
+      source: '',
+      contact: '',
+      email: '',
+      phone: '',
+      notes: ''
+    });
+    setIsEditLeadOpen(false);
+    setEditingLead(null);
   };
 
   const handleDeleteLead = (id: number) => {
@@ -379,54 +481,57 @@ const SalesMarketing = () => {
 
           {/* Enhanced Stat Cards */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
-            <Card className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-600 opacity-10"></div>
+            <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-50 to-blue-100 shadow-lg hover:shadow-xl transition-all duration-300">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 opacity-10 rounded-full -translate-y-8 translate-x-8"></div>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
                 <CardTitle className="text-sm font-medium text-blue-700">Total Calls</CardTitle>
-                <div className="p-2 bg-blue-100 rounded-full">
-                  <Phone className="h-4 w-4 text-blue-600" />
+                <div className="p-3 bg-blue-500 rounded-full shadow-md">
+                  <Phone className="h-5 w-5 text-white" />
                 </div>
               </CardHeader>
               <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-blue-900">124</div>
-                <p className="text-xs text-blue-600 flex items-center mt-1">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  +12% from last month
-                </p>
+                <div className="text-3xl font-bold text-blue-900 mb-1">124</div>
+                <div className="flex items-center text-sm">
+                  <TrendingUp className="w-4 h-4 mr-1 text-emerald-600" />
+                  <span className="text-emerald-600 font-medium">+12% </span>
+                  <span className="text-blue-600 ml-1">from last month</span>
+                </div>
               </CardContent>
             </Card>
 
-            <Card className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 opacity-10"></div>
+            <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 shadow-lg hover:shadow-xl transition-all duration-300">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-400 to-emerald-600 opacity-10 rounded-full -translate-y-8 translate-x-8"></div>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-                <CardTitle className="text-sm font-medium text-green-700">Emails Sent</CardTitle>
-                <div className="p-2 bg-green-100 rounded-full">
-                  <Mail className="h-4 w-4 text-green-600" />
+                <CardTitle className="text-sm font-medium text-emerald-700">Emails Sent</CardTitle>
+                <div className="p-3 bg-emerald-500 rounded-full shadow-md">
+                  <Mail className="h-5 w-5 text-white" />
                 </div>
               </CardHeader>
               <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-green-900">89</div>
-                <p className="text-xs text-green-600 flex items-center mt-1">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  +8% from last month
-                </p>
+                <div className="text-3xl font-bold text-emerald-900 mb-1">89</div>
+                <div className="flex items-center text-sm">
+                  <TrendingUp className="w-4 h-4 mr-1 text-emerald-600" />
+                  <span className="text-emerald-600 font-medium">+8% </span>
+                  <span className="text-emerald-600 ml-1">from last month</span>
+                </div>
               </CardContent>
             </Card>
 
-            <Card className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-purple-600 opacity-10"></div>
+            <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-violet-50 to-violet-100 shadow-lg hover:shadow-xl transition-all duration-300">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-400 to-violet-600 opacity-10 rounded-full -translate-y-8 translate-x-8"></div>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-                <CardTitle className="text-sm font-medium text-purple-700">Messages</CardTitle>
-                <div className="p-2 bg-purple-100 rounded-full">
-                  <MessageSquare className="h-4 w-4 text-purple-600" />
+                <CardTitle className="text-sm font-medium text-violet-700">Messages</CardTitle>
+                <div className="p-3 bg-violet-500 rounded-full shadow-md">
+                  <MessageSquare className="h-5 w-5 text-white" />
                 </div>
               </CardHeader>
               <CardContent className="relative z-10">
-                <div className="text-2xl font-bold text-purple-900">156</div>
-                <p className="text-xs text-purple-600 flex items-center mt-1">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  +15% from last month
-                </p>
+                <div className="text-3xl font-bold text-violet-900 mb-1">156</div>
+                <div className="flex items-center text-sm">
+                  <TrendingUp className="w-4 h-4 mr-1 text-emerald-600" />
+                  <span className="text-emerald-600 font-medium">+15% </span>
+                  <span className="text-violet-600 ml-1">from last month</span>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -472,29 +577,29 @@ const SalesMarketing = () => {
             </TabsContent>
 
             <TabsContent value="updates" className="space-y-6">
-              <Card>
+              <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>Important Updates</CardTitle>
+                      <CardTitle className="text-xl">Important Updates</CardTitle>
                       <CardDescription>Latest sales and marketing activities</CardDescription>
                     </div>
                     <Dialog open={isAddUpdateOpen} onOpenChange={setIsAddUpdateOpen}>
                       <DialogTrigger asChild>
-                        <Button>
+                        <Button className="bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600">
                           <Plus className="w-4 h-4 mr-2" />
                           Add Update
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="max-w-2xl">
                         <DialogHeader>
                           <DialogTitle>Add New Update</DialogTitle>
                           <DialogDescription>
                             Create a new update for your sales and marketing activities
                           </DialogDescription>
                         </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="col-span-2">
                             <Label htmlFor="update-title">Title</Label>
                             <Input
                               id="update-title"
@@ -504,6 +609,46 @@ const SalesMarketing = () => {
                             />
                           </div>
                           <div>
+                            <Label htmlFor="contact-name">Contact Name</Label>
+                            <Input
+                              id="contact-name"
+                              value={newUpdate.contactName}
+                              onChange={(e) => setNewUpdate(prev => ({ ...prev, contactName: e.target.value }))}
+                              placeholder="Contact person name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="contact-company">Contact Company</Label>
+                            <Input
+                              id="contact-company"
+                              value={newUpdate.contactCompany}
+                              onChange={(e) => setNewUpdate(prev => ({ ...prev, contactCompany: e.target.value }))}
+                              placeholder="Company name"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <Label htmlFor="last-contacted">Last Contacted</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start text-left font-normal"
+                                >
+                                  <Calendar className="mr-2 h-4 w-4" />
+                                  {newUpdate.lastContacted ? format(newUpdate.lastContacted, 'PPP') : 'Select date'}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <CalendarComponent
+                                  mode="single"
+                                  selected={newUpdate.lastContacted || undefined}
+                                  onSelect={(date) => setNewUpdate(prev => ({ ...prev, lastContacted: date || null }))}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="col-span-2">
                             <Label htmlFor="update-description">Description</Label>
                             <Textarea
                               id="update-description"
@@ -513,23 +658,10 @@ const SalesMarketing = () => {
                               rows={3}
                             />
                           </div>
-                          <div>
-                            <Label htmlFor="update-type">Type</Label>
-                            <Select value={newUpdate.type} onValueChange={(value: 'success' | 'info' | 'warning') => setNewUpdate(prev => ({ ...prev, type: value }))}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="success">Success</SelectItem>
-                                <SelectItem value="info">Info</SelectItem>
-                                <SelectItem value="warning">Warning</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <Button onClick={handleAddUpdate} className="w-full">
-                            Add Update
-                          </Button>
                         </div>
+                        <Button onClick={handleAddUpdate} className="w-full">
+                          Add Update
+                        </Button>
                       </DialogContent>
                     </Dialog>
                   </div>
@@ -537,26 +669,56 @@ const SalesMarketing = () => {
                 <CardContent>
                   <div className="space-y-4">
                     {updates.map((update) => (
-                      <div key={update.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-2 h-2 rounded-full ${
-                            update.type === 'success' ? 'bg-green-500' : 
-                            update.type === 'info' ? 'bg-blue-500' : 'bg-yellow-500'
-                          }`}></div>
-                          <div className="flex-1">
-                            <p className="font-medium">{update.title}</p>
-                            <p className="text-sm text-gray-600">{update.description}</p>
-                            <p className="text-sm text-gray-500">{update.timestamp}</p>
+                      <Card key={update.id} className="border border-gray-200 bg-gradient-to-r from-white to-gray-50 hover:shadow-md transition-all duration-200">
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-violet-500 rounded-full flex items-center justify-center">
+                                <TrendingUp className="w-6 h-6 text-white" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-lg text-gray-900">{update.title}</h3>
+                                <p className="text-sm text-gray-600 mt-1">{update.description}</p>
+                              </div>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditUpdate(update)}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteUpdate(update.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteUpdate(update.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                          <div className="grid grid-cols-3 gap-4 mt-4">
+                            <div className="flex items-center space-x-2">
+                              <User className="w-4 h-4 text-gray-500" />
+                              <span className="text-sm text-gray-600">{update.contactName}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Building className="w-4 h-4 text-gray-500" />
+                              <span className="text-sm text-gray-600">{update.contactCompany}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Clock className="w-4 h-4 text-gray-500" />
+                              <span className="text-sm text-gray-600">
+                                {update.lastContacted ? format(update.lastContacted, 'MMM dd, yyyy') : 'Not set'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-4 text-xs text-gray-500">{update.timestamp}</div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 </CardContent>
@@ -564,16 +726,16 @@ const SalesMarketing = () => {
             </TabsContent>
 
             <TabsContent value="lead-management" className="space-y-6">
-              <Card>
+              <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>Lead Pipeline</CardTitle>
+                      <CardTitle className="text-xl">Lead Pipeline</CardTitle>
                       <CardDescription>Manage and track your sales leads</CardDescription>
                     </div>
                     <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
                       <DialogTrigger asChild>
-                        <Button>
+                        <Button className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600">
                           <Plus className="w-4 h-4 mr-2" />
                           Add Lead
                         </Button>
@@ -624,12 +786,12 @@ const SalesMarketing = () => {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="lead-value">Deal Value</Label>
+                            <Label htmlFor="lead-source">Source</Label>
                             <Input
-                              id="lead-value"
-                              value={newLead.value}
-                              onChange={(e) => setNewLead(prev => ({ ...prev, value: e.target.value }))}
-                              placeholder="$50,000"
+                              id="lead-source"
+                              value={newLead.source}
+                              onChange={(e) => setNewLead(prev => ({ ...prev, source: e.target.value }))}
+                              placeholder="e.g., LinkedIn, Referral, Cold Email"
                             />
                           </div>
                           <div>
@@ -666,51 +828,233 @@ const SalesMarketing = () => {
                 <CardContent>
                   <div className="space-y-4">
                     {leads.map((lead) => (
-                      <div key={lead.id} className="p-4 border rounded-lg">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Users className="w-5 h-5 text-blue-600" />
+                      <Card key={lead.id} className="border border-gray-200 bg-gradient-to-r from-white to-gray-50 hover:shadow-md transition-all duration-200">
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-full flex items-center justify-center">
+                                <Users className="w-6 h-6 text-white" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-lg text-gray-900">{lead.name}</h3>
+                                <p className="text-sm text-gray-500">{lead.contact}</p>
+                              </div>
                             </div>
-                            <div>
-                              <h3 className="font-medium">{lead.name}</h3>
-                              <p className="text-sm text-gray-500">{lead.contact}</p>
+                            <div className="flex items-center space-x-4">
+                              <Badge 
+                                variant={lead.status === 'Hot' ? 'destructive' : lead.status === 'Warm' ? 'default' : 'secondary'}
+                                className="text-xs px-3 py-1"
+                              >
+                                {lead.status}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs px-3 py-1">
+                                <Tag className="w-3 h-3 mr-1" />
+                                {lead.source}
+                              </Badge>
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditLead(lead)}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteLead(lead.id)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-4">
-                            <Badge 
-                              variant={lead.status === 'Hot' ? 'destructive' : lead.status === 'Warm' ? 'default' : 'secondary'}
-                            >
-                              {lead.status}
-                            </Badge>
-                            <span className="font-medium">{lead.value}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteLead(lead.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                            <div className="flex items-center space-x-2">
+                              <Mail className="w-4 h-4" />
+                              <span className="text-sm text-gray-600">{lead.email}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Phone className="w-4 h-4" />
+                              <span className="text-sm text-gray-600">{lead.phone}</span>
+                            </div>
+                            <div className="col-span-2 flex items-start space-x-2">
+                              <MessageSquare className="w-4 h-4 mt-0.5" />
+                              <span className="text-sm text-gray-600">{lead.notes}</span>
+                            </div>
                           </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                          <div>
-                            <span className="font-medium">Email:</span> {lead.email}
-                          </div>
-                          <div>
-                            <span className="font-medium">Phone:</span> {lead.phone}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-medium">Notes:</span> {lead.notes}
-                          </div>
-                        </div>
-                      </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
+
+          {/* Edit Update Dialog */}
+          <Dialog open={isEditUpdateOpen} onOpenChange={setIsEditUpdateOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Edit Update</DialogTitle>
+                <DialogDescription>
+                  Update the sales and marketing activity information
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="edit-update-title">Title</Label>
+                  <Input
+                    id="edit-update-title"
+                    value={newUpdate.title}
+                    onChange={(e) => setNewUpdate(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Update title"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-contact-name">Contact Name</Label>
+                  <Input
+                    id="edit-contact-name"
+                    value={newUpdate.contactName}
+                    onChange={(e) => setNewUpdate(prev => ({ ...prev, contactName: e.target.value }))}
+                    placeholder="Contact person name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-contact-company">Contact Company</Label>
+                  <Input
+                    id="edit-contact-company"
+                    value={newUpdate.contactCompany}
+                    onChange={(e) => setNewUpdate(prev => ({ ...prev, contactCompany: e.target.value }))}
+                    placeholder="Company name"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="edit-last-contacted">Last Contacted</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {newUpdate.lastContacted ? format(newUpdate.lastContacted, 'PPP') : 'Select date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={newUpdate.lastContacted || undefined}
+                        onSelect={(date) => setNewUpdate(prev => ({ ...prev, lastContacted: date || null }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="edit-update-description">Description</Label>
+                  <Textarea
+                    id="edit-update-description"
+                    value={newUpdate.description}
+                    onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Update description"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <Button onClick={handleUpdateEdit} className="w-full">
+                Update
+              </Button>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Lead Dialog */}
+          <Dialog open={isEditLeadOpen} onOpenChange={setIsEditLeadOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Edit Lead</DialogTitle>
+                <DialogDescription>
+                  Update the lead information in your sales pipeline
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-lead-name">Company Name</Label>
+                  <Input
+                    id="edit-lead-name"
+                    value={newLead.name}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Company name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-lead-contact">Contact Person</Label>
+                  <Input
+                    id="edit-lead-contact"
+                    value={newLead.contact}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, contact: e.target.value }))}
+                    placeholder="Contact person"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-lead-email">Email</Label>
+                  <Input
+                    id="edit-lead-email"
+                    type="email"
+                    value={newLead.email}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="Email address"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-lead-phone">Phone</Label>
+                  <Input
+                    id="edit-lead-phone"
+                    value={newLead.phone}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-lead-source">Source</Label>
+                  <Input
+                    id="edit-lead-source"
+                    value={newLead.source}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, source: e.target.value }))}
+                    placeholder="e.g., LinkedIn, Referral, Cold Email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-lead-status">Status</Label>
+                  <Select value={newLead.status} onValueChange={(value: 'Hot' | 'Warm' | 'Cold') => setNewLead(prev => ({ ...prev, status: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Hot">Hot</SelectItem>
+                      <SelectItem value="Warm">Warm</SelectItem>
+                      <SelectItem value="Cold">Cold</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="edit-lead-notes">Notes</Label>
+                  <Textarea
+                    id="edit-lead-notes"
+                    value={newLead.notes}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Additional notes about this lead"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <Button onClick={handleLeadEdit} className="w-full">
+                Update Lead
+              </Button>
+            </DialogContent>
+          </Dialog>
 
           <Dialog open={isAddStatsOpen} onOpenChange={setIsAddStatsOpen}>
             <DialogContent>
