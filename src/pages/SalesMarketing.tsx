@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Users, TrendingUp, Plus, ChevronLeft, ChevronRight, Phone, Mail, MessageSquare, Edit, Trash2, Tag, Building, User, Clock } from 'lucide-react';
+import { Calendar, Users, TrendingUp, Plus, ChevronLeft, ChevronRight, Phone, Mail, MessageSquare, Edit, Trash2, Tag, Building, User, Clock, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -95,9 +95,17 @@ const SalesMarketing = () => {
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
   const [isEditLeadOpen, setIsEditLeadOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [newLead, setNewLead] = useState({
+  const [newLead, setNewLead] = useState<{
+    name: string;
+    status: 'Hot' | 'Warm' | 'Cold';
+    source: string;
+    contact: string;
+    email: string;
+    phone: string;
+    notes: string;
+  }>({
     name: '',
-    status: 'Warm' as const,
+    status: 'Warm',
     source: '',
     contact: '',
     email: '',
@@ -480,7 +488,7 @@ const SalesMarketing = () => {
           </div>
 
           {/* Enhanced Stat Cards */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
             <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-50 to-blue-100 shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 opacity-10 rounded-full -translate-y-8 translate-x-8"></div>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
@@ -531,6 +539,24 @@ const SalesMarketing = () => {
                   <TrendingUp className="w-4 h-4 mr-1 text-emerald-600" />
                   <span className="text-emerald-600 font-medium">+15% </span>
                   <span className="text-violet-600 ml-1">from last month</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg hover:shadow-xl transition-all duration-300">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-400 to-orange-600 opacity-10 rounded-full -translate-y-8 translate-x-8"></div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <CardTitle className="text-sm font-medium text-orange-700">Conversions</CardTitle>
+                <div className="p-3 bg-orange-500 rounded-full shadow-md">
+                  <Target className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold text-orange-900 mb-1">43</div>
+                <div className="flex items-center text-sm">
+                  <TrendingUp className="w-4 h-4 mr-1 text-emerald-600" />
+                  <span className="text-emerald-600 font-medium">+22% </span>
+                  <span className="text-orange-600 ml-1">from last month</span>
                 </div>
               </CardContent>
             </Card>
@@ -586,8 +612,8 @@ const SalesMarketing = () => {
                     </div>
                     <Dialog open={isAddUpdateOpen} onOpenChange={setIsAddUpdateOpen}>
                       <DialogTrigger asChild>
-                        <Button className="bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600">
-                          <Plus className="w-4 h-4 mr-2" />
+                        <Button className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg">
+                          <Plus className="w-4 h-4 mr-2 text-white" />
                           Add Update
                         </Button>
                       </DialogTrigger>
@@ -628,25 +654,52 @@ const SalesMarketing = () => {
                           </div>
                           <div className="col-span-2">
                             <Label htmlFor="last-contacted">Last Contacted</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className="w-full justify-start text-left font-normal"
-                                >
-                                  <Calendar className="mr-2 h-4 w-4" />
-                                  {newUpdate.lastContacted ? format(newUpdate.lastContacted, 'PPP') : 'Select date'}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <CalendarComponent
-                                  mode="single"
-                                  selected={newUpdate.lastContacted || undefined}
-                                  onSelect={(date) => setNewUpdate(prev => ({ ...prev, lastContacted: date || null }))}
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
+                            <div className="flex space-x-2">
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    className="flex-1 justify-start text-left font-normal"
+                                  >
+                                    <Calendar className="mr-2 h-4 w-4" />
+                                    {newUpdate.lastContacted ? format(newUpdate.lastContacted, 'PPP') : 'Select date'}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <CalendarComponent
+                                    mode="single"
+                                    selected={newUpdate.lastContacted || undefined}
+                                    onSelect={(date) => {
+                                      if (date) {
+                                        // Preserve time if already set
+                                        if (newUpdate.lastContacted) {
+                                          date.setHours(newUpdate.lastContacted.getHours());
+                                          date.setMinutes(newUpdate.lastContacted.getMinutes());
+                                        }
+                                        setNewUpdate(prev => ({ ...prev, lastContacted: date }));
+                                      } else {
+                                        setNewUpdate(prev => ({ ...prev, lastContacted: null }));
+                                      }
+                                    }}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <Input
+                                type="time"
+                                className="w-32"
+                                value={newUpdate.lastContacted ? format(newUpdate.lastContacted, 'HH:mm') : ''}
+                                onChange={(e) => {
+                                  if (e.target.value && newUpdate.lastContacted) {
+                                    const [hours, minutes] = e.target.value.split(':');
+                                    const newDate = new Date(newUpdate.lastContacted);
+                                    newDate.setHours(parseInt(hours));
+                                    newDate.setMinutes(parseInt(minutes));
+                                    setNewUpdate(prev => ({ ...prev, lastContacted: newDate }));
+                                  }
+                                }}
+                              />
+                            </div>
                           </div>
                           <div className="col-span-2">
                             <Label htmlFor="update-description">Description</Label>
@@ -659,7 +712,7 @@ const SalesMarketing = () => {
                             />
                           </div>
                         </div>
-                        <Button onClick={handleAddUpdate} className="w-full">
+                        <Button onClick={handleAddUpdate} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700">
                           Add Update
                         </Button>
                       </DialogContent>
@@ -673,7 +726,7 @@ const SalesMarketing = () => {
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-violet-500 rounded-full flex items-center justify-center">
+                              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
                                 <TrendingUp className="w-6 h-6 text-white" />
                               </div>
                               <div>
@@ -686,7 +739,7 @@ const SalesMarketing = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEditUpdate(update)}
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -712,7 +765,7 @@ const SalesMarketing = () => {
                             <div className="flex items-center space-x-2">
                               <Clock className="w-4 h-4 text-gray-500" />
                               <span className="text-sm text-gray-600">
-                                {update.lastContacted ? format(update.lastContacted, 'MMM dd, yyyy') : 'Not set'}
+                                {update.lastContacted ? format(update.lastContacted, 'MMM dd, yyyy HH:mm') : 'Not set'}
                               </span>
                             </div>
                           </div>
@@ -735,8 +788,8 @@ const SalesMarketing = () => {
                     </div>
                     <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
                       <DialogTrigger asChild>
-                        <Button className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600">
-                          <Plus className="w-4 h-4 mr-2" />
+                        <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg">
+                          <Plus className="w-4 h-4 mr-2 text-white" />
                           Add Lead
                         </Button>
                       </DialogTrigger>
@@ -818,7 +871,7 @@ const SalesMarketing = () => {
                             />
                           </div>
                         </div>
-                        <Button onClick={handleAddLead} className="w-full">
+                        <Button onClick={handleAddLead} className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700">
                           Add Lead
                         </Button>
                       </DialogContent>
@@ -832,7 +885,7 @@ const SalesMarketing = () => {
                         <CardContent className="p-6">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-full flex items-center justify-center">
+                              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center">
                                 <Users className="w-6 h-6 text-white" />
                               </div>
                               <div>
@@ -856,7 +909,7 @@ const SalesMarketing = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleEditLead(lead)}
-                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                 >
                                   <Edit className="w-4 h-4" />
                                 </Button>
@@ -933,25 +986,52 @@ const SalesMarketing = () => {
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="edit-last-contacted">Last Contacted</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {newUpdate.lastContacted ? format(newUpdate.lastContacted, 'PPP') : 'Select date'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={newUpdate.lastContacted || undefined}
-                        onSelect={(date) => setNewUpdate(prev => ({ ...prev, lastContacted: date || null }))}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <div className="flex space-x-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="flex-1 justify-start text-left font-normal"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {newUpdate.lastContacted ? format(newUpdate.lastContacted, 'PPP') : 'Select date'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={newUpdate.lastContacted || undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              // Preserve time if already set
+                              if (newUpdate.lastContacted) {
+                                date.setHours(newUpdate.lastContacted.getHours());
+                                date.setMinutes(newUpdate.lastContacted.getMinutes());
+                              }
+                              setNewUpdate(prev => ({ ...prev, lastContacted: date }));
+                            } else {
+                              setNewUpdate(prev => ({ ...prev, lastContacted: null }));
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <Input
+                      type="time"
+                      className="w-32"
+                      value={newUpdate.lastContacted ? format(newUpdate.lastContacted, 'HH:mm') : ''}
+                      onChange={(e) => {
+                        if (e.target.value && newUpdate.lastContacted) {
+                          const [hours, minutes] = e.target.value.split(':');
+                          const newDate = new Date(newUpdate.lastContacted);
+                          newDate.setHours(parseInt(hours));
+                          newDate.setMinutes(parseInt(minutes));
+                          setNewUpdate(prev => ({ ...prev, lastContacted: newDate }));
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="edit-update-description">Description</Label>
@@ -964,7 +1044,7 @@ const SalesMarketing = () => {
                   />
                 </div>
               </div>
-              <Button onClick={handleUpdateEdit} className="w-full">
+              <Button onClick={handleUpdateEdit} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700">
                 Update
               </Button>
             </DialogContent>
@@ -1050,7 +1130,7 @@ const SalesMarketing = () => {
                   />
                 </div>
               </div>
-              <Button onClick={handleLeadEdit} className="w-full">
+              <Button onClick={handleLeadEdit} className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700">
                 Update Lead
               </Button>
             </DialogContent>
