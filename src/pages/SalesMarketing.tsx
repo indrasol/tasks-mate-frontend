@@ -612,7 +612,7 @@ const SalesMarketing = () => {
                     </div>
                     <Dialog open={isAddUpdateOpen} onOpenChange={setIsAddUpdateOpen}>
                       <DialogTrigger asChild>
-                        <Button className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg">
+                        <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg">
                           <Plus className="w-4 h-4 mr-2 text-white" />
                           Add Update
                         </Button>
@@ -712,7 +712,7 @@ const SalesMarketing = () => {
                             />
                           </div>
                         </div>
-                        <Button onClick={handleAddUpdate} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700">
+                        <Button onClick={handleAddUpdate} className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
                           Add Update
                         </Button>
                       </DialogContent>
@@ -726,7 +726,7 @@ const SalesMarketing = () => {
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                              <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center">
                                 <TrendingUp className="w-6 h-6 text-white" />
                               </div>
                               <div>
@@ -739,7 +739,7 @@ const SalesMarketing = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEditUpdate(update)}
-                                className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                className="text-primary hover:text-primary/80 hover:bg-primary/10"
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -788,7 +788,7 @@ const SalesMarketing = () => {
                     </div>
                     <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
                       <DialogTrigger asChild>
-                        <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg">
+                        <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg">
                           <Plus className="w-4 h-4 mr-2 text-white" />
                           Add Lead
                         </Button>
@@ -871,7 +871,7 @@ const SalesMarketing = () => {
                             />
                           </div>
                         </div>
-                        <Button onClick={handleAddLead} className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700">
+                        <Button onClick={handleAddLead} className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
                           Add Lead
                         </Button>
                       </DialogContent>
@@ -885,7 +885,7 @@ const SalesMarketing = () => {
                         <CardContent className="p-6">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center">
+                              <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center">
                                 <Users className="w-6 h-6 text-white" />
                               </div>
                               <div>
@@ -895,8 +895,12 @@ const SalesMarketing = () => {
                             </div>
                             <div className="flex items-center space-x-4">
                               <Badge 
-                                variant={lead.status === 'Hot' ? 'destructive' : lead.status === 'Warm' ? 'default' : 'secondary'}
-                                className="text-xs px-3 py-1"
+                                variant={lead.status === 'Hot' ? 'destructive' : lead.status === 'Warm' ? 'outline' : 'secondary'}
+                                className={`text-xs px-3 py-1 ${
+                                  lead.status === 'Warm' 
+                                    ? 'border-orange-300 text-orange-700 bg-orange-50' 
+                                    : ''
+                                }`}
                               >
                                 {lead.status}
                               </Badge>
@@ -909,7 +913,7 @@ const SalesMarketing = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleEditLead(lead)}
-                                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                  className="text-primary hover:text-primary/80 hover:bg-primary/10"
                                 >
                                   <Edit className="w-4 h-4" />
                                 </Button>
@@ -1044,7 +1048,7 @@ const SalesMarketing = () => {
                   />
                 </div>
               </div>
-              <Button onClick={handleUpdateEdit} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700">
+              <Button onClick={handleUpdateEdit} className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
                 Update
               </Button>
             </DialogContent>
@@ -1130,7 +1134,7 @@ const SalesMarketing = () => {
                   />
                 </div>
               </div>
-              <Button onClick={handleLeadEdit} className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700">
+              <Button onClick={handleLeadEdit} className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
                 Update Lead
               </Button>
             </DialogContent>
