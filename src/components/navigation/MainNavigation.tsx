@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Plus, 
@@ -28,6 +28,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface MainNavigationProps {
   onNewTask?: () => void;
@@ -38,59 +40,91 @@ interface MainNavigationProps {
 const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavigationProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [currentOrgName, setCurrentOrgName] = useState<string>('');
 
   // Get org_id from URL params
   const urlParams = new URLSearchParams(location.search);
   const orgId = urlParams.get('org_id');
-  const currentOrgName = "Current Organization"; // This would come from context/state
+
+  useEffect(() => {
+    const fetchOrganizationName = async () => {
+      if (orgId && user) {
+        try {
+          const { data, error } = await supabase
+            .from('organizations')
+            .select('name')
+            .eq('id', orgId)
+            .single();
+
+          if (error) {
+            console.error('Error fetching organization name:', error);
+            return;
+          }
+
+          setCurrentOrgName(data.name);
+        } catch (error) {
+          console.error('Error fetching organization:', error);
+        }
+      } else {
+        setCurrentOrgName('');
+      }
+    };
+
+    fetchOrganizationName();
+  }, [orgId, user]);
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   const navigationItems = [
     { 
       name: 'Dashboard', 
-      path: '/', 
+      path: orgId ? `/?org_id=${orgId}` : '/', 
       icon: Home,
       isActive: location.pathname === '/'
     },
     { 
       name: 'Projects', 
-      path: '/projects', 
+      path: orgId ? `/projects?org_id=${orgId}` : '/projects', 
       icon: Users,
       isActive: location.pathname.startsWith('/projects')
     },
     { 
       name: 'Tasks', 
-      path: '/tasks_catalog', 
+      path: orgId ? `/tasks_catalog?org_id=${orgId}` : '/tasks_catalog', 
       icon: ClipboardList,
       isActive: location.pathname.startsWith('/tasks')
     },
     { 
       name: 'Meeting books', 
-      path: '/meetings', 
+      path: orgId ? `/meetings?org_id=${orgId}` : '/meetings', 
       icon: Calendar,
       isActive: location.pathname.startsWith('/meetings')
     },
     { 
       name: 'Testing Books', 
-      path: '/tester-zone', 
+      path: orgId ? `/tester-zone?org_id=${orgId}` : '/tester-zone', 
       icon: Bug,
       isActive: location.pathname.startsWith('/tester-zone')
     },
     { 
       name: 'Sales / Marketing Books', 
-      path: '/sales-marketing', 
+      path: orgId ? `/sales-marketing?org_id=${orgId}` : '/sales-marketing', 
       icon: TrendingUp,
       isActive: location.pathname.startsWith('/sales-marketing')
     },
     { 
       name: 'Reports', 
-      path: '/reports', 
+      path: orgId ? `/reports?org_id=${orgId}` : '/reports', 
       icon: BarChart3,
       isActive: location.pathname.startsWith('/reports')
     },
     { 
       name: 'Scratchpad', 
-      path: '/scratchpad', 
+      path: orgId ? `/scratchpad?org_id=${orgId}` : '/scratchpad', 
       icon: Edit3,
       isActive: location.pathname.startsWith('/scratchpad')
     }
@@ -128,7 +162,9 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
               title="Back to Organizations"
             >
               <Building2 className="w-4 h-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700 truncate">{currentOrgName}</span>
+              <span className="text-sm font-medium text-gray-700 truncate">
+                {currentOrgName || 'Loading...'}
+              </span>
             </Link>
           </div>
         )}
@@ -162,7 +198,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
         <div className="border-t border-gray-200 p-4 space-y-3">
           {/* Settings Link */}
           <Link
-            to="/settings"
+            to={orgId ? `/settings?org_id=${orgId}` : "/settings"}
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
               location.pathname.startsWith('/settings')
                 ? 'bg-green-50 text-green-700 shadow-sm'
@@ -184,7 +220,9 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                 {!isCollapsed && (
                   <>
                     <div className="flex-1 text-left">
-                      <p className="text-sm font-medium text-gray-700">John Doe</p>
+                      <p className="text-sm font-medium text-gray-700">
+                        {user?.email || 'User'}
+                      </p>
                     </div>
                     <ChevronDown className="w-4 h-4 text-gray-500 rotate-180" />
                   </>
@@ -193,8 +231,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 bg-white border shadow-lg">
               <div className="px-3 py-2 border-b border-gray-100">
-                <p className="text-sm font-medium text-gray-900">John Doe</p>
-                <p className="text-xs text-gray-500">john.doe@company.com</p>
+                <p className="text-sm font-medium text-gray-900">{user?.email}</p>
               </div>
               <DropdownMenuItem>
                 <User className="w-4 h-4 mr-2" />
@@ -205,7 +242,10 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600 focus:text-red-600">
+              <DropdownMenuItem 
+                onClick={handleSignOut}
+                className="text-red-600 focus:text-red-600"
+              >
                 <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </DropdownMenuItem>

@@ -161,6 +161,7 @@ const Organizations = () => {
   };
 
   const handleOrgCardClick = (orgId: string) => {
+    // Navigate to the dashboard with the organization ID
     navigate(`/?org_id=${orgId}`);
   };
 
