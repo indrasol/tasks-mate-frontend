@@ -9,7 +9,6 @@ import {
   ChevronDown,
   Calendar,
   ClipboardList,
-  BarChart3,
   Home,
   Check,
   Users,
@@ -82,9 +81,9 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const navigationItems = [
     { 
       name: 'Dashboard', 
-      path: orgId ? `/?org_id=${orgId}` : '/', 
+      path: orgId ? `/dashboard?org_id=${orgId}` : '/dashboard', 
       icon: Home,
-      isActive: location.pathname === '/'
+      isActive: location.pathname === '/dashboard'
     },
     { 
       name: 'Projects', 
@@ -115,12 +114,6 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       path: orgId ? `/sales-marketing?org_id=${orgId}` : '/sales-marketing', 
       icon: TrendingUp,
       isActive: location.pathname.startsWith('/sales-marketing')
-    },
-    { 
-      name: 'Reports', 
-      path: orgId ? `/reports?org_id=${orgId}` : '/reports', 
-      icon: BarChart3,
-      isActive: location.pathname.startsWith('/reports')
     },
     { 
       name: 'Scratchpad', 

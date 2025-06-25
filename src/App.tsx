@@ -19,7 +19,7 @@ import ProductCallMeeting from "./pages/ProductCallMeeting";
 import AdHocMeeting from "./pages/AdHocMeeting";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
-import Reports from "./pages/Reports";
+import Dashboard from "./pages/Dashboard";
 import Scratchpad from "./pages/Scratchpad";
 import TesterZone from "./pages/TesterZone";
 import TestRunDetail from "./pages/TestRunDetail";
@@ -40,6 +40,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/org" element={<Organizations />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/tasks_catalog" element={<TasksCatalog />} />
             <Route path="/tasks/:taskId" element={<TaskDetail />} />
@@ -52,7 +53,6 @@ const App = () => (
             <Route path="/meetings/ad-hoc/:id" element={<AdHocMeeting />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
-            <Route path="/reports" element={<Reports />} />
             <Route path="/sales-marketing" element={<SalesMarketing />} />
             <Route path="/tester-zone" element={<TesterZone />} />
             <Route path="/tester-zone/runs/:id" element={<TestRunDetail />} />
