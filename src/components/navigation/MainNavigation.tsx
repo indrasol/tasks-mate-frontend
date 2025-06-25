@@ -16,8 +16,8 @@ import {
   Menu,
   X,
   Edit3,
-  Monitor,
-  Search,
+  Bug,
+  TestTube,
   TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,9 +37,9 @@ interface MainNavigationProps {
 
 const TestingBooksIcon = ({ className }: { className?: string }) => (
   <div className={`relative ${className}`}>
-    <Monitor className="w-5 h-5" />
-    <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-0.5">
-      <Search className="w-3 h-3 text-white" />
+    <Bug className="w-5 h-5" />
+    <div className="absolute -top-1 -right-1 bg-blue-500 rounded-full p-0.5">
+      <TestTube className="w-3 h-3 text-white" />
     </div>
   </div>
 );
