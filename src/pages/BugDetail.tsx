@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronRight, Upload, Camera, FileText, Clock, MessageSquare, Tag, ArrowLeft } from 'lucide-react';
+import { ChevronRight, Upload, Camera, Clock, ArrowLeft, Plus, Edit3, Trash2 } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,27 +21,20 @@ import {
 
 const BugDetail = () => {
   const { id: runId, bugId } = useParams();
-  const [activeTab, setActiveTab] = useState('details');
   
   // Mock bug data
-  const bug = {
+  const [bug, setBug] = useState({
     id: bugId || 'BUG-001',
     title: 'Login button not responsive on mobile',
     description: 'The login button becomes unclickable on mobile devices under 768px width. This happens consistently across different browsers including Chrome, Safari, and Firefox on iOS devices.',
-    severity: 'major' as const,
+    severity: 'medium' as const,
     status: 'new' as const,
     tags: ['UI', 'Mobile', 'Authentication', 'Cross-browser'],
-    votes: 3,
     createdAt: '2024-12-20T10:30:00Z',
     updatedAt: '2024-12-20T14:15:00Z'
-  };
+  });
 
-  const [reproSteps, setReproSteps] = useState([
-    'Navigate to the login page on a mobile device',
-    'Enter valid credentials in the email and password fields',
-    'Attempt to tap the "Sign In" button',
-    'Notice that the button does not respond to touch'
-  ]);
+  const [recreateGuide, setRecreateGuide] = useState('Navigate to the login page on a mobile device. Enter valid credentials in the email and password fields. Attempt to tap the "Sign In" button. Notice that the button does not respond to touch.');
 
   const [evidence, setEvidence] = useState([
     {
@@ -53,23 +46,71 @@ const BugDetail = () => {
     }
   ]);
 
+  const [comments, setComments] = useState([
+    {
+      id: '1',
+      text: 'This issue affects all mobile users trying to log in.',
+      author: 'John Doe',
+      createdAt: '2024-12-20T12:00:00Z'
+    },
+    {
+      id: '2',
+      text: 'I can reproduce this on iOS Safari as well.',
+      author: 'Jane Smith',
+      createdAt: '2024-12-20T13:30:00Z'
+    }
+  ]);
+
+  const [newComment, setNewComment] = useState('');
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
+
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-700 border-red-200';
-      case 'major': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'minor': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'high': return 'bg-red-100 text-red-700 border-red-200';
+      case 'medium': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'low': return 'bg-blue-100 text-blue-700 border-blue-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'new': return 'bg-blue-100 text-blue-700';
-      case 'confirmed': return 'bg-purple-100 text-purple-700';
-      case 'fixed': return 'bg-green-100 text-green-700';
-      case 'retest': return 'bg-yellow-100 text-yellow-700';
-      default: return 'bg-gray-100 text-gray-700';
+  const handleSeverityChange = (newSeverity: string) => {
+    setBug(prev => ({ ...prev, severity: newSeverity as 'high' | 'medium' | 'low' }));
+  };
+
+  const handleAddComment = () => {
+    if (newComment.trim()) {
+      const comment = {
+        id: Date.now().toString(),
+        text: newComment,
+        author: 'Current User',
+        createdAt: new Date().toISOString()
+      };
+      setComments([...comments, comment]);
+      setNewComment('');
     }
+  };
+
+  const handleEditComment = (commentId: string) => {
+    const comment = comments.find(c => c.id === commentId);
+    if (comment) {
+      setEditingComment(commentId);
+      setEditCommentText(comment.text);
+    }
+  };
+
+  const handleSaveEdit = (commentId: string) => {
+    setComments(comments.map(comment => 
+      comment.id === commentId 
+        ? { ...comment, text: editCommentText }
+        : comment
+    ));
+    setEditingComment(null);
+    setEditCommentText('');
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    setComments(comments.filter(comment => comment.id !== commentId));
   };
 
   return (
@@ -118,10 +159,9 @@ const BugDetail = () => {
                 <Badge className={`${getSeverityColor(bug.severity)} border text-sm font-medium`}>
                   {bug.severity.toUpperCase()}
                 </Badge>
-                <Badge className={`${getStatusColor(bug.status)} border-0 text-sm`}>
-                  {bug.status}
+                <Badge className="bg-red-100 text-red-700 border-red-200 text-sm font-medium">
+                  #{bug.id}
                 </Badge>
-                <span className="text-sm text-gray-500">#{bug.id}</span>
               </div>
               <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
                 {bug.title}
@@ -130,10 +170,6 @@ const BugDetail = () => {
                 <span className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
                   Created {new Date(bug.createdAt).toLocaleDateString()}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MessageSquare className="w-4 h-4" />
-                  {bug.votes} votes
                 </span>
               </div>
             </div>
@@ -155,7 +191,6 @@ const BugDetail = () => {
           <div className="flex flex-wrap gap-2">
             {bug.tags.map((tag, index) => (
               <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700">
-                <Tag className="w-3 h-3 mr-1" />
                 {tag}
               </Badge>
             ))}
@@ -179,25 +214,20 @@ const BugDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Reproduction Steps */}
+            {/* Recreate Guide */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Steps to Reproduce</CardTitle>
+                <CardTitle className="text-lg">Recreate Guide</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {reproSteps.map((step, index) => (
-                    <div key={index} className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-medium">
-                        {index + 1}
-                      </div>
-                      <p className="text-gray-700 flex-1">{step}</p>
-                    </div>
-                  ))}
-                </div>
+                <Textarea
+                  value={recreateGuide}
+                  onChange={(e) => setRecreateGuide(e.target.value)}
+                  placeholder="Write the steps to recreate this bug..."
+                  className="min-h-[120px] resize-none"
+                />
                 <Button variant="outline" size="sm" className="mt-4">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Edit Steps
+                  Save Guide
                 </Button>
               </CardContent>
             </Card>
@@ -241,6 +271,92 @@ const BugDetail = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Comments Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Comments</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Add New Comment */}
+                <div className="flex gap-3">
+                  <Textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Add a comment..."
+                    rows={3}
+                    className="flex-1"
+                  />
+                  <Button 
+                    onClick={handleAddComment}
+                    className="bg-green-500 hover:bg-green-600 text-white self-start"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add
+                  </Button>
+                </div>
+
+                {/* Comments List */}
+                <div className="space-y-4">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <span className="font-medium text-sm text-gray-900">{comment.author}</span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            {new Date(comment.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditComment(comment.id)}
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteComment(comment.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {editingComment === comment.id ? (
+                        <div className="flex gap-2">
+                          <Textarea
+                            value={editCommentText}
+                            onChange={(e) => setEditCommentText(e.target.value)}
+                            rows={2}
+                            className="flex-1"
+                          />
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveEdit(comment.id)}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingComment(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-700">{comment.text}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Sidebar */}
@@ -253,29 +369,14 @@ const BugDetail = () => {
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="severity">Severity</Label>
-                  <Select defaultValue={bug.severity}>
+                  <Select value={bug.severity} onValueChange={handleSeverityChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="critical">Critical</SelectItem>
-                      <SelectItem value="major">Major</SelectItem>
-                      <SelectItem value="minor">Minor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Select defaultValue={bug.status}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">New</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="fixed">Fixed</SelectItem>
-                      <SelectItem value="retest">Retest</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -283,31 +384,6 @@ const BugDetail = () => {
                 <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
                   Save Changes
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Expected vs Actual */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Expected vs Actual</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="expected">Expected Result</Label>
-                  <Textarea 
-                    id="expected"
-                    placeholder="What should happen..."
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="actual">Actual Result</Label>
-                  <Textarea 
-                    id="actual"
-                    placeholder="What actually happens..."
-                    rows={3}
-                  />
-                </div>
               </CardContent>
             </Card>
           </div>
