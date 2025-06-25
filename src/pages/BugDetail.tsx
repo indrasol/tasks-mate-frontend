@@ -161,6 +161,13 @@ const BugDetail = () => {
 
   const handleTaskCreated = (task: any) => {
     console.log('Task created from bug:', task);
+    
+    // Dispatch custom event to notify other components (like TasksCatalog)
+    const taskCreatedEvent = new CustomEvent('taskCreated', {
+      detail: task
+    });
+    window.dispatchEvent(taskCreatedEvent);
+    
     toast.success('Bug converted to task successfully!');
   };
 
