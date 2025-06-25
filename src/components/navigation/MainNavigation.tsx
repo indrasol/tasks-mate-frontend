@@ -15,7 +15,7 @@ import {
   Menu,
   X,
   Edit3,
-  Beaker,
+  TestTube,
   TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,12 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       isActive: location.pathname === '/'
     },
     { 
+      name: 'Projects', 
+      path: '/projects', 
+      icon: Users,
+      isActive: location.pathname.startsWith('/projects')
+    },
+    { 
       name: 'Tasks', 
       path: '/tasks_catalog', 
       icon: ClipboardList,
@@ -58,10 +64,10 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       isActive: location.pathname.startsWith('/meetings')
     },
     { 
-      name: 'Projects', 
-      path: '/projects', 
-      icon: Users,
-      isActive: location.pathname.startsWith('/projects')
+      name: 'Testing Books', 
+      path: '/tester-zone', 
+      icon: TestTube,
+      isActive: location.pathname.startsWith('/tester-zone')
     },
     { 
       name: 'Sales / Marketing Books', 
@@ -74,12 +80,6 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       path: '/reports', 
       icon: BarChart3,
       isActive: location.pathname.startsWith('/reports')
-    },
-    { 
-      name: 'Testing Books', 
-      path: '/tester-zone', 
-      icon: Beaker,
-      isActive: location.pathname.startsWith('/tester-zone')
     },
     { 
       name: 'Scratchpad', 

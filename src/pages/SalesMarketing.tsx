@@ -330,12 +330,135 @@ const SalesMarketing = () => {
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="updates" className="space-y-6">
+        <Tabs defaultValue="calendar" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="calendar">Calendar View</TabsTrigger>
             <TabsTrigger value="updates">Important Updates</TabsTrigger>
             <TabsTrigger value="leads">Lead Management</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar View</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="calendar" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Calendar View</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Select value={calendarView} onValueChange={(value: 'monthly' | 'weekly' | 'daily') => setCalendarView(value)}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="sm" onClick={() => navigateCalendar('prev')}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => navigateCalendar('next')}>
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold">
+                    {calendarView === 'monthly' && format(currentDate, 'MMMM yyyy')}
+                    {calendarView === 'weekly' && `Week of ${format(startOfWeek(currentDate), 'MMM dd, yyyy')}`}
+                    {calendarView === 'daily' && format(currentDate, 'EEEE, MMMM dd, yyyy')}
+                  </h3>
+                </div>
+
+                <div className={cn(
+                  "grid gap-2",
+                  calendarView === 'monthly' && "grid-cols-7",
+                  calendarView === 'weekly' && "grid-cols-7",
+                  calendarView === 'daily' && "grid-cols-1"
+                )}>
+                  {calendarView !== 'daily' && (
+                    <>
+                      <div className="p-2 text-center font-medium text-gray-500">Sun</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Mon</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Tue</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Wed</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Thu</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Fri</div>
+                      <div className="p-2 text-center font-medium text-gray-500">Sat</div>
+                    </>
+                  )}
+
+                  {getCalendarDays().map((day) => {
+                    const stats = getStatsForDate(day);
+                    const hasStats = stats.calls > 0 || stats.emails > 0 || stats.messages > 0;
+                    
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className={cn(
+                          "relative p-3 border rounded-lg min-h-20 hover:bg-gray-50 transition-colors",
+                          calendarView === 'monthly' && !isSameDay(day, startOfMonth(currentDate)) && !isSameDay(day, endOfMonth(currentDate)) && "text-gray-400",
+                          calendarView === 'daily' && "min-h-40"
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">{format(day, 'd')}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedDate(day);
+                              setIsStatsModalOpen(true);
+                            }}
+                            className="w-6 h-6 p-0 hover:bg-green-100"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        
+                        {hasStats && (
+                          <div className="space-y-1">
+                            {stats.calls > 0 && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                                <Phone className="w-3 h-3 mr-1" />
+                                {stats.calls}
+                              </Badge>
+                            )}
+                            {stats.emails > 0 && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">
+                                <Mail className="w-3 h-3 mr-1" />
+                                {stats.emails}
+                              </Badge>
+                            )}
+                            {stats.messages > 0 && (
+                              <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700">
+                                <Users className="w-3 h-3 mr-1" />
+                                {stats.messages}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Stats Modal */}
+            <Dialog open={isStatsModalOpen} onOpenChange={setIsStatsModalOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Daily Stats - {format(selectedDate, 'MMMM dd, yyyy')}</DialogTitle>
+                </DialogHeader>
+                <DailyStatsForm 
+                  onSubmit={handleAddDailyStats} 
+                  initialData={getStatsForDate(selectedDate)}
+                />
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
 
           <TabsContent value="updates" className="space-y-6">
             {/* Search Bar and Add Button */}
@@ -527,129 +650,6 @@ const SalesMarketing = () => {
                 </Card>
               ))}
             </div>
-          </TabsContent>
-
-          <TabsContent value="calendar" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Calendar View</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Select value={calendarView} onValueChange={(value: 'monthly' | 'weekly' | 'daily') => setCalendarView(value)}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="daily">Daily</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button variant="outline" size="sm" onClick={() => navigateCalendar('prev')}>
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => navigateCalendar('next')}>
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold">
-                    {calendarView === 'monthly' && format(currentDate, 'MMMM yyyy')}
-                    {calendarView === 'weekly' && `Week of ${format(startOfWeek(currentDate), 'MMM dd, yyyy')}`}
-                    {calendarView === 'daily' && format(currentDate, 'EEEE, MMMM dd, yyyy')}
-                  </h3>
-                </div>
-
-                <div className={cn(
-                  "grid gap-2",
-                  calendarView === 'monthly' && "grid-cols-7",
-                  calendarView === 'weekly' && "grid-cols-7",
-                  calendarView === 'daily' && "grid-cols-1"
-                )}>
-                  {calendarView !== 'daily' && (
-                    <>
-                      <div className="p-2 text-center font-medium text-gray-500">Sun</div>
-                      <div className="p-2 text-center font-medium text-gray-500">Mon</div>
-                      <div className="p-2 text-center font-medium text-gray-500">Tue</div>
-                      <div className="p-2 text-center font-medium text-gray-500">Wed</div>
-                      <div className="p-2 text-center font-medium text-gray-500">Thu</div>
-                      <div className="p-2 text-center font-medium text-gray-500">Fri</div>
-                      <div className="p-2 text-center font-medium text-gray-500">Sat</div>
-                    </>
-                  )}
-
-                  {getCalendarDays().map((day) => {
-                    const stats = getStatsForDate(day);
-                    const hasStats = stats.calls > 0 || stats.emails > 0 || stats.messages > 0;
-                    
-                    return (
-                      <div
-                        key={day.toISOString()}
-                        className={cn(
-                          "relative p-3 border rounded-lg min-h-20 hover:bg-gray-50 transition-colors",
-                          calendarView === 'monthly' && !isSameDay(day, startOfMonth(currentDate)) && !isSameDay(day, endOfMonth(currentDate)) && "text-gray-400",
-                          calendarView === 'daily' && "min-h-40"
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">{format(day, 'd')}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedDate(day);
-                              setIsStatsModalOpen(true);
-                            }}
-                            className="w-6 h-6 p-0 hover:bg-green-100"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
-                        
-                        {hasStats && (
-                          <div className="space-y-1">
-                            {stats.calls > 0 && (
-                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                                <Phone className="w-3 h-3 mr-1" />
-                                {stats.calls}
-                              </Badge>
-                            )}
-                            {stats.emails > 0 && (
-                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">
-                                <Mail className="w-3 h-3 mr-1" />
-                                {stats.emails}
-                              </Badge>
-                            )}
-                            {stats.messages > 0 && (
-                              <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700">
-                                <Users className="w-3 h-3 mr-1" />
-                                {stats.messages}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Stats Modal */}
-            <Dialog open={isStatsModalOpen} onOpenChange={setIsStatsModalOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Daily Stats - {format(selectedDate, 'MMMM dd, yyyy')}</DialogTitle>
-                </DialogHeader>
-                <DailyStatsForm 
-                  onSubmit={handleAddDailyStats} 
-                  initialData={getStatsForDate(selectedDate)}
-                />
-              </DialogContent>
-            </Dialog>
           </TabsContent>
         </Tabs>
       </div>
