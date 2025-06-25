@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Plus, Phone, Mail, Users, TrendingUp, Calendar, Target, Eye, Search, Filter, X } from 'lucide-react';
+import { Plus, Phone, Mail, Users, TrendingUp, Calendar, Target, Eye, Search, Filter, X, Edit, Trash2 } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const SalesMarketing = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,6 +22,8 @@ const SalesMarketing = () => {
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
   const [leadSearchTerm, setLeadSearchTerm] = useState('');
   const [leadDateFilter, setLeadDateFilter] = useState('');
+  const [editingUpdate, setEditingUpdate] = useState<any>(null);
+  const [editingLead, setEditingLead] = useState<any>(null);
 
   // Mock data for sales activities
   const salesStats = {
@@ -76,8 +81,8 @@ const SalesMarketing = () => {
       phone: '+1-555-0123',
       status: 'hot',
       source: 'Website',
-      value: '$15,000',
-      lastContact: '2 days ago',
+      lastContact: '2024-12-23',
+      lastContactTime: '14:30',
       nextAction: 'Schedule demo'
     },
     {
@@ -88,8 +93,8 @@ const SalesMarketing = () => {
       phone: '+1-555-0456',
       status: 'warm',
       source: 'LinkedIn',
-      value: '$8,500',
-      lastContact: '1 week ago',
+      lastContact: '2024-12-18',
+      lastContactTime: '11:15',
       nextAction: 'Follow-up call'
     },
     {
@@ -100,31 +105,66 @@ const SalesMarketing = () => {
       phone: '+1-555-0789',
       status: 'cold',
       source: 'Cold Call',
-      value: '$25,000',
-      lastContact: '2 weeks ago',
+      lastContact: '2024-12-10',
+      lastContactTime: '16:45',
       nextAction: 'Re-engage email'
     }
   ]);
 
   const handleAddUpdate = (updateData: any) => {
-    const newUpdate = {
-      id: `UPD-${String(updates.length + 1).padStart(3, '0')}`,
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      ...updateData
-    };
-    setUpdates([newUpdate, ...updates]);
+    if (editingUpdate) {
+      setUpdates(updates.map(update => 
+        update.id === editingUpdate.id 
+          ? { ...editingUpdate, ...updateData }
+          : update
+      ));
+      setEditingUpdate(null);
+    } else {
+      const newUpdate = {
+        id: `UPD-${String(updates.length + 1).padStart(3, '0')}`,
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        ...updateData
+      };
+      setUpdates([newUpdate, ...updates]);
+    }
     setIsNewUpdateOpen(false);
   };
 
   const handleAddLead = (leadData: any) => {
-    const newLead = {
-      id: `LEAD-${String(leads.length + 1).padStart(3, '0')}`,
-      lastContact: 'Just now',
-      ...leadData
-    };
-    setLeads([newLead, ...leads]);
+    if (editingLead) {
+      setLeads(leads.map(lead => 
+        lead.id === editingLead.id 
+          ? { ...editingLead, ...leadData }
+          : lead
+      ));
+      setEditingLead(null);
+    } else {
+      const newLead = {
+        id: `LEAD-${String(leads.length + 1).padStart(3, '0')}`,
+        ...leadData
+      };
+      setLeads([newLead, ...leads]);
+    }
     setIsNewLeadOpen(false);
+  };
+
+  const handleDeleteUpdate = (id: string) => {
+    setUpdates(updates.filter(update => update.id !== id));
+  };
+
+  const handleDeleteLead = (id: string) => {
+    setLeads(leads.filter(lead => lead.id !== id));
+  };
+
+  const handleEditUpdate = (update: any) => {
+    setEditingUpdate(update);
+    setIsNewUpdateOpen(true);
+  };
+
+  const handleEditLead = (lead: any) => {
+    setEditingLead(lead);
+    setIsNewLeadOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -262,7 +302,10 @@ const SalesMarketing = () => {
                 onChange={(e) => setDateFilter(e.target.value)}
                 className="w-40"
               />
-              <Dialog open={isNewUpdateOpen} onOpenChange={setIsNewUpdateOpen}>
+              <Dialog open={isNewUpdateOpen} onOpenChange={(open) => {
+                setIsNewUpdateOpen(open);
+                if (!open) setEditingUpdate(null);
+              }}>
                 <DialogTrigger asChild>
                   <Button className="bg-green-500 hover:bg-green-600 text-white">
                     <Plus className="w-4 h-4 mr-2" />
@@ -271,9 +314,9 @@ const SalesMarketing = () => {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add New Update</DialogTitle>
+                    <DialogTitle>{editingUpdate ? 'Edit Update' : 'Add New Update'}</DialogTitle>
                   </DialogHeader>
-                  <UpdateForm onSubmit={handleAddUpdate} />
+                  <UpdateForm onSubmit={handleAddUpdate} initialData={editingUpdate} />
                 </DialogContent>
               </Dialog>
             </div>
@@ -311,9 +354,23 @@ const SalesMarketing = () => {
                           <p className="text-sm text-gray-700">{update.notes}</p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <Eye className="w-4 h-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditUpdate(update)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDeleteUpdate(update.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -339,7 +396,10 @@ const SalesMarketing = () => {
                 onChange={(e) => setLeadDateFilter(e.target.value)}
                 className="w-40"
               />
-              <Dialog open={isNewLeadOpen} onOpenChange={setIsNewLeadOpen}>
+              <Dialog open={isNewLeadOpen} onOpenChange={(open) => {
+                setIsNewLeadOpen(open);
+                if (!open) setEditingLead(null);
+              }}>
                 <DialogTrigger asChild>
                   <Button className="bg-green-500 hover:bg-green-600 text-white">
                     <Plus className="w-4 h-4 mr-2" />
@@ -348,9 +408,9 @@ const SalesMarketing = () => {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add New Lead</DialogTitle>
+                    <DialogTitle>{editingLead ? 'Edit Lead' : 'Add New Lead'}</DialogTitle>
                   </DialogHeader>
-                  <LeadForm onSubmit={handleAddLead} />
+                  <LeadForm onSubmit={handleAddLead} initialData={editingLead} />
                 </DialogContent>
               </Dialog>
             </div>
@@ -365,9 +425,28 @@ const SalesMarketing = () => {
                         <CardTitle className="text-lg font-semibold">{lead.name}</CardTitle>
                         <p className="text-sm text-gray-600">{lead.company}</p>
                       </div>
-                      <Badge className={getStatusColor(lead.status)}>
-                        {lead.status}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge className={getStatusColor(lead.status)}>
+                          {lead.status}
+                        </Badge>
+                        <div className="flex gap-1 ml-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditLead(lead)}
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteLead(lead.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -381,15 +460,11 @@ const SalesMarketing = () => {
                         <span className="text-gray-600">{lead.phone}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Value:</span>
-                        <span className="font-semibold text-green-600">{lead.value}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Source:</span>
                         <Badge variant="outline">{lead.source}</Badge>
                       </div>
                       <div className="text-sm text-gray-600">
-                        Last contact: {lead.lastContact}
+                        Last contact: {lead.lastContact} at {lead.lastContactTime}
                       </div>
                       <div className="pt-3 border-t">
                         <p className="text-sm font-medium text-blue-600">{lead.nextAction}</p>
@@ -422,31 +497,33 @@ const SalesMarketing = () => {
 };
 
 // Update Form Component
-const UpdateForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
+const UpdateForm = ({ onSubmit, initialData }: { onSubmit: (data: any) => void; initialData?: any }) => {
   const [formData, setFormData] = useState({
-    type: '',
-    contact: '',
-    company: '',
-    status: '',
-    outcome: '',
-    duration: '',
-    subject: '',
-    notes: ''
+    type: initialData?.type || '',
+    contact: initialData?.contact || '',
+    company: initialData?.company || '',
+    status: initialData?.status || '',
+    outcome: initialData?.outcome || '',
+    duration: initialData?.duration || '',
+    subject: initialData?.subject || '',
+    notes: initialData?.notes || ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
-    setFormData({
-      type: '',
-      contact: '',
-      company: '',
-      status: '',
-      outcome: '',
-      duration: '',
-      subject: '',
-      notes: ''
-    });
+    if (!initialData) {
+      setFormData({
+        type: '',
+        contact: '',
+        company: '',
+        status: '',
+        outcome: '',
+        duration: '',
+        subject: '',
+        notes: ''
+      });
+    }
   };
 
   return (
@@ -535,37 +612,52 @@ const UpdateForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
           rows={3}
         />
       </div>
-      <Button type="submit" className="w-full">Add Update</Button>
+      <Button type="submit" className="w-full">
+        {initialData ? 'Update' : 'Add Update'}
+      </Button>
     </form>
   );
 };
 
 // Lead Form Component
-const LeadForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
+const LeadForm = ({ onSubmit, initialData }: { onSubmit: (data: any) => void; initialData?: any }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    company: '',
-    email: '',
-    phone: '',
-    status: '',
-    source: '',
-    value: '',
-    nextAction: ''
+    name: initialData?.name || '',
+    company: initialData?.company || '',
+    email: initialData?.email || '',
+    phone: initialData?.phone || '',
+    status: initialData?.status || '',
+    source: initialData?.source || '',
+    lastContact: initialData?.lastContact || '',
+    lastContactTime: initialData?.lastContactTime || '',
+    nextAction: initialData?.nextAction || ''
   });
+
+  const [lastContactDate, setLastContactDate] = useState<Date | undefined>(
+    initialData?.lastContact ? new Date(initialData.lastContact) : undefined
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
-    setFormData({
-      name: '',
-      company: '',
-      email: '',
-      phone: '',
-      status: '',
-      source: '',
-      value: '',
-      nextAction: ''
-    });
+    const submitData = {
+      ...formData,
+      lastContact: lastContactDate ? format(lastContactDate, 'yyyy-MM-dd') : ''
+    };
+    onSubmit(submitData);
+    if (!initialData) {
+      setFormData({
+        name: '',
+        company: '',
+        email: '',
+        phone: '',
+        status: '',
+        source: '',
+        lastContact: '',
+        lastContactTime: '',
+        nextAction: ''
+      });
+      setLastContactDate(undefined);
+    }
   };
 
   return (
@@ -637,25 +729,53 @@ const LeadForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="value">Potential Value</Label>
-          <Input
-            id="value"
-            value={formData.value}
-            onChange={(e) => setFormData({...formData, value: e.target.value})}
-            placeholder="e.g., $10,000"
-          />
+          <Label>Last Contact Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !lastContactDate && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {lastContactDate ? format(lastContactDate, "PPP") : <span>Pick a date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={lastContactDate}
+                onSelect={setLastContactDate}
+                initialFocus
+                className="pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
         </div>
         <div>
-          <Label htmlFor="nextAction">Next Action</Label>
+          <Label htmlFor="lastContactTime">Time</Label>
           <Input
-            id="nextAction"
-            value={formData.nextAction}
-            onChange={(e) => setFormData({...formData, nextAction: e.target.value})}
-            placeholder="e.g., Schedule demo"
+            id="lastContactTime"
+            type="time"
+            value={formData.lastContactTime}
+            onChange={(e) => setFormData({...formData, lastContactTime: e.target.value})}
           />
         </div>
       </div>
-      <Button type="submit" className="w-full">Add Lead</Button>
+      <div>
+        <Label htmlFor="nextAction">Next Action</Label>
+        <Input
+          id="nextAction"
+          value={formData.nextAction}
+          onChange={(e) => setFormData({...formData, nextAction: e.target.value})}
+          placeholder="e.g., Schedule demo"
+        />
+      </div>
+      <Button type="submit" className="w-full">
+        {initialData ? 'Update Lead' : 'Add Lead'}
+      </Button>
     </form>
   );
 };
