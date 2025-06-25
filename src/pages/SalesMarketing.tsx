@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Calendar, Users, TrendingUp, Plus, ChevronLeft, ChevronRight, Phone, Mail, MessageSquare } from 'lucide-react';
+import { Calendar, Users, TrendingUp, Plus, ChevronLeft, ChevronRight, Phone, Mail, MessageSquare, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MainNavigation from '@/components/navigation/MainNavigation';
 
 interface DayStats {
@@ -20,6 +21,25 @@ interface CalendarStats {
   [key: string]: DayStats;
 }
 
+interface Update {
+  id: number;
+  title: string;
+  description: string;
+  type: 'success' | 'info' | 'warning';
+  timestamp: string;
+}
+
+interface Lead {
+  id: number;
+  name: string;
+  status: 'Hot' | 'Warm' | 'Cold';
+  value: string;
+  contact: string;
+  email: string;
+  phone: string;
+  notes: string;
+}
+
 const SalesMarketing = () => {
   const [activeTab, setActiveTab] = useState('calendar');
   const [calendarView, setCalendarView] = useState<'monthly' | 'weekly' | 'daily'>('monthly');
@@ -29,12 +49,31 @@ const SalesMarketing = () => {
   const [isAddStatsOpen, setIsAddStatsOpen] = useState(false);
   const [newStats, setNewStats] = useState({ calls: 0, emails: 0, messages: 0 });
 
-  // Sample leads data
-  const leads = [
-    { id: 1, name: 'Acme Corp', status: 'Hot', value: '$50,000', contact: 'John Smith' },
-    { id: 2, name: 'Tech Solutions', status: 'Warm', value: '$25,000', contact: 'Sarah Johnson' },
-    { id: 3, name: 'Global Industries', status: 'Cold', value: '$75,000', contact: 'Mike Davis' },
-  ];
+  // Updates state
+  const [updates, setUpdates] = useState<Update[]>([
+    { id: 1, title: 'New lead added: TechCorp Solutions', description: 'Potential client from tech industry', type: 'success', timestamp: '2 hours ago' },
+    { id: 2, title: 'Follow-up call scheduled with Acme Corp', description: 'Meeting scheduled for next week', type: 'info', timestamp: '4 hours ago' },
+    { id: 3, title: 'Email campaign sent to 50 prospects', description: 'Marketing campaign launched successfully', type: 'warning', timestamp: '1 day ago' },
+  ]);
+  const [isAddUpdateOpen, setIsAddUpdateOpen] = useState(false);
+  const [newUpdate, setNewUpdate] = useState({ title: '', description: '', type: 'info' as const });
+
+  // Leads state
+  const [leads, setLeads] = useState<Lead[]>([
+    { id: 1, name: 'Acme Corp', status: 'Hot', value: '$50,000', contact: 'John Smith', email: 'john@acme.com', phone: '+1-555-0123', notes: 'Very interested in our services' },
+    { id: 2, name: 'Tech Solutions', status: 'Warm', value: '$25,000', contact: 'Sarah Johnson', email: 'sarah@tech.com', phone: '+1-555-0456', notes: 'Needs more information' },
+    { id: 3, name: 'Global Industries', status: 'Cold', value: '$75,000', contact: 'Mike Davis', email: 'mike@global.com', phone: '+1-555-0789', notes: 'Initial contact made' },
+  ]);
+  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  const [newLead, setNewLead] = useState({
+    name: '',
+    status: 'Warm' as const,
+    value: '',
+    contact: '',
+    email: '',
+    phone: '',
+    notes: ''
+  });
 
   const getDateKey = (date: Date) => {
     return date.toISOString().split('T')[0];
@@ -67,6 +106,45 @@ const SalesMarketing = () => {
     }
     
     setCurrentDate(newDate);
+  };
+
+  const handleAddUpdate = () => {
+    const update: Update = {
+      id: Date.now(),
+      title: newUpdate.title,
+      description: newUpdate.description,
+      type: newUpdate.type,
+      timestamp: 'Just now'
+    };
+    setUpdates(prev => [update, ...prev]);
+    setNewUpdate({ title: '', description: '', type: 'info' });
+    setIsAddUpdateOpen(false);
+  };
+
+  const handleDeleteUpdate = (id: number) => {
+    setUpdates(prev => prev.filter(update => update.id !== id));
+  };
+
+  const handleAddLead = () => {
+    const lead: Lead = {
+      id: Date.now(),
+      ...newLead
+    };
+    setLeads(prev => [lead, ...prev]);
+    setNewLead({
+      name: '',
+      status: 'Warm',
+      value: '',
+      contact: '',
+      email: '',
+      phone: '',
+      notes: ''
+    });
+    setIsAddLeadOpen(false);
+  };
+
+  const handleDeleteLead = (id: number) => {
+    setLeads(prev => prev.filter(lead => lead.id !== id));
   };
 
   const renderCalendarDay = (date: Date) => {
@@ -396,32 +474,90 @@ const SalesMarketing = () => {
             <TabsContent value="updates" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Recent Updates</CardTitle>
-                  <CardDescription>Latest sales and marketing activities</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Important Updates</CardTitle>
+                      <CardDescription>Latest sales and marketing activities</CardDescription>
+                    </div>
+                    <Dialog open={isAddUpdateOpen} onOpenChange={setIsAddUpdateOpen}>
+                      <DialogTrigger asChild>
+                        <Button>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Update
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add New Update</DialogTitle>
+                          <DialogDescription>
+                            Create a new update for your sales and marketing activities
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="update-title">Title</Label>
+                            <Input
+                              id="update-title"
+                              value={newUpdate.title}
+                              onChange={(e) => setNewUpdate(prev => ({ ...prev, title: e.target.value }))}
+                              placeholder="Update title"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="update-description">Description</Label>
+                            <Textarea
+                              id="update-description"
+                              value={newUpdate.description}
+                              onChange={(e) => setNewUpdate(prev => ({ ...prev, description: e.target.value }))}
+                              placeholder="Update description"
+                              rows={3}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="update-type">Type</Label>
+                            <Select value={newUpdate.type} onValueChange={(value: 'success' | 'info' | 'warning') => setNewUpdate(prev => ({ ...prev, type: value }))}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="success">Success</SelectItem>
+                                <SelectItem value="info">Info</SelectItem>
+                                <SelectItem value="warning">Warning</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button onClick={handleAddUpdate} className="w-full">
+                            Add Update
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center space-x-4 p-4 border rounded-lg">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="font-medium">New lead added: TechCorp Solutions</p>
-                        <p className="text-sm text-gray-500">2 hours ago</p>
+                    {updates.map((update) => (
+                      <div key={update.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-2 h-2 rounded-full ${
+                            update.type === 'success' ? 'bg-green-500' : 
+                            update.type === 'info' ? 'bg-blue-500' : 'bg-yellow-500'
+                          }`}></div>
+                          <div className="flex-1">
+                            <p className="font-medium">{update.title}</p>
+                            <p className="text-sm text-gray-600">{update.description}</p>
+                            <p className="text-sm text-gray-500">{update.timestamp}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteUpdate(update.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-4 p-4 border rounded-lg">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="font-medium">Follow-up call scheduled with Acme Corp</p>
-                        <p className="text-sm text-gray-500">4 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4 p-4 border rounded-lg">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="font-medium">Email campaign sent to 50 prospects</p>
-                        <p className="text-sm text-gray-500">1 day ago</p>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -430,29 +566,143 @@ const SalesMarketing = () => {
             <TabsContent value="lead-management" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Lead Pipeline</CardTitle>
-                  <CardDescription>Manage and track your sales leads</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Lead Pipeline</CardTitle>
+                      <CardDescription>Manage and track your sales leads</CardDescription>
+                    </div>
+                    <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
+                      <DialogTrigger asChild>
+                        <Button>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Lead
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Add New Lead</DialogTitle>
+                          <DialogDescription>
+                            Add a new lead to your sales pipeline
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="lead-name">Company Name</Label>
+                            <Input
+                              id="lead-name"
+                              value={newLead.name}
+                              onChange={(e) => setNewLead(prev => ({ ...prev, name: e.target.value }))}
+                              placeholder="Company name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="lead-contact">Contact Person</Label>
+                            <Input
+                              id="lead-contact"
+                              value={newLead.contact}
+                              onChange={(e) => setNewLead(prev => ({ ...prev, contact: e.target.value }))}
+                              placeholder="Contact person"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="lead-email">Email</Label>
+                            <Input
+                              id="lead-email"
+                              type="email"
+                              value={newLead.email}
+                              onChange={(e) => setNewLead(prev => ({ ...prev, email: e.target.value }))}
+                              placeholder="Email address"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="lead-phone">Phone</Label>
+                            <Input
+                              id="lead-phone"
+                              value={newLead.phone}
+                              onChange={(e) => setNewLead(prev => ({ ...prev, phone: e.target.value }))}
+                              placeholder="Phone number"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="lead-value">Deal Value</Label>
+                            <Input
+                              id="lead-value"
+                              value={newLead.value}
+                              onChange={(e) => setNewLead(prev => ({ ...prev, value: e.target.value }))}
+                              placeholder="$50,000"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="lead-status">Status</Label>
+                            <Select value={newLead.status} onValueChange={(value: 'Hot' | 'Warm' | 'Cold') => setNewLead(prev => ({ ...prev, status: value }))}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Hot">Hot</SelectItem>
+                                <SelectItem value="Warm">Warm</SelectItem>
+                                <SelectItem value="Cold">Cold</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-2">
+                            <Label htmlFor="lead-notes">Notes</Label>
+                            <Textarea
+                              id="lead-notes"
+                              value={newLead.notes}
+                              onChange={(e) => setNewLead(prev => ({ ...prev, notes: e.target.value }))}
+                              placeholder="Additional notes about this lead"
+                              rows={3}
+                            />
+                          </div>
+                        </div>
+                        <Button onClick={handleAddLead} className="w-full">
+                          Add Lead
+                        </Button>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {leads.map((lead) => (
-                      <div key={lead.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Users className="w-5 h-5 text-blue-600" />
+                      <div key={lead.id} className="p-4 border rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <Users className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-medium">{lead.name}</h3>
+                              <p className="text-sm text-gray-500">{lead.contact}</p>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="font-medium">{lead.name}</h3>
-                            <p className="text-sm text-gray-500">{lead.contact}</p>
+                          <div className="flex items-center space-x-4">
+                            <Badge 
+                              variant={lead.status === 'Hot' ? 'destructive' : lead.status === 'Warm' ? 'default' : 'secondary'}
+                            >
+                              {lead.status}
+                            </Badge>
+                            <span className="font-medium">{lead.value}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteLead(lead.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-4">
-                          <Badge 
-                            variant={lead.status === 'Hot' ? 'destructive' : lead.status === 'Warm' ? 'default' : 'secondary'}
-                          >
-                            {lead.status}
-                          </Badge>
-                          <span className="font-medium">{lead.value}</span>
+                        <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                          <div>
+                            <span className="font-medium">Email:</span> {lead.email}
+                          </div>
+                          <div>
+                            <span className="font-medium">Phone:</span> {lead.phone}
+                          </div>
+                          <div className="col-span-2">
+                            <span className="font-medium">Notes:</span> {lead.notes}
+                          </div>
                         </div>
                       </div>
                     ))}
