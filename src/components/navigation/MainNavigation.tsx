@@ -6,7 +6,7 @@ import {
   Settings, 
   User, 
   LogOut,
-  ChevronUp,
+  ChevronDown,
   Calendar,
   ClipboardList,
   BarChart3,
@@ -38,7 +38,9 @@ interface MainNavigationProps {
 const TestingBooksIcon = ({ className }: { className?: string }) => (
   <div className={`relative ${className}`}>
     <Monitor className="w-5 h-5" />
-    <Search className="w-2.5 h-2.5 absolute top-0.5 right-0.5" />
+    <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-0.5">
+      <Search className="w-3 h-3 text-white" />
+    </div>
   </div>
 );
 
@@ -160,7 +162,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                     <div className="flex-1 text-left">
                       <p className="text-sm font-medium text-gray-700">John Doe</p>
                     </div>
-                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
                   </>
                 )}
               </Button>
