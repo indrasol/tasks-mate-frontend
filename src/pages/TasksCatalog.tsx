@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -122,16 +121,18 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     }
   ]);
 
-  // Listen for new task creation events
+  // Listen for new task creation events - moved to top level
   useEffect(() => {
     const handleTaskCreated = (event: CustomEvent) => {
       const newTask = event.detail;
-      console.log("New task created:", newTask);
+      console.log("TasksCatalog received new task:", newTask);
       setTasks(prev => [newTask, ...prev]);
     };
 
+    // Add event listener to window
     window.addEventListener('taskCreated', handleTaskCreated as EventListener);
     
+    // Cleanup
     return () => {
       window.removeEventListener('taskCreated', handleTaskCreated as EventListener);
     };
@@ -194,6 +195,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   };
 
   const handleTaskCreated = (newTask: Task) => {
+    console.log("Direct task creation:", newTask);
     setTasks(prev => [newTask, ...prev]);
   };
 

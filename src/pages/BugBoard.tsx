@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Plus, Search } from 'lucide-react';
@@ -7,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -77,10 +77,9 @@ const BugBoard = () => {
     navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}`);
   };
 
-  const handleBugToggle = (bugId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
+  const handleBugToggle = (bugId: string, checked: boolean) => {
     setBugs(bugs.map(bug => 
-      bug.id === bugId ? { ...bug, closed: !bug.closed } : bug
+      bug.id === bugId ? { ...bug, closed: checked } : bug
     ));
   };
 
@@ -156,17 +155,17 @@ const BugBoard = () => {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={bug.closed}
-                      onChange={(e) => handleBugToggle(bug.id, e)}
-                      className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"
+                      onCheckedChange={(checked) => handleBugToggle(bug.id, checked as boolean)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4"
                     />
                     <Badge className={`${getSeverityColor(bug.severity)} text-xs font-medium`}>
                       {bug.severity.toUpperCase()}
                     </Badge>
                   </div>
-                  <Badge className={`${bug.closed ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'} border-red-200 text-xs font-medium`}>
+                  <Badge className={`${bug.closed ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'} text-xs font-medium`}>
                     {bug.id}
                   </Badge>
                 </div>

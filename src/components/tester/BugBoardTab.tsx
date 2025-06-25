@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Bug, AlertTriangle, CheckCircle, Clock, TrendingUp, ClipboardList, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,12 +14,12 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
     high: 2,
     medium: 3,
     low: 5,
-    closed: 2, // New field for closed bugs
+    closed: 3, // Updated to reflect closed bugs
     totalTasks: 15,
     recentActivity: [
       { id: 'BUG-001', title: 'Login button not responsive', severity: 'medium', action: 'created', time: '2 hours ago', createdAt: '2024-12-25T10:00:00Z' },
       { id: 'BUG-002', title: 'Task deletion confirmation', severity: 'high', action: 'confirmed', time: '8 hours ago', createdAt: '2024-12-25T04:00:00Z' },
-      { id: 'BUG-003', title: 'Profile image upload fails', severity: 'low', action: 'fixed', time: '1 day ago', createdAt: '2024-12-24T12:00:00Z' },
+      { id: 'BUG-003', title: 'Profile image upload fails', severity: 'low', action: 'closed', time: '1 day ago', createdAt: '2024-12-24T12:00:00Z' },
       { id: 'BUG-004', title: 'Navigation menu collapse issue', severity: 'medium', action: 'created', time: '1 day ago', createdAt: '2024-12-24T14:00:00Z' },
       { id: 'BUG-005', title: 'Data export functionality broken', severity: 'high', action: 'confirmed', time: '3 days ago', createdAt: '2024-12-22T10:00:00Z' },
     ]
@@ -41,6 +40,15 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
       case 'medium': return 'bg-orange-50 text-orange-700 border-orange-200';
       case 'low': return 'bg-blue-50 text-blue-700 border-blue-200';
       default: return 'bg-gray-50 text-gray-700 border-gray-200';
+    }
+  };
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case 'closed': return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'confirmed': return <AlertTriangle className="w-4 h-4 text-orange-500" />;
+      case 'created': return <Bug className="w-4 h-4 text-blue-500" />;
+      default: return <Clock className="w-4 h-4 text-gray-500" />;
     }
   };
 
@@ -100,7 +108,7 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-gray-600">Closed Bugs</CardTitle>
-              <X className="w-4 h-4 text-green-500" />
+              <CheckCircle className="w-4 h-4 text-green-500" />
             </div>
           </CardHeader>
           <CardContent className="pt-0">
@@ -131,10 +139,10 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
             {filteredActivity.length > 0 ? (
               filteredActivity.map((activity) => (
                 <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Clock className="w-4 h-4 text-gray-500 mt-0.5" />
+                  {getActionIcon(activity.action)}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge className="bg-red-100 text-red-700 text-xs font-medium">
+                      <Badge className={`${activity.action === 'closed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-xs font-medium`}>
                         {activity.id}
                       </Badge>
                       <Badge className={`${getSeverityColor(activity.severity)} text-xs`}>
