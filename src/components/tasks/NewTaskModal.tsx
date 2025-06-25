@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Sheet,
@@ -19,7 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { X, Plus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 interface Task {
@@ -185,255 +185,274 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-white">
-        <SheetHeader className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <SheetTitle className="text-2xl font-bold text-gray-900">Create New Task</SheetTitle>
-              <SheetDescription className="text-gray-600 mt-2">
-                Add a new task to your project. Fill in the details below to get started.
-              </SheetDescription>
+      <SheetContent className="w-[400px] sm:w-[540px] bg-white flex flex-col p-0 max-h-screen">
+        {/* Modern Header */}
+        <div className="relative bg-tasksmate-gradient p-6 flex-shrink-0">
+          <div className="absolute inset-0 bg-black/5"></div>
+          <div className="relative">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <Plus className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <SheetTitle className="text-2xl font-bold text-white font-sora">
+                    Create New Task
+                  </SheetTitle>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Sparkles className="h-4 w-4 text-white/80" />
+              </div>
             </div>
+            <SheetDescription className="text-white/90 text-sm leading-relaxed">
+              Transform your ideas into actionable tasks. Fill in the details below to bring your vision to life.
+            </SheetDescription>
           </div>
-        </SheetHeader>
-        
-        <div className="mt-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-3">
-              <Label htmlFor="name" className="text-sm font-semibold text-gray-700">
-                Task Name *
-              </Label>
-              <Input
-                id="name"
-                placeholder="Enter a descriptive task name"
-                value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
-                className="h-12 text-base"
-                required
-              />
-            </div>
+        </div>
 
-            <div className="space-y-3">
-              <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
-                Description
-              </Label>
-              <Textarea
-                id="description"
-                placeholder="Provide detailed information about this task"
-                value={formData.description}
-                onChange={(e) => handleInputChange("description", e.target.value)}
-                rows={4}
-                className="text-base resize-none"
-              />
-            </div>
+        {/* Scrollable Content */}
+        <ScrollArea className="flex-1 px-6">
+          <div className="py-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-3">
+                <Label htmlFor="name" className="text-sm font-semibold text-gray-700">
+                  Task Name *
+                </Label>
+                <Input
+                  id="name"
+                  placeholder="Enter a descriptive task name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  className="h-12 text-base"
+                  required
+                />
+              </div>
 
-            <div className="space-y-3">
-              <Label htmlFor="bugs" className="text-sm font-semibold text-gray-700">
-                Bugs (Optional)
-              </Label>
-              <Select onValueChange={handleBugSelect}>
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Select bugs to link" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border shadow-lg z-50">
-                  {availableBugs.filter(bug => !selectedBugs.includes(bug.id)).map((bug) => (
-                    <SelectItem key={bug.id} value={bug.id}>
-                      {bug.id} - {bug.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedBugs.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedBugs.map((bugId) => {
-                    const bug = availableBugs.find(b => b.id === bugId);
-                    return (
-                      <Badge
-                        key={bugId}
-                        variant="secondary"
-                        className="flex items-center space-x-1 bg-red-100 text-red-800 hover:bg-red-200"
-                      >
-                        <span>{bug?.id}</span>
-                        <X
-                          className="h-3 w-3 cursor-pointer hover:text-red-900"
-                          onClick={() => handleRemoveBug(bugId)}
-                        />
-                      </Badge>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+              <div className="space-y-3">
+                <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
+                  Description
+                </Label>
+                <Textarea
+                  id="description"
+                  placeholder="Provide detailed information about this task"
+                  value={formData.description}
+                  onChange={(e) => handleInputChange("description", e.target.value)}
+                  rows={4}
+                  className="text-base resize-none"
+                />
+              </div>
 
-            <div className="space-y-3">
-              <Label htmlFor="projects" className="text-sm font-semibold text-gray-700">
-                Projects (Optional)
-              </Label>
-              <Select onValueChange={handleProjectSelect}>
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Select projects to link" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border shadow-lg z-50">
-                  {availableProjects.filter(project => !selectedProjects.includes(project.id)).map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.id} - {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedProjects.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedProjects.map((projectId) => {
-                    const project = availableProjects.find(p => p.id === projectId);
-                    return (
-                      <Badge
-                        key={projectId}
-                        variant="secondary"
-                        className="flex items-center space-x-1 bg-green-100 text-green-800 hover:bg-green-200"
-                      >
-                        <span>{project?.id}</span>
-                        <X
-                          className="h-3 w-3 cursor-pointer hover:text-green-900"
-                          onClick={() => handleRemoveProject(projectId)}
-                        />
-                      </Badge>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <Label htmlFor="tags" className="text-sm font-semibold text-gray-700">
-                Tags
-              </Label>
-              <div className="space-y-2">
-                <div className="flex space-x-2">
-                  <Input
-                    id="tags"
-                    placeholder="Enter a tag and press Enter"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={handleTagInputKeyPress}
-                    className="h-10 text-base flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleAddTag}
-                    variant="outline"
-                    className="h-10 px-4"
-                    disabled={!tagInput.trim()}
-                  >
-                    Add
-                  </Button>
-                </div>
-                {formData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {formData.tags.map((tag, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="flex items-center space-x-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
-                      >
-                        <span>{tag}</span>
-                        <X
-                          className="h-3 w-3 cursor-pointer hover:text-blue-900"
-                          onClick={() => handleRemoveTag(tag)}
-                        />
-                      </Badge>
+              <div className="space-y-3">
+                <Label htmlFor="bugs" className="text-sm font-semibold text-gray-700">
+                  Bugs (Optional)
+                </Label>
+                <Select onValueChange={handleBugSelect}>
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Select bugs to link" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border shadow-lg z-50">
+                    {availableBugs.filter(bug => !selectedBugs.includes(bug.id)).map((bug) => (
+                      <SelectItem key={bug.id} value={bug.id}>
+                        {bug.id} - {bug.title}
+                      </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                {selectedBugs.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedBugs.map((bugId) => {
+                      const bug = availableBugs.find(b => b.id === bugId);
+                      return (
+                        <Badge
+                          key={bugId}
+                          variant="secondary"
+                          className="flex items-center space-x-1 bg-red-100 text-red-800 hover:bg-red-200"
+                        >
+                          <span>{bug?.id}</span>
+                          <X
+                            className="h-3 w-3 cursor-pointer hover:text-red-900"
+                            onClick={() => handleRemoveBug(bugId)}
+                          />
+                        </Badge>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <Label htmlFor="status" className="text-sm font-semibold text-gray-700">
-                  Status
+                <Label htmlFor="projects" className="text-sm font-semibold text-gray-700">
+                  Projects (Optional)
                 </Label>
-                <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                <Select onValueChange={handleProjectSelect}>
                   <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder="Select projects to link" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border shadow-lg z-50">
-                    <SelectItem value="todo">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                        <span>To Do</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="in-progress">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                        <span>In Progress</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="completed">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        <span>Completed</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="blocked">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        <span>Blocked</span>
-                      </div>
-                    </SelectItem>
+                    {availableProjects.filter(project => !selectedProjects.includes(project.id)).map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.id} - {project.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {selectedProjects.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProjects.map((projectId) => {
+                      const project = availableProjects.find(p => p.id === projectId);
+                      return (
+                        <Badge
+                          key={projectId}
+                          variant="secondary"
+                          className="flex items-center space-x-1 bg-green-100 text-green-800 hover:bg-green-200"
+                        >
+                          <span>{project?.id}</span>
+                          <X
+                            className="h-3 w-3 cursor-pointer hover:text-green-900"
+                            onClick={() => handleRemoveProject(projectId)}
+                          />
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="owner" className="text-sm font-semibold text-gray-700">
-                  Owner *
+                <Label htmlFor="tags" className="text-sm font-semibold text-gray-700">
+                  Tags
                 </Label>
-                <Select value={formData.owner} onValueChange={(value) => handleInputChange("owner", value)}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select owner" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border shadow-lg z-50">
-                    <SelectItem value="JD">John Doe (JD)</SelectItem>
-                    <SelectItem value="SK">Sarah Kim (SK)</SelectItem>
-                    <SelectItem value="MR">Mike Rodriguez (MR)</SelectItem>
-                    <SelectItem value="AM">Anna Miller (AM)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <div className="flex space-x-2">
+                    <Input
+                      id="tags"
+                      placeholder="Enter a tag and press Enter"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyPress={handleTagInputKeyPress}
+                      className="h-10 text-base flex-1"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddTag}
+                      variant="outline"
+                      className="h-10 px-4"
+                      disabled={!tagInput.trim()}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  {formData.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.tags.map((tag, index) => (
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="flex items-center space-x-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
+                        >
+                          <span>{tag}</span>
+                          <X
+                            className="h-3 w-3 cursor-pointer hover:text-blue-900"
+                            onClick={() => handleRemoveTag(tag)}
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-3">
-              <Label htmlFor="targetDate" className="text-sm font-semibold text-gray-700">
-                Target Date
-              </Label>
-              <Input
-                id="targetDate"
-                type="date"
-                value={formData.targetDate}
-                onChange={(e) => handleInputChange("targetDate", e.target.value)}
-                className="h-12"
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <Label htmlFor="status" className="text-sm font-semibold text-gray-700">
+                    Status
+                  </Label>
+                  <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border shadow-lg z-50">
+                      <SelectItem value="todo">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                          <span>To Do</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="in-progress">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                          <span>In Progress</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="completed">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                          <span>Completed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="blocked">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                          <span>Blocked</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => onOpenChange(false)}
-                className="flex-1 h-12 text-base"
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                className="flex-1 h-12 text-base bg-tasksmate-gradient hover:scale-105 transition-transform"
-              >
-                Create Task
-              </Button>
-            </div>
-          </form>
-        </div>
+                <div className="space-y-3">
+                  <Label htmlFor="owner" className="text-sm font-semibold text-gray-700">
+                    Owner *
+                  </Label>
+                  <Select value={formData.owner} onValueChange={(value) => handleInputChange("owner", value)}>
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Select owner" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border shadow-lg z-50">
+                      <SelectItem value="JD">John Doe (JD)</SelectItem>
+                      <SelectItem value="SK">Sarah Kim (SK)</SelectItem>
+                      <SelectItem value="MR">Mike Rodriguez (MR)</SelectItem>
+                      <SelectItem value="AM">Anna Miller (AM)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="targetDate" className="text-sm font-semibold text-gray-700">
+                  Target Date
+                </Label>
+                <Input
+                  id="targetDate"
+                  type="date"
+                  value={formData.targetDate}
+                  onChange={(e) => handleInputChange("targetDate", e.target.value)}
+                  className="h-12"
+                />
+              </div>
+
+              <div className="pb-6">
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => onOpenChange(false)}
+                    className="flex-1 h-12 text-base"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="flex-1 h-12 text-base bg-tasksmate-gradient hover:scale-105 transition-transform"
+                  >
+                    Create Task
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   );
