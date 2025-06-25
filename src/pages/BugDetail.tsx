@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronRight, Upload, Clock, ArrowLeft, Plus, Edit3, Trash2 } from 'lucide-react';
@@ -453,6 +452,7 @@ const BugDetail = () => {
         onOpenChange={setIsNewTaskModalOpen}
         onTaskCreated={handleTaskCreated}
         defaultTags={[bug.id]}
+        isConvertingFromBug={true}
       />
     </div>
   );

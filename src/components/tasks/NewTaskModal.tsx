@@ -41,9 +41,10 @@ interface NewTaskModalProps {
   onOpenChange: (open: boolean) => void;
   onTaskCreated: (task: Task) => void;
   defaultTags?: string[];
+  isConvertingFromBug?: boolean;
 }
 
-const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: NewTaskModalProps) => {
+const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false }: NewTaskModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -72,12 +73,21 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
   // Set default tags when modal opens
   useEffect(() => {
     if (open && defaultTags.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...defaultTags]
-      }));
+      if (isConvertingFromBug) {
+        // For bug conversion, set the bug ID as a non-editable tag
+        setFormData(prev => ({
+          ...prev,
+          tags: [...defaultTags]
+        }));
+      } else {
+        // For regular task creation with default tags
+        setFormData(prev => ({
+          ...prev,
+          tags: [...defaultTags]
+        }));
+      }
     }
-  }, [open, defaultTags]);
+  }, [open, defaultTags, isConvertingFromBug]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +160,11 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
+    // Don't allow removing default tags when converting from bug
+    if (isConvertingFromBug && defaultTags.includes(tagToRemove)) {
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       tags: prev.tags.filter(tag => tag !== tagToRemove)
@@ -197,7 +212,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
                 </div>
                 <div>
                   <SheetTitle className="text-2xl font-bold text-white font-sora">
-                    Create New Task
+                    {isConvertingFromBug ? "Convert Bug to Task" : "Create New Task"}
                   </SheetTitle>
                 </div>
               </div>
@@ -206,7 +221,10 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
               </div>
             </div>
             <SheetDescription className="text-white/90 text-sm leading-relaxed">
-              Transform your ideas into actionable tasks. Fill in the details below to bring your vision to life.
+              {isConvertingFromBug 
+                ? "Transform this bug report into an actionable task. The bug ID will be automatically linked."
+                : "Transform your ideas into actionable tasks. Fill in the details below to bring your vision to life."
+              }
             </SheetDescription>
           </div>
         </div>
@@ -243,43 +261,46 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
                 />
               </div>
 
-              <div className="space-y-3">
-                <Label htmlFor="bugs" className="text-sm font-semibold text-gray-700">
-                  Bugs (Optional)
-                </Label>
-                <Select onValueChange={handleBugSelect}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select bugs to link" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border shadow-lg z-50">
-                    {availableBugs.filter(bug => !selectedBugs.includes(bug.id)).map((bug) => (
-                      <SelectItem key={bug.id} value={bug.id}>
-                        {bug.id} - {bug.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedBugs.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedBugs.map((bugId) => {
-                      const bug = availableBugs.find(b => b.id === bugId);
-                      return (
-                        <Badge
-                          key={bugId}
-                          variant="secondary"
-                          className="flex items-center space-x-1 bg-red-100 text-red-800 hover:bg-red-200"
-                        >
-                          <span>{bug?.id}</span>
-                          <X
-                            className="h-3 w-3 cursor-pointer hover:text-red-900"
-                            onClick={() => handleRemoveBug(bugId)}
-                          />
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              {/* Only show bugs dropdown if not converting from bug */}
+              {!isConvertingFromBug && (
+                <div className="space-y-3">
+                  <Label htmlFor="bugs" className="text-sm font-semibold text-gray-700">
+                    Bugs (Optional)
+                  </Label>
+                  <Select onValueChange={handleBugSelect}>
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Select bugs to link" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border shadow-lg z-50">
+                      {availableBugs.filter(bug => !selectedBugs.includes(bug.id)).map((bug) => (
+                        <SelectItem key={bug.id} value={bug.id}>
+                          {bug.id} - {bug.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedBugs.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedBugs.map((bugId) => {
+                        const bug = availableBugs.find(b => b.id === bugId);
+                        return (
+                          <Badge
+                            key={bugId}
+                            variant="secondary"
+                            className="flex items-center space-x-1 bg-red-100 text-red-800 hover:bg-red-200"
+                          >
+                            <span>{bug?.id}</span>
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-red-900"
+                              onClick={() => handleRemoveBug(bugId)}
+                            />
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-3">
                 <Label htmlFor="projects" className="text-sm font-semibold text-gray-700">
@@ -345,20 +366,34 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
                   </div>
                   {formData.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
-                      {formData.tags.map((tag, index) => (
-                        <Badge
-                          key={index}
-                          variant="secondary"
-                          className="flex items-center space-x-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
-                        >
-                          <span>{tag}</span>
-                          <X
-                            className="h-3 w-3 cursor-pointer hover:text-blue-900"
-                            onClick={() => handleRemoveTag(tag)}
-                          />
-                        </Badge>
-                      ))}
+                      {formData.tags.map((tag, index) => {
+                        const isDefaultBugTag = isConvertingFromBug && defaultTags.includes(tag);
+                        return (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className={`flex items-center space-x-1 ${
+                              isDefaultBugTag 
+                                ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-300' 
+                                : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                            }`}
+                          >
+                            <span>{tag}</span>
+                            {!isDefaultBugTag && (
+                              <X
+                                className="h-3 w-3 cursor-pointer hover:text-blue-900"
+                                onClick={() => handleRemoveTag(tag)}
+                              />
+                            )}
+                          </Badge>
+                        );
+                      })}
                     </div>
+                  )}
+                  {isConvertingFromBug && formData.tags.some(tag => defaultTags.includes(tag)) && (
+                    <p className="text-xs text-gray-500">
+                      Bug ID tags cannot be removed when converting from a bug.
+                    </p>
                   )}
                 </div>
               </div>
@@ -446,7 +481,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
                     type="submit" 
                     className="flex-1 h-12 text-base bg-tasksmate-gradient hover:scale-105 transition-transform"
                   >
-                    Create Task
+                    {isConvertingFromBug ? "Convert to Task" : "Create Task"}
                   </Button>
                 </div>
               </div>
