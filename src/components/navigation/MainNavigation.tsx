@@ -17,7 +17,8 @@ import {
   X,
   Edit3,
   Bug,
-  TrendingUp
+  TrendingUp,
+  Building2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +39,11 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const location = useLocation();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Get org_id from URL params
+  const urlParams = new URLSearchParams(location.search);
+  const orgId = urlParams.get('org_id');
+  const currentOrgName = "Current Organization"; // This would come from context/state
 
   const navigationItems = [
     { 
@@ -113,6 +119,20 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
           </Button>
         </div>
 
+        {/* Organization Pill - Show only when inside an org */}
+        {orgId && !isCollapsed && (
+          <div className="px-3 py-2 border-b border-gray-100">
+            <Link 
+              to="/org"
+              className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+              title="Back to Organizations"
+            >
+              <Building2 className="w-4 h-4 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700 truncate">{currentOrgName}</span>
+            </Link>
+          </div>
+        )}
+
         {/* Navigation Items */}
         <div className="flex-1 py-4">
           <div className="space-y-1 px-3">
@@ -140,6 +160,20 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
 
         {/* Bottom Actions */}
         <div className="border-t border-gray-200 p-4 space-y-3">
+          {/* Settings Link */}
+          <Link
+            to="/settings"
+            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              location.pathname.startsWith('/settings')
+                ? 'bg-green-50 text-green-700 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+            title={isCollapsed ? 'Settings' : undefined}
+          >
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span>Settings</span>}
+          </Link>
+
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -157,7 +191,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56 bg-white border shadow-lg">
               <div className="px-3 py-2 border-b border-gray-100">
                 <p className="text-sm font-medium text-gray-900">John Doe</p>
                 <p className="text-xs text-gray-500">john.doe@company.com</p>

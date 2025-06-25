@@ -9,44 +9,100 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          organization_id: string
+          role: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          organization_id: string
+          role?: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          organization_id?: string
+          role?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
+          billing_email: string | null
           created_at: string
           id: string
           name: string
+          plan: string
           updated_at: string
         }
         Insert: {
+          billing_email?: string | null
           created_at?: string
           id?: string
           name: string
+          plan?: string
           updated_at?: string
         }
         Update: {
+          billing_email?: string | null
           created_at?: string
           id?: string
           name?: string
+          plan?: string
           updated_at?: string
         }
         Relationships: []
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
+          display_name: string | null
           id: string
           organization_id: string | null
           updated_at: string
           username: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
+          display_name?: string | null
           id: string
           organization_id?: string | null
           updated_at?: string
           username: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
+          display_name?: string | null
           id?: string
           organization_id?: string | null
           updated_at?: string
@@ -55,6 +111,76 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_organizations: {
+        Row: {
+          id: string
+          joined_at: string
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_organizations_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

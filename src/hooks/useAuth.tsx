@@ -44,9 +44,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Redirect to dashboard when user signs in
+        // Redirect to organizations page when user signs in
         if (event === 'SIGNED_IN' && session?.user) {
-          navigate('/tasks_catalog');
+          navigate('/org');
         }
       }
     );

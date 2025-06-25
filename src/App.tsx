@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
+import Organizations from "./pages/Organizations";
+import Settings from "./pages/Settings";
 import TasksCatalog from "./pages/TasksCatalog";
 import TaskDetail from "./pages/TaskDetail";
 import Meetings from "./pages/Meetings";
@@ -37,6 +39,8 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/org" element={<Organizations />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/tasks_catalog" element={<TasksCatalog />} />
             <Route path="/tasks/:taskId" element={<TaskDetail />} />
             <Route path="/meetings" element={<Meetings />} />
