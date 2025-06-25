@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Calendar, Users, TrendingUp, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Users, TrendingUp, Plus, ChevronLeft, ChevronRight, Phone, Mail, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -52,6 +53,20 @@ const SalesMarketing = () => {
   const openAddStatsModal = (date: Date) => {
     setSelectedDate(getDateKey(date));
     setIsAddStatsOpen(true);
+  };
+
+  const navigateDate = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    
+    if (calendarView === 'monthly') {
+      newDate.setMonth(currentDate.getMonth() + (direction === 'next' ? 1 : -1));
+    } else if (calendarView === 'weekly') {
+      newDate.setDate(currentDate.getDate() + (direction === 'next' ? 7 : -7));
+    } else if (calendarView === 'daily') {
+      newDate.setDate(currentDate.getDate() + (direction === 'next' ? 1 : -1));
+    }
+    
+    setCurrentDate(newDate);
   };
 
   const renderCalendarDay = (date: Date) => {
@@ -127,14 +142,14 @@ const SalesMarketing = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
+              onClick={() => navigateDate('prev')}
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
+              onClick={() => navigateDate('next')}
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -153,6 +168,124 @@ const SalesMarketing = () => {
     );
   };
 
+  const renderWeeklyCalendar = () => {
+    const startOfWeek = new Date(currentDate);
+    const day = startOfWeek.getDay();
+    startOfWeek.setDate(currentDate.getDate() - day);
+    
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      weekDays.push(date);
+    }
+
+    return (
+      <div className="bg-white rounded-lg border">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-lg font-semibold">
+            Week of {startOfWeek.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          </h3>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateDate('prev')}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateDate('next')}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-7 gap-0">
+          {weekDays.map((date, index) => (
+            <div key={index} className="border-r last:border-r-0">
+              <div className="p-3 text-center font-medium text-gray-500 border-b">
+                {date.toLocaleDateString('en-US', { weekday: 'short' })}
+              </div>
+              {renderCalendarDay(date)}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDailyCalendar = () => {
+    const dateKey = getDateKey(currentDate);
+    const stats = calendarStats[dateKey];
+
+    return (
+      <div className="bg-white rounded-lg border">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-lg font-semibold">
+            {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          </h3>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateDate('prev')}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateDate('next')}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+        
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-lg font-medium">Daily Activities</h4>
+            <Button
+              onClick={() => openAddStatsModal(currentDate)}
+              size="sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Stats
+            </Button>
+          </div>
+          
+          {stats ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <Phone className="w-8 h-8 mx-auto mb-2 text-blue-600" />
+                <div className="text-2xl font-bold text-blue-900">{stats.calls}</div>
+                <div className="text-sm text-blue-600">Calls</div>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <Mail className="w-8 h-8 mx-auto mb-2 text-green-600" />
+                <div className="text-2xl font-bold text-green-900">{stats.emails}</div>
+                <div className="text-sm text-green-600">Emails</div>
+              </div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <MessageSquare className="w-8 h-8 mx-auto mb-2 text-purple-600" />
+                <div className="text-2xl font-bold text-purple-900">{stats.messages}</div>
+                <div className="text-sm text-purple-600">Messages</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No activities recorded for this day
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <MainNavigation />
@@ -166,38 +299,56 @@ const SalesMarketing = () => {
             </div>
           </div>
 
-          {/* Stat Cards */}
+          {/* Enhanced Stat Cards */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Calls</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <Card className="relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-600 opacity-10"></div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <CardTitle className="text-sm font-medium text-blue-700">Total Calls</CardTitle>
+                <div className="p-2 bg-blue-100 rounded-full">
+                  <Phone className="h-4 w-4 text-blue-600" />
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">124</div>
-                <p className="text-xs text-muted-foreground">+12% from last month</p>
+              <CardContent className="relative z-10">
+                <div className="text-2xl font-bold text-blue-900">124</div>
+                <p className="text-xs text-blue-600 flex items-center mt-1">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  +12% from last month
+                </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Emails Sent</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <Card className="relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 opacity-10"></div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <CardTitle className="text-sm font-medium text-green-700">Emails Sent</CardTitle>
+                <div className="p-2 bg-green-100 rounded-full">
+                  <Mail className="h-4 w-4 text-green-600" />
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">89</div>
-                <p className="text-xs text-muted-foreground">+8% from last month</p>
+              <CardContent className="relative z-10">
+                <div className="text-2xl font-bold text-green-900">89</div>
+                <p className="text-xs text-green-600 flex items-center mt-1">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  +8% from last month
+                </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Messages</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <Card className="relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-purple-600 opacity-10"></div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <CardTitle className="text-sm font-medium text-purple-700">Messages</CardTitle>
+                <div className="p-2 bg-purple-100 rounded-full">
+                  <MessageSquare className="h-4 w-4 text-purple-600" />
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">156</div>
-                <p className="text-xs text-muted-foreground">+15% from last month</p>
+              <CardContent className="relative z-10">
+                <div className="text-2xl font-bold text-purple-900">156</div>
+                <p className="text-xs text-purple-600 flex items-center mt-1">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  +15% from last month
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -238,20 +389,8 @@ const SalesMarketing = () => {
               </div>
 
               {calendarView === 'monthly' && renderMonthlyCalendar()}
-              {calendarView === 'weekly' && (
-                <Card>
-                  <CardContent className="p-6">
-                    <p className="text-center text-gray-500">Weekly view coming soon...</p>
-                  </CardContent>
-                </Card>
-              )}
-              {calendarView === 'daily' && (
-                <Card>
-                  <CardContent className="p-6">
-                    <p className="text-center text-gray-500">Daily view coming soon...</p>
-                  </CardContent>
-                </Card>
-              )}
+              {calendarView === 'weekly' && renderWeeklyCalendar()}
+              {calendarView === 'daily' && renderDailyCalendar()}
             </TabsContent>
 
             <TabsContent value="updates" className="space-y-6">
