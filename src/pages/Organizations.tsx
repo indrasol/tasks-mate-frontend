@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Search, Plus, Users } from 'lucide-react';
@@ -161,8 +160,8 @@ const Organizations = () => {
   };
 
   const handleOrgCardClick = (orgId: string) => {
-    // Navigate to the dashboard with the organization ID
-    navigate(`/?org_id=${orgId}`);
+    // Navigate to the tasks catalog with the organization ID
+    navigate(`/tasks_catalog?org_id=${orgId}`);
   };
 
   const filteredOrganizations = organizations.filter(org =>
