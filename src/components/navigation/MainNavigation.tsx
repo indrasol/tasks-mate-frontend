@@ -17,7 +17,6 @@ import {
   X,
   Edit3,
   Bug,
-  TestTube,
   TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,15 +33,6 @@ interface MainNavigationProps {
   onNewMeeting?: () => void;
   onScratchpadOpen?: () => void;
 }
-
-const TestingBooksIcon = ({ className }: { className?: string }) => (
-  <div className={`relative ${className}`}>
-    <Bug className="w-5 h-5" />
-    <div className="absolute -top-1 -right-1 bg-blue-500 rounded-full p-0.5">
-      <TestTube className="w-3 h-3 text-white" />
-    </div>
-  </div>
-);
 
 const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavigationProps) => {
   const location = useLocation();
@@ -77,7 +67,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     { 
       name: 'Testing Books', 
       path: '/tester-zone', 
-      icon: TestingBooksIcon,
+      icon: Bug,
       isActive: location.pathname.startsWith('/tester-zone')
     },
     { 
@@ -162,7 +152,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                     <div className="flex-1 text-left">
                       <p className="text-sm font-medium text-gray-700">John Doe</p>
                     </div>
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                    <ChevronDown className="w-4 h-4 text-gray-500 rotate-180" />
                   </>
                 )}
               </Button>
