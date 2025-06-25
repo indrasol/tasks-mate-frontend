@@ -40,25 +40,67 @@ const Organizations = () => {
 
   const fetchOrganizations = async () => {
     try {
-      const { data: orgData, error } = await supabase
-        .from('organizations')
+      console.log('Fetching organizations for user:', user?.id);
+      
+      // Get organizations through user_organizations junction table
+      const { data: userOrgs, error: userOrgsError } = await supabase
+        .from('user_organizations')
         .select(`
-          id,
-          name, 
-          plan,
-          billing_email,
-          projects:projects(count)
+          organization_id,
+          role,
+          organizations (
+            id,
+            name,
+            plan,
+            billing_email
+          )
         `)
-        .order('created_at', { ascending: false });
+        .eq('user_id', user?.id);
 
-      if (error) throw error;
+      if (userOrgsError) {
+        console.error('Error fetching user organizations:', userOrgsError);
+        throw userOrgsError;
+      }
 
-      const orgsWithProjectCount = orgData?.map(org => ({
-        ...org,
-        project_count: org.projects?.[0]?.count || 0
-      })) || [];
+      console.log('User organizations data:', userOrgs);
 
-      setOrganizations(orgsWithProjectCount);
+      if (!userOrgs || userOrgs.length === 0) {
+        console.log('No organizations found for user');
+        setOrganizations([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get project counts for each organization
+      const orgIds = userOrgs.map(uo => uo.organization_id);
+      const { data: projectCounts, error: projectError } = await supabase
+        .from('projects')
+        .select('organization_id')
+        .in('organization_id', orgIds);
+
+      if (projectError) {
+        console.error('Error fetching project counts:', projectError);
+      }
+
+      // Count projects per organization
+      const projectCountMap = (projectCounts || []).reduce((acc, project) => {
+        acc[project.organization_id] = (acc[project.organization_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Format organizations data
+      const formattedOrgs = userOrgs
+        .filter(uo => uo.organizations) // Filter out any null organizations
+        .map(uo => ({
+          id: uo.organizations.id,
+          name: uo.organizations.name,
+          plan: uo.organizations.plan,
+          billing_email: uo.organizations.billing_email,
+          project_count: projectCountMap[uo.organization_id] || 0
+        }));
+
+      console.log('Formatted organizations:', formattedOrgs);
+      setOrganizations(formattedOrgs);
     } catch (error) {
       console.error('Error fetching organizations:', error);
       toast({
@@ -77,6 +119,8 @@ const Organizations = () => {
 
     setCreating(true);
     try {
+      console.log('Creating organization:', newOrgName);
+      
       const { data, error } = await supabase
         .from('organizations')
         .insert({
@@ -86,7 +130,12 @@ const Organizations = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating organization:', error);
+        throw error;
+      }
+
+      console.log('Organization created:', data);
 
       toast({
         title: "Success",
