@@ -77,7 +77,7 @@ const BugBoard = () => {
     navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}`);
   };
 
-  const handleBugToggle = (bugId: string, e: React.MouseEvent) => {
+  const handleBugToggle = (bugId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setBugs(bugs.map(bug => 
       bug.id === bugId ? { ...bug, closed: !bug.closed } : bug

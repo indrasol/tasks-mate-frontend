@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronRight, Upload, Camera, Clock, ArrowLeft, Plus, Edit3, Trash2 } from 'lucide-react';
+import { ChevronRight, Upload, Clock, ArrowLeft, Plus, Edit3, Trash2 } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -326,15 +326,6 @@ const BugDetail = () => {
                       </div>
                     </div>
                   ))}
-                  
-                  {/* Add Evidence placeholder */}
-                  <div 
-                    onClick={handleUploadEvidence}
-                    className="aspect-video bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-300 transition-colors"
-                  >
-                    <Camera className="w-8 h-8 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-500">Add Evidence</span>
-                  </div>
                 </div>
               </CardContent>
             </Card>

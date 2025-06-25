@@ -53,6 +53,21 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
     tags: [] as string[],
   });
   const [tagInput, setTagInput] = useState("");
+  const [selectedBugs, setSelectedBugs] = useState<string[]>([]);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+
+  // Mock data for bugs and projects
+  const availableBugs = [
+    { id: 'BUG-001', title: 'Login button not responsive on mobile' },
+    { id: 'BUG-002', title: 'Task deletion confirmation dialog missing' },
+    { id: 'BUG-003', title: 'Profile image upload fails silently' },
+  ];
+
+  const availableProjects = [
+    { id: 'PRJ-001', name: 'TasksMate Web' },
+    { id: 'PRJ-002', name: 'Mobile App' },
+    { id: 'PRJ-003', name: 'API Integration' },
+  ];
 
   // Set default tags when modal opens
   useEffect(() => {
@@ -75,6 +90,13 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
     // Generate task ID
     const taskId = `T${Math.floor(Math.random() * 9000) + 1000}`;
     
+    // Combine all tags (form tags + bug IDs + project IDs)
+    const allTags = [
+      ...formData.tags,
+      ...selectedBugs,
+      ...selectedProjects
+    ];
+    
     // Create new task object
     const newTask: Task = {
       id: taskId,
@@ -85,7 +107,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
       targetDate: formData.targetDate || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       comments: 0,
       progress: 0,
-      tags: formData.tags,
+      tags: allTags,
       createdBy: formData.owner,
       createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     };
@@ -107,6 +129,8 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
       tags: [],
     });
     setTagInput("");
+    setSelectedBugs([]);
+    setSelectedProjects([]);
     
     onOpenChange(false);
   };
@@ -137,6 +161,26 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
       e.preventDefault();
       handleAddTag();
     }
+  };
+
+  const handleBugSelect = (bugId: string) => {
+    if (!selectedBugs.includes(bugId)) {
+      setSelectedBugs(prev => [...prev, bugId]);
+    }
+  };
+
+  const handleRemoveBug = (bugId: string) => {
+    setSelectedBugs(prev => prev.filter(id => id !== bugId));
+  };
+
+  const handleProjectSelect = (projectId: string) => {
+    if (!selectedProjects.includes(projectId)) {
+      setSelectedProjects(prev => [...prev, projectId]);
+    }
+  };
+
+  const handleRemoveProject = (projectId: string) => {
+    setSelectedProjects(prev => prev.filter(id => id !== projectId));
   };
 
   return (
@@ -181,6 +225,82 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: N
                 rows={4}
                 className="text-base resize-none"
               />
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="bugs" className="text-sm font-semibold text-gray-700">
+                Bugs (Optional)
+              </Label>
+              <Select onValueChange={handleBugSelect}>
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Select bugs to link" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border shadow-lg z-50">
+                  {availableBugs.filter(bug => !selectedBugs.includes(bug.id)).map((bug) => (
+                    <SelectItem key={bug.id} value={bug.id}>
+                      {bug.id} - {bug.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedBugs.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedBugs.map((bugId) => {
+                    const bug = availableBugs.find(b => b.id === bugId);
+                    return (
+                      <Badge
+                        key={bugId}
+                        variant="secondary"
+                        className="flex items-center space-x-1 bg-red-100 text-red-800 hover:bg-red-200"
+                      >
+                        <span>{bug?.id}</span>
+                        <X
+                          className="h-3 w-3 cursor-pointer hover:text-red-900"
+                          onClick={() => handleRemoveBug(bugId)}
+                        />
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="projects" className="text-sm font-semibold text-gray-700">
+                Projects (Optional)
+              </Label>
+              <Select onValueChange={handleProjectSelect}>
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Select projects to link" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border shadow-lg z-50">
+                  {availableProjects.filter(project => !selectedProjects.includes(project.id)).map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.id} - {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedProjects.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedProjects.map((projectId) => {
+                    const project = availableProjects.find(p => p.id === projectId);
+                    return (
+                      <Badge
+                        key={projectId}
+                        variant="secondary"
+                        className="flex items-center space-x-1 bg-green-100 text-green-800 hover:bg-green-200"
+                      >
+                        <span>{project?.id}</span>
+                        <X
+                          className="h-3 w-3 cursor-pointer hover:text-green-900"
+                          onClick={() => handleRemoveProject(projectId)}
+                        />
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
