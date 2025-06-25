@@ -160,8 +160,8 @@ const Organizations = () => {
   };
 
   const handleOrgCardClick = (orgId: string) => {
-    // Navigate to the tasks catalog with the organization ID
-    navigate(`/tasks_catalog?org_id=${orgId}`);
+    // Navigate to the dashboard with the organization ID
+    navigate(`/dashboard?org_id=${orgId}`);
   };
 
   const filteredOrganizations = organizations.filter(org =>
