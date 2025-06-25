@@ -118,6 +118,12 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       path: orgId ? `/scratchpad?org_id=${orgId}` : '/scratchpad', 
       icon: Edit3,
       isActive: location.pathname.startsWith('/scratchpad')
+    },
+    { 
+      name: 'Settings', 
+      path: orgId ? `/settings?org_id=${orgId}` : '/settings', 
+      icon: Settings,
+      isActive: location.pathname.startsWith('/settings')
     }
   ];
 
@@ -187,20 +193,6 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
 
         {/* Bottom Actions */}
         <div className="border-t border-gray-200 p-4 space-y-3">
-          {/* Settings Link - moved below scratchpad */}
-          <Link
-            to={orgId ? `/settings?org_id=${orgId}` : "/settings"}
-            className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              location.pathname.startsWith('/settings')
-                ? 'bg-green-50 text-green-700 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-            title={isCollapsed ? 'Settings' : undefined}
-          >
-            <Settings className="w-5 h-5 flex-shrink-0" />
-            {!isCollapsed && <span>Settings</span>}
-          </Link>
-
           {/* User Profile Section */}
           <div className="flex items-center justify-between">
             <DropdownMenu>
