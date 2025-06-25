@@ -70,7 +70,7 @@ const BugBoard = () => {
   );
 
   const handleBugClick = (bugId: string) => {
-    navigate(`/bugs/${bugId}`);
+    navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}`);
   };
 
   return (
