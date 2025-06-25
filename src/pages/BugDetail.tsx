@@ -18,9 +18,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import NewTaskModal from '@/components/tasks/NewTaskModal';
+import { toast } from 'sonner';
 
 const BugDetail = () => {
   const { id: runId, bugId } = useParams();
+  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   
   // Mock bug data with proper typing
   const [bug, setBug] = useState({
@@ -64,7 +67,6 @@ const BugDetail = () => {
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
-  const [isClosed, setIsClosed] = useState(false);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -116,29 +118,51 @@ const BugDetail = () => {
 
   const handleSaveGuide = () => {
     console.log('Saving guide:', recreateGuide);
-    // Add toast notification here if needed
+    toast.success('Guide saved successfully!');
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const newEvidence = {
+            id: Date.now().toString(),
+            type: 'image',
+            name: file.name,
+            url: e.target?.result as string,
+            uploadedAt: new Date().toISOString()
+          };
+          setEvidence(prev => [...prev, newEvidence]);
+        };
+        reader.readAsDataURL(file);
+      });
+      toast.success('Evidence uploaded successfully!');
+    }
   };
 
   const handleUploadEvidence = () => {
-    // Simulate file upload
-    const newEvidence = {
-      id: Date.now().toString(),
-      type: 'image',
-      name: 'new-evidence.png',
-      url: '/placeholder.svg',
-      uploadedAt: new Date().toISOString()
-    };
-    setEvidence([...evidence, newEvidence]);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = (e) => handleFileUpload(e as any);
+    input.click();
   };
 
   const handleSaveEvidence = () => {
     console.log('Saving evidence changes');
-    // Add toast notification here if needed
+    toast.success('Evidence saved successfully!');
   };
 
-  const handleBugToggle = () => {
-    setIsClosed(!isClosed);
-    // Update bug board counter here
+  const handleConvertToTask = () => {
+    setIsNewTaskModalOpen(true);
+  };
+
+  const handleTaskCreated = (task: any) => {
+    console.log('Task created from bug:', task);
+    toast.success('Bug converted to task successfully!');
   };
 
   return (
@@ -175,7 +199,7 @@ const BugDetail = () => {
             </BreadcrumbSeparator>
             <BreadcrumbItem>
               <BreadcrumbPage>
-                <Badge className={`${isClosed ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'} border-red-200 text-sm font-medium`}>
+                <Badge className="bg-red-100 text-red-700 border-red-200 text-sm font-medium">
                   {bug.id}
                 </Badge>
               </BreadcrumbPage>
@@ -188,16 +212,10 @@ const BugDetail = () => {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
-                <input
-                  type="checkbox"
-                  checked={isClosed}
-                  onChange={handleBugToggle}
-                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500"
-                />
                 <Badge className={`${getSeverityColor(bug.severity)} border text-sm font-medium`}>
                   {bug.severity.toUpperCase()}
                 </Badge>
-                <Badge className={`${isClosed ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'} border-red-200 text-sm font-medium`}>
+                <Badge className="bg-red-100 text-red-700 border-red-200 text-sm font-medium">
                   {bug.id}
                 </Badge>
               </div>
@@ -219,7 +237,10 @@ const BugDetail = () => {
                   Back to Board
                 </Link>
               </Button>
-              <Button className="bg-green-500 hover:bg-green-600 text-white">
+              <Button 
+                onClick={handleConvertToTask}
+                className="bg-green-500 hover:bg-green-600 text-white"
+              >
                 Convert to Task
               </Button>
             </div>
@@ -435,6 +456,13 @@ const BugDetail = () => {
           </div>
         </div>
       </div>
+
+      <NewTaskModal 
+        open={isNewTaskModalOpen}
+        onOpenChange={setIsNewTaskModalOpen}
+        onTaskCreated={handleTaskCreated}
+        defaultTags={[bug.id]}
+      />
     </div>
   );
 };

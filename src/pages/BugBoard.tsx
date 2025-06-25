@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Plus, Filter, Search } from 'lucide-react';
+import { ChevronRight, Plus, Search } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -73,17 +73,12 @@ const BugBoard = () => {
     bug.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const closedBugsCount = bugs.filter(bug => bug.closed).length;
-  const activeBugs = bugs.filter(bug => !bug.closed);
-  const highBugs = activeBugs.filter(bug => bug.severity === 'high').length;
-  const mediumBugs = activeBugs.filter(bug => bug.severity === 'medium').length;
-  const lowBugs = activeBugs.filter(bug => bug.severity === 'low').length;
-
   const handleBugClick = (bugId: string) => {
     navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}`);
   };
 
-  const handleBugToggle = (bugId: string) => {
+  const handleBugToggle = (bugId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setBugs(bugs.map(bug => 
       bug.id === bugId ? { ...bug, closed: !bug.closed } : bug
     ));
@@ -137,45 +132,6 @@ const BugBoard = () => {
           </Button>
         </div>
 
-        {/* Bug Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="border-l-4 border-l-red-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">High Severity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{highBugs}</div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-l-4 border-l-orange-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Medium Severity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{mediumBugs}</div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-l-4 border-l-blue-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Low Severity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{lowBugs}</div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-l-4 border-l-green-500">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Closed Bugs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{closedBugsCount}</div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Search Bar */}
         <div className="flex items-center gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
@@ -203,17 +159,14 @@ const BugBoard = () => {
                     <input
                       type="checkbox"
                       checked={bug.closed}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        handleBugToggle(bug.id);
-                      }}
+                      onChange={(e) => handleBugToggle(bug.id, e)}
                       className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"
                     />
                     <Badge className={`${getSeverityColor(bug.severity)} text-xs font-medium`}>
                       {bug.severity.toUpperCase()}
                     </Badge>
                   </div>
-                  <Badge className={`${bug.closed ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'} text-xs font-medium`}>
+                  <Badge className={`${bug.closed ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'} border-red-200 text-xs font-medium`}>
                     {bug.id}
                   </Badge>
                 </div>

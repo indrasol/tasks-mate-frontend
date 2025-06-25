@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -40,9 +40,10 @@ interface NewTaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onTaskCreated: (task: Task) => void;
+  defaultTags?: string[];
 }
 
-const NewTaskModal = ({ open, onOpenChange, onTaskCreated }: NewTaskModalProps) => {
+const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [] }: NewTaskModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -52,6 +53,16 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated }: NewTaskModalProps) 
     tags: [] as string[],
   });
   const [tagInput, setTagInput] = useState("");
+
+  // Set default tags when modal opens
+  useEffect(() => {
+    if (open && defaultTags.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...defaultTags]
+      }));
+    }
+  }, [open, defaultTags]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +86,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated }: NewTaskModalProps) 
       comments: 0,
       progress: 0,
       tags: formData.tags,
-      createdBy: formData.owner, // Using owner as creator for now
+      createdBy: formData.owner,
       createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     };
     
