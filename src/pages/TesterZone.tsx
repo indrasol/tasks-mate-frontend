@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Filter, Bug, Beaker } from 'lucide-react';
+import { Plus, Filter, Bug, Beaker, Search, Calendar, ChevronUp, ChevronDown } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -21,17 +22,20 @@ interface TestRun {
   project: string;
   testedBy: string;
   assignedTo: string[];
-  status: 'running' | 'completed' | 'failed';
-  bugs: {
-    critical: number;
-    major: number;
-    minor: number;
-  };
+  totalBugs: number;
+  totalTasks: number;
   date: string;
 }
 
+type SortField = 'id' | 'name' | 'project' | 'testedBy' | 'totalBugs' | 'totalTasks' | 'date';
+type SortOrder = 'asc' | 'desc';
+
 const TesterZone = () => {
   const [showNewRunModal, setShowNewRunModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   // Mock data - replace with actual data fetching
   const testRuns: TestRun[] = [
@@ -41,8 +45,8 @@ const TesterZone = () => {
       project: 'TasksMate Web',
       testedBy: 'John Doe',
       assignedTo: ['Jane Smith', 'Mike Johnson'],
-      status: 'running',
-      bugs: { critical: 2, major: 3, minor: 5 },
+      totalBugs: 10,
+      totalTasks: 25,
       date: '2024-12-20'
     },
     {
@@ -51,29 +55,63 @@ const TesterZone = () => {
       project: 'TasksMate Mobile',
       testedBy: 'Jane Smith',
       assignedTo: ['Sarah Wilson'],
-      status: 'completed',
-      bugs: { critical: 0, major: 1, minor: 2 },
+      totalBugs: 3,
+      totalTasks: 18,
       date: '2024-12-18'
     }
   ];
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'running': return 'bg-blue-100 text-blue-700';
-      case 'completed': return 'bg-green-100 text-green-700';
-      case 'failed': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
     }
   };
 
-  const getSeverityColor = (severity: 'critical' | 'major' | 'minor') => {
-    switch (severity) {
-      case 'critical': return 'text-red-600 font-semibold';
-      case 'major': return 'text-orange-600 font-semibold';
-      case 'minor': return 'text-yellow-600 font-semibold';
-      default: return 'text-gray-600';
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <div className="flex flex-col opacity-30">
+        <ChevronUp className="w-3 h-3 -mb-1" />
+        <ChevronDown className="w-3 h-3" />
+      </div>;
     }
+    return sortOrder === 'asc' ? 
+      <ChevronUp className="w-4 h-4 text-blue-600" /> : 
+      <ChevronDown className="w-4 h-4 text-blue-600" />;
   };
+
+  const filteredAndSortedRuns = testRuns
+    .filter(run => {
+      const matchesSearch = searchTerm === '' || 
+        run.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        run.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        run.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        run.testedBy.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesDate = dateFilter === '' || run.date.includes(dateFilter);
+      
+      return matchesSearch && matchesDate;
+    })
+    .sort((a, b) => {
+      let aValue: any = a[sortField];
+      let bValue: any = b[sortField];
+      
+      if (sortField === 'date') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      }
+      
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -96,27 +134,37 @@ const TesterZone = () => {
           </Button>
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex gap-3 mb-6">
-          <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
-            Project <Filter className="w-3 h-3 ml-1" />
-          </Badge>
-          <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
-            Status <Filter className="w-3 h-3 ml-1" />
-          </Badge>
-          <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
-            Severity <Filter className="w-3 h-3 ml-1" />
-          </Badge>
+        {/* Search and Filters */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 transition-all duration-200" />
+            <Input
+              placeholder="Search by Book ID, keywords..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:shadow-md"
+            />
+          </div>
+          
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="pl-10 bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:shadow-md"
+            />
+          </div>
         </div>
 
         {/* Table */}
-        {testRuns.length === 0 ? (
+        {filteredAndSortedRuns.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-lg border">
             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Beaker className="w-12 h-12 text-green-600" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No test books yet</h3>
-            <p className="text-gray-500 mb-6">Create your first test book to get started</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No test books found</h3>
+            <p className="text-gray-500 mb-6">Try adjusting your search or create a new test book</p>
             <Button 
               onClick={() => setShowNewRunModal(true)}
               className="bg-green-500 hover:bg-green-600 text-white"
@@ -130,18 +178,74 @@ const TesterZone = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Book ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Tested By</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>🐞 Bugs</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleSort('id')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Book ID
+                      {getSortIcon('id')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Name
+                      {getSortIcon('name')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleSort('project')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Project
+                      {getSortIcon('project')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleSort('testedBy')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Tested By
+                      {getSortIcon('testedBy')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleSort('totalBugs')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Bugs
+                      {getSortIcon('totalBugs')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleSort('totalTasks')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Tasks
+                      {getSortIcon('totalTasks')}
+                    </div>
+                  </TableHead>
                   <TableHead>Assigned To</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleSort('date')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Date
+                      {getSortIcon('date')}
+                    </div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {testRuns.map((run) => (
+                {filteredAndSortedRuns.map((run) => (
                   <TableRow key={run.id} className="hover:bg-gray-50">
                     <TableCell className="font-medium">
                       <Link 
@@ -155,28 +259,10 @@ const TesterZone = () => {
                     <TableCell>{run.project}</TableCell>
                     <TableCell>{run.testedBy}</TableCell>
                     <TableCell>
-                      <Badge className={`${getStatusColor(run.status)} border-0`}>
-                        {run.status}
-                      </Badge>
+                      <span className="font-semibold text-red-600">{run.totalBugs}</span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
-                        {run.bugs.critical > 0 && (
-                          <span className={getSeverityColor('critical')}>
-                            {run.bugs.critical}
-                          </span>
-                        )}
-                        {run.bugs.major > 0 && (
-                          <span className={getSeverityColor('major')}>
-                            {run.bugs.major}
-                          </span>
-                        )}
-                        {run.bugs.minor > 0 && (
-                          <span className={getSeverityColor('minor')}>
-                            {run.bugs.minor}
-                          </span>
-                        )}
-                      </div>
+                      <span className="font-semibold text-blue-600">{run.totalTasks}</span>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">

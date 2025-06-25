@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Bug, AlertTriangle, CheckCircle, Clock, TrendingUp, ClipboardList } from 'lucide-react';
+import { Bug, AlertTriangle, CheckCircle, Clock, TrendingUp, ClipboardList, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -15,7 +15,8 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
     high: 2,
     medium: 3,
     low: 5,
-    totalTasks: 15, // New field for total tasks
+    closed: 2, // New field for closed bugs
+    totalTasks: 15,
     recentActivity: [
       { id: 'BUG-001', title: 'Login button not responsive', severity: 'medium', action: 'created', time: '2 hours ago', createdAt: '2024-12-25T10:00:00Z' },
       { id: 'BUG-002', title: 'Task deletion confirmation', severity: 'high', action: 'confirmed', time: '8 hours ago', createdAt: '2024-12-25T04:00:00Z' },
@@ -46,7 +47,7 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -98,12 +99,24 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
         <Card className="border-l-4 border-l-green-500">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Tasks</CardTitle>
-              <ClipboardList className="w-4 h-4 text-green-500" />
+              <CardTitle className="text-sm font-medium text-gray-600">Closed Bugs</CardTitle>
+              <X className="w-4 h-4 text-green-500" />
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-green-600">{bugSummary.totalTasks}</div>
+            <div className="text-2xl font-bold text-green-600">{bugSummary.closed}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Tasks</CardTitle>
+              <ClipboardList className="w-4 h-4 text-purple-500" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold text-purple-600">{bugSummary.totalTasks}</div>
           </CardContent>
         </Card>
       </div>
@@ -121,7 +134,9 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
                   <Clock className="w-4 h-4 text-gray-500 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-sm text-green-600">{activity.id}</span>
+                      <Badge className="bg-red-100 text-red-700 text-xs font-medium">
+                        {activity.id}
+                      </Badge>
                       <Badge className={`${getSeverityColor(activity.severity)} text-xs`}>
                         {activity.severity}
                       </Badge>

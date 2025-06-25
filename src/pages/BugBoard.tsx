@@ -30,29 +30,32 @@ const BugBoard = () => {
     project: 'TasksMate Web'
   };
 
-  const bugs = [
+  const [bugs, setBugs] = useState([
     {
       id: 'BUG-001',
       title: 'Login button not responsive on mobile',
       description: 'The login button becomes unclickable on mobile devices under 768px width. This happens consistently across different browsers.',
       severity: 'high' as const,
-      tags: ['UI', 'Mobile', 'Authentication']
+      tags: ['UI', 'Mobile', 'Authentication'],
+      closed: false
     },
     {
       id: 'BUG-002',
       title: 'Task deletion confirmation dialog missing',
       description: 'When users try to delete a task, no confirmation dialog appears which can lead to accidental deletions.',
       severity: 'medium' as const,
-      tags: ['UX', 'Tasks', 'Confirmation']
+      tags: ['UX', 'Tasks', 'Confirmation'],
+      closed: false
     },
     {
       id: 'BUG-003',
       title: 'Profile image upload fails silently',
       description: 'Profile image upload appears to work but fails without any error message to the user.',
       severity: 'low' as const,
-      tags: ['Profile', 'Upload', 'Error Handling']
+      tags: ['Profile', 'Upload', 'Error Handling'],
+      closed: true
     }
-  ];
+  ]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -66,11 +69,24 @@ const BugBoard = () => {
   const filteredBugs = bugs.filter(bug =>
     bug.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bug.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    bug.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bug.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  const closedBugsCount = bugs.filter(bug => bug.closed).length;
+  const activeBugs = bugs.filter(bug => !bug.closed);
+  const highBugs = activeBugs.filter(bug => bug.severity === 'high').length;
+  const mediumBugs = activeBugs.filter(bug => bug.severity === 'medium').length;
+  const lowBugs = activeBugs.filter(bug => bug.severity === 'low').length;
+
   const handleBugClick = (bugId: string) => {
     navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}`);
+  };
+
+  const handleBugToggle = (bugId: string) => {
+    setBugs(bugs.map(bug => 
+      bug.id === bugId ? { ...bug, closed: !bug.closed } : bug
+    ));
   };
 
   return (
@@ -121,21 +137,56 @@ const BugBoard = () => {
           </Button>
         </div>
 
-        {/* Filters */}
+        {/* Bug Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="border-l-4 border-l-red-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">High Severity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{highBugs}</div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-l-4 border-l-orange-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Medium Severity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{mediumBugs}</div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Low Severity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{lowBugs}</div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-l-4 border-l-green-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Closed Bugs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{closedBugsCount}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search Bar */}
         <div className="flex items-center gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Search bugs..."
+              placeholder="Search by Bug ID, keywords..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
             />
           </div>
-          <Button variant="outline">
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </Button>
         </div>
 
         {/* Bug Cards Grid */}
@@ -148,17 +199,30 @@ const BugBoard = () => {
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between mb-2">
-                  <Badge className={`${getSeverityColor(bug.severity)} text-xs font-medium`}>
-                    {bug.severity.toUpperCase()}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={bug.closed}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleBugToggle(bug.id);
+                      }}
+                      className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"
+                    />
+                    <Badge className={`${getSeverityColor(bug.severity)} text-xs font-medium`}>
+                      {bug.severity.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <Badge className={`${bug.closed ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'} text-xs font-medium`}>
+                    {bug.id}
                   </Badge>
-                  <span className="text-xs text-gray-500">#{bug.id}</span>
                 </div>
-                <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2">
+                <CardTitle className={`text-lg font-semibold ${bug.closed ? 'text-gray-500 line-through' : 'text-gray-900'} line-clamp-2`}>
                   {bug.title}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                <p className={`text-sm ${bug.closed ? 'text-gray-400' : 'text-gray-600'} mb-4 line-clamp-3`}>
                   {bug.description}
                 </p>
                 

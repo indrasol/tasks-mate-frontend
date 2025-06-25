@@ -20,9 +20,18 @@ const NewBugModal = ({ open, onOpenChange, runId }: NewBugModalProps) => {
     title: '',
     description: '',
     severity: '',
+    project: '',
     tags: [] as string[]
   });
   const [newTag, setNewTag] = useState('');
+
+  // Mock projects data
+  const projects = [
+    { id: 'proj-1', name: 'TasksMate Web' },
+    { id: 'proj-2', name: 'TasksMate Mobile' },
+    { id: 'proj-3', name: 'TasksMate API' },
+    { id: 'proj-4', name: 'TasksMate Desktop' }
+  ];
 
   const handleAddTag = () => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
@@ -56,6 +65,7 @@ const NewBugModal = ({ open, onOpenChange, runId }: NewBugModalProps) => {
       title: '',
       description: '',
       severity: '',
+      project: '',
       tags: []
     });
   };
@@ -89,6 +99,22 @@ const NewBugModal = ({ open, onOpenChange, runId }: NewBugModalProps) => {
               rows={4}
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="project">Project</Label>
+            <Select value={formData.project} onValueChange={(value) => setFormData({...formData, project: value})}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
@@ -146,7 +172,7 @@ const NewBugModal = ({ open, onOpenChange, runId }: NewBugModalProps) => {
             <Button
               type="submit"
               className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-              disabled={!formData.title || !formData.description || !formData.severity}
+              disabled={!formData.title || !formData.description || !formData.severity || !formData.project}
             >
               Create Bug
             </Button>

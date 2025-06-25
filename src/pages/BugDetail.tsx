@@ -22,12 +22,12 @@ import {
 const BugDetail = () => {
   const { id: runId, bugId } = useParams();
   
-  // Mock bug data
+  // Mock bug data with proper typing
   const [bug, setBug] = useState({
     id: bugId || 'BUG-001',
     title: 'Login button not responsive on mobile',
     description: 'The login button becomes unclickable on mobile devices under 768px width. This happens consistently across different browsers including Chrome, Safari, and Firefox on iOS devices.',
-    severity: 'medium' as const,
+    severity: 'medium' as 'high' | 'medium' | 'low',
     status: 'new' as const,
     tags: ['UI', 'Mobile', 'Authentication', 'Cross-browser'],
     createdAt: '2024-12-20T10:30:00Z',
@@ -64,6 +64,7 @@ const BugDetail = () => {
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
+  const [isClosed, setIsClosed] = useState(false);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -113,6 +114,33 @@ const BugDetail = () => {
     setComments(comments.filter(comment => comment.id !== commentId));
   };
 
+  const handleSaveGuide = () => {
+    console.log('Saving guide:', recreateGuide);
+    // Add toast notification here if needed
+  };
+
+  const handleUploadEvidence = () => {
+    // Simulate file upload
+    const newEvidence = {
+      id: Date.now().toString(),
+      type: 'image',
+      name: 'new-evidence.png',
+      url: '/placeholder.svg',
+      uploadedAt: new Date().toISOString()
+    };
+    setEvidence([...evidence, newEvidence]);
+  };
+
+  const handleSaveEvidence = () => {
+    console.log('Saving evidence changes');
+    // Add toast notification here if needed
+  };
+
+  const handleBugToggle = () => {
+    setIsClosed(!isClosed);
+    // Update bug board counter here
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <MainNavigation />
@@ -146,7 +174,11 @@ const BugDetail = () => {
               <ChevronRight className="h-4 w-4" />
             </BreadcrumbSeparator>
             <BreadcrumbItem>
-              <BreadcrumbPage>{bug.id}</BreadcrumbPage>
+              <BreadcrumbPage>
+                <Badge className={`${isClosed ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'} border-red-200 text-sm font-medium`}>
+                  {bug.id}
+                </Badge>
+              </BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -156,11 +188,17 @@ const BugDetail = () => {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
+                <input
+                  type="checkbox"
+                  checked={isClosed}
+                  onChange={handleBugToggle}
+                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500"
+                />
                 <Badge className={`${getSeverityColor(bug.severity)} border text-sm font-medium`}>
                   {bug.severity.toUpperCase()}
                 </Badge>
-                <Badge className="bg-red-100 text-red-700 border-red-200 text-sm font-medium">
-                  #{bug.id}
+                <Badge className={`${isClosed ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'} border-red-200 text-sm font-medium`}>
+                  {bug.id}
                 </Badge>
               </div>
               <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
@@ -226,7 +264,7 @@ const BugDetail = () => {
                   placeholder="Write the steps to recreate this bug..."
                   className="min-h-[120px] resize-none"
                 />
-                <Button variant="outline" size="sm" className="mt-4">
+                <Button onClick={handleSaveGuide} variant="outline" size="sm" className="mt-4">
                   Save Guide
                 </Button>
               </CardContent>
@@ -237,10 +275,15 @@ const BugDetail = () => {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center justify-between">
                   Evidence & Screenshots
-                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={handleUploadEvidence} size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload
+                    </Button>
+                    <Button onClick={handleSaveEvidence} size="sm" variant="outline">
+                      Save
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -263,8 +306,11 @@ const BugDetail = () => {
                     </div>
                   ))}
                   
-                  {/* Upload placeholder */}
-                  <div className="aspect-video bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-300 transition-colors">
+                  {/* Add Evidence placeholder */}
+                  <div 
+                    onClick={handleUploadEvidence}
+                    className="aspect-video bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-300 transition-colors"
+                  >
                     <Camera className="w-8 h-8 text-gray-400 mb-2" />
                     <span className="text-sm text-gray-500">Add Evidence</span>
                   </div>

@@ -81,9 +81,6 @@ const TestRunDetail = () => {
                 <Download className="w-4 h-4 mr-2" />
                 Generate PDF
               </Button>
-              <Button className="bg-green-500 hover:bg-green-600 text-white">
-                End Run
-              </Button>
             </div>
           </div>
 
