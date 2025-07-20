@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface SignUpModalProps {
   open: boolean;
@@ -25,6 +26,7 @@ export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
   const [organization, setOrganization] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +67,9 @@ export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
       setPassword("");
       setUsername("");
       setOrganization("");
+      
+      // Navigate to dashboard with the organization ID
+      navigate(`/dashboard?org_id=${orgData.id}`);
     } catch (error: any) {
       toast({
         title: "Error creating account",

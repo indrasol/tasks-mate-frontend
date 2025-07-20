@@ -108,12 +108,6 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       isActive: location.pathname.startsWith('/tester-zone')
     },
     { 
-      name: 'Sales / Marketing Books', 
-      path: orgId ? `/sales-marketing?org_id=${orgId}` : '/sales-marketing', 
-      icon: TrendingUp,
-      isActive: location.pathname.startsWith('/sales-marketing')
-    },
-    { 
       name: 'Scratchpad', 
       path: orgId ? `/scratchpad?org_id=${orgId}` : '/scratchpad', 
       icon: Edit3,
