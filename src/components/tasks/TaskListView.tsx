@@ -63,7 +63,7 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewPr
                       <Check className="h-3 w-3 text-white" />
                     )}
                   </div>
-                  <Badge variant="secondary" className="text-xs font-mono">
+                  <Badge className="text-xs font-mono bg-green-600 text-white">
                     {task.id}
                   </Badge>
                 </div>

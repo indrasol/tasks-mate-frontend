@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronRight, Users, Calendar, Download } from 'lucide-react';
+import { ChevronRight, Users, Calendar, Plus, UserPlus } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -15,14 +16,16 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import BugBoardTab from '@/components/tester/BugBoardTab';
+import { useToast } from '@/hooks/use-toast';
 
 const TestRunDetail = () => {
   const { id } = useParams();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('bug-board');
 
   // Mock data - replace with actual data fetching
-  const testRun = {
-    id: id || 'TB-001',
+  const [testRun, setTestRun] = useState({
+    id: id || 'TR-001',
     name: 'Sprint 12 Testing',
     project: 'TasksMate Web',
     date: '2024-12-20',
@@ -36,6 +39,38 @@ const TestRunDetail = () => {
       low: 5,
       total: 10
     }
+  });
+
+  // Available team members that can be added
+  const allMembers = [
+    'Alice Johnson',
+    'Bob Smith',
+    'Carol Davis',
+    'David Wilson',
+    'Emma Brown',
+    'Frank Miller',
+    'Grace Lee',
+    'Henry Clark'
+  ];
+
+  // Filter out already assigned members
+  const availableMembers = allMembers.filter(member => !testRun.assignedTo.includes(member));
+
+  const handleAddMember = (memberName: string) => {
+    // Add new member to assignedTo list
+    setTestRun(prev => ({
+      ...prev,
+      assignedTo: [...prev.assignedTo, memberName]
+    }));
+
+    // Show success notification
+    toast({
+      title: "Member added!",
+      description: `${memberName} has been added to the team`,
+    });
+
+    // Here you would typically send an API request to add the user
+    console.log('Adding member:', memberName);
   };
 
   return (
@@ -48,7 +83,7 @@ const TestRunDetail = () => {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/tester-zone">Testing Books</Link>
+                <Link to="/tester-zone">Bug Tracker</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
@@ -61,51 +96,16 @@ const TestRunDetail = () => {
         </Breadcrumb>
 
         {/* Header */}
-        <div className="bg-white rounded-lg border shadow-sm p-6 mb-6">
+        <div className="bg-white rounded-lg border shadow-sm p-6 mb-6 relative">
           <div className="flex items-start justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
-                {testRun.name}
-              </h1>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  {new Date(testRun.date).toLocaleDateString()}
-                </span>
-                <Badge variant="outline">{testRun.project}</Badge>
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
+                  {testRun.name}
+                </h1>
               </div>
-            </div>
-            
-            <div className="flex gap-3">
-              <Button variant="outline">
-                <Download className="w-4 h-4 mr-2" />
-                Generate PDF
-              </Button>
-            </div>
-          </div>
-
-          {/* Meta row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              {/* Participants */}
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-gray-500" />
-                <div className="flex items-center gap-2">
-                  {/* Assigned to members as tags */}
-                  <div className="flex flex-wrap gap-1">
-                    {testRun.assignedTo.map((member) => (
-                      <Badge key={member} variant="secondary" className="text-xs">
-                        {member}
-                      </Badge>
-                    ))}
-                  </div>
-                  <Button variant="ghost" size="sm" className="ml-2 text-gray-500">
-                    + Invite
-                  </Button>
-                </div>
-              </div>
-
-              {/* Progress */}
+              
+              {/* Progress Circle next to name */}
               <div className="flex items-center gap-3">
                 <div className="relative w-12 h-12">
                   <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
@@ -129,7 +129,71 @@ const TestRunDetail = () => {
                 </div>
               </div>
             </div>
+
+            {/* Date and Project - Right Top Corner */}
+            <div className="flex items-center gap-4">
+              <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 text-sm">
+                <Calendar className="w-4 h-4 mr-1" />
+                {new Date(testRun.date).toLocaleDateString()}
+              </Badge>
+              <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-200">{testRun.project}</Badge>
+            </div>
           </div>
+
+          {/* Meta row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              {/* Participants */}
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-gray-500" />
+                <div className="flex items-center gap-2">
+                  {/* Assigned to members as purple tags */}
+                  <div className="flex flex-wrap gap-1">
+                    {testRun.assignedTo.map((member) => (
+                      <Badge key={member} className="text-xs bg-purple-100 text-purple-800">
+                        {member}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Add Member Dropdown - Bottom Right Corner */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="absolute bottom-4 right-4 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                disabled={availableMembers.length === 0}
+              >
+                <UserPlus className="w-4 h-4 mr-1" />
+                Add
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Add Team Member</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {availableMembers.length > 0 ? (
+                availableMembers.map((member) => (
+                  <DropdownMenuItem 
+                    key={member}
+                    onClick={() => handleAddMember(member)}
+                    className="cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    {member}
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem disabled>
+                  All members already added
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Tabs */}

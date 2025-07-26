@@ -62,7 +62,17 @@ const Index = () => {
             <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center">
               <Check className="h-5 w-5 text-white" />
             </div>
-            <span className="font-sora font-bold text-xl">TasksMate</span>
+            <div className="flex items-baseline space-x-2">
+              <span className="font-sora font-bold text-xl">TasksMate</span>
+              <a 
+                href="https://indrasol.com/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                by Indrasol
+              </a>
+            </div>
           </div>
           <div className="hidden md:flex items-center space-x-6">
             {user ? (
@@ -251,7 +261,17 @@ const Index = () => {
               <div className="w-6 h-6 rounded-full bg-tasksmate-gradient flex items-center justify-center">
                 <Check className="h-4 w-4 text-white" />
               </div>
-              <span className="font-sora font-semibold">TasksMate</span>
+              <div className="flex items-baseline space-x-2">
+                <span className="font-sora font-semibold">TasksMate</span>
+                <a 
+                  href="https://indrasol.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  by Indrasol
+                </a>
+              </div>
               <span className="text-gray-500 text-sm">Your Sidekick for Every Tick</span>
             </div>
             <div className="flex items-center space-x-6">

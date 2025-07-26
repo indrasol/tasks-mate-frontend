@@ -158,7 +158,7 @@ const Dashboard = () => {
           <div className="max-w-7xl mx-auto space-y-6">
             
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card className="glass border-0 shadow-tasksmate">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -213,7 +213,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate">
+              {/* <Card className="glass border-0 shadow-tasksmate">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -229,7 +229,7 @@ const Dashboard = () => {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
+              </Card> */}
             </div>
 
             {/* Charts Row 1 */}
@@ -293,9 +293,9 @@ const Dashboard = () => {
             </div>
 
             {/* Charts Row 2 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               {/* Meeting Books Analytics */}
-              <Card className="glass border-0 shadow-tasksmate">
+              {/* <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BookOpen className="w-5 h-5" />
@@ -318,7 +318,7 @@ const Dashboard = () => {
                     </ResponsiveContainer>
                   </div>
                 </CardContent>
-              </Card>
+              </Card> */}
 
               {/* Team Productivity */}
               <Card className="glass border-0 shadow-tasksmate">

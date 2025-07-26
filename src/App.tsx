@@ -20,6 +20,7 @@ import AdHocMeeting from "./pages/AdHocMeeting";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Dashboard from "./pages/Dashboard";
+import TeamMembers from "./pages/TeamMembers";
 import Scratchpad from "./pages/Scratchpad";
 import TesterZone from "./pages/TesterZone";
 import TestRunDetail from "./pages/TestRunDetail";
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/org" element={<Organizations />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/team-members" element={<TeamMembers />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/tasks_catalog" element={<TasksCatalog />} />
             <Route path="/tasks/:taskId" element={<TaskDetail />} />

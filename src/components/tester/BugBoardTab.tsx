@@ -56,7 +56,7 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <Card>
+        <Card className="border-l-4 border-l-gray-500">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-gray-600">Total Bugs</CardTitle>

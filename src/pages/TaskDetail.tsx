@@ -257,7 +257,7 @@ const TaskDetail = () => {
             <div className="flex items-center space-x-3">
               <div className={`w-1 h-12 rounded-full ${getStatusColor(task.status)}`}></div>
               <div>
-                <Badge variant="secondary" className="text-xs font-mono mb-2">
+                <Badge className="text-xs font-mono bg-green-600 text-white mb-2">
                   {task.id}
                 </Badge>
                 <Input 
@@ -630,6 +630,59 @@ const TaskDetail = () => {
                   <Button variant="outline" size="sm" className="text-xs">
                     Connect
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* History */}
+            <Card className="glass border-0 shadow-tasksmate">
+              <CardHeader>
+                <CardTitle className="font-sora">History</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  <div className="flex items-start space-x-3 text-sm">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="flex-1">
+                      <div className="text-gray-900">Status changed to <strong>Active</strong></div>
+                      <div className="text-gray-500 text-xs">Sarah K. • 2 hours ago</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 text-sm">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="flex-1">
+                      <div className="text-gray-900">Subtask <strong>"Design system components"</strong> completed</div>
+                      <div className="text-gray-500 text-xs">Mike R. • 1 day ago</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 text-sm">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="flex-1">
+                      <div className="text-gray-900">Comment added by <strong>Alex M.</strong></div>
+                      <div className="text-gray-500 text-xs">Alex M. • 2 days ago</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 text-sm">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="flex-1">
+                      <div className="text-gray-900">Subtask <strong>"Create wireframes"</strong> completed</div>
+                      <div className="text-gray-500 text-xs">Sarah K. • 3 days ago</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 text-sm">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="flex-1">
+                      <div className="text-gray-900">Task assigned to <strong>Sarah K.</strong></div>
+                      <div className="text-gray-500 text-xs">John D. • 1 week ago</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3 text-sm">
+                    <div className="w-2 h-2 bg-gray-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="flex-1">
+                      <div className="text-gray-900">Task created</div>
+                      <div className="text-gray-500 text-xs">John D. • 2 weeks ago</div>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

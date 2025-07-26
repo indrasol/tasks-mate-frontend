@@ -42,9 +42,10 @@ interface NewTaskModalProps {
   onTaskCreated: (task: Task) => void;
   defaultTags?: string[];
   isConvertingFromBug?: boolean;
+  projectName?: string;
 }
 
-const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false }: NewTaskModalProps) => {
+const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false, projectName }: NewTaskModalProps) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -55,19 +56,12 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
   });
   const [tagInput, setTagInput] = useState("");
   const [selectedBugs, setSelectedBugs] = useState<string[]>([]);
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
 
-  // Mock data for bugs and projects
+  // Mock data for bugs
   const availableBugs = [
     { id: 'BUG-001', title: 'Login button not responsive on mobile' },
     { id: 'BUG-002', title: 'Task deletion confirmation dialog missing' },
     { id: 'BUG-003', title: 'Profile image upload fails silently' },
-  ];
-
-  const availableProjects = [
-    { id: 'PRJ-001', name: 'TasksMate Web' },
-    { id: 'PRJ-002', name: 'Mobile App' },
-    { id: 'PRJ-003', name: 'API Integration' },
   ];
 
   // Set default tags when modal opens
@@ -100,11 +94,11 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     // Generate task ID
     const taskId = `T${Math.floor(Math.random() * 9000) + 1000}`;
     
-    // Combine all tags (form tags + bug IDs + project IDs)
+    // Combine all tags (form tags + bug IDs + project name)
     const allTags = [
+      ...(projectName ? [projectName] : []),
       ...formData.tags,
-      ...selectedBugs,
-      ...selectedProjects
+      ...selectedBugs
     ];
     
     // Create new task object
@@ -140,7 +134,6 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     });
     setTagInput("");
     setSelectedBugs([]);
-    setSelectedProjects([]);
     
     onOpenChange(false);
   };
@@ -186,16 +179,6 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
 
   const handleRemoveBug = (bugId: string) => {
     setSelectedBugs(prev => prev.filter(id => id !== bugId));
-  };
-
-  const handleProjectSelect = (projectId: string) => {
-    if (!selectedProjects.includes(projectId)) {
-      setSelectedProjects(prev => [...prev, projectId]);
-    }
-  };
-
-  const handleRemoveProject = (projectId: string) => {
-    setSelectedProjects(prev => prev.filter(id => id !== projectId));
   };
 
   return (
@@ -303,47 +286,15 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
               )}
 
               <div className="space-y-3">
-                <Label htmlFor="projects" className="text-sm font-semibold text-gray-700">
-                  Projects (Optional)
-                </Label>
-                <Select onValueChange={handleProjectSelect}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select projects to link" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border shadow-lg z-50">
-                    {availableProjects.filter(project => !selectedProjects.includes(project.id)).map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.id} - {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedProjects.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedProjects.map((projectId) => {
-                      const project = availableProjects.find(p => p.id === projectId);
-                      return (
-                        <Badge
-                          key={projectId}
-                          variant="secondary"
-                          className="flex items-center space-x-1 bg-green-100 text-green-800 hover:bg-green-200"
-                        >
-                          <span>{project?.id}</span>
-                          <X
-                            className="h-3 w-3 cursor-pointer hover:text-green-900"
-                            onClick={() => handleRemoveProject(projectId)}
-                          />
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
                 <Label htmlFor="tags" className="text-sm font-semibold text-gray-700">
                   Tags
                 </Label>
+                {projectName && (
+                  <p className="text-xs text-gray-500">
+                    <Badge className="bg-teal-100 text-teal-800 text-xs mr-1">{projectName}</Badge>
+                    will be automatically added to this task
+                  </p>
+                )}
                 <div className="space-y-2">
                   <div className="flex space-x-2">
                     <Input

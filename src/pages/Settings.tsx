@@ -14,11 +14,8 @@ import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   User, 
-  CreditCard, 
-  Users, 
+  CreditCard,
   Upload, 
-  Search, 
-  Plus, 
   ChevronDown,
   Calendar,
   Download,
@@ -36,24 +33,11 @@ interface Profile {
   avatar_url?: string;
 }
 
-interface TeamMember {
-  id: string;
-  username: string;
-  display_name?: string;
-  avatar_url?: string;
-  role: string;
-  joined_at: string;
-  project_count: number;
-}
+
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('member');
   const [loading, setLoading] = useState(true);
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
   const { toast } = useToast();
@@ -62,7 +46,6 @@ const Settings = () => {
   useEffect(() => {
     if (user) {
       fetchProfile();
-      fetchTeamMembers();
     }
   }, [user]);
 
@@ -83,32 +66,7 @@ const Settings = () => {
     }
   };
 
-  const fetchTeamMembers = async () => {
-    try {
-      // This would need to be implemented based on current organization
-      // For now, showing mock data
-      setTeamMembers([
-        {
-          id: '1',
-          username: 'john.doe',
-          display_name: 'John Doe',
-          role: 'owner',
-          joined_at: '2024-01-15',
-          project_count: 5
-        },
-        {
-          id: '2', 
-          username: 'jane.smith',
-          display_name: 'Jane Smith',
-          role: 'admin',
-          joined_at: '2024-02-01',
-          project_count: 3
-        }
-      ]);
-    } catch (error) {
-      console.error('Error fetching team members:', error);
-    }
-  };
+
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,33 +97,7 @@ const Settings = () => {
     }
   };
 
-  const handleInviteTeamMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      // This would need organization context
-      toast({
-        title: "Success",
-        description: "Invitation sent successfully"
-      });
-      
-      setIsInviteModalOpen(false);
-      setInviteEmail('');
-      setInviteRole('member');
-    } catch (error) {
-      console.error('Error sending invitation:', error);
-      toast({
-        title: "Error", 
-        description: "Failed to send invitation",
-        variant: "destructive"
-      });
-    }
-  };
 
-  const filteredTeamMembers = teamMembers.filter(member =>
-    member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    member.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   if (loading) {
     return (
@@ -190,7 +122,7 @@ const Settings = () => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="profile" className="flex items-center space-x-2">
                 <User className="w-4 h-4" />
                 <span>Profile</span>
@@ -198,10 +130,6 @@ const Settings = () => {
               <TabsTrigger value="billing" className="flex items-center space-x-2">
                 <CreditCard className="w-4 h-4" />
                 <span>Billing</span>
-              </TabsTrigger>
-              <TabsTrigger value="team" className="flex items-center space-x-2">
-                <Users className="w-4 h-4" />
-                <span>Team Members</span>
               </TabsTrigger>
             </TabsList>
 
@@ -371,118 +299,7 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
-            {/* Team Members Tab */}
-            <TabsContent value="team" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Team Members</CardTitle>
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        <Input
-                          placeholder="Filter by name/email..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10 w-64"
-                        />
-                      </div>
-                      <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
-                        <DialogTrigger asChild>
-                          <Button className="bg-green-500 hover:bg-green-600">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Invite Member
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Invite Team Member</DialogTitle>
-                          </DialogHeader>
-                          <form onSubmit={handleInviteTeamMember} className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="inviteEmail">Email *</Label>
-                              <Input
-                                id="inviteEmail"
-                                type="email"
-                                value={inviteEmail}
-                                onChange={(e) => setInviteEmail(e.target.value)}
-                                placeholder="colleague@example.com"
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="inviteRole">Role</Label>
-                              <Select value={inviteRole} onValueChange={setInviteRole}>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="admin">Admin</SelectItem>
-                                  <SelectItem value="member">Member</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <Button type="submit" className="w-full bg-green-500 hover:bg-green-600">
-                              Send Invite
-                            </Button>
-                          </form>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Member</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Projects</TableHead>
-                        <TableHead>Joined</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredTeamMembers.map((member) => (
-                        <TableRow key={member.id}>
-                          <TableCell>
-                            <div className="flex items-center space-x-3">
-                              <Avatar>
-                                <AvatarImage src={member.avatar_url} />
-                                <AvatarFallback>
-                                  {member.display_name?.charAt(0) || member.username.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="font-medium">{member.display_name || member.username}</div>
-                                <div className="text-sm text-gray-500">@{member.username}</div>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {member.username}@example.com
-                          </TableCell>
-                          <TableCell>
-                            <Select defaultValue={member.role} disabled={member.role === 'owner'}>
-                              <SelectTrigger className="w-24">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="owner" disabled>Owner</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="member">Member</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>{member.project_count}</TableCell>
-                          <TableCell>{new Date(member.joined_at).toLocaleDateString()}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
+
           </Tabs>
         </div>
       </div>

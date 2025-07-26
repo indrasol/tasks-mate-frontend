@@ -196,7 +196,7 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded }: AddSubtaskModal
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <Badge variant="secondary" className="text-xs font-mono">
+                      <Badge className="text-xs font-mono bg-green-600 text-white">
                         {task.id}
                       </Badge>
                       <Badge className={`text-xs ${getStatusColor(task.status)}`}>
