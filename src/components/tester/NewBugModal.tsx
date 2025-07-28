@@ -13,25 +13,17 @@ interface NewBugModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   runId: string;
+  projectName: string;
 }
 
-const NewBugModal = ({ open, onOpenChange, runId }: NewBugModalProps) => {
+const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProps) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     severity: '',
-    project: '',
     tags: [] as string[]
   });
   const [newTag, setNewTag] = useState('');
-
-  // Mock projects data
-  const projects = [
-    { id: 'proj-1', name: 'TasksMate Web' },
-    { id: 'proj-2', name: 'TasksMate Mobile' },
-    { id: 'proj-3', name: 'TasksMate API' },
-    { id: 'proj-4', name: 'TasksMate Desktop' }
-  ];
 
   const handleAddTag = () => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
@@ -59,13 +51,18 @@ const NewBugModal = ({ open, onOpenChange, runId }: NewBugModalProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Creating new bug:', { ...formData, runId });
+    // Auto-add project name as the first tag
+    const bugData = {
+      ...formData,
+      tags: [projectName, ...formData.tags],
+      runId
+    };
+    console.log('Creating new bug:', bugData);
     onOpenChange(false);
     setFormData({
       title: '',
       description: '',
       severity: '',
-      project: '',
       tags: []
     });
   };
@@ -102,22 +99,6 @@ const NewBugModal = ({ open, onOpenChange, runId }: NewBugModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="project">Project</Label>
-            <Select value={formData.project} onValueChange={(value) => setFormData({...formData, project: value})}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="severity">Bug Severity</Label>
             <Select value={formData.severity} onValueChange={(value) => setFormData({...formData, severity: value})}>
               <SelectTrigger>
@@ -133,6 +114,10 @@ const NewBugModal = ({ open, onOpenChange, runId }: NewBugModalProps) => {
 
           <div className="space-y-2">
             <Label htmlFor="tags">Tags</Label>
+            <p className="text-xs text-gray-500">
+              <Badge className="bg-teal-100 text-teal-800 text-xs mr-1">{projectName}</Badge>
+              will be automatically added to this bug
+            </p>
             <div className="flex gap-2">
               <Input
                 id="tags"
@@ -172,7 +157,7 @@ const NewBugModal = ({ open, onOpenChange, runId }: NewBugModalProps) => {
             <Button
               type="submit"
               className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-              disabled={!formData.title || !formData.description || !formData.severity || !formData.project}
+              disabled={!formData.title || !formData.description || !formData.severity}
             >
               Create Bug
             </Button>

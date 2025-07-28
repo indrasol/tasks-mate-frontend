@@ -16,7 +16,11 @@ import {
   Edit3,
   Bug,
   TrendingUp,
-  Building2
+  Building2,
+  ChevronDown,
+  ArrowLeft,
+  RefreshCw,
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +28,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -40,43 +46,87 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const { user, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentOrgName, setCurrentOrgName] = useState<string>('');
+  const [userOrganizations, setUserOrganizations] = useState<Array<{id: string, name: string}>>([]);
 
   // Get org_id from URL params
   const urlParams = new URLSearchParams(location.search);
   const orgId = urlParams.get('org_id');
 
   useEffect(() => {
-    const fetchOrganizationName = async () => {
-      if (orgId && user) {
+    const fetchOrganizationData = async () => {
+      if (user) {
         try {
-          const { data, error } = await supabase
-            .from('organizations')
-            .select('name')
-            .eq('id', orgId)
-            .single();
+          // Fetch user's organizations
+          const { data: orgData, error: orgError } = await supabase
+            .from('user_organizations')
+            .select(`
+              organization_id,
+              organizations (
+                id,
+                name
+              )
+            `)
+            .eq('user_id', user.id);
 
-          if (error) {
-            console.error('Error fetching organization name:', error);
-            return;
+          if (orgError) {
+            console.error('Error fetching user organizations:', orgError);
+          } else {
+            const orgs = orgData
+              ?.filter(item => item.organizations) // Filter out any null organizations
+              ?.map(item => ({
+                id: item.organizations.id,
+                name: item.organizations.name
+              })) || [];
+            setUserOrganizations(orgs);
           }
 
-          setCurrentOrgName(data.name);
+          // Fetch current organization name if orgId exists
+          if (orgId) {
+            const { data, error } = await supabase
+              .from('organizations')
+              .select('name')
+              .eq('id', orgId)
+              .single();
+
+            if (error) {
+              console.error('Error fetching organization name:', error);
+              return;
+            }
+
+            setCurrentOrgName(data.name);
+          } else {
+            setCurrentOrgName('');
+          }
         } catch (error) {
-          console.error('Error fetching organization:', error);
+          console.error('Error fetching organization data:', error);
         }
       } else {
         setCurrentOrgName('');
+        setUserOrganizations([]);
       }
     };
 
-    fetchOrganizationName();
+    fetchOrganizationData();
   }, [orgId, user]);
 
   const handleSignOut = async () => {
     await signOut();
   };
 
+  const handleOrganizationSwitch = (newOrgId: string) => {
+    const currentPath = location.pathname;
+    const currentSearch = new URLSearchParams(location.search);
+    currentSearch.set('org_id', newOrgId);
+    navigate(`${currentPath}?${currentSearch.toString()}`);
+  };
+
   const navigationItems = [
+    { 
+      name: 'Members', 
+      path: orgId ? `/team-members?org_id=${orgId}` : '/team-members', 
+      icon: Users,
+      isActive: location.pathname.startsWith('/team-members')
+    },
     { 
       name: 'Dashboard', 
       path: orgId ? `/dashboard?org_id=${orgId}` : '/dashboard', 
@@ -86,7 +136,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     { 
       name: 'Projects', 
       path: orgId ? `/projects?org_id=${orgId}` : '/projects', 
-      icon: Users,
+      icon: Building2,
       isActive: location.pathname.startsWith('/projects')
     },
     { 
@@ -95,14 +145,14 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       icon: ClipboardList,
       isActive: location.pathname.startsWith('/tasks')
     },
+    // { 
+    //   name: 'Meeting books', 
+    //   path: orgId ? `/meetings?org_id=${orgId}` : '/meetings', 
+    //   icon: Calendar,
+    //   isActive: location.pathname.startsWith('/meetings')
+    // },
     { 
-      name: 'Meeting books', 
-      path: orgId ? `/meetings?org_id=${orgId}` : '/meetings', 
-      icon: Calendar,
-      isActive: location.pathname.startsWith('/meetings')
-    },
-    { 
-      name: 'Testing Books', 
+      name: 'Bug Tracker', 
       path: orgId ? `/tester-zone?org_id=${orgId}` : '/tester-zone', 
       icon: Bug,
       isActive: location.pathname.startsWith('/tester-zone')
@@ -144,19 +194,65 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
           </Button>
         </div>
 
-        {/* Organization Pill - Show only when inside an org */}
+        {/* Organization Dropdown - Show only when inside an org */}
         {orgId && !isCollapsed && (
           <div className="px-3 py-2 border-b border-gray-100">
-            <Link 
-              to="/org"
-              className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-              title="Back to Organizations"
-            >
-              <Building2 className="w-4 h-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700 truncate">
-                {currentOrgName || 'Loading...'}
-              </span>
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <Building2 className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                    <span className="text-sm font-medium text-gray-700 truncate">
+                      {currentOrgName || 'Loading...'}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 bg-white border shadow-lg">
+                <DropdownMenuLabel className="font-medium text-gray-900">
+                  Current Organization
+                </DropdownMenuLabel>
+                <DropdownMenuItem disabled className="text-gray-600">
+                  <MapPin className="w-4 h-4 mr-2" />
+                  {currentOrgName}
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuItem 
+                  onClick={() => navigate('/org')}
+                  className="cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Organizations
+                </DropdownMenuItem>
+                
+                {userOrganizations.length > 1 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="font-medium text-gray-900">
+                      Switch Organization
+                    </DropdownMenuLabel>
+                    {userOrganizations
+                      .filter(org => org.id !== orgId)
+                      .map((org) => (
+                        <DropdownMenuItem 
+                          key={org.id}
+                          onClick={() => handleOrganizationSwitch(org.id)}
+                          className="cursor-pointer"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          {org.name}
+                        </DropdownMenuItem>
+                      ))}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
 

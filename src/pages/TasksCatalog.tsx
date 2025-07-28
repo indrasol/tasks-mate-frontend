@@ -6,10 +6,36 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Check, Search, Plus, MoreVertical, MessageSquare, LogOut } from "lucide-react";
+import { 
+  Check, 
+  Search, 
+  Plus, 
+  MoreVertical, 
+  MessageSquare, 
+  LogOut,
+  Grid3X3,
+  List,
+  Filter,
+  SortDesc,
+  SortAsc,
+  CalendarRange
+} from "lucide-react";
 import { Link } from "react-router-dom";
-import TaskFilters from "@/components/tasks/TaskFilters";
-import ViewToggle from "@/components/tasks/ViewToggle";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
 import TaskListView from "@/components/tasks/TaskListView";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 import MainNavigation from "@/components/navigation/MainNavigation";
@@ -27,6 +53,10 @@ interface Task {
   createdBy?: string;
   createdDate?: string;
 }
+
+type ViewMode = 'grid' | 'list';
+type SortOption = 'name' | 'status' | 'targetDate' | 'createdDate' | 'progress' | 'owner';
+type SortDirection = 'asc' | 'desc';
 
 const TasksCatalog = () => {
   const { user, loading, signOut } = useAuth();
@@ -57,15 +87,20 @@ const TasksCatalog = () => {
 
 // Separate component to handle all the main logic
 const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user: any, signOut: () => void }) => {
-  // State management - now all hooks are called consistently
-  const [view, setView] = useState<"grid" | "list">("grid");
+  // State management - enhanced with new filter and sort options
+  const [view, setView] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
-  const [selectedDateRange, setSelectedDateRange] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterOwner, setFilterOwner] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortOption>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
 
-  // Tasks state - now includes dynamic task creation
+  // Mock project context
+  const currentProject = 'TasksMate Web';
+
+  // Tasks state - enhanced with more sample data
   const [tasks, setTasks] = useState<Task[]>([
     {
       id: "T1234",
@@ -73,12 +108,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       description: "Set up Supabase auth with email/password login",
       status: "in-progress",
       owner: "JD",
-      targetDate: "Dec 15",
+      targetDate: "2024-12-15",
       comments: 3,
       progress: 60,
       tags: ["authentication", "backend", "supabase"],
       createdBy: "JD",
-      createdDate: "Dec 8"
+      createdDate: "2024-12-08"
     },
     {
       id: "T1235", 
@@ -86,12 +121,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       description: "Create responsive task card components with glassmorphism",
       status: "completed",
       owner: "SK",
-      targetDate: "Dec 10",
+      targetDate: "2024-12-10",
       comments: 7,
       progress: 100,
       tags: ["ui", "design", "frontend"],
       createdBy: "SK",
-      createdDate: "Dec 5"
+      createdDate: "2024-12-05"
     },
     {
       id: "T1236",
@@ -99,12 +134,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       description: "Configure automated testing and deployment",
       status: "todo",
       owner: "MR",
-      targetDate: "Dec 20",
+      targetDate: "2024-12-20",
       comments: 1,
       progress: 0,
       tags: ["devops", "automation"],
       createdBy: "MR",
-      createdDate: "Dec 7"
+      createdDate: "2024-12-07"
     },
     {
       id: "T1237",
@@ -112,16 +147,29 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       description: "Implement Supabase realtime for task updates",
       status: "blocked",
       owner: "AM",
-      targetDate: "Dec 18",
+      targetDate: "2024-12-18",
       comments: 5,
       progress: 25,
       tags: ["realtime", "notifications", "backend"],
       createdBy: "AM",
-      createdDate: "Dec 6"
+      createdDate: "2024-12-06"
+    },
+    {
+      id: "T1238",
+      name: "Mobile app testing",
+      description: "Comprehensive testing across iOS and Android platforms",
+      status: "in-progress",
+      owner: "SK",
+      targetDate: "2024-12-25",
+      comments: 2,
+      progress: 40,
+      tags: ["mobile", "testing", "qa"],
+      createdBy: "JD",
+      createdDate: "2024-12-01"
     }
   ]);
 
-  // Listen for new task creation events - moved to top level
+  // Listen for new task creation events
   useEffect(() => {
     const handleTaskCreated = (event: CustomEvent) => {
       const newTask = event.detail;
@@ -129,18 +177,60 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       setTasks(prev => [newTask, ...prev]);
     };
 
-    // Add event listener to window
     window.addEventListener('taskCreated', handleTaskCreated as EventListener);
     
-    // Cleanup
     return () => {
       window.removeEventListener('taskCreated', handleTaskCreated as EventListener);
     };
   }, []);
 
-  // Filter and search logic
+  // Enhanced date filtering logic
+  const isDateInRange = (taskDate: string, filter: string) => {
+    const date = new Date(taskDate);
+    const now = new Date();
+    
+    switch (filter) {
+      case "thisWeek":
+        const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+        const weekEnd = new Date(now.setDate(now.getDate() - now.getDay() + 6));
+        return date >= weekStart && date <= weekEnd;
+      case "thisMonth":
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      case "nextMonth":
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1);
+        return date.getMonth() === nextMonth.getMonth() && date.getFullYear() === nextMonth.getFullYear();
+      case "overdue":
+        return date < now && tasks.find(t => t.targetDate === taskDate)?.status !== 'completed';
+      default:
+        return true;
+    }
+  };
+
+  // Sort tasks function
+  const sortTasks = (tasks: Task[]) => {
+    return [...tasks].sort((a, b) => {
+      let aValue: any = a[sortBy];
+      let bValue: any = b[sortBy];
+
+      // Special handling for different data types
+      if (sortBy === 'targetDate' || sortBy === 'createdDate') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      } else if (sortBy === 'status') {
+        const statusOrder = { 'in-progress': 4, todo: 3, blocked: 2, completed: 1 };
+        aValue = statusOrder[a.status as keyof typeof statusOrder] || 0;
+        bValue = statusOrder[b.status as keyof typeof statusOrder] || 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  // Enhanced filter and search logic
   const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
+    return sortTasks(tasks.filter(task => {
       // Search filter
       const matchesSearch = searchQuery === "" || 
         task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -149,17 +239,17 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         (task.tags && task.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
 
       // Status filter
-      const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(task.status);
+      const matchesStatus = filterStatus === "all" || task.status === filterStatus;
 
       // Owner filter
-      const matchesOwner = selectedOwners.length === 0 || selectedOwners.includes(task.owner);
+      const matchesOwner = filterOwner === "all" || task.owner === filterOwner;
 
-      // Date filter (simplified for demo)
-      const matchesDate = selectedDateRange === null; // For now, showing all tasks
+      // Date filter
+      const matchesDate = dateFilter === "all" || isDateInRange(task.targetDate, dateFilter);
 
       return matchesSearch && matchesStatus && matchesOwner && matchesDate;
-    });
-  }, [tasks, searchQuery, selectedStatuses, selectedOwners, selectedDateRange]);
+    }));
+  }, [tasks, searchQuery, filterStatus, filterOwner, dateFilter, sortBy, sortDirection]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -181,6 +271,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     }
   };
 
+  const getUniqueOwners = () => {
+    return Array.from(new Set(tasks.map(task => task.owner)));
+  };
+
   const handleTaskClick = (taskId: string) => {
     navigate(`/tasks/${taskId}`);
   };
@@ -190,41 +284,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   };
 
   const handleNewMeeting = () => {
-    // Placeholder for future meeting creation
     console.log("New meeting clicked");
   };
 
   const handleTaskCreated = (newTask: Task) => {
     console.log("Direct task creation:", newTask);
     setTasks(prev => [newTask, ...prev]);
-  };
-
-  // Filter handlers
-  const handleStatusToggle = (status: string) => {
-    setSelectedStatuses(prev => 
-      prev.includes(status) 
-        ? prev.filter(s => s !== status)
-        : [...prev, status]
-    );
-  };
-
-  const handleOwnerToggle = (owner: string) => {
-    setSelectedOwners(prev => 
-      prev.includes(owner) 
-        ? prev.filter(o => o !== owner)
-        : [...prev, owner]
-    );
-  };
-
-  const handleDateRangeChange = (range: string | null) => {
-    setSelectedDateRange(range);
-  };
-
-  const handleClearFilters = () => {
-    setSelectedStatuses([]);
-    setSelectedOwners([]);
-    setSelectedDateRange(null);
-    setSearchQuery("");
   };
 
   const handleTaskStatusToggle = (taskId: string) => {
@@ -235,15 +300,29 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     ));
   };
 
+  const toggleSort = (option: SortOption) => {
+    if (sortBy === option) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(option);
+      setSortDirection('asc');
+    }
+  };
+
+  const clearFilters = () => {
+    setFilterStatus("all");
+    setFilterOwner("all");
+    setDateFilter("all");
+    setSearchQuery("");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Navigation */}
       <MainNavigation 
         onNewTask={handleNewTask}
         onNewMeeting={handleNewMeeting}
       />
 
-      {/* Main Content - adjusted for left sidebar */}
       <div className="ml-64 transition-all duration-300">
         {/* Page Header */}
         <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
@@ -262,31 +341,148 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           </div>
         </div>
 
-        {/* Secondary Controls */}
+        {/* Enhanced Controls */}
         <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <ViewToggle view={view} onViewChange={setView} />
-              
-              <TaskFilters
-                selectedStatuses={selectedStatuses}
-                selectedOwners={selectedOwners}
-                selectedDateRange={selectedDateRange}
-                onStatusToggle={handleStatusToggle}
-                onOwnerToggle={handleOwnerToggle}
-                onDateRangeChange={handleDateRangeChange}
-                onClearFilters={handleClearFilters}
-              />
-            </div>
-            
-            <div className="relative w-96">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input 
-                placeholder="Search by keyword or ID (e.g. T1234)" 
-                className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <div className="max-w-7xl mx-auto">
+            {/* All Controls in One Line */}
+            <div className="flex items-center justify-between">
+              {/* Search Bar - Left side */}
+              <div className="relative w-80">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  placeholder="Search by keyword or ID (e.g. T1234)" 
+                  className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {/* Filters and Controls - Right side */}
+              <div className="flex items-center space-x-4">
+                <Filter className="w-4 h-4 text-gray-500" />
+                
+                {/* Status Filter Dropdown */}
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Status</span>
+                    </SelectItem>
+                    <SelectItem value="todo">
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">To Do</span>
+                    </SelectItem>
+                    <SelectItem value="in-progress">
+                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">In Progress</span>
+                    </SelectItem>
+                    <SelectItem value="completed">
+                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Completed</span>
+                    </SelectItem>
+                    <SelectItem value="blocked">
+                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Blocked</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Owner Filter */}
+                <Select value={filterOwner} onValueChange={setFilterOwner}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Owners</span>
+                    </SelectItem>
+                    {getUniqueOwners().map((owner) => (
+                      <SelectItem key={owner} value={owner}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">{owner}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Date Filter */}
+                <Select value={dateFilter} onValueChange={setDateFilter}>
+                  <SelectTrigger className="w-36">
+                    <CalendarRange className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Date Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Dates</span>
+                    </SelectItem>
+                    <SelectItem value="thisWeek">
+                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">This Week</span>
+                    </SelectItem>
+                    <SelectItem value="thisMonth">
+                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">This Month</span>
+                    </SelectItem>
+                    <SelectItem value="nextMonth">
+                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Next Month</span>
+                    </SelectItem>
+                    <SelectItem value="overdue">
+                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Overdue</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Sort Options */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      {sortDirection === 'asc' ? <SortAsc className="w-4 h-4 mr-2" /> : <SortDesc className="w-4 h-4 mr-2" />}
+                      Sort
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => toggleSort('name')}>
+                      <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800 mr-2">Name</span>
+                      {sortBy === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toggleSort('status')}>
+                      <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800 mr-2">Status</span>
+                      {sortBy === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toggleSort('targetDate')}>
+                      <span className="px-2 py-1 rounded-full text-xs bg-emerald-100 text-emerald-800 mr-2">Target Date</span>
+                      {sortBy === 'targetDate' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toggleSort('createdDate')}>
+                      <span className="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800 mr-2">Created Date</span>
+                      {sortBy === 'createdDate' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toggleSort('progress')}>
+                      <span className="px-2 py-1 rounded-full text-xs bg-rose-100 text-rose-800 mr-2">Progress</span>
+                      {sortBy === 'progress' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toggleSort('owner')}>
+                      <span className="px-2 py-1 rounded-full text-xs bg-violet-100 text-violet-800 mr-2">Owner</span>
+                      {sortBy === 'owner' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* View Toggle */}
+                <div className="flex items-center space-x-2 ml-2">
+                  <Button
+                    variant={view === 'grid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setView('grid')}
+                  >
+                    <Grid3X3 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={view === 'list' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setView('list')}
+                  >
+                    <List className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -331,7 +527,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               <Check className="h-3 w-3 text-white" />
                             )}
                           </div>
-                          <Badge variant="secondary" className="text-xs font-mono">
+                          <Badge className="text-xs font-mono bg-green-600 text-white">
                             {task.id}
                           </Badge>
                         </div>
@@ -416,10 +612,16 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
             {filteredTasks.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">No tasks found matching your criteria</p>
+                <p className="text-gray-500 text-lg mb-2">No tasks found</p>
+                <p className="text-gray-400 mb-4">
+                  {searchQuery || filterStatus !== "all" || filterOwner !== "all" || dateFilter !== "all" 
+                    ? "Try adjusting your filters or search query" 
+                    : "Create your first task to get started"
+                  }
+                </p>
                 <Button 
-                  className="mt-4 bg-tasksmate-gradient hover:scale-105 transition-transform"
-                  onClick={handleClearFilters}
+                  className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                  onClick={clearFilters}
                 >
                   Clear Filters
                 </Button>
@@ -433,6 +635,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           open={isNewTaskModalOpen} 
           onOpenChange={setIsNewTaskModalOpen}
           onTaskCreated={handleTaskCreated}
+          projectName={currentProject}
         />
       </div>
     </div>

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import { 
   ArrowLeft,
   Calendar, 
@@ -22,7 +23,10 @@ import {
   Settings,
   MessageSquare,
   FileText,
-  Activity
+  Upload,
+  Link,
+  File,
+  ExternalLink
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -49,19 +53,14 @@ interface Project {
   completedTasks: number;
   priority: 'high' | 'medium' | 'low';
   category: string;
-  recentActivity: Array<{
+  resources: Array<{
     id: string;
-    type: 'task' | 'comment' | 'milestone';
-    description: string;
-    timestamp: string;
-    user: string;
-  }>;
-  tasks: Array<{
-    id: string;
-    title: string;
-    status: 'todo' | 'in-progress' | 'completed';
-    assignee: string;
-    dueDate: string;
+    type: 'file' | 'url';
+    name: string;
+    url?: string;
+    size?: string;
+    uploadedBy: string;
+    uploadedAt: string;
   }>;
 }
 
@@ -69,6 +68,8 @@ const ProjectDetail = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
+  const [newUrl, setNewUrl] = useState('');
+  const [newUrlName, setNewUrlName] = useState('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -95,53 +96,35 @@ const ProjectDetail = () => {
     completedTasks: 16,
     priority: "high",
     category: "Development",
-    recentActivity: [
+    resources: [
       {
-        id: "1",
-        type: "task",
-        description: "Completed user authentication module",
-        timestamp: "2 hours ago",
-        user: "Sarah Kim"
+        id: "R001",
+        type: "file",
+        name: "Project Requirements.pdf",
+        size: "2.3 MB",
+        uploadedBy: "John Doe",
+        uploadedAt: "2024-01-20"
       },
       {
-        id: "2",
-        type: "comment",
-        description: "Added feedback on login screen design",
-        timestamp: "4 hours ago",
-        user: "Anna Martinez"
+        id: "R002",
+        type: "url",
+        name: "Design System Guidelines",
+        url: "https://figma.com/design-system",
+        uploadedBy: "Anna Martinez",
+        uploadedAt: "2024-01-18"
       },
       {
-        id: "3",
-        type: "milestone",
-        description: "Reached 65% project completion",
-        timestamp: "1 day ago",
-        user: "System"
-      }
-    ],
-    tasks: [
-      {
-        id: "T001",
-        title: "Design mobile navigation",
-        status: "completed",
-        assignee: "AM",
-        dueDate: "2024-02-15"
-      },
-      {
-        id: "T002",
-        title: "Implement push notifications",
-        status: "in-progress",
-        assignee: "MR",
-        dueDate: "2024-03-01"
-      },
-      {
-        id: "T003",
-        title: "Create onboarding flow",
-        status: "todo",
-        assignee: "SK",
-        dueDate: "2024-03-15"
+        id: "R003",
+        type: "file",
+        name: "API Documentation.docx",
+        size: "1.8 MB",
+        uploadedBy: "Mike Rodriguez",
+        uploadedAt: "2024-01-15"
       }
     ]
   });
+
+  const [resources, setResources] = useState(project.resources);
 
   if (loading) {
     return (
@@ -184,14 +167,7 @@ const ProjectDetail = () => {
     }
   };
 
-  const getTaskStatusColor = (status: string) => {
-    switch (status) {
-      case "completed": return "bg-green-100 text-green-800";
-      case "in-progress": return "bg-blue-100 text-blue-800";
-      case "todo": return "bg-gray-100 text-gray-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -237,9 +213,9 @@ const ProjectDetail = () => {
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
                   <h1 className="font-sora font-bold text-3xl text-gray-900">{project.name}</h1>
-                  <Badge variant="secondary" className="text-sm font-mono">
-                    {project.id}
-                  </Badge>
+                                  <Badge className="text-sm font-mono bg-blue-600 text-white">
+                  {project.id}
+                </Badge>
                 </div>
                 <p className="text-gray-600 text-lg max-w-3xl">{project.description}</p>
                 
@@ -324,11 +300,9 @@ const ProjectDetail = () => {
 
             {/* Main Content Tabs */}
             <Tabs defaultValue="overview" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="tasks">Tasks</TabsTrigger>
-                <TabsTrigger value="team">Team</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
+                <TabsTrigger value="resources">Resources</TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-6">
@@ -390,100 +364,164 @@ const ProjectDetail = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="tasks" className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Project Tasks</h3>
-                  <Button className="bg-tasksmate-gradient">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Task
-                  </Button>
-                </div>
-                
-                <div className="space-y-3">
-                  {project.tasks.map((task) => (
-                    <Card key={task.id} className="glass border-0 shadow-tasksmate">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                            <div>
-                              <p className="font-medium">{task.title}</p>
-                              <p className="text-sm text-gray-600">Assigned to {task.assignee}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Badge className={getTaskStatusColor(task.status)}>
-                              {task.status.replace('-', ' ')}
-                            </Badge>
-                            <span className="text-sm text-gray-600">
-                              {new Date(task.dueDate).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
 
-              <TabsContent value="team" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {project.teamMembers.map((member, index) => (
-                    <Card key={index} className="glass border-0 shadow-tasksmate">
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-4 mb-4">
-                          <Avatar className="w-12 h-12">
-                            <AvatarFallback className="bg-tasksmate-gradient text-white">
-                              {member.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-semibold">{member.name}</p>
-                            <p className="text-sm text-gray-600">{member.role}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Tasks Assigned</span>
-                            <span className="font-medium">
-                              {project.tasks.filter(task => task.assignee === member.initials).length}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Completed</span>
-                            <span className="font-medium">
-                              {project.tasks.filter(task => task.assignee === member.initials && task.status === 'completed').length}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
 
-              <TabsContent value="activity" className="space-y-6">
+              <TabsContent value="resources" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Upload File Section */}
+                  <Card className="glass border-0 shadow-tasksmate">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Upload className="w-5 h-5" />
+                        Upload File
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
+                        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-sm text-gray-600 mb-2">Drag and drop files here, or click to browse</p>
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          id="file-upload"
+                          onChange={(e) => {
+                            // Handle file upload logic here
+                            console.log('Files selected:', e.target.files);
+                          }}
+                        />
+                        <label
+                          htmlFor="file-upload"
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                        >
+                          Choose Files
+                        </label>
+                        <p className="text-xs text-gray-500 mt-2">Support for PDF, DOC, XLS, PNG, JPG files</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Add URL Section */}
+                  <Card className="glass border-0 shadow-tasksmate">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Link className="w-5 h-5" />
+                        Add URL
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                                                 <div>
+                           <label className="block text-sm font-medium text-gray-700 mb-2">URL Name</label>
+                           <Input
+                             type="text"
+                             value={newUrlName}
+                             onChange={(e) => setNewUrlName(e.target.value)}
+                             placeholder="e.g., Design Mockups, API Documentation"
+                           />
+                         </div>
+                         <div>
+                           <label className="block text-sm font-medium text-gray-700 mb-2">URL</label>
+                           <Input
+                             type="url"
+                             value={newUrl}
+                             onChange={(e) => setNewUrl(e.target.value)}
+                             placeholder="https://example.com"
+                           />
+                         </div>
+                        <Button 
+                          className="w-full bg-tasksmate-gradient"
+                                                     onClick={() => {
+                             if (newUrl && newUrlName) {
+                               const newResource = {
+                                 id: `R${Date.now()}`,
+                                 type: 'url' as const,
+                                 name: newUrlName,
+                                 url: newUrl,
+                                 uploadedBy: user?.email || 'Current User',
+                                 uploadedAt: new Date().toISOString().split('T')[0]
+                               };
+                               setResources([...resources, newResource]);
+                               setNewUrl('');
+                               setNewUrlName('');
+                             }
+                           }}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add URL
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Resources List */}
                 <Card className="glass border-0 shadow-tasksmate">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
-                      Recent Activity
+                      <FileText className="w-5 h-5" />
+                      Project Resources
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {project.recentActivity.map((activity) => (
-                        <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            {activity.type === 'task' && <CheckCircle2 className="w-4 h-4 text-blue-600" />}
-                            {activity.type === 'comment' && <MessageSquare className="w-4 h-4 text-blue-600" />}
-                            {activity.type === 'milestone' && <Target className="w-4 h-4 text-blue-600" />}
+                                         <div className="space-y-3">
+                       {resources.map((resource) => (
+                        <div key={resource.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                              {resource.type === 'file' ? (
+                                <File className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <ExternalLink className="w-5 h-5 text-blue-600" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{resource.name}</p>
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <span>Added by {resource.uploadedBy}</span>
+                                <span>•</span>
+                                <span>{new Date(resource.uploadedAt).toLocaleDateString()}</span>
+                                {resource.size && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{resource.size}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{activity.description}</p>
-                            <p className="text-xs text-gray-600">
-                              {activity.user} • {activity.timestamp}
-                            </p>
+                          <div className="flex items-center gap-2">
+                            {resource.type === 'url' ? (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => window.open(resource.url, '_blank')}
+                              >
+                                <ExternalLink className="w-4 h-4 mr-1" />
+                                Open
+                              </Button>
+                            ) : (
+                              <Button variant="outline" size="sm">
+                                <FileText className="w-4 h-4 mr-1" />
+                                Download
+                              </Button>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600">
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       ))}

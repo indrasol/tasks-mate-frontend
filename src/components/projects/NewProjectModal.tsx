@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Target, Users, Tag } from 'lucide-react';
+import { Target, Users, UserCheck } from 'lucide-react';
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -29,15 +29,23 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: '',
-    priority: 'medium',
-    startDate: '',
-    endDate: ''
+    owner: '',
+    teamMembers: [] as string[],
+    priority: 'medium'
   });
+
+  // Mock team members data - in real app this would come from props or API
+  const availableTeamMembers = [
+    { id: '1', name: 'John Doe', username: 'john.doe' },
+    { id: '2', name: 'Jane Smith', username: 'jane.smith' },
+    { id: '3', name: 'Mike Rodriguez', username: 'mike.rodriguez' },
+    { id: '4', name: 'Sarah Kim', username: 'sarah.kim' },
+    { id: '5', name: 'Alex Johnson', username: 'alex.johnson' },
+  ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.description || !formData.startDate || !formData.endDate) {
+    if (!formData.name || !formData.description || !formData.owner) {
       return;
     }
     
@@ -45,17 +53,25 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
     setFormData({
       name: '',
       description: '',
-      category: '',
-      priority: 'medium',
-      startDate: '',
-      endDate: ''
+      owner: '',
+      teamMembers: [],
+      priority: 'medium'
     });
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | string[]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  const handleTeamMemberToggle = (memberId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      teamMembers: prev.teamMembers.includes(memberId)
+        ? prev.teamMembers.filter(id => id !== memberId)
+        : [...prev.teamMembers, memberId]
     }));
   };
 
@@ -96,24 +112,23 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
             />
           </div>
 
-          {/* Category and Priority Row */}
+          {/* Owner and Priority Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-1">
-                <Tag className="w-4 h-4" />
-                Category
+                <UserCheck className="w-4 h-4" />
+                Project Owner *
               </Label>
-              <Select onValueChange={(value) => handleInputChange('category', value)}>
+              <Select onValueChange={(value) => handleInputChange('owner', value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Select project owner" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="development">Development</SelectItem>
-                  <SelectItem value="design">Design</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                  <SelectItem value="research">Research</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="operations">Operations</SelectItem>
+                  {availableTeamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name} (@{member.username})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -136,36 +151,39 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
             </div>
           </div>
 
-          {/* Date Range */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="startDate" className="text-sm font-medium flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                Start Date *
-              </Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => handleInputChange('startDate', e.target.value)}
-                required
-              />
+          {/* Team Members */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-1">
+              <Users className="w-4 h-4" />
+              Team Members
+            </Label>
+            <div className="border rounded-lg p-4 max-h-48 overflow-y-auto">
+              <div className="space-y-2">
+                {availableTeamMembers.map((member) => (
+                  <div key={member.id} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={`member-${member.id}`}
+                      checked={formData.teamMembers.includes(member.id)}
+                      onChange={() => handleTeamMemberToggle(member.id)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <label 
+                      htmlFor={`member-${member.id}`} 
+                      className="text-sm cursor-pointer flex-1"
+                    >
+                      {member.name} (@{member.username})
+                    </label>
+                  </div>
+                ))}
+              </div>
+              {formData.teamMembers.length === 0 && (
+                <p className="text-sm text-gray-500 italic">No team members selected</p>
+              )}
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="endDate" className="text-sm font-medium flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                End Date *
-              </Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => handleInputChange('endDate', e.target.value)}
-                min={formData.startDate}
-                required
-              />
-            </div>
+            <p className="text-xs text-gray-500">
+              Selected: {formData.teamMembers.length} member{formData.teamMembers.length !== 1 ? 's' : ''}
+            </p>
           </div>
 
           {/* Action Buttons */}
@@ -176,7 +194,7 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
             <Button 
               type="submit" 
               className="bg-tasksmate-gradient hover:scale-105 transition-transform"
-              disabled={!formData.name || !formData.description || !formData.startDate || !formData.endDate}
+              disabled={!formData.name || !formData.description || !formData.owner}
             >
               Create Project
             </Button>

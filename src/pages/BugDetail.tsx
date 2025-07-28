@@ -24,6 +24,13 @@ const BugDetail = () => {
   const { id: runId, bugId } = useParams();
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   
+  // Mock project and run data
+  const testRun = {
+    id: runId || 'TR-001',
+    name: 'Sprint 12 Testing',
+    project: 'TasksMate Web'
+  };
+  
   // Mock bug data with proper typing
   const [bug, setBug] = useState({
     id: bugId || 'BUG-001',
@@ -221,7 +228,7 @@ const BugDetail = () => {
                 <Badge className={`${getSeverityColor(bug.severity)} border text-sm font-medium`}>
                   {bug.severity.toUpperCase()}
                 </Badge>
-                <Badge className="bg-red-100 text-red-700 border-red-200 text-sm font-medium">
+                <Badge className="text-sm font-mono bg-red-600 text-white">
                   {bug.id}
                 </Badge>
               </div>
@@ -303,7 +310,7 @@ const BugDetail = () => {
                 <CardTitle className="text-lg flex items-center justify-between">
                   Evidence & Screenshots
                   <div className="flex gap-2">
-                    <Button onClick={handleUploadEvidence} size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
+                    <Button onClick={handleUploadEvidence} size="sm" className="bg-green-500 hover:bg-green-600 text-white">
                       <Upload className="w-4 h-4 mr-2" />
                       Upload
                     </Button>
@@ -460,6 +467,7 @@ const BugDetail = () => {
         onTaskCreated={handleTaskCreated}
         defaultTags={[bug.id]}
         isConvertingFromBug={true}
+        projectName={testRun.project}
       />
     </div>
   );

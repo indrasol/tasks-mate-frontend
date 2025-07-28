@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
 
 interface NewRunModalProps {
   open: boolean;
@@ -17,8 +15,7 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
   const [formData, setFormData] = useState({
     name: '',
     project: '',
-    testedBy: '',
-    assignedTo: [] as string[]
+    creator: ''
   });
 
   // Mock team members data
@@ -29,32 +26,14 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
     { id: '4', name: 'Sarah Wilson' }
   ];
 
-  const handleAssignedToChange = (memberId: string) => {
-    const memberName = teamMembers.find(m => m.id === memberId)?.name || '';
-    if (!formData.assignedTo.includes(memberName)) {
-      setFormData({
-        ...formData,
-        assignedTo: [...formData.assignedTo, memberName]
-      });
-    }
-  };
-
-  const removeAssignedMember = (memberName: string) => {
-    setFormData({
-      ...formData,
-      assignedTo: formData.assignedTo.filter(name => name !== memberName)
-    });
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Creating new test book:', formData);
+    console.log('Creating new tracker:', formData);
     onOpenChange(false);
     setFormData({
       name: '',
       project: '',
-      testedBy: '',
-      assignedTo: []
+      creator: ''
     });
   };
 
@@ -62,17 +41,17 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Test Book</DialogTitle>
+          <DialogTitle>Create New Tracker</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Book Name</Label>
+            <Label htmlFor="name">Tracker Name</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
-              placeholder="Enter book name"
+              placeholder="Enter tracker name"
               required
             />
           </div>
@@ -92,10 +71,10 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="testedBy">Tested By</Label>
-            <Select value={formData.testedBy} onValueChange={(value) => setFormData({...formData, testedBy: value})}>
+            <Label htmlFor="creator">Creator</Label>
+            <Select value={formData.creator} onValueChange={(value) => setFormData({...formData, creator: value})}>
               <SelectTrigger>
-                <SelectValue placeholder="Select tester" />
+                <SelectValue placeholder="Select creator" />
               </SelectTrigger>
               <SelectContent>
                 {teamMembers.map((member) => (
@@ -105,37 +84,6 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="assignedTo">Assign To</Label>
-            <Select onValueChange={handleAssignedToChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select team members" />
-              </SelectTrigger>
-              <SelectContent>
-                {teamMembers
-                  .filter(member => !formData.assignedTo.includes(member.name))
-                  .map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {formData.assignedTo.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {formData.assignedTo.map((memberName) => (
-                  <Badge key={memberName} variant="secondary" className="flex items-center gap-1">
-                    {memberName}
-                    <X 
-                      className="w-3 h-3 cursor-pointer hover:text-red-500" 
-                      onClick={() => removeAssignedMember(memberName)}
-                    />
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="flex gap-3 pt-4">
