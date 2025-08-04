@@ -13,9 +13,12 @@ import {
   Plus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { API_ENDPOINTS } from '../../config';
+import { api } from '@/services/apiService';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import MainNavigation from '@/components/navigation/MainNavigation';
+import { useSearchParams } from 'react-router-dom';
 
 interface TeamMember {
   id: string;
@@ -23,6 +26,7 @@ interface TeamMember {
   display_name?: string;
   avatar_url?: string;
   role: string;
+  designation?: string;
   joined_at: string;
   project_count: number;
 }
@@ -34,14 +38,30 @@ const TeamMembers = () => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
   const [loading, setLoading] = useState(true);
+  const [designationOptions, setDesignationOptions] = useState<string[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const orgId = searchParams.get('org_id');
 
   useEffect(() => {
     if (user) {
       fetchTeamMembers();
     }
   }, [user]);
+
+  // Fetch designations
+  useEffect(() => {
+    const fetchDesignations = async () => {
+      try {
+        const data = await api.get<{ name: string }[]>(API_ENDPOINTS.DESIGNATIONS);
+        setDesignationOptions(data.map(d => d.name));
+      } catch (err) {
+        console.error('Error fetching designations', err);
+      }
+    };
+    fetchDesignations();
+  }, []);
 
   const fetchTeamMembers = async () => {
     try {
@@ -109,6 +129,11 @@ const TeamMembers = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleChangeDesignation = (memberId: string, value: string) => {
+    setTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m, designation: value } : m));
+    // TODO: call backend API to persist designation change
   };
 
   const filteredTeamMembers = teamMembers.filter(member =>
@@ -206,6 +231,7 @@ const TeamMembers = () => {
                     <TableHead>Member</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Designation</TableHead>
                     <TableHead>Projects</TableHead>
                     <TableHead>Joined</TableHead>
                   </TableRow>
@@ -239,6 +265,18 @@ const TeamMembers = () => {
                             <SelectItem value="owner" disabled>Owner</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                             <SelectItem value="member">Member</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.id, val)}>
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {designationOptions.map(opt => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </TableCell>

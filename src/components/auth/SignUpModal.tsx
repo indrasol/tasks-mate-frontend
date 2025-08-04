@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SignUpModalProps {
   open: boolean;
@@ -23,53 +22,29 @@ export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
-  const [organization, setOrganization] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { signUp } = useAuth();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // First create the organization
-      const { data: orgData, error: orgError } = await supabase
-        .from("organizations")
-        .insert({ name: organization })
-        .select()
-        .single();
-
-      if (orgError) throw orgError;
-
-      // Then sign up the user with metadata
-      const { error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            username,
-            organization_id: orgData.id,
-          },
-        },
-      });
-
-      if (authError) throw authError;
+      const msg = await signUp({ email, password, username });
 
       toast({
-        title: "Account created successfully!",
-        description: "Please check your email to verify your account.",
+        title: "Success",
+        description: msg,
       });
 
       onOpenChange(false);
       setEmail("");
       setPassword("");
       setUsername("");
-      setOrganization("");
-      
-      // Navigate to dashboard with the organization ID
-      navigate(`/dashboard?org_id=${orgData.id}`);
+
+      navigate("/");
     } catch (error: any) {
       toast({
         title: "Error creating account",
@@ -91,17 +66,6 @@ export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSignUp} className="space-y-4">
-          <div>
-            <Label htmlFor="organization">Organization Name</Label>
-            <Input
-              id="organization"
-              type="text"
-              value={organization}
-              onChange={(e) => setOrganization(e.target.value)}
-              placeholder="Your Company Name"
-              required
-            />
-          </div>
           <div>
             <Label htmlFor="username">Username</Label>
             <Input
