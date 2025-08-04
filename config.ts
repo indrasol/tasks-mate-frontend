@@ -12,6 +12,7 @@ const API_BASE_URL = API_BASE_URL_PROD
 export const API_ENDPOINTS = {
   ORGANIZATIONS: `${API_BASE_URL}/organizations`,
   ORGANIZATION_INVITES: `${API_BASE_URL}/organization-invites`,
+  ORGANIZATION_MEMBERS: `${API_BASE_URL}/organization-members`,
   PROJECTS: `${API_BASE_URL}/projects`,
   PROJECT_STATS: `${API_BASE_URL}/projects-stats`,
   PROJECTS_MEMBERS: `${API_BASE_URL}/projects-members`,

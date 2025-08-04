@@ -7,9 +7,9 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { 
-  Users, 
-  Search, 
+import {
+  Users,
+  Search,
   Plus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { useSearchParams } from 'react-router-dom';
+import { BackendOrgMember, OrgMember } from '@/types/organization';
 
 interface TeamMember {
   id: string;
@@ -32,11 +33,12 @@ interface TeamMember {
 }
 
 const TeamMembers = () => {
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamMembers, setTeamMembers] = useState<OrgMember[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
+  const [updating, setUpdating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [designationOptions, setDesignationOptions] = useState<string[]>([]);
   const { toast } = useToast();
@@ -64,70 +66,125 @@ const TeamMembers = () => {
   }, []);
 
   const fetchTeamMembers = async () => {
+    setLoading(true);
     try {
       // This would need to be implemented based on current organization
+      const data = await api.get<BackendOrgMember[]>(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${orgId}`);
+
+      const formattedOrgs: OrgMember[] = (data || []).map((org) => {
+        const formattedOrg: OrgMember = {
+          
+          id: org.id,
+          email: org.user_id,
+          role: org.role,
+          joined_at: org.accepted_at || '',
+          // project_count: org.project_count  || 0, // Default to 0 if not provided
+          designation: org.designation || undefined, // Keep as undefined if not provided
+        };
+
+        // Log each formatted org for debugging
+        console.log(`Formatted org ${org.org_id}:`, formattedOrg);
+        return formattedOrg;
+      });
+
+      setTeamMembers(formattedOrgs);
+
+
       // For now, showing mock data
-      setTeamMembers([
-        {
-          id: '1',
-          username: 'john.doe',
-          display_name: 'John Doe',
-          role: 'owner',
-          joined_at: '2024-01-15',
-          project_count: 5
-        },
-        {
-          id: '2', 
-          username: 'jane.smith',
-          display_name: 'Jane Smith',
-          role: 'admin',
-          joined_at: '2024-02-01',
-          project_count: 3
-        },
-        {
-          id: '3',
-          username: 'mike.rodriguez',
-          display_name: 'Mike Rodriguez',
-          role: 'member',
-          joined_at: '2024-03-10',
-          project_count: 2
-        },
-        {
-          id: '4',
-          username: 'sarah.kim',
-          display_name: 'Sarah Kim',
-          role: 'admin',
-          joined_at: '2024-02-20',
-          project_count: 4
-        }
-      ]);
+      // setTeamMembers([
+      //   {
+      //     id: '1',
+      //     username: 'john.doe',
+      //     display_name: 'John Doe',
+      //     role: 'owner',
+      //     joined_at: '2024-01-15',
+      //     project_count: 5
+      //   },
+      //   {
+      //     id: '2',
+      //     username: 'jane.smith',
+      //     display_name: 'Jane Smith',
+      //     role: 'admin',
+      //     joined_at: '2024-02-01',
+      //     project_count: 3
+      //   },
+      //   {
+      //     id: '3',
+      //     username: 'mike.rodriguez',
+      //     display_name: 'Mike Rodriguez',
+      //     role: 'member',
+      //     joined_at: '2024-03-10',
+      //     project_count: 2
+      //   },
+      //   {
+      //     id: '4',
+      //     username: 'sarah.kim',
+      //     display_name: 'Sarah Kim',
+      //     role: 'admin',
+      //     joined_at: '2024-02-20',
+      //     project_count: 4
+      //   }
+      // ]);
     } catch (error) {
       console.error('Error fetching team members:', error);
     } finally {
       setLoading(false);
+      setTeamMembers([]);
     }
   };
 
   const handleInviteTeamMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!inviteEmail) return;
+    if (!inviteEmail.trim() || !inviteRole.trim()) return;
+
+    setUpdating(true);
+
     try {
+      const payload = {
+        org_id: orgId,
+        email: inviteEmail.trim(),
+        role: inviteRole.trim(),
+        // designations: selectedDesignation ?? undefined,
+      };
+
+      const data = await api.post(API_ENDPOINTS.ORGANIZATION_INVITES, payload);
+
+      // Add the newly created organization member directly to state to avoid a full refetch
+      // const newOrg: Organization = {
+      //   org_id: data.org_id,
+      //   name: data.name,
+      //   description: data.description,
+      //   role: data.role,
+      //   designation: data.designation, // Keep as received from backend
+      //   project_count: data.project_count ?? 0,
+      //   member_count: data.member_count ?? 1,  // Default to 1 (the creator) if not provided
+      //   created_by: data.created_by,
+      //   created_at: data.created_at
+      // };
+
+      // setOrganizations(prev => [newOrg, ...prev]);
+
+      fetchTeamMembers(); // Refresh team members list
+
       // This would need organization context
       toast({
         title: "Success",
         description: "Invitation sent successfully"
       });
-      
       setIsInviteModalOpen(false);
       setInviteEmail('');
       setInviteRole('member');
     } catch (error) {
       console.error('Error sending invitation:', error);
       toast({
-        title: "Error", 
+        title: "Error",
         description: "Failed to send invitation",
         variant: "destructive"
       });
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -136,9 +193,15 @@ const TeamMembers = () => {
     // TODO: call backend API to persist designation change
   };
 
+  const handleRemoveTeamMember = (memberId: string) => {
+    // setTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m } : m));
+    // TODO: call backend API to persist designation change
+  };
+
   const filteredTeamMembers = teamMembers.filter(member =>
-    member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    member.username.toLowerCase().includes(searchQuery.toLowerCase())
+    member
+    // member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    // member.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (loading) {
@@ -155,7 +218,7 @@ const TeamMembers = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <MainNavigation />
-      
+
       <div className="flex-1 ml-64">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <div className="mb-8">
@@ -228,18 +291,19 @@ const TeamMembers = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Member</TableHead>
+                    {/* <TableHead>Member</TableHead> */}
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Designation</TableHead>
                     <TableHead>Projects</TableHead>
                     <TableHead>Joined</TableHead>
+                    <TableHead>Remove</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTeamMembers.map((member) => (
                     <TableRow key={member.id}>
-                      <TableCell>
+                      {/* <TableCell>
                         <div className="flex items-center space-x-3">
                           <Avatar>
                             <AvatarImage src={member.avatar_url} />
@@ -252,9 +316,9 @@ const TeamMembers = () => {
                             <div className="text-sm text-gray-500">@{member.username}</div>
                           </div>
                         </div>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell className="text-gray-600">
-                        {member.username}@example.com
+                        {member.email}
                       </TableCell>
                       <TableCell>
                         <Select defaultValue={member.role} disabled={member.role === 'owner'}>
@@ -282,12 +346,100 @@ const TeamMembers = () => {
                       </TableCell>
                       <TableCell>{member.project_count}</TableCell>
                       <TableCell>{new Date(member.joined_at).toLocaleDateString()}</TableCell>
+                      <TableCell>{member.role !== 'owner' && <Button onClick={() => handleRemoveTeamMember(member.id)}>Remove</Button>}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Pending Invitations ({filteredTeamMembers.length})
+                </CardTitle>
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      placeholder="Filter by name/email..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 w-64"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {/* <TableHead>Member</TableHead> */}
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Designation</TableHead>
+                    <TableHead>Invited</TableHead>
+                    <TableHead>Cancel</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTeamMembers.map((member) => (
+                    <TableRow key={member.id}>
+                      {/* <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <Avatar>
+                            <AvatarImage src={member.avatar_url} />
+                            <AvatarFallback>
+                              {member.display_name?.charAt(0) || member.username.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{member.display_name || member.username}</div>
+                            <div className="text-sm text-gray-500">@{member.username}</div>
+                          </div>
+                        </div>
+                      </TableCell> */}
+                      <TableCell className="text-gray-600">
+                        {member.email}
+                      </TableCell>
+                      <TableCell>
+                        <Select defaultValue={member.role} disabled={member.role === 'owner'}>
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="owner" disabled>Owner</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="member">Member</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.id, val)}>
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {designationOptions.map(opt => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>{member.project_count}</TableCell>
+                      <TableCell>{new Date(member.joined_at).toLocaleDateString()}</TableCell>
+                      <TableCell>{<Button onClick={() => handleRemoveTeamMember(member.id)}>Remove</Button>}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
         </div>
       </div>
     </div>

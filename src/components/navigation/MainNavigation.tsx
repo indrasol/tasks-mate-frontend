@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Plus, 
-  Settings, 
-  User, 
+import {
+  Plus,
+  Settings,
+  User,
   LogOut,
   Calendar,
   ClipboardList,
@@ -34,6 +34,10 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+import { api } from '@/services/apiService';
+import { API_ENDPOINTS } from '@/../config';
+import { BackendOrg, Organization } from '@/types/organization';
+
 interface MainNavigationProps {
   onNewTask?: () => void;
   onNewMeeting?: () => void;
@@ -46,7 +50,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const { user, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentOrgName, setCurrentOrgName] = useState<string>('');
-  const [userOrganizations, setUserOrganizations] = useState<Array<{id: string, name: string}>>([]);
+  const [userOrganizations, setUserOrganizations] = useState<Array<{ id: string, name: string }>>([]);
 
   // Get org_id from URL params
   const urlParams = new URLSearchParams(location.search);
@@ -55,51 +59,40 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   useEffect(() => {
     const fetchOrganizationData = async () => {
       if (user) {
-        try {
-          // Fetch user's organizations
-          const { data: orgData, error: orgError } = await supabase
-            .from('user_organizations')
-            .select(`
-              organization_id,
-              organizations (
-                id,
-                name
-              )
-            `)
-            .eq('user_id', user.id);
 
-          if (orgError) {
-            console.error('Error fetching user organizations:', orgError);
-          } else {
-            const orgs = orgData
-              ?.filter(item => item.organizations) // Filter out any null organizations
-              ?.map(item => ({
-                id: item.organizations.id,
-                name: item.organizations.name
-              })) || [];
-            setUserOrganizations(orgs);
-          }
+        try {         
 
-          // Fetch current organization name if orgId exists
+          const data = await api.get<BackendOrg[]>(API_ENDPOINTS.ORGANIZATIONS);
+          console.log('Raw data from backend:', data);
+
+          const formattedOrgs: any[] = (data || []).map((org) => {
+            const formattedOrg = {
+              id: org.org_id, // Ensure org_id is always preserved
+              name: org.name,
+            };
+            return formattedOrg;
+          });
+
+          console.log('Formatted organizations:', formattedOrgs);
+          setUserOrganizations(formattedOrgs);
+
+          // If orgId is provided, filter the organizations to find the current one
           if (orgId) {
-            const { data, error } = await supabase
-              .from('organizations')
-              .select('name')
-              .eq('id', orgId)
-              .single();
-
-            if (error) {
-              console.error('Error fetching organization name:', error);
-              return;
+            const currentOrg = formattedOrgs.find(org => org.id === orgId);
+            if (currentOrg) {
+              setCurrentOrgName(currentOrg.name);
+            } else {
+              setCurrentOrgName('');
             }
-
-            setCurrentOrgName(data.name);
           } else {
             setCurrentOrgName('');
           }
+
         } catch (error) {
-          console.error('Error fetching organization data:', error);
-        }
+          console.error('Error fetching organizations:', error);          
+        } finally {
+          
+        }        
       } else {
         setCurrentOrgName('');
         setUserOrganizations([]);
@@ -121,27 +114,27 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   };
 
   const navigationItems = [
-    { 
-      name: 'Members', 
-      path: orgId ? `/team-members?org_id=${orgId}` : '/team-members', 
+    {
+      name: 'Members',
+      path: orgId ? `/team-members?org_id=${orgId}` : '/team-members',
       icon: Users,
       isActive: location.pathname.startsWith('/team-members')
     },
-    { 
-      name: 'Dashboard', 
-      path: orgId ? `/dashboard?org_id=${orgId}` : '/dashboard', 
+    {
+      name: 'Dashboard',
+      path: orgId ? `/dashboard?org_id=${orgId}` : '/dashboard',
       icon: Home,
       isActive: location.pathname === '/dashboard'
     },
-    { 
-      name: 'Projects', 
-      path: orgId ? `/projects?org_id=${orgId}` : '/projects', 
+    {
+      name: 'Projects',
+      path: orgId ? `/projects?org_id=${orgId}` : '/projects',
       icon: Building2,
       isActive: location.pathname.startsWith('/projects')
     },
-    { 
-      name: 'Tasks', 
-      path: orgId ? `/tasks_catalog?org_id=${orgId}` : '/tasks_catalog', 
+    {
+      name: 'Tasks',
+      path: orgId ? `/tasks_catalog?org_id=${orgId}` : '/tasks_catalog',
       icon: ClipboardList,
       isActive: location.pathname.startsWith('/tasks')
     },
@@ -151,21 +144,21 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     //   icon: Calendar,
     //   isActive: location.pathname.startsWith('/meetings')
     // },
-    { 
-      name: 'Bug Tracker', 
-      path: orgId ? `/tester-zone?org_id=${orgId}` : '/tester-zone', 
+    {
+      name: 'Bug Tracker',
+      path: orgId ? `/tester-zone?org_id=${orgId}` : '/tester-zone',
       icon: Bug,
       isActive: location.pathname.startsWith('/tester-zone')
     },
-    { 
-      name: 'Scratchpad', 
-      path: orgId ? `/scratchpad?org_id=${orgId}` : '/scratchpad', 
+    {
+      name: 'Scratchpad',
+      path: orgId ? `/scratchpad?org_id=${orgId}` : '/scratchpad',
       icon: Edit3,
       isActive: location.pathname.startsWith('/scratchpad')
     },
-    { 
-      name: 'Settings', 
-      path: orgId ? `/settings?org_id=${orgId}` : '/settings', 
+    {
+      name: 'Settings',
+      path: orgId ? `/settings?org_id=${orgId}` : '/settings',
       icon: Settings,
       isActive: location.pathname.startsWith('/settings')
     }
@@ -184,8 +177,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
               <span className="font-sora font-bold text-xl text-gray-900">TasksMate</span>
             </Link>
           )}
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="hover:bg-gray-100"
@@ -199,8 +192,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
           <div className="px-3 py-2 border-b border-gray-100">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center space-x-2 min-w-0">
@@ -220,17 +213,17 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                   <MapPin className="w-4 h-4 mr-2" />
                   {currentOrgName}
                 </DropdownMenuItem>
-                
+
                 <DropdownMenuSeparator />
-                
-                <DropdownMenuItem 
+
+                <DropdownMenuItem
                   onClick={() => navigate('/org')}
                   className="cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Organizations
                 </DropdownMenuItem>
-                
+
                 {userOrganizations.length > 1 && (
                   <>
                     <DropdownMenuSeparator />
@@ -240,7 +233,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                     {userOrganizations
                       .filter(org => org.id !== orgId)
                       .map((org) => (
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           key={org.id}
                           onClick={() => handleOrganizationSwitch(org.id)}
                           className="cursor-pointer"
@@ -266,11 +259,10 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    item.isActive
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${item.isActive
                       ? 'bg-green-50 text-green-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                    }`}
                   title={isCollapsed ? item.name : undefined}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
@@ -287,8 +279,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
           <div className="flex items-center justify-between">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
                 >
                   <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
