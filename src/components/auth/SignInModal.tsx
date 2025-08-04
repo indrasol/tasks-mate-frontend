@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 interface SignInModalProps {
   open: boolean;
@@ -19,22 +19,19 @@ interface SignInModalProps {
 }
 
 export function SignInModal({ open, onOpenChange }: SignInModalProps) {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
 
   const handleEmailPasswordSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
+      await signIn(identifier, password);
 
       toast({
         title: "Welcome back!",
@@ -42,6 +39,7 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
       });
 
       onOpenChange(false);
+      navigate("/org");
     } catch (error: any) {
       toast({
         title: "Sign in failed",
@@ -54,32 +52,35 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
   };
 
   const resetForm = () => {
-    setEmail("");
+    setIdentifier("");
     setPassword("");
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => {
-      onOpenChange(open);
-      if (!open) resetForm();
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) resetForm();
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Sign in to TasksMate</DialogTitle>
           <DialogDescription>
-            Enter your email and password to sign in
+            Enter your email or username and password to sign in
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleEmailPasswordSignIn} className="space-y-4">
           <div>
-            <Label htmlFor="signin-email">Email</Label>
+            <Label htmlFor="signin-identifier">Email or Username</Label>
             <Input
-              id="signin-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              id="signin-identifier"
+              type="text"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="Enter your email or username"
               required
             />
           </div>

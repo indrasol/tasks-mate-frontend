@@ -28,6 +28,7 @@ import BugBoard from "./pages/BugBoard";
 import BugDetail from "./pages/BugDetail";
 import SalesMarketing from "./pages/SalesMarketing";
 import NotFound from "./pages/NotFound";
+import PrivateRoute from "@/components/route/PrivateRoute";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +41,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/org" element={<Organizations />} />
+            <Route path="/org" element={<PrivateRoute><Organizations /></PrivateRoute>} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/team-members" element={<TeamMembers />} />
             <Route path="/settings" element={<Settings />} />

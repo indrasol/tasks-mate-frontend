@@ -1,32 +1,113 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Search, Plus, Users } from 'lucide-react';
+import { Building2, Search, Plus, Users, UserCheck, Info, User, LayoutGrid, List, Check, ChevronsUpDown, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/services/apiService';
+import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '@/hooks/useAuth';
 
 interface Organization {
-  id: string;
   name: string;
-  plan: string;
-  billing_email?: string;
   project_count: number;
+  member_count: number;
+  description: string;
+  designation: string;
+  role: string;
+  org_id: string; // Organization ID is required
+  created_by: string; // Username of creator
+  created_at?: string; // Creation date as ISO string
 }
+
+interface OrganizationInvitation {
+  invitation_id: string;
+  org_id: string;
+  org_name: string;
+  role: string;
+  invited_by: string;
+  invited_at: string;
+  email: string;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
+// Helper functions for badge colors
+// Helper function to capitalize first letter of each word
+const capitalizeWords = (text: string | null | undefined): string => {
+  if (!text) return 'No designation';
+  
+  return text
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const getRoleBadgeColor = (): string => {
+  return 'bg-blue-500 hover:bg-blue-600';
+};
+
+const getDesignationBadgeColor = (): string => {
+  return 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-400 group-hover:bg-violet-100 dark:group-hover:bg-violet-900/50';
+};
+
+const getOrgIdBadgeColor = (): string => {
+  return 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/50';
+};
+
+const getCreatorBadgeColor = (): string => {
+  return 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400 group-hover:bg-amber-100 dark:group-hover:bg-amber-900/50';
+};
+
+const getCreatedAtBadgeColor = (): string => {
+  return 'border-cyan-200 bg-cyan-50 text-cyan-800 dark:border-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400 group-hover:bg-cyan-100 dark:group-hover:bg-cyan-900/50';
+};
+
+// Helper function to format date
+const formatDate = (dateString?: string): string => {
+  if (!dateString) return 'Unknown date';
+  
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric'
+    });
+  } catch (e) {
+    return 'Invalid date';
+  }
+};
 
 const Organizations = () => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [invitations, setInvitations] = useState<OrganizationInvitation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingInvitations, setLoadingInvitations] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
-  const [newOrgBillingEmail, setNewOrgBillingEmail] = useState('');
+  const [newOrgDescription, setNewOrgDescription] = useState('');
   const [creating, setCreating] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  // Edit organization state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editOrg, setEditOrg] = useState<Organization | null>(null);
+  const [editOrgName, setEditOrgName] = useState('');
+  const [editOrgDescription, setEditOrgDescription] = useState('');
+  const [updating, setUpdating] = useState(false);
+  const [sortBy, setSortBy] = useState<'name' | 'newest' | 'oldest' | 'projects'>('name');
+  // Designation related state
+  const [designationOptions, setDesignationOptions] = useState<string[]>([]);
+  const [selectedDesignation, setSelectedDesignation] = useState<string | null>('director');
+  const [newDesignationInput, setNewDesignationInput] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -34,139 +115,325 @@ const Organizations = () => {
   useEffect(() => {
     if (user) {
       fetchOrganizations();
+      fetchInvitations();
     }
   }, [user]);
 
+  // Fetch global designations once on mount
+  useEffect(() => {
+    fetchDesignations();
+  }, []);
+
+  // Also fetch (or refresh) when create modal opens
+  useEffect(() => {
+    if (isCreateModalOpen && designationOptions.length === 0) {
+      fetchDesignations();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreateModalOpen]);
+
+  const fetchDesignations = async () => {
+    try {
+      const data = await api.get<{ name: string }[]>(API_ENDPOINTS.DESIGNATIONS);
+      let names = (data || []).map((d) => d.name);
+      if (!names.includes('director')) {
+        names = [...names, 'director'];
+      }
+      setDesignationOptions(names);
+      if (!selectedDesignation) {
+        setSelectedDesignation('director');
+      }
+    } catch (err) {
+      console.error('Error fetching designations', err);
+    }
+  };
+  
+  const fetchInvitations = async () => {
+    try {
+      setLoadingInvitations(true);
+      console.log('Fetching organization invitations');
+      
+      // Fetch pending invitations for the current user's email
+      const data = await api.get<OrganizationInvitation[]>(`${API_ENDPOINTS.ORGANIZATIONS}/invites/pending`);
+      console.log('Raw invitation data:', data);
+      
+      setInvitations(data || []);
+    } catch (error) {
+      console.error('Error fetching invitations:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load organization invitations',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingInvitations(false);
+    }
+  };
+
   const fetchOrganizations = async () => {
     try {
-      console.log('Fetching organizations for user:', user?.id);
-      
-      // Get organizations through user_organizations junction table
-      const { data: userOrgs, error: userOrgsError } = await supabase
-        .from('user_organizations')
-        .select(`
-          organization_id,
-          role,
-          organizations (
-            id,
-            name,
-            plan,
-            billing_email
-          )
-        `)
-        .eq('user_id', user?.id);
+      setLoading(true);
+      console.log('Fetching organizations via API');
 
-      if (userOrgsError) {
-        console.error('Error fetching user organizations:', userOrgsError);
-        throw userOrgsError;
-      }
+      type BackendOrg = {
+        org_id: string;
+        name: string;
+        plan?: string;
+        billing_email?: string;
+        project_count?: number;
+        member_count?: number;
+        description?: string;
+        designation?: string;
+        role?: string;
+        created_by?: string;
+        created_at?: string;
+      };
 
-      console.log('User organizations data:', userOrgs);
+      const data = await api.get<BackendOrg[]>(API_ENDPOINTS.ORGANIZATIONS);
+      console.log('Raw data from backend:', data);
 
-      if (!userOrgs || userOrgs.length === 0) {
-        console.log('No organizations found for user');
-        setOrganizations([]);
-        setLoading(false);
-        return;
-      }
-
-      // Get project counts for each organization
-      const orgIds = userOrgs.map(uo => uo.organization_id);
-      const { data: projectCounts, error: projectError } = await supabase
-        .from('projects')
-        .select('organization_id')
-        .in('organization_id', orgIds);
-
-      if (projectError) {
-        console.error('Error fetching project counts:', projectError);
-      }
-
-      // Count projects per organization
-      const projectCountMap = (projectCounts || []).reduce((acc, project) => {
-        acc[project.organization_id] = (acc[project.organization_id] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      // Format organizations data
-      const formattedOrgs = userOrgs
-        .filter(uo => uo.organizations) // Filter out any null organizations
-        .map(uo => ({
-          id: uo.organizations.id,
-          name: uo.organizations.name,
-          plan: uo.organizations.plan,
-          billing_email: uo.organizations.billing_email,
-          project_count: projectCountMap[uo.organization_id] || 0
-        }));
+      const formattedOrgs: Organization[] = (data || []).map((org) => {
+        const formattedOrg = {
+          org_id: org.org_id, // Ensure org_id is always preserved
+          name: org.name,
+          project_count: org.project_count ?? 0,
+          member_count: org.member_count ?? 0,
+          description: org.description ?? 'No description provided',
+          designation: org.designation, // Keep as is from the backend
+          role: org.role || 'member', // Only fallback if actually null/undefined
+          created_by: org.created_by,
+          created_at: org.created_at,
+        };
+        
+        // Log each formatted org for debugging
+        console.log(`Formatted org ${org.org_id}:`, formattedOrg);
+        return formattedOrg;
+      });
 
       console.log('Formatted organizations:', formattedOrgs);
       setOrganizations(formattedOrgs);
     } catch (error) {
       console.error('Error fetching organizations:', error);
       toast({
-        title: "Error",
-        description: "Failed to load organizations",
-        variant: "destructive"
+        title: 'Error',
+        description: (error as Error).message || 'Failed to load organizations',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
   };
 
+// Create Org
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newOrgName.trim()) return;
-
+    if (!newOrgName.trim() || !newOrgDescription.trim()) return;
+    
+    // Clear any previous errors
+    setNameError(null);
     setCreating(true);
     try {
-      console.log('Creating organization:', newOrgName);
-      
-      const { data, error } = await supabase
-        .from('organizations')
-        .insert({
-          name: newOrgName.trim(),
-          billing_email: newOrgBillingEmail.trim() || null
-        })
-        .select()
-        .single();
+      console.log('Creating organization via API:', newOrgName);
 
-      if (error) {
-        console.error('Error creating organization:', error);
-        throw error;
-      }
+      type BackendOrgResp = {
+        org_id: string;
+        name: string;
+        description: string;
+        role: string;
+        designation?: string;
+        project_count?: number;
+        member_count?: number;
+        created_by?: string;
+        created_at?: string;
+      };
 
-      console.log('Organization created:', data);
+      const payload = {
+        name: newOrgName.trim(),
+        description: newOrgDescription.trim() || undefined,
+        designation: selectedDesignation ?? undefined,
+      };
+      console.log('Payload:', payload);
+      const data = await api.post<BackendOrgResp>(API_ENDPOINTS.ORGANIZATIONS, payload);
+
+      // Log the received data from backend to verify
+      console.log('Created organization data from backend:', data);
+
+      // Add the newly created organization directly to state to avoid a full refetch
+      const newOrg: Organization = {
+        org_id: data.org_id,
+        name: data.name,
+        description: data.description,
+        role: data.role,
+        designation: data.designation, // Keep as received from backend
+        project_count: data.project_count ?? 0,
+        member_count: data.member_count ?? 1,  // Default to 1 (the creator) if not provided
+        created_by: data.created_by,
+        created_at: data.created_at
+      };
+
+      setOrganizations(prev => [newOrg, ...prev]);
 
       toast({
-        title: "Success",
-        description: "Organization created successfully"
+        title: 'Success',
+        description: 'Organization created successfully',
       });
 
       setIsCreateModalOpen(false);
       setNewOrgName('');
-      setNewOrgBillingEmail('');
-      
-      // Navigate to dashboard with new org_id
-      navigate(`/?org_id=${data.id}`);
+      setNewOrgDescription('');
+      setSelectedDesignation(null);
+      // Optionally, navigate to the dashboard of the new org
+      // navigate(`/dashboard?org_id=${data.org_id}`);
     } catch (error) {
       console.error('Error creating organization:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create organization",
-        variant: "destructive"
-      });
+      
+      // Check if it's an organization name already exists error (HTTP 409)
+      const err = error as any;
+      if (err.statusCode === 409 || (err.message && err.message.includes('already exists'))) {
+        // Set the name error to display in the form
+        setNameError('This organization name is already taken. Please choose a different name.');
+        toast({
+          title: 'Organization Name Already Exists',
+          description: 'An organization with this name already exists. Please choose a different name.',
+          variant: 'destructive',
+        });
+      } else {
+        // Generic error handling
+        toast({
+          title: 'Error',
+          description: (error as Error).message || 'Failed to create organization',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setCreating(false);
     }
   };
 
-  const handleOrgCardClick = (orgId: string) => {
-    // Navigate to the dashboard with the organization ID
-    navigate(`/dashboard?org_id=${orgId}`);
+  // ---------------- Edit Organization ----------------
+  const openEditModal = (org: Organization) => {
+    setEditOrg(org);
+    setEditOrgName(org.name);
+    setEditOrgDescription(org.description);
+    setSelectedDesignation(org.designation ?? null);
+    setIsEditModalOpen(true);
   };
 
-  const filteredOrganizations = organizations.filter(org =>
-    org.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleUpdateOrganization = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editOrg) return;
+    if (!editOrgName.trim() || !editOrgDescription.trim()) return;
+
+    setUpdating(true);
+    try {
+      const payload = {
+        name: editOrgName.trim(),
+        description: editOrgDescription.trim(),
+        designation: selectedDesignation ?? undefined,
+      };
+      await api.put(`${API_ENDPOINTS.ORGANIZATIONS}/${editOrg.org_id}`, payload);
+      // Update local state
+      setOrganizations(prev => prev.map(o => o.org_id === editOrg.org_id ? { ...o, ...payload } : o));
+      toast({ title: 'Success', description: 'Organization updated successfully' });
+      setIsEditModalOpen(false);
+      setEditOrg(null);
+    } catch (error) {
+      console.error('Error updating organization:', error);
+      toast({ title: 'Error', description: (error as Error).message || 'Failed to update organization', variant: 'destructive' });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // ---------------- Delete Organization ----------------
+  const handleDeleteOrganization = async (org: Organization) => {
+    const confirmDelete = window.confirm(`Are you sure you want to delete organization '${org.name}'? This action cannot be undone.`);
+    if (!confirmDelete) return;
+    try {
+      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${org.org_id}`);
+      toast({ title: 'Deleted', description: 'Organization deleted successfully' });
+      setOrganizations(prev => prev.filter(o => o.org_id !== org.org_id));
+    } catch (error) {
+      console.error('Error deleting organization:', error);
+      toast({ title: 'Error', description: (error as Error).message || 'Failed to delete organization', variant: 'destructive' });
+    }
+  };
+
+  const handleOrgCardClick = (orgId: string) => {
+    // Navigate to the team members page with the organization ID
+    navigate(`/team-members?org_id=${orgId}`);
+  };
+  
+  const handleAcceptInvite = async (invitationId: string) => {
+    try {
+      await api.post(`${API_ENDPOINTS.ORGANIZATIONS}/invites/${invitationId}/accept`, {});
+      toast({
+        title: 'Invitation Accepted',
+        description: 'You have joined the organization.',
+      });
+      // Refresh both organizations and invitations
+      fetchOrganizations();
+      fetchInvitations();
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to accept the invitation',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  const handleRejectInvite = async (invitationId: string) => {
+    try {
+      await api.post(`${API_ENDPOINTS.ORGANIZATIONS}/invites/${invitationId}/reject`, {});
+      toast({
+        title: 'Invitation Rejected',
+        description: 'The organization invitation has been declined.',
+      });
+      // Just refresh invitations as we're not joining the org
+      fetchInvitations();
+    } catch (error) {
+      console.error('Error rejecting invitation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to reject the invitation',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Filter by search query - search across all fields
+  const filteredOrganizations = organizations
+    .filter(org => {
+      const query = searchQuery.toLowerCase();
+      return (
+        org.name.toLowerCase().includes(query) ||
+        org.description.toLowerCase().includes(query) ||
+        org.role.toLowerCase().includes(query) ||
+        org.designation?.toLowerCase().includes(query) ||
+        org.org_id.toLowerCase().includes(query) ||
+        `${org.project_count}`.includes(query) || // Search in project count as string
+        `${org.member_count}`.includes(query) || // Search in member count as string
+        org.created_by?.toLowerCase().includes(query) || // Search by creator
+        (org.created_at && new Date(org.created_at).toLocaleDateString().includes(query)) // Search by date
+      );
+    })
+    // Apply sorting
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'newest':
+          return 0; // Would need created_at field to implement
+        case 'oldest':
+          return 0; // Would need created_at field to implement
+        case 'projects':
+          return b.project_count - a.project_count;
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
 
   if (loading) {
     return (
@@ -180,71 +447,244 @@ const Organizations = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Your Organizations</h1>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search for an organization"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                />
+    <div className="min-h-screen w-full bg-gray-50">
+      {/* Organization Invitations Panel - Only shown when there are pending invitations */}
+      {invitations.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-3 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-screen-lg mx-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-blue-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail">
+                  <rect width="20" height="16" x="2" y="4" rx="2"/>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                </svg>
+                <h3 className="text-sm font-medium">Organization Invitations</h3>
               </div>
-              <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-green-500 hover:bg-green-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Organization
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create Organization</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleCreateOrganization} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="orgName">Organization Name *</Label>
-                      <Input
-                        id="orgName"
-                        value={newOrgName}
-                        onChange={(e) => setNewOrgName(e.target.value)}
-                        placeholder="Enter organization name"
-                        required
-                      />
+              <div className="text-xs text-blue-600">
+                {invitations.length} pending invitation{invitations.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+            
+            <div className="mt-2 space-y-2">
+              {invitations.map(invite => (
+                <div key={invite.invitation_id} className="bg-white rounded-md border border-blue-100 shadow-sm p-3 flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-800">{invite.org_name} invitation</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Invited by {invite.invited_by} on {formatDate(invite.invited_at)} • Role: {capitalizeWords(invite.role)}
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="billingEmail">Billing Email (optional)</Label>
-                      <Input
-                        id="billingEmail"
-                        type="email"
-                        value={newOrgBillingEmail}
-                        onChange={(e) => setNewOrgBillingEmail(e.target.value)}
-                        placeholder="billing@example.com"
-                      />
-                    </div>
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-green-500 hover:bg-green-600"
-                      disabled={creating}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleAcceptInvite(invite.invitation_id)}
+                      className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                     >
-                      {creating ? 'Creating...' : 'Create & Enter'}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check">
+                        <path d="M20 6 9 17l-5-5"/>
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleRejectInvite(invite.invitation_id)}
+                      className="p-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x">
+                        <path d="M18 6 6 18"/>
+                        <path d="m6 6 12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 w-full">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-7 h-7 rounded-full bg-tasksmate-gradient flex items-center justify-center">
+                  <Check className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex items-baseline space-x-2">
+                  <span className="font-sora font-bold text-2xl">TasksMate</span>
+                  <a 
+                    href="https://indrasol.com/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    by Indrasol
+                  </a>
+                </div>
+              </div>
+              <div className="h-6 w-px bg-gray-300 mx-2"></div>
+              <h1 className="text-2xl font-bold text-gray-900">Your Organizations</h1>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Search, filters and tools bar - Modern floating style */}
+      <div className="relative z-10 mt-4 bg-transparent">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="bg-transparent backdrop-blur-md rounded-lg p-3">
+            <div className="flex flex-wrap justify-between items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search by name, ID, role, description..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 w-52 md:w-64 bg-transparent border-gray-200/50"
+                  />
+                </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 bg-transparent border-gray-200/50">
+                      <span>Sort by</span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
                     </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-md border-gray-100">
+                    <DropdownMenuItem onClick={() => setSortBy('name')} className="cursor-pointer">
+                      {sortBy === 'name' && <Check className="mr-2 h-4 w-4" />} Name
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('newest')} className="cursor-pointer">
+                      {sortBy === 'newest' && <Check className="mr-2 h-4 w-4" />} Newest first
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('oldest')} className="cursor-pointer">
+                      {sortBy === 'oldest' && <Check className="mr-2 h-4 w-4" />} Oldest first
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('projects')} className="cursor-pointer">
+                      {sortBy === 'projects' && <Check className="mr-2 h-4 w-4" />} Most projects
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="bg-transparent border border-gray-200/50 rounded-lg overflow-hidden p-1">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={`h-8 ${viewMode === 'grid' ? 'bg-green-50 text-green-600' : ''} rounded-md`}
+                    onClick={() => setViewMode('grid')}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={`h-8 ${viewMode === 'list' ? 'bg-green-50 text-green-600' : ''} rounded-md`}
+                    onClick={() => setViewMode('list')}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-green-500 hover:bg-green-600">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Organization
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <div className="flex items-center gap-2">
+                        <DialogTitle>Create Organization</DialogTitle>
+                        <Badge className="bg-blue-500 text-white ml-2">Owner</Badge>
+                      </div>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateOrganization} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="orgName">Organization Name *</Label>
+                        <Input
+                          id="orgName"
+                          value={newOrgName}
+                          onChange={(e) => {
+                            setNewOrgName(e.target.value);
+                            // Clear error when user types
+                            if (nameError) setNameError(null);
+                          }}
+                          placeholder="Enter organization name"
+                          className={nameError ? "border-red-500 focus:ring-red-500" : ""}
+                          required
+                        />
+                        {nameError && (
+                          <p className="text-sm text-red-500 mt-1">{nameError}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="orgDescription">Description *</Label>
+                        <Input
+                          id="orgDescription"
+                          value={newOrgDescription}
+                          onChange={(e) => setNewOrgDescription(e.target.value)}
+                          placeholder="Describe your organization"
+                          required
+                        />
+                      </div>
+
+                      <Button 
+                        type="submit" 
+                        className="w-full bg-green-500 hover:bg-green-600"
+                        disabled={creating}
+                      >
+                        {creating ? 'Creating...' : 'Create'}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Edit Organization Modal */}
+                <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <div className="flex items-center gap-2">
+                        <DialogTitle>Edit Organization</DialogTitle>
+                      </div>
+                    </DialogHeader>
+                    <form onSubmit={handleUpdateOrganization} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="editOrgName">Organization Name *</Label>
+                        <Input
+                          id="editOrgName"
+                          value={editOrgName}
+                          onChange={(e) => setEditOrgName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="editOrgDescription">Description *</Label>
+                        <Input
+                          id="editOrgDescription"
+                          value={editOrgDescription}
+                          onChange={(e) => setEditOrgDescription(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <Button type="submit" className="w-full bg-green-500 hover:bg-green-600" disabled={updating}>
+                        {updating ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
         {filteredOrganizations.length === 0 ? (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -267,39 +707,220 @@ const Organizations = () => {
               </Button>
             )}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
             {filteredOrganizations.map((org) => (
               <Card 
-                key={org.id}
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 min-w-[280px]"
-                onClick={() => handleOrgCardClick(org.id)}
+                key={org.org_id}
+                className="relative cursor-pointer overflow-hidden backdrop-blur-sm bg-white/90 dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-500 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 ease-in-out hover:-translate-y-2 group"
+                onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleOrgCardClick(org.id);
+                  if (e.key === 'Enter' && org.org_id) handleOrgCardClick(org.org_id);
                 }}
               >
+                <div className="h-3 w-full bg-gradient-to-r from-green-500 to-green-600 group-hover:scale-105 transition-transform duration-300"></div>
+
+
                 <CardContent className="p-6">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Building2 className="w-6 h-6 text-green-600" />
+                  <div className="flex items-start space-x-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-300">
+                      <Building2 className="w-6 h-6 text-green-600 dark:text-green-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{org.name}</h3>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <Badge variant={org.plan === 'pro' ? 'default' : 'secondary'}>
-                          {org.plan === 'pro' ? 'Pro Plan' : 'Free Plan'}
-                        </Badge>
-                        <span className="text-gray-400">•</span>
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Users className="w-3 h-3 mr-1" />
-                          {org.project_count} project{org.project_count !== 1 ? 's' : ''}
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">{org.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge 
+                                  variant="default" 
+                                  className={`transition-colors duration-300 ${getRoleBadgeColor()}`}
+                                >
+                                  <UserCheck className="w-3 h-3 mr-1" /> {capitalizeWords(org.role)}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Your role in this organization</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          {org.org_id && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
+                                    <Info className="w-3 h-3 mr-1" /> {org.org_id}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Organization ID</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </div>
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mt-1 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors duration-300">
+                        {org.description}
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-3 items-center">
+                        {org.created_by && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className={`transition-colors duration-300 ${getCreatorBadgeColor()}`}>
+                                  <User className="w-3 h-3 mr-1" /> {org.created_by}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Created by</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {org.created_at && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                  </svg> {formatDate(org.created_at)}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Created at</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      {(org.role === 'owner' || org.role === 'admin') && (
+                        <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
+                          <button className="p-1 text-gray-600 hover:bg-transparent" onClick={() => openEditModal(org)}>
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          {org.role === 'owner' && (
+                            <button className="p-1 text-red-600 hover:bg-transparent" onClick={() => handleDeleteOrganization(org)}>
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                       </div>
                     </div>
                   </div>
                 </CardContent>
+                <CardFooter className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-3">
+                  <div className="flex justify-between items-center w-full">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                        <Users className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
+                        <span>{org.member_count} member{org.member_count !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                        <Building2 className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
+                        <span>{org.project_count} project{org.project_count !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                    
+                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20 p-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-right">
+                        <path d="m9 18 6-6-6-6"/>
+                      </svg>
+                    </Button>
+                  </div>
+                  
+                  {/* Footer content can be added here if needed */}
+                </CardFooter>
               </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col space-y-3">
+            {filteredOrganizations.map((org) => (
+              <div 
+                key={org.org_id}
+                className="relative bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-4 hover:border-green-400 dark:hover:border-green-500 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
+                onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
+              >
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Building2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">{org.name}</h3>
+                        <div className="flex items-center gap-2">
+                          {org.org_id && (
+                            <Badge variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
+                              <Info className="w-3 h-3 mr-1" /> {org.org_id}
+                            </Badge>
+                          )}
+                          <Badge 
+                            variant="default" 
+                            className={`transition-colors duration-300 ${getRoleBadgeColor()}`}
+                          >
+                            <UserCheck className="w-3 h-3 mr-1" /> {capitalizeWords(org.role)}
+                          </Badge>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{org.description}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                          <Users className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
+                          <span>{org.member_count} member{org.member_count !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                          <Building2 className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
+                          <span>{org.project_count} project{org.project_count !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Additional info can be added here if needed */}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      {org.created_by && (
+                        <Badge variant="outline" className={`transition-colors duration-300 ${getCreatorBadgeColor()}`}>
+                          <User className="w-3 h-3 mr-1" /> {org.created_by}
+                        </Badge>
+                      )}
+                      
+                      {org.created_at && (
+                        <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                          </svg> {formatDate(org.created_at)}
+                        </Badge>
+                      )}
+                      {(org.role === 'owner' || org.role === 'admin') && (
+                        <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
+                          <button className="p-1 text-gray-600 hover:bg-transparent" onClick={() => openEditModal(org)}>
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          {org.role === 'owner' && (
+                            <button className="p-1 text-red-600 hover:bg-transparent" onClick={() => handleDeleteOrganization(org)}>
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         )}
