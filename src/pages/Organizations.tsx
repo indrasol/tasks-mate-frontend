@@ -154,7 +154,7 @@ const Organizations = () => {
       console.log('Fetching organization invitations');
       
       // Fetch pending invitations for the current user's email
-      const data = await api.get<OrganizationInvitation[]>(`${API_ENDPOINTS.ORGANIZATIONS}/invites/pending`);
+      const data = await api.get<OrganizationInvitation[]>(`${API_ENDPOINTS.ORGANIZATION_INVITES}/user`);
       console.log('Raw invitation data:', data);
       
       setInvitations(data || []);
@@ -327,9 +327,10 @@ const Organizations = () => {
     setUpdating(true);
     try {
       const payload = {
+        org_id: editOrg.org_id,
         name: editOrgName.trim(),
         description: editOrgDescription.trim(),
-        designation: selectedDesignation ?? undefined,
+        // designations: selectedDesignation ?? undefined,
       };
       await api.put(`${API_ENDPOINTS.ORGANIZATIONS}/${editOrg.org_id}`, payload);
       // Update local state
@@ -350,7 +351,7 @@ const Organizations = () => {
     const confirmDelete = window.confirm(`Are you sure you want to delete organization '${org.name}'? This action cannot be undone.`);
     if (!confirmDelete) return;
     try {
-      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${org.org_id}`);
+      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${org.org_id}`, {'delete_reason':'Delete from app'});
       toast({ title: 'Deleted', description: 'Organization deleted successfully' });
       setOrganizations(prev => prev.filter(o => o.org_id !== org.org_id));
     } catch (error) {
@@ -599,7 +600,7 @@ const Organizations = () => {
                     <DialogHeader>
                       <div className="flex items-center gap-2">
                         <DialogTitle>Create Organization</DialogTitle>
-                        <Badge className="bg-blue-500 text-white ml-2">Owner</Badge>
+                        {/* <Badge className="bg-blue-500 text-white ml-2">Owner</Badge> */}
                       </div>
                     </DialogHeader>
                     <form onSubmit={handleCreateOrganization} className="space-y-4">
