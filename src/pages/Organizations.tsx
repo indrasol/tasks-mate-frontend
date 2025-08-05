@@ -89,10 +89,11 @@ const Organizations = () => {
   const [newDesignationInput, setNewDesignationInput] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
     if (user) {
+      console.log(user);
       fetchOrganizations();
       fetchInvitations();
     }
@@ -312,18 +313,52 @@ const Organizations = () => {
   };
 
   // ---------------- Delete Organization ----------------
-  const handleDeleteOrganization = async (org: Organization) => {
-    const confirmDelete = window.confirm(`Are you sure you want to delete organization '${org.name}'? This action cannot be undone.`);
-    if (!confirmDelete) return;
+
+
+  const [deleteOrgModalOpen, setDeleteOrgModalOpen] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState<Organization | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const openDeleteModal = (org: Organization) => {
+    setOrgToDelete(org);
+    setDeleteReason('');
+    setDeleteOrgModalOpen(true);
+  };
+
+  const handleDeleteOrganization = async () => {
+    if (!orgToDelete) return;
+    if (!deleteReason.trim()) {
+      toast({ title: 'Reason required', description: 'Please provide a reason for deletion.', variant: 'destructive' });
+      return;
+    }
+    setDeleting(true);
     try {
-      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${org.org_id}`, { 'delete_reason': 'Delete from app' });
+      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${orgToDelete.org_id}`, { delete_reason: deleteReason });
       toast({ title: 'Deleted', description: 'Organization deleted successfully' });
-      setOrganizations(prev => prev.filter(o => o.org_id !== org.org_id));
+      setOrganizations(prev => prev.filter(o => o.org_id !== orgToDelete.org_id));
+      setDeleteOrgModalOpen(false);
+      setOrgToDelete(null);
     } catch (error) {
       console.error('Error deleting organization:', error);
       toast({ title: 'Error', description: (error as Error).message || 'Failed to delete organization', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
     }
   };
+
+  // const handleDeleteOrganization = async (org: Organization) => {
+  //   const confirmDelete = window.confirm(`Are you sure you want to delete organization '${org.name}'? This action cannot be undone.`);
+  //   if (!confirmDelete) return;
+  //   try {
+  //     await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${org.org_id}`, { 'delete_reason': 'Delete from app' });
+  //     toast({ title: 'Deleted', description: 'Organization deleted successfully' });
+  //     setOrganizations(prev => prev.filter(o => o.org_id !== org.org_id));
+  //   } catch (error) {
+  //     console.error('Error deleting organization:', error);
+  //     toast({ title: 'Error', description: (error as Error).message || 'Failed to delete organization', variant: 'destructive' });
+  //   }
+  // };
 
   const handleOrgCardClick = (orgId: string) => {
     // Navigate to the team members page with the organization ID
@@ -489,6 +524,14 @@ const Organizations = () => {
               </div>
               <div className="h-6 w-px bg-gray-300 mx-2"></div>
               <h1 className="text-2xl font-bold text-gray-900">Your Organizations</h1>
+            </div>
+            <div>
+              <button
+                onClick={signOut}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md font-medium transition-colors"
+              >
+                Sign Out
+              </button>
             </div>
           </div>
         </div>
@@ -709,6 +752,43 @@ const Organizations = () => {
                     </form>
                   </DialogContent>
                 </Dialog>
+
+                <Dialog open={deleteOrgModalOpen} onOpenChange={setDeleteOrgModalOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <div className="flex items-center flex-wrap gap-2">
+                        <DialogTitle>Delete Organization</DialogTitle>
+                      </div>
+                    </DialogHeader>
+                    <div>
+                      <p className="mb-4 text-gray-700">
+                        Are you sure you want to delete <b>{orgToDelete?.name}</b>? This action cannot be undone.
+                      </p>
+                      <div className="space-y-2">
+                        <Label htmlFor="deleteReason">Reason for deletion <span className="text-red-500">*</span></Label>
+                        <Input
+                          id="deleteReason"
+                          value={deleteReason}
+                          onChange={e => setDeleteReason(e.target.value)}
+                          placeholder="Enter reason"
+                          required
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 mt-6">
+                        <Button variant="outline" onClick={() => setDeleteOrgModalOpen(false)} disabled={deleting}>
+                          Cancel
+                        </Button>
+                        <Button
+                          className="bg-red-500 hover:bg-red-600 text-white"
+                          onClick={handleDeleteOrganization}
+                          disabled={deleting}
+                        >
+                          {deleting ? 'Deleting...' : 'Delete'}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </div>
@@ -835,7 +915,7 @@ const Organizations = () => {
                               <Pencil className="w-4 h-4" />
                             </button>
                             {org.role === 'owner' && (
-                              <button className="p-1 text-red-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-red-700" onClick={() => handleDeleteOrganization(org)}>
+                              <button className="p-1 text-red-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-red-700" onClick={() => openDeleteModal(org)}>
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
@@ -966,33 +1046,33 @@ const Organizations = () => {
                             <Pencil className="w-4 h-4" />
                           </button>
                           {org.role === 'owner' && (
-                            <button className="p-1 text-red-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-red-700" onClick={() => handleDeleteOrganization(org)}>
+                            <button className="p-1 text-red-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-red-700" onClick={() => openDeleteModal(org)}>
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>
                       )}
                       {(org.is_invite) &&
-                          <div className="flex items-center gap-1 ml-2">
-                            <button
-                              onClick={() => handleAcceptInvite(org.invitation_id)}
-                              className="p-1 text-gray-600 hover:bg-transparent"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check">
-                                <path d="M20 6 9 17l-5-5" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleRejectInvite(org.invitation_id)}
-                              className="p-1 text-red-600 hover:bg-transparent"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x">
-                                <path d="M18 6 6 18" />
-                                <path d="m6 6 12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        }
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => handleAcceptInvite(org.invitation_id)}
+                            className="p-1 text-gray-600 hover:bg-transparent"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check">
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleRejectInvite(org.invitation_id)}
+                            className="p-1 text-red-600 hover:bg-transparent"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x">
+                              <path d="M18 6 6 18" />
+                              <path d="m6 6 12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      }
                     </div>
                   </div>
                 </div>

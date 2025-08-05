@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { useSearchParams } from 'react-router-dom';
 import { BackendOrgMember, OrgMember } from '@/types/organization';
+import { format } from 'path';
 
 interface TeamMember {
   id: string;
@@ -80,7 +81,7 @@ const TeamMembers = () => {
 
       const formattedOrgs: OrgMember[] = (data || []).map((org) => {
         const formattedOrg: OrgMember = {
-          
+
           id: org.id,
           email: org.user_id,
           role: org.role,
@@ -90,9 +91,11 @@ const TeamMembers = () => {
         };
 
         // Log each formatted org for debugging
-        console.log(`Formatted org ${org.org_id}:`, formattedOrg);
+        // console.log(`Formatted org ${org.org_id}:`, formattedOrg);
         return formattedOrg;
       });
+
+      console.log(formattedOrgs);
 
       setTeamMembers(formattedOrgs);
 
@@ -134,9 +137,9 @@ const TeamMembers = () => {
       // ]);
     } catch (error) {
       console.error('Error fetching team members:', error);
+      setTeamMembers([]);
     } finally {
       setLoading(false);
-      setTeamMembers([]);
     }
   };
 
@@ -205,11 +208,34 @@ const TeamMembers = () => {
     // TODO: call backend API to persist designation change
   };
 
-  const filteredTeamMembers = teamMembers.filter(member =>
-    member
-    // member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    // member.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [filteredTeamMembers, setFilteredTeamMembers] = useState<OrgMember[]>([]);
+
+  useEffect(() => {
+    console.log(teamMembers)
+    setFilteredTeamMembers(teamMembers);
+  }, [teamMembers]);
+
+  // const filteredTeamMembers = teamMembers.filter(member =>
+  //   member
+  //   // member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //   // member.username.toLowerCase().includes(searchQuery.toLowerCase())
+  // );
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    // This will automatically filter the team members based on the search query
+    if (e.target.value.trim() === '') {
+      setFilteredTeamMembers(teamMembers);
+    }
+    else {
+      setFilteredTeamMembers(
+        teamMembers.filter(member =>
+          member.email?.toLowerCase().includes(e.target.value.toLowerCase()) ||
+          member.role.toLowerCase().includes(e.target.value.toLowerCase())
+        )
+      );
+    }
+  }
 
   if (loading) {
     return (
@@ -246,7 +272,7 @@ const TeamMembers = () => {
                     <Input
                       placeholder="Filter by name/email..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => handleFilterChange(e)}
                       className="pl-10 w-64"
                     />
                   </div>
@@ -309,7 +335,7 @@ const TeamMembers = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredTeamMembers.map((member) => (
-                    <TableRow key={member.id}>
+                    <TableRow key={member.email}>
                       {/* <TableCell>
                         <div className="flex items-center space-x-3">
                           <Avatar>
