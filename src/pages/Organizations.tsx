@@ -367,7 +367,7 @@ const Organizations = () => {
 
   const handleAcceptInvite = async (invitationId: string) => {
     try {
-      await api.post(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}/accept`, {});
+      await api.put(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}/accept`,{});
       toast({
         title: 'Invitation Accepted',
         description: 'You have joined the organization.',
@@ -565,12 +565,12 @@ const Organizations = () => {
               <CollapsibleContent className="space-y-2 px-4 pb-4 transition-all duration-300">
                 {invitations.map((invite) => (
                   <div
-                    key={invite.invitation_id}
+                    key={invite.id}
                     className="flex items-center justify-between bg-white/60 dark:bg-gray-900/40 border border-indigo-100 rounded-md p-3 transform transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:bg-white/80 dark:hover:bg-gray-900/60"
                   >
                     <div>
                       <div className="font-medium text-gray-800 dark:text-gray-100">
-                        Invitation to join <span className="font-semibold">{invite.org_name}</span>
+                        Invitation to join <span className="font-semibold">{invite.org_id || invite.org_name}</span>
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         Invited by {invite.invited_by} on {formatDate(invite.invited_at)} • Role: {capitalizeWords(invite.role)}
@@ -578,13 +578,13 @@ const Organizations = () => {
                     </div>
                     <div className="flex items-center flex-shrink-0 gap-2">
                       <button
-                        onClick={() => handleAcceptInvite(invite.invitation_id)}
+                        onClick={() => handleAcceptInvite(invite.id)}
                         className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                       >
                         <Check className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleRejectInvite(invite.invitation_id)}
+                        onClick={() => handleRejectInvite(invite.id)}
                         className="p-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                       >
                         <X className="w-4 h-4" />

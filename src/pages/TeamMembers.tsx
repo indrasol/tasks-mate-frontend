@@ -19,7 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { useSearchParams } from 'react-router-dom';
-import { BackendOrgMember, OrgMember } from '@/types/organization';
+import { BackendOrgMember, BackendOrgMemberInvite, OrgMember, OrgMemberInvite } from '@/types/organization';
 import { format } from 'path';
 
 interface TeamMember {
@@ -43,6 +43,11 @@ const TeamMembers = () => {
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const [invitedTeamMembers, setInvitedTeamMembers] = useState<OrgMember[]>([]);
+  const [loadingInvited, setLoadingInvited] = useState(true);
+  const [searchQueryInvited, setSearchQueryInvited] = useState('');
+
+
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
     window.addEventListener('sidebar-toggle', handler);
@@ -57,6 +62,7 @@ const TeamMembers = () => {
   useEffect(() => {
     if (user) {
       fetchTeamMembers();
+      fetchInvitedTeamMembers();
     }
   }, [user]);
 
@@ -83,7 +89,7 @@ const TeamMembers = () => {
         const formattedOrg: OrgMember = {
 
           id: org.id,
-          email: org.user_id,
+          email: org.email,
           role: org.role,
           joined_at: org.accepted_at || '',
           // project_count: org.project_count  || 0, // Default to 0 if not provided
@@ -143,6 +149,39 @@ const TeamMembers = () => {
     }
   };
 
+  const fetchInvitedTeamMembers = async () => {
+    setLoadingInvited(true);
+    try {
+      // This would need to be implemented based on current organization
+      const data = await api.get<BackendOrgMemberInvite[]>(API_ENDPOINTS.ORGANIZATION_INVITES + `/org/${orgId}`);
+
+      const formattedOrgs: OrgMemberInvite[] = (data || []).map((org) => {
+        const formattedOrg: OrgMemberInvite = {
+
+          id: org.id,
+          email: org.email,
+          role: org.role,
+          sent_at: org.sent_at || '',
+          // project_count: org.project_count  || 0, // Default to 0 if not provided
+          designation: org.designation || undefined, // Keep as undefined if not provided
+        };
+
+        // Log each formatted org for debugging
+        // console.log(`Formatted org ${org.org_id}:`, formattedOrg);
+        return formattedOrg;
+      });
+
+      console.log(formattedOrgs);
+
+      setInvitedTeamMembers(formattedOrgs);
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+      setInvitedTeamMembers([]);
+    } finally {
+      setLoadingInvited(false);
+    }
+  };
+
   const handleInviteTeamMember = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -176,7 +215,7 @@ const TeamMembers = () => {
 
       // setOrganizations(prev => [newOrg, ...prev]);
 
-      fetchTeamMembers(); // Refresh team members list
+      fetchInvitedTeamMembers(); // Refresh team members list
 
       // This would need organization context
       toast({
@@ -211,9 +250,14 @@ const TeamMembers = () => {
   const [filteredTeamMembers, setFilteredTeamMembers] = useState<OrgMember[]>([]);
 
   useEffect(() => {
-    console.log(teamMembers)
     setFilteredTeamMembers(teamMembers);
   }, [teamMembers]);
+
+  const [filteredInvitedTeamMembers, setFilteredInvitedTeamMembers] = useState<OrgMember[]>([]);
+
+  useEffect(() => {
+    setFilteredInvitedTeamMembers(invitedTeamMembers);
+  }, [invitedTeamMembers]);
 
   // const filteredTeamMembers = teamMembers.filter(member =>
   //   member
@@ -230,6 +274,22 @@ const TeamMembers = () => {
     else {
       setFilteredTeamMembers(
         teamMembers.filter(member =>
+          member.email?.toLowerCase().includes(e.target.value.toLowerCase()) ||
+          member.role.toLowerCase().includes(e.target.value.toLowerCase())
+        )
+      );
+    }
+  }
+
+   const handleFilterChangeInvited = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQueryInvited(e.target.value);
+    // This will automatically filter the team members based on the search query
+    if (e.target.value.trim() === '') {
+      setFilteredInvitedTeamMembers(invitedTeamMembers);
+    }
+    else {
+      setFilteredInvitedTeamMembers(
+        invitedTeamMembers.filter(member =>
           member.email?.toLowerCase().includes(e.target.value.toLowerCase()) ||
           member.role.toLowerCase().includes(e.target.value.toLowerCase())
         )
@@ -328,7 +388,7 @@ const TeamMembers = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Designation</TableHead>
-                    <TableHead>Projects</TableHead>
+                    {/* <TableHead>Projects</TableHead> */}
                     <TableHead>Joined</TableHead>
                     <TableHead>Remove</TableHead>
                   </TableRow>
@@ -377,7 +437,7 @@ const TeamMembers = () => {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>{member.project_count}</TableCell>
+                      {/* <TableCell>{member.project_count}</TableCell> */}
                       <TableCell>{new Date(member.joined_at).toLocaleDateString()}</TableCell>
                       <TableCell>{member.role !== 'owner' && <Button onClick={() => handleRemoveTeamMember(member.id)}>Remove</Button>}</TableCell>
                     </TableRow>
@@ -392,15 +452,15 @@ const TeamMembers = () => {
               <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5" />
-                  Pending Invitations ({filteredTeamMembers.length})
+                  Pending Invitations ({filteredInvitedTeamMembers.length})
                 </CardTitle>
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <Input
                       placeholder="Filter by name/email..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      value={searchQueryInvited}
+                      onChange={(e) => handleFilterChangeInvited(e)}
                       className="pl-10 w-64"
                     />
                   </div>
@@ -420,7 +480,7 @@ const TeamMembers = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTeamMembers.map((member) => (
+                  {filteredInvitedTeamMembers.map((member) => (
                     <TableRow key={member.id}>
                       {/* <TableCell>
                         <div className="flex items-center space-x-3">
@@ -463,7 +523,7 @@ const TeamMembers = () => {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>{member.project_count}</TableCell>
+                      {/* <TableCell>{member.project_count}</TableCell> */}
                       <TableCell>{new Date(member.joined_at).toLocaleDateString()}</TableCell>
                       <TableCell>{<Button onClick={() => handleRemoveTeamMember(member.id)}>Remove</Button>}</TableCell>
                     </TableRow>
