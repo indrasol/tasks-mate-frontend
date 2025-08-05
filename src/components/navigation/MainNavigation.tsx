@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus,
   Settings,
@@ -38,6 +38,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/services/apiService';
 import { API_ENDPOINTS } from '@/../config';
 import { BackendOrg, Organization } from '@/types/organization';
+import path from 'path';
 
 interface MainNavigationProps {
   onNewTask?: () => void;
@@ -45,130 +46,108 @@ interface MainNavigationProps {
   onScratchpadOpen?: () => void;
 }
 
+type NavigationItem = {
+  name: string;
+  path: string;
+  icon: React.ComponentType<any>;
+  isActive?: boolean;
+};
+
 const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavigationProps) => {
+
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const [searchParams] = useSearchParams();
+
+  const orgId = useMemo(() => searchParams.get('org_id'), [searchParams]);
+
   const [isCollapsed, setIsCollapsed] = useState(false);
-  // Broadcast collapse state to other components
+  const [currentOrgName, setCurrentOrgName] = useState('');
+  const [userOrganizations, setUserOrganizations] = useState<Array<{ id: string, name: string }>>([]);
+
+  // Broadcast sidebar collapse
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('sidebar-toggle', { detail: { collapsed: isCollapsed } }));
     document.documentElement.style.setProperty('--sidebar-width', isCollapsed ? '4rem' : '16rem');
   }, [isCollapsed]);
-  const [currentOrgName, setCurrentOrgName] = useState<string>('');
-  const [userOrganizations, setUserOrganizations] = useState<Array<{ id: string, name: string }>>([]);
 
-  // Get org_id from URL params
-  const urlParams = new URLSearchParams(location.search);
-  const orgId = urlParams.get('org_id');
+  // Avoid duplicate fetches
+  const lastFetchedOrgId = useRef<string | null>(null);
 
   useEffect(() => {
+    // Only fetch if user is logged in and orgId is set, and if the orgId has changed
+
+    if (!user || !orgId || lastFetchedOrgId.current?.toString()?.trim() === orgId?.toString()?.trim()) {
+      return;
+    }
+
     const fetchOrganizationData = async () => {
-      if (user) {
+      try {
+        const data = await api.get<BackendOrg[]>(API_ENDPOINTS.ORGANIZATIONS);
+        const formattedOrgs = (data || []).map(org => ({
+          id: org.org_id,
+          name: org.name,
+        }));
 
-        try {         
-
-          const data = await api.get<BackendOrg[]>(API_ENDPOINTS.ORGANIZATIONS);
-          console.log('Raw data from backend:', data);
-
-          const formattedOrgs: any[] = (data || []).map((org) => {
-            const formattedOrg = {
-              id: org.org_id, // Ensure org_id is always preserved
-              name: org.name,
-            };
-            return formattedOrg;
-          });
-
-          console.log('Formatted organizations:', formattedOrgs);
-          setUserOrganizations(formattedOrgs);
-
-          // If orgId is provided, filter the organizations to find the current one
-          if (orgId) {
-            const currentOrg = formattedOrgs.find(org => org.id === orgId);
-            if (currentOrg) {
-              setCurrentOrgName(currentOrg.name);
-            } else {
-              setCurrentOrgName('');
-            }
-          } else {
-            setCurrentOrgName('');
-          }
-
-        } catch (error) {
-          console.error('Error fetching organizations:', error);          
-        } finally {
-          
-        }        
-      } else {
-        setCurrentOrgName('');
-        setUserOrganizations([]);
+        setUserOrganizations(formattedOrgs);
+        lastFetchedOrgId.current = orgId;
+      } catch (error) {
+        console.error('Error fetching organizations:', error);
       }
     };
 
     fetchOrganizationData();
-  }, [orgId, user]);
+  }, [user, orgId]);
+
+  useEffect(() => {
+    if (orgId && userOrganizations.length > 0) {
+      const currentOrg = userOrganizations.find(org => org.id === orgId);
+      setCurrentOrgName(currentOrg?.name ?? '');
+    } else {
+      setCurrentOrgName('');
+    }
+  }, [orgId, userOrganizations]);
 
   const handleSignOut = async () => {
     await signOut();
   };
 
   const handleOrganizationSwitch = (newOrgId: string) => {
-    const currentPath = location.pathname;
-    const currentSearch = new URLSearchParams(location.search);
-    currentSearch.set('org_id', newOrgId);
-    navigate(`${currentPath}?${currentSearch.toString()}`);
+    const newParams = new URLSearchParams(location.search);
+    newParams.set('org_id', newOrgId);
+    navigate(`${location.pathname}?${newParams.toString()}`);
   };
 
-  const navigationItems = [
-    {
-      name: 'Members',
-      path: orgId ? `/team-members?org_id=${orgId}` : '/team-members',
-      icon: Users,
-      isActive: location.pathname.startsWith('/team-members')
-    },
-    {
-      name: 'Dashboard',
-      path: orgId ? `/dashboard?org_id=${orgId}` : '/dashboard',
-      icon: Home,
-      isActive: location.pathname === '/dashboard'
-    },
-    {
-      name: 'Projects',
-      path: orgId ? `/projects?org_id=${orgId}` : '/projects',
-      icon: Layers,
-      isActive: location.pathname.startsWith('/projects')
-    },
-    {
-      name: 'Tasks',
-      path: orgId ? `/tasks_catalog?org_id=${orgId}` : '/tasks_catalog',
-      icon: ClipboardList,
-      isActive: location.pathname.startsWith('/tasks')
-    },
-    // { 
-    //   name: 'Meeting books', 
-    //   path: orgId ? `/meetings?org_id=${orgId}` : '/meetings', 
-    //   icon: Calendar,
-    //   isActive: location.pathname.startsWith('/meetings')
-    // },
-    {
-      name: 'Bug Tracker',
-      path: orgId ? `/tester-zone?org_id=${orgId}` : '/tester-zone',
-      icon: Bug,
-      isActive: location.pathname.startsWith('/tester-zone')
-    },
-    {
-      name: 'Scratchpad',
-      path: orgId ? `/scratchpad?org_id=${orgId}` : '/scratchpad',
-      icon: Edit3,
-      isActive: location.pathname.startsWith('/scratchpad')
-    },
-    {
-      name: 'Settings',
-      path: orgId ? `/settings?org_id=${orgId}` : '/settings',
-      icon: Settings,
-      isActive: location.pathname.startsWith('/settings')
-    }
-  ];
+
+
+  const navigationItems = useMemo(() => {
+
+    const baseItems: NavigationItem[] = [
+      { name: 'Members', path: '/team-members', icon: Users },
+      { name: 'Dashboard', path: '/dashboard', icon: Home },
+      { name: 'Projects', path: '/projects', icon: Layers },
+      { name: 'Tasks', path: '/tasks_catalog', icon: ClipboardList },
+      { name: 'Bug Tracker', path: '/tester-zone', icon: Bug },
+      { name: 'Scratchpad', path: '/scratchpad', icon: Edit3 },
+      { name: 'Settings', path: '/settings', icon: Settings },
+    ];
+
+
+    return baseItems.map(item => {
+      const fullPath = orgId
+        ? `${item.path}${item.path.includes('?') ? '&' : '?'}org_id=${orgId}`
+        : item.path;
+
+      const isActive = location.pathname.startsWith(item.path);
+
+      return {
+        ...item,
+        path: fullPath,
+        isActive,
+      };
+    });
+  }, [orgId, location.pathname]);
 
   return (
     <nav className={`bg-white border-r border-gray-200 h-screen fixed left-0 top-0 z-50 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}`}>
@@ -266,8 +245,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                   key={item.path}
                   to={item.path}
                   className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${item.isActive
-                      ? 'bg-green-50 text-green-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'bg-green-50 text-green-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                   title={isCollapsed ? item.name : undefined}
                 >

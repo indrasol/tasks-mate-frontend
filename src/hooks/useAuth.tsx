@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { api } from "@/services/apiService";
@@ -65,11 +65,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const prevUserRef = useRef<User | null>(null);
+
 
   /** Sync local state + localStorage whenever we get a fresh session */
   const handleSession = async (s: Session | null) => {
     setSession(s);
-    setUser(s?.user ?? null);
+    // setUser(s?.user ?? null);
+
+    // Only update user if changed
+    const newUser = s?.user ?? null;
+    if (
+      (prevUserRef.current?.id !== newUser?.id) || // compare by id if available
+      (!prevUserRef.current && newUser) ||
+      (prevUserRef.current && !newUser)
+    ) {
+      setUser(newUser);
+      prevUserRef.current = newUser;
+    }
+
+    // setUser(newUser);
 
     if (s?.access_token && s.user) {
       setToken(s.access_token);
@@ -80,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Bootstrap once on mount
-    useEffect(() => {
+  useEffect(() => {
     supabase.auth.getSession().then(({ data }) => handleSession(data.session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => handleSession(s));
     return () => subscription.unsubscribe();
