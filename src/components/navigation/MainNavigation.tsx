@@ -17,6 +17,7 @@ import {
   Bug,
   TrendingUp,
   Building2,
+  Layers,
   ChevronDown,
   ArrowLeft,
   RefreshCw,
@@ -49,6 +50,11 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // Broadcast collapse state to other components
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('sidebar-toggle', { detail: { collapsed: isCollapsed } }));
+    document.documentElement.style.setProperty('--sidebar-width', isCollapsed ? '4rem' : '16rem');
+  }, [isCollapsed]);
   const [currentOrgName, setCurrentOrgName] = useState<string>('');
   const [userOrganizations, setUserOrganizations] = useState<Array<{ id: string, name: string }>>([]);
 
@@ -129,7 +135,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     {
       name: 'Projects',
       path: orgId ? `/projects?org_id=${orgId}` : '/projects',
-      icon: Building2,
+      icon: Layers,
       isActive: location.pathname.startsWith('/projects')
     },
     {

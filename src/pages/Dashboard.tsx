@@ -49,6 +49,15 @@ const Dashboard = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [selectedPeriod, setSelectedPeriod] = useState("30d");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  React.useEffect(() => {
+    const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
+    window.addEventListener('sidebar-toggle', handler);
+    // initialize from CSS variable
+    setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem');
+    return () => window.removeEventListener('sidebar-toggle', handler);
+  }, []);
 
   React.useEffect(() => {
     if (!loading && !user) {
@@ -119,10 +128,10 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <MainNavigation />
 
-      <div className="ml-64 transition-all duration-300">
+      <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Page Header */}
-        <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="px-6 py-8">
+          <div className="w-full flex items-center justify-between">
             <div>
               <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Dashboard</h1>
               <p className="text-gray-600">Comprehensive insights into your projects, tasks, and meetings</p>
@@ -155,7 +164,7 @@ const Dashboard = () => {
 
         {/* Main Content */}
         <div className="px-6 py-6">
-          <div className="max-w-7xl mx-auto space-y-6">
+          <div className="w-full space-y-6">
             
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -40,6 +40,13 @@ const TeamMembers = () => {
   const [inviteRole, setInviteRole] = useState('member');
   const [updating, setUpdating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
+    window.addEventListener('sidebar-toggle', handler);
+    return () => window.removeEventListener('sidebar-toggle', handler);
+  }, []);
   const [designationOptions, setDesignationOptions] = useState<string[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -219,8 +226,8 @@ const TeamMembers = () => {
     <div className="min-h-screen bg-gray-50 flex">
       <MainNavigation />
 
-      <div className="flex-1 ml-64">
-        <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="flex-1 transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+        <div className="w-full px-6 py-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
             <p className="text-gray-600 mt-2">Manage your organization's team members and their roles</p>

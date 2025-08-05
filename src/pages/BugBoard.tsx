@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Plus, Search, Grid3X3, List, Filter, SortDesc, SortAsc, CalendarRange, Check } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
@@ -30,6 +30,14 @@ type Bug = {
 };
 
 const BugBoard = () => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const handler = (e:any) => setSidebarCollapsed(e.detail.collapsed);
+    window.addEventListener('sidebar-toggle', handler);
+    setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem');
+    return () => window.removeEventListener('sidebar-toggle', handler);
+  }, []);
   const { id } = useParams();
   const navigate = useNavigate();
   const [isNewBugModalOpen, setIsNewBugModalOpen] = useState(false);
@@ -367,7 +375,7 @@ const BugBoard = () => {
     <div className="min-h-screen bg-gray-50">
       <MainNavigation />
       
-      <div className="ml-64 p-8">
+      <div className="transition-all duration-300 p-8" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Breadcrumb */}
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
@@ -412,8 +420,8 @@ const BugBoard = () => {
         </div>
 
         {/* Enhanced Controls */}
-        <div className="px-6 py-4 bg-white/30 border-b border-gray-200 mb-6">
-          <div className="max-w-7xl mx-auto">
+        <div className="px-6 py-4 mb-6">
+          <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
               {/* Search Bar - Left side */}
