@@ -14,35 +14,12 @@ import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/apiService';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '@/hooks/useAuth';
-
-interface Organization {
-  name: string;
-  project_count: number;
-  member_count: number;
-  description: string;
-  designation: string;
-  role: string;
-  org_id: string; // Organization ID is required
-  created_by: string; // Username of creator
-  created_at?: string; // Creation date as ISO string
-}
-
-interface OrganizationInvitation {
-  invitation_id: string;
-  org_id: string;
-  org_name: string;
-  role: string;
-  invited_by: string;
-  invited_at: string;
-  email: string;
-  status: 'pending' | 'accepted' | 'rejected';
-}
-
+import { BackendOrg, Organization, OrganizationInvitation } from '@/types/organization';
 // Helper functions for badge colors
 // Helper function to capitalize first letter of each word
 const capitalizeWords = (text: string | null | undefined): string => {
   if (!text) return 'No designation';
-  
+
   return text
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -72,12 +49,12 @@ const getCreatedAtBadgeColor = (): string => {
 // Helper function to format date
 const formatDate = (dateString?: string): string => {
   if (!dateString) return 'Unknown date';
-  
+
   try {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
-      year: 'numeric', 
-      month: 'short', 
+      year: 'numeric',
+      month: 'short',
       day: 'numeric'
     });
   } catch (e) {
@@ -147,16 +124,16 @@ const Organizations = () => {
       console.error('Error fetching designations', err);
     }
   };
-  
+
   const fetchInvitations = async () => {
     try {
       setLoadingInvitations(true);
       console.log('Fetching organization invitations');
-      
+
       // Fetch pending invitations for the current user's email
-      const data = await api.get<OrganizationInvitation[]>(`${API_ENDPOINTS.ORGANIZATIONS}/invites/pending`);
+      const data = await api.get<OrganizationInvitation[]>(`${API_ENDPOINTS.ORGANIZATION_INVITES}/user`);
       console.log('Raw invitation data:', data);
-      
+
       setInvitations(data || []);
     } catch (error) {
       console.error('Error fetching invitations:', error);
@@ -175,20 +152,6 @@ const Organizations = () => {
       setLoading(true);
       console.log('Fetching organizations via API');
 
-      type BackendOrg = {
-        org_id: string;
-        name: string;
-        plan?: string;
-        billing_email?: string;
-        project_count?: number;
-        member_count?: number;
-        description?: string;
-        designation?: string;
-        role?: string;
-        created_by?: string;
-        created_at?: string;
-      };
-
       const data = await api.get<BackendOrg[]>(API_ENDPOINTS.ORGANIZATIONS);
       console.log('Raw data from backend:', data);
 
@@ -204,7 +167,7 @@ const Organizations = () => {
           created_by: org.created_by,
           created_at: org.created_at,
         };
-        
+
         // Log each formatted org for debugging
         console.log(`Formatted org ${org.org_id}:`, formattedOrg);
         return formattedOrg;
@@ -224,11 +187,11 @@ const Organizations = () => {
     }
   };
 
-// Create Org
+  // Create Org
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOrgName.trim() || !newOrgDescription.trim()) return;
-    
+
     // Clear any previous errors
     setNameError(null);
     setCreating(true);
@@ -286,7 +249,7 @@ const Organizations = () => {
       // navigate(`/dashboard?org_id=${data.org_id}`);
     } catch (error) {
       console.error('Error creating organization:', error);
-      
+
       // Check if it's an organization name already exists error (HTTP 409)
       const err = error as any;
       if (err.statusCode === 409 || (err.message && err.message.includes('already exists'))) {
@@ -327,9 +290,10 @@ const Organizations = () => {
     setUpdating(true);
     try {
       const payload = {
+        org_id: editOrg.org_id,
         name: editOrgName.trim(),
         description: editOrgDescription.trim(),
-        designation: selectedDesignation ?? undefined,
+        // designations: selectedDesignation ?? undefined,
       };
       await api.put(`${API_ENDPOINTS.ORGANIZATIONS}/${editOrg.org_id}`, payload);
       // Update local state
@@ -350,7 +314,7 @@ const Organizations = () => {
     const confirmDelete = window.confirm(`Are you sure you want to delete organization '${org.name}'? This action cannot be undone.`);
     if (!confirmDelete) return;
     try {
-      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${org.org_id}`);
+      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${org.org_id}`, { 'delete_reason': 'Delete from app' });
       toast({ title: 'Deleted', description: 'Organization deleted successfully' });
       setOrganizations(prev => prev.filter(o => o.org_id !== org.org_id));
     } catch (error) {
@@ -363,10 +327,10 @@ const Organizations = () => {
     // Navigate to the team members page with the organization ID
     navigate(`/team-members?org_id=${orgId}`);
   };
-  
+
   const handleAcceptInvite = async (invitationId: string) => {
     try {
-      await api.post(`${API_ENDPOINTS.ORGANIZATIONS}/invites/${invitationId}/accept`, {});
+      await api.post(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}/accept`, {});
       toast({
         title: 'Invitation Accepted',
         description: 'You have joined the organization.',
@@ -383,10 +347,10 @@ const Organizations = () => {
       });
     }
   };
-  
+
   const handleRejectInvite = async (invitationId: string) => {
     try {
-      await api.post(`${API_ENDPOINTS.ORGANIZATIONS}/invites/${invitationId}/reject`, {});
+      await api.del(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}`, {});
       toast({
         title: 'Invitation Rejected',
         description: 'The organization invitation has been declined.',
@@ -449,14 +413,14 @@ const Organizations = () => {
   return (
     <div className="min-h-screen w-full bg-gray-50">
       {/* Organization Invitations Panel - Only shown when there are pending invitations */}
-      {invitations.length > 0 && (
+      {/* {invitations.length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-3 px-4 sm:px-6 lg:px-8">
           <div className="max-w-screen-lg mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-blue-700">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail">
-                  <rect width="20" height="16" x="2" y="4" rx="2"/>
-                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                  <rect width="20" height="16" x="2" y="4" rx="2" />
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                 </svg>
                 <h3 className="text-sm font-medium">Organization Invitations</h3>
               </div>
@@ -464,7 +428,7 @@ const Organizations = () => {
                 {invitations.length} pending invitation{invitations.length !== 1 ? 's' : ''}
               </div>
             </div>
-            
+
             <div className="mt-2 space-y-2">
               {invitations.map(invite => (
                 <div key={invite.invitation_id} className="bg-white rounded-md border border-blue-100 shadow-sm p-3 flex items-center justify-between">
@@ -475,21 +439,21 @@ const Organizations = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button 
+                    <button
                       onClick={() => handleAcceptInvite(invite.invitation_id)}
                       className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check">
-                        <path d="M20 6 9 17l-5-5"/>
+                        <path d="M20 6 9 17l-5-5" />
                       </svg>
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleRejectInvite(invite.invitation_id)}
                       className="p-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x">
-                        <path d="M18 6 6 18"/>
-                        <path d="m6 6 12 12"/>
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
                       </svg>
                     </button>
                   </div>
@@ -498,8 +462,8 @@ const Organizations = () => {
             </div>
           </div>
         </div>
-      )}
-      
+      )} */}
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 w-full">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-5">
@@ -511,9 +475,9 @@ const Organizations = () => {
                 </div>
                 <div className="flex items-baseline space-x-2">
                   <span className="font-sora font-bold text-2xl">TasksMate</span>
-                  <a 
-                    href="https://indrasol.com/" 
-                    target="_blank" 
+                  <a
+                    href="https://indrasol.com/"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
                   >
@@ -527,7 +491,7 @@ const Organizations = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Search, filters and tools bar - Modern floating style */}
       <div className="relative z-10 mt-4 bg-transparent">
         <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -543,7 +507,7 @@ const Organizations = () => {
                     className="pl-10 w-52 md:w-64 bg-transparent border-gray-200/50"
                   />
                 </div>
-                
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="h-9 bg-transparent border-gray-200/50">
@@ -567,27 +531,27 @@ const Organizations = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <div className="bg-transparent border border-gray-200/50 rounded-lg overflow-hidden p-1">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className={`h-8 ${viewMode === 'grid' ? 'bg-green-50 text-green-600' : ''} rounded-md`}
                     onClick={() => setViewMode('grid')}
                   >
                     <LayoutGrid className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className={`h-8 ${viewMode === 'list' ? 'bg-green-50 text-green-600' : ''} rounded-md`}
                     onClick={() => setViewMode('list')}
                   >
                     <List className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-green-500 hover:bg-green-600">
@@ -599,7 +563,7 @@ const Organizations = () => {
                     <DialogHeader>
                       <div className="flex items-center gap-2">
                         <DialogTitle>Create Organization</DialogTitle>
-                        <Badge className="bg-blue-500 text-white ml-2">Owner</Badge>
+                        {/* <Badge className="bg-blue-500 text-white ml-2">Owner</Badge> */}
                       </div>
                     </DialogHeader>
                     <form onSubmit={handleCreateOrganization} className="space-y-4">
@@ -632,8 +596,8 @@ const Organizations = () => {
                         />
                       </div>
 
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         className="w-full bg-green-500 hover:bg-green-600"
                         disabled={creating}
                       >
@@ -692,13 +656,13 @@ const Organizations = () => {
               {searchQuery ? 'No organizations found' : 'Get started by creating your first organization'}
             </h3>
             <p className="text-gray-600 mb-6">
-              {searchQuery 
-                ? 'Try adjusting your search query' 
+              {searchQuery
+                ? 'Try adjusting your search query'
                 : 'Organizations help you manage projects and collaborate with your team'
               }
             </p>
             {!searchQuery && (
-              <Button 
+              <Button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="bg-green-500 hover:bg-green-600"
               >
@@ -710,7 +674,7 @@ const Organizations = () => {
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
             {filteredOrganizations.map((org) => (
-              <Card 
+              <Card
                 key={org.org_id}
                 className="relative cursor-pointer overflow-hidden backdrop-blur-sm bg-white/90 dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-500 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 ease-in-out hover:-translate-y-2 group"
                 onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
@@ -734,8 +698,8 @@ const Organizations = () => {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Badge 
-                                  variant="default" 
+                                <Badge
+                                  variant="default"
                                   className={`transition-colors duration-300 ${getRoleBadgeColor()}`}
                                 >
                                   <UserCheck className="w-3 h-3 mr-1" /> {capitalizeWords(org.role)}
@@ -786,8 +750,8 @@ const Organizations = () => {
                               <TooltipTrigger asChild>
                                 <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
                                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <polyline points="12 6 12 12 16 14"/>
+                                    <circle cx="12" cy="12" r="10" />
+                                    <polyline points="12 6 12 12 16 14" />
                                   </svg> {formatDate(org.created_at)}
                                 </Badge>
                               </TooltipTrigger>
@@ -797,18 +761,41 @@ const Organizations = () => {
                             </Tooltip>
                           </TooltipProvider>
                         )}
-                      {(org.role === 'owner' || org.role === 'admin') && (
-                        <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
-                          <button className="p-1 text-gray-600 hover:bg-transparent" onClick={() => openEditModal(org)}>
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          {org.role === 'owner' && (
-                            <button className="p-1 text-red-600 hover:bg-transparent" onClick={() => handleDeleteOrganization(org)}>
-                              <Trash2 className="w-4 h-4" />
+                        {(org.role === 'owner' || org.role === 'admin') && (
+                          <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
+                            <button className="p-1 text-gray-600 hover:bg-transparent" onClick={() => openEditModal(org)}>
+                              <Pencil className="w-4 h-4" />
                             </button>
-                          )}
-                        </div>
-                      )}
+                            {org.role === 'owner' && (
+                              <button className="p-1 text-red-600 hover:bg-transparent" onClick={() => handleDeleteOrganization(org)}>
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {(org.is_invite) &&
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              onClick={() => handleAcceptInvite(org.invitation_id)}
+                              className="p-1 text-gray-600 hover:bg-transparent"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check">
+                                <path d="M20 6 9 17l-5-5" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleRejectInvite(org.invitation_id)}
+                              className="p-1 text-red-600 hover:bg-transparent"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x">
+                                <path d="M18 6 6 18" />
+                                <path d="m6 6 12 12" />
+                              </svg>
+                            </button>
+                            <span className="font-semibold">Pending Invitation</span>
+                          </div>
+                        }
                       </div>
                     </div>
                   </div>
@@ -825,14 +812,14 @@ const Organizations = () => {
                         <span>{org.project_count} project{org.project_count !== 1 ? 's' : ''}</span>
                       </div>
                     </div>
-                    
+
                     <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20 p-2">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-right">
-                        <path d="m9 18 6-6-6-6"/>
+                        <path d="m9 18 6-6-6-6" />
                       </svg>
                     </Button>
                   </div>
-                  
+
                   {/* Footer content can be added here if needed */}
                 </CardFooter>
               </Card>
@@ -841,7 +828,7 @@ const Organizations = () => {
         ) : (
           <div className="flex flex-col space-y-3">
             {filteredOrganizations.map((org) => (
-              <div 
+              <div
                 key={org.org_id}
                 className="relative bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-4 hover:border-green-400 dark:hover:border-green-500 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
                 onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
@@ -852,7 +839,7 @@ const Organizations = () => {
                     <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-lg flex items-center justify-center flex-shrink-0">
                       <Building2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
-                    
+
                     <div>
                       <div className="flex items-center gap-3">
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100">{org.name}</h3>
@@ -862,8 +849,8 @@ const Organizations = () => {
                               <Info className="w-3 h-3 mr-1" /> {org.org_id}
                             </Badge>
                           )}
-                          <Badge 
-                            variant="default" 
+                          <Badge
+                            variant="default"
                             className={`transition-colors duration-300 ${getRoleBadgeColor()}`}
                           >
                             <UserCheck className="w-3 h-3 mr-1" /> {capitalizeWords(org.role)}
@@ -873,7 +860,7 @@ const Organizations = () => {
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{org.description}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-4">
@@ -886,22 +873,22 @@ const Organizations = () => {
                           <span>{org.project_count} project{org.project_count !== 1 ? 's' : ''}</span>
                         </div>
                       </div>
-                      
+
                       {/* Additional info can be added here if needed */}
                     </div>
-                    
+
                     <div className="flex gap-2">
                       {org.created_by && (
                         <Badge variant="outline" className={`transition-colors duration-300 ${getCreatorBadgeColor()}`}>
                           <User className="w-3 h-3 mr-1" /> {org.created_by}
                         </Badge>
                       )}
-                      
+
                       {org.created_at && (
                         <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
                           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                            <circle cx="12" cy="12" r="10"/>
-                            <polyline points="12 6 12 12 16 14"/>
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
                           </svg> {formatDate(org.created_at)}
                         </Badge>
                       )}
@@ -917,6 +904,27 @@ const Organizations = () => {
                           )}
                         </div>
                       )}
+                      {(org.is_invite) &&
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              onClick={() => handleAcceptInvite(org.invitation_id)}
+                              className="p-1 text-gray-600 hover:bg-transparent"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check">
+                                <path d="M20 6 9 17l-5-5" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleRejectInvite(org.invitation_id)}
+                              className="p-1 text-red-600 hover:bg-transparent"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x">
+                                <path d="M18 6 6 18" />
+                                <path d="m6 6 12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        }
                     </div>
                   </div>
                 </div>
