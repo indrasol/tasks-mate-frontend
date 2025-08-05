@@ -96,6 +96,14 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const handler = (e:any) => setSidebarCollapsed(e.detail.collapsed);
+    window.addEventListener('sidebar-toggle', handler);
+    setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem');
+    return () => window.removeEventListener('sidebar-toggle', handler);
+  }, []);
 
   // Mock project context
   const currentProject = 'TasksMate Web';
@@ -323,10 +331,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         onNewMeeting={handleNewMeeting}
       />
 
-      <div className="ml-64 transition-all duration-300">
+      <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Page Header */}
-        <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="px-6 py-8">
+          <div className="w-full flex items-center justify-between">
             <div>
               <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Tasks Catalog</h1>
               <p className="text-gray-600">Manage and track all your tasks in one place</p>
@@ -343,7 +351,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
         {/* Enhanced Controls */}
         <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
               {/* Search Bar - Left side */}
@@ -489,7 +497,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
         {/* Results count */}
         <div className="px-6 py-2">
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <p className="text-sm text-gray-600">
               Showing {filteredTasks.length} of {tasks.length} tasks
             </p>
@@ -498,7 +506,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
         {/* Tasks Display */}
         <div className="px-6 py-6">
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             {view === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredTasks.map((task) => (

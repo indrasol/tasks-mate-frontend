@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Filter, Bug, Beaker, Search, Calendar, ChevronUp, ChevronDown, Check, SortDesc, SortAsc, CalendarRange } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
@@ -46,6 +46,13 @@ type SortField = 'id' | 'name' | 'project' | 'creator' | 'status' | 'totalBugs' 
 type SortOrder = 'asc' | 'desc';
 
 const TesterZone = () => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  useEffect(() => {
+    const handler = (e:any)=>setSidebarCollapsed(e.detail.collapsed);
+    window.addEventListener('sidebar-toggle', handler);
+    setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim()==='4rem');
+    return ()=>window.removeEventListener('sidebar-toggle', handler);
+  }, []);
   const [showNewRunModal, setShowNewRunModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -217,9 +224,9 @@ const TesterZone = () => {
     <div className="min-h-screen bg-gray-50">
       <MainNavigation />
       
-      <div className="ml-64 p-8">
+      <div className="transition-all duration-300 p-8" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between w-full mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 font-sora">Bugs Tracker</h1>
             <p className="text-gray-600 mt-1">Manage and track your Issues</p>
@@ -235,12 +242,12 @@ const TesterZone = () => {
         </div>
 
         {/* Enhanced Controls */}
-        <div className="px-6 py-4 bg-white/30 border-b border-gray-200 mb-6">
-          <div className="max-w-7xl mx-auto">
+        <div className="px-6 py-4 mb-6">
+          <div className="w-full">
             {/* All Controls in One Line */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between w-full">
               {/* Search Bar - Left side */}
-              <div className="relative w-80">
+              <div className="relative w-full max-w-md mr-auto">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input 
                   placeholder="Search by Tracker ID, keywords..." 
@@ -379,7 +386,7 @@ const TesterZone = () => {
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg border shadow-sm p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between w-full">
               <div>
                 <p className="text-sm text-gray-600">Total Trackers</p>
                 <p className="text-2xl font-bold text-gray-900">{filteredAndSortedRuns.length}</p>
@@ -392,7 +399,7 @@ const TesterZone = () => {
           </div>
 
           <div className="bg-white rounded-lg border shadow-sm p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between w-full">
               <div>
                 <p className="text-sm text-gray-600">Total Bugs</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -407,7 +414,7 @@ const TesterZone = () => {
           </div>
 
           <div className="bg-white rounded-lg border shadow-sm p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between w-full">
               <div>
                 <p className="text-sm text-gray-600">Total Tasks</p>
                 <p className="text-2xl font-bold text-gray-900">

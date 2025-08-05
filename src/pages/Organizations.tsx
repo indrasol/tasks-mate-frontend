@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Search, Plus, Users, UserCheck, Info, User, LayoutGrid, List, Check, ChevronsUpDown, Pencil, Trash2 } from 'lucide-react';
+import { Building2, Layers, Search, Plus, Users, UserCheck, Info, User, LayoutGrid, List, Check, X, Mail, ChevronsUpDown, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
@@ -68,6 +69,7 @@ const Organizations = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingInvitations, setLoadingInvitations] = useState(true);
+  const [invitesOpen, setInvitesOpen] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [newOrgDescription, setNewOrgDescription] = useState('');
@@ -438,7 +440,7 @@ const Organizations = () => {
                       Invited by {invite.invited_by} on {formatDate(invite.invited_at)} • Role: {capitalizeWords(invite.role)}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center flex-wrap gap-2">
                     <button
                       onClick={() => handleAcceptInvite(invite.invitation_id)}
                       className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
@@ -490,6 +492,72 @@ const Organizations = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Organization Invitations Banner */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 mt-4">
+        {loadingInvitations ? (
+          <div className="h-12 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
+        ) : invitations.length > 0 ? (
+          <Collapsible open={invitesOpen} onOpenChange={setInvitesOpen} className="w-full">
+            <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-indigo-50 border border-indigo-100 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-2 text-indigo-700">
+                  <Mail className="w-4 h-4" />
+                  <span className="font-medium text-sm">
+                    You have {invitations.length} pending organization invitation{invitations.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <button
+                    className="p-1 rounded-md hover:bg-white/40 transition-colors"
+                    aria-label={invitesOpen ? 'Collapse' : 'Expand'}
+                  >
+                    <ChevronDown
+                      className={`w-4 h-4 text-indigo-700 transition-transform duration-300 ${invitesOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                </CollapsibleTrigger>
+              </div>
+              <CollapsibleContent className="space-y-2 px-4 pb-4 transition-all duration-300">
+                {invitations.map((invite) => (
+                  <div
+                    key={invite.invitation_id}
+                    className="flex items-center justify-between bg-white/60 dark:bg-gray-900/40 border border-indigo-100 rounded-md p-3 transform transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:bg-white/80 dark:hover:bg-gray-900/60"
+                  >
+                    <div>
+                      <div className="font-medium text-gray-800 dark:text-gray-100">
+                        Invitation to join <span className="font-semibold">{invite.org_name}</span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Invited by {invite.invited_by} on {formatDate(invite.invited_at)} • Role: {capitalizeWords(invite.role)}
+                      </div>
+                    </div>
+                    <div className="flex items-center flex-shrink-0 gap-2">
+                      <button
+                        onClick={() => handleAcceptInvite(invite.invitation_id)}
+                        className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleRejectInvite(invite.invitation_id)}
+                        className="p-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+        ) : (
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-gray-500 text-sm flex items-center gap-2 shadow mb-3">
+            <Mail className="w-4 h-4" />
+            <span>No pending organization invitations</span>
+          </div>
+        )}
       </div>
 
       {/* Search, filters and tools bar - Modern floating style */}
@@ -561,7 +629,7 @@ const Organizations = () => {
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center flex-wrap gap-2">
                         <DialogTitle>Create Organization</DialogTitle>
                         {/* <Badge className="bg-blue-500 text-white ml-2">Owner</Badge> */}
                       </div>
@@ -611,7 +679,7 @@ const Organizations = () => {
                 <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
                   <DialogContent>
                     <DialogHeader>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center flex-wrap gap-2">
                         <DialogTitle>Edit Organization</DialogTitle>
                       </div>
                     </DialogHeader>
@@ -672,7 +740,7 @@ const Organizations = () => {
             )}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-6">
             {filteredOrganizations.map((org) => (
               <Card
                 key={org.org_id}
@@ -694,7 +762,7 @@ const Organizations = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center">
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">{org.name}</h3>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center flex-wrap gap-2">
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -763,11 +831,11 @@ const Organizations = () => {
                         )}
                         {(org.role === 'owner' || org.role === 'admin') && (
                           <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
-                            <button className="p-1 text-gray-600 hover:bg-transparent" onClick={() => openEditModal(org)}>
+                            <button className="p-1 text-gray-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-green-600" onClick={() => openEditModal(org)}>
                               <Pencil className="w-4 h-4" />
                             </button>
                             {org.role === 'owner' && (
-                              <button className="p-1 text-red-600 hover:bg-transparent" onClick={() => handleDeleteOrganization(org)}>
+                              <button className="p-1 text-red-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-red-700" onClick={() => handleDeleteOrganization(org)}>
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
@@ -808,7 +876,7 @@ const Organizations = () => {
                         <span>{org.member_count} member{org.member_count !== 1 ? 's' : ''}</span>
                       </div>
                       <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                        <Building2 className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
+                        <Layers className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
                         <span>{org.project_count} project{org.project_count !== 1 ? 's' : ''}</span>
                       </div>
                     </div>
@@ -843,7 +911,7 @@ const Organizations = () => {
                     <div>
                       <div className="flex items-center gap-3">
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100">{org.name}</h3>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center flex-wrap gap-2">
                           {org.org_id && (
                             <Badge variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
                               <Info className="w-3 h-3 mr-1" /> {org.org_id}
@@ -869,7 +937,7 @@ const Organizations = () => {
                           <span>{org.member_count} member{org.member_count !== 1 ? 's' : ''}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <Building2 className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
+                          <Layers className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
                           <span>{org.project_count} project{org.project_count !== 1 ? 's' : ''}</span>
                         </div>
                       </div>
@@ -894,11 +962,11 @@ const Organizations = () => {
                       )}
                       {(org.role === 'owner' || org.role === 'admin') && (
                         <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
-                          <button className="p-1 text-gray-600 hover:bg-transparent" onClick={() => openEditModal(org)}>
+                          <button className="p-1 text-gray-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-green-600" onClick={() => openEditModal(org)}>
                             <Pencil className="w-4 h-4" />
                           </button>
                           {org.role === 'owner' && (
-                            <button className="p-1 text-red-600 hover:bg-transparent" onClick={() => handleDeleteOrganization(org)}>
+                            <button className="p-1 text-red-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-red-700" onClick={() => handleDeleteOrganization(org)}>
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
