@@ -35,6 +35,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { api } from "@/services/apiService";
+import { API_ENDPOINTS } from "@/../config";
 
 interface Project {
   id: string;
@@ -44,32 +46,41 @@ interface Project {
   progress: number;
   startDate: string;
   endDate: string;
-  teamMembers: Array<{
-    initials: string;
-    name: string;
-    role: string;
-  }>;
+  teamMembers: Array<Member>;
   tasksCount: number;
   completedTasks: number;
   priority: 'high' | 'medium' | 'low';
   category: string;
-  resources: Array<{
-    id: string;
-    type: 'file' | 'url';
+}
+
+interface Member{
+    initials: string;
     name: string;
-    url?: string;
-    size?: string;
-    uploadedBy: string;
-    uploadedAt: string;
-  }>;
+    role: string;
+    designation:string;
+  }
+
+
+interface Resource {
+  id: string;
+  type: 'file' | 'url';
+  name: string;
+  url?: string;
+  size?: string;
+  uploadedBy: string;
+  uploadedAt: string;
 }
 
 const ProjectDetail = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
+  const [project, setProject] = useState<Project | null>(null);
+  const [teamMembers, setTeamMembers] = useState<Member[]>([]);  
+  const [resources, setResources] = useState<Resource[]>([]);
   const [newUrl, setNewUrl] = useState('');
   const [newUrlName, setNewUrlName] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -77,56 +88,197 @@ const ProjectDetail = () => {
     }
   }, [user, loading, navigate]);
 
-  // Sample project data - in real app, this would come from API
-  const [project] = useState<Project>({
-    id: "P001",
-    name: "TasksMate Mobile App",
-    description: "Develop mobile application for TasksMate with cross-platform compatibility using React Native. This project aims to bring our productivity platform to mobile devices, allowing users to manage tasks, collaborate with teams, and track progress on the go.",
-    status: "active",
-    progress: 65,
-    startDate: "2024-01-15",
-    endDate: "2024-06-30",
-    teamMembers: [
-      { initials: "JD", name: "John Doe", role: "Project Manager" },
-      { initials: "SK", name: "Sarah Kim", role: "Frontend Developer" },
-      { initials: "MR", name: "Mike Rodriguez", role: "Backend Developer" },
-      { initials: "AM", name: "Anna Martinez", role: "UI/UX Designer" }
-    ],
-    tasksCount: 24,
-    completedTasks: 16,
-    priority: "high",
-    category: "Development",
-    resources: [
-      {
-        id: "R001",
-        type: "file",
-        name: "Project Requirements.pdf",
-        size: "2.3 MB",
-        uploadedBy: "John Doe",
-        uploadedAt: "2024-01-20"
-      },
-      {
-        id: "R002",
-        type: "url",
-        name: "Design System Guidelines",
-        url: "https://figma.com/design-system",
-        uploadedBy: "Anna Martinez",
-        uploadedAt: "2024-01-18"
-      },
-      {
-        id: "R003",
-        type: "file",
-        name: "API Documentation.docx",
-        size: "1.8 MB",
-        uploadedBy: "Mike Rodriguez",
-        uploadedAt: "2024-01-15"
+  useEffect(() => {
+    if (!id) return;
+    const fetchProject = async () => {
+      try {
+        const res = await api.get<any>(`${API_ENDPOINTS.PROJECTS}/detail/${id}`);
+        // Map API response to local Project shape
+        const mapped: Project = {
+          id: res.project_id,
+          name: res.name,
+          description: res.description,
+          status: res.status,
+          progress: Number(res.progress_percent ?? 0),
+          startDate: res.start_date ?? '',
+          endDate: res.end_date ?? '',
+          teamMembers: (res.team_members ?? []).map((m: any) => ({
+            initials: m.initials || m.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '',
+            name: m.name || '',
+            role: m.role || '',
+          })),
+          tasksCount: res.tasks_total ?? 0,
+          completedTasks: res.tasks_completed ?? 0,
+          priority: res.priority,
+          category: res.category || 'General'
+        };
+        setProject(mapped);
+      } catch (err) {
+        setProject(null);
       }
-    ]
-  });
+    };
+    fetchProject();
+  }, [id]);
 
-  const [resources, setResources] = useState(project.resources);
+   // Fetch resources separately
+  const fetchResources = async () => {
+    if (!id) return;
+    try {
+      const res = await api.get<Resource[]>(`${API_ENDPOINTS.PROJECTS_RESOURCES}?project_id=${id}`);
+      setResources(res);
+    } catch (err) {
+      setResources([]);
+    }
+  };
 
-  if (loading) {
+  useEffect(() => {
+    // fetchResources();
+    // eslint-disable-next-line
+  }, [id]);
+
+  // Fetch team members separately
+  const fetchTeamMembers = async () => {
+    if (!id) return;
+    try {
+      const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS_MEMBERS}?project_id=${id}`);
+      setTeamMembers(
+        (res ?? []).map((m: any) => ({
+          initials: m.initials || m.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '',
+          name: m.name || '',
+          role: m.role || '',
+          designation: m.designation || '',
+        }))
+      );
+    } catch (err) {
+      setTeamMembers([]);
+    }
+  };
+
+  useEffect(() => {
+    // fetchTeamMembers();
+    // eslint-disable-next-line
+  }, [id]);
+
+  // Add new URL resource
+  const handleAddUrl = async () => {
+    if (!newUrl || !newUrlName || !project) return;
+    try {
+      const res = await api.post<any>(`${API_ENDPOINTS.PROJECTS_RESOURCES}/${project.id}`, {
+        project_id:project.id,
+        type: 'url',
+        name: newUrlName,
+        url: newUrl,
+        uploadedBy: user?.user_metadata?.username,
+      });
+      // setResources([...resources, res]);
+      setNewUrl('');
+      setNewUrlName('');
+      fetchResources();
+    } catch (err) {
+      // handle error
+    }
+  };
+
+  // Upload file resource
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !project) return;
+    setUploading(true);
+    const formData = new FormData();
+    Array.from(e.target.files).forEach(file => {
+      formData.append('files', file);
+    });
+    formData.append('uploadedBy', user?.email || 'Current User');
+    try {
+      const res = await api.post<any[]>(`${API_ENDPOINTS.PROJECTS_RESOURCES}/${project.id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const res_upload = await api.post<any>(`${API_ENDPOINTS.PROJECTS_RESOURCES}/${project.id}`, {
+        project_id:project.id,
+        type: 'url',
+        name: newUrlName,
+        url: newUrl,
+        uploadedBy: user?.user_metadata?.username,
+      });
+
+      fetchResources();
+    } catch (err) {
+      // handle error
+    }
+    setUploading(false);
+  };
+
+  
+  // Remove member (DELETE with user_id and project_id)
+  const handleRemoveMember = async (member: Member) => {
+    if (!project) return;
+    try {
+      await api.del(
+        `${API_ENDPOINTS.PROJECTS_MEMBERS}/${member.name}/${project.id}`,{}
+      );
+      fetchTeamMembers();
+    } catch (err) {
+      // handle error
+    }
+  };
+
+  // Change role (PUT with user_id and project_id)
+  const handleChangeRole = async (member: Member, newRole: string) => {
+    if (!project) return;
+    try {
+      await api.put(
+        `${API_ENDPOINTS.PROJECTS_MEMBERS}/${member.name}/${project.id}`,
+        { role: newRole }
+      );
+      fetchTeamMembers();
+    } catch (err) {
+      // handle error
+    }
+  };
+
+  // Change designation (PUT with user_id and project_id)
+  const handleChangeDesignation = async (member: Member, newDesignation: string) => {
+    if (!project) return;
+    try {
+      await api.put(
+        `${API_ENDPOINTS.PROJECTS_MEMBERS}/${member.name}/${project.id}`,
+        { designation: newDesignation }
+      );
+      fetchTeamMembers();
+    } catch (err) {
+      // handle error
+    }
+  };
+
+  // Remove resource (DELETE with resource_id and project_id)
+  const handleDeleteResource = async (resource: Resource) => {
+    if (!project) return;
+    try {
+      await api.del(
+        `${API_ENDPOINTS.PROJECTS_RESOURCES}/${resource.id}?project_id=${project.id}`,{}
+      );
+      fetchResources();
+    } catch (err) {
+      // handle error
+    }
+  };
+
+  // Update resource (PUT with resource_id and project_id)
+  const handleRenameResource = async (resource: Resource, newName: string) => {
+    if (!project) return;
+    try {
+      await api.put(
+        `${API_ENDPOINTS.PROJECTS_RESOURCES}/${resource.id}?project_id=${project.id}`,
+        { name: newName }
+      );
+      fetchResources();
+    } catch (err) {
+      // handle error
+    }
+  };
+  
+
+  if (loading || !project) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div>
@@ -345,7 +497,7 @@ const ProjectDetail = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {project.teamMembers.map((member, index) => (
+                        {teamMembers.map((member, index) => (
                           <div key={index} className="flex items-center gap-3">
                             <Avatar className="w-8 h-8">
                               <AvatarFallback className="bg-tasksmate-gradient text-white text-xs">
@@ -355,6 +507,7 @@ const ProjectDetail = () => {
                             <div>
                               <p className="text-sm font-medium">{member.name}</p>
                               <p className="text-xs text-gray-600">{member.role}</p>
+                              <p className="text-xs text-gray-600">{member.designation}</p>
                             </div>
                           </div>
                         ))}
@@ -385,16 +538,14 @@ const ProjectDetail = () => {
                           multiple
                           className="hidden"
                           id="file-upload"
-                          onChange={(e) => {
-                            // Handle file upload logic here
-                            console.log('Files selected:', e.target.files);
-                          }}
+                          onChange={handleFileUpload}
+                          disabled={uploading}
                         />
                         <label
                           htmlFor="file-upload"
                           className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
                         >
-                          Choose Files
+                          {uploading ? "Uploading..." : "Choose Files"}
                         </label>
                         <p className="text-xs text-gray-500 mt-2">Support for PDF, DOC, XLS, PNG, JPG files</p>
                       </div>
@@ -431,21 +582,9 @@ const ProjectDetail = () => {
                          </div>
                         <Button 
                           className="w-full bg-tasksmate-gradient"
-                                                     onClick={() => {
-                             if (newUrl && newUrlName) {
-                               const newResource = {
-                                 id: `R${Date.now()}`,
-                                 type: 'url' as const,
-                                 name: newUrlName,
-                                 url: newUrl,
-                                 uploadedBy: user?.email || 'Current User',
-                                 uploadedAt: new Date().toISOString().split('T')[0]
-                               };
-                               setResources([...resources, newResource]);
-                               setNewUrl('');
-                               setNewUrlName('');
-                             }
-                           }}
+                                                     onClick={handleAddUrl}
+                                                     disabled={!newUrl || !newUrlName}
+                   
                         >
                           <Plus className="w-4 h-4 mr-2" />
                           Add URL
