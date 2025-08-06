@@ -1,12 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Target, Users, UserCheck } from 'lucide-react';
+import type { BackendOrgMember } from "@/types/organization";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -31,17 +35,33 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
     description: '',
     owner: '',
     teamMembers: [] as string[],
-    priority: 'medium'
+    priority: 'low',
+    status: 'not_started',
+    startDate: '',
+    endDate: ''
   });
 
-  // Mock team members data - in real app this would come from props or API
-  const availableTeamMembers = [
-    { id: '1', name: 'John Doe', username: 'john.doe' },
-    { id: '2', name: 'Jane Smith', username: 'jane.smith' },
-    { id: '3', name: 'Mike Rodriguez', username: 'mike.rodriguez' },
-    { id: '4', name: 'Sarah Kim', username: 'sarah.kim' },
-    { id: '5', name: 'Alex Johnson', username: 'alex.johnson' },
-  ];
+  // Fetch organization members
+  const { data: organizations } = useOrganizations();
+  const orgId = organizations?.[0]?.id;
+  const { data: orgMembersRaw, isLoading: membersLoading } = useOrganizationMembers(orgId);
+  const orgMembers: BackendOrgMember[] = (orgMembersRaw ?? []) as BackendOrgMember[];
+
+  type TeamMember = { id: string; displayName: string; initials: string };
+  const availableTeamMembers: TeamMember[] = useMemo(
+    () =>
+      orgMembers.map((m) => {
+        const usernamePart = m.email.split("@")[0];
+        const tokens = usernamePart.split(/[._-]+/).filter(Boolean);
+        const displayTokens = tokens.map((t) =>
+          t.length === 1 ? t.toUpperCase() : t.charAt(0).toUpperCase() + t.slice(1)
+        );
+        const displayName = displayTokens.join(" ");
+        const initials = displayTokens.map((t) => t[0]).join("").toUpperCase();
+        return { id: m.user_id, displayName, initials };
+      }),
+    [orgMembers]
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +75,10 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
       description: '',
       owner: '',
       teamMembers: [],
-      priority: 'medium'
+      priority: 'low',
+      status: 'not_started',
+      startDate: '',
+      endDate: ''
     });
   };
 
@@ -76,16 +99,27 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl font-semibold">
-            <Target className="w-5 h-5 text-blue-600" />
-            Create New Project
-          </DialogTitle>
-        </DialogHeader>
+    <Sheet open={isOpen} onOpenChange={(open) => { if(!open) onClose(); }}>
+      <SheetContent className="w-[400px] sm:w-[540px] bg-white flex flex-col p-0 max-h-screen">
+        <div className="relative bg-tasksmate-gradient p-6 flex-shrink-0">
+          <div className="absolute inset-0 bg-black/5"></div>
+          <div className="relative">
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <Target className="h-5 w-5 text-white" />
+              </div>
+              <SheetTitle className="text-2xl font-bold text-white font-sora">
+                Create New Project
+              </SheetTitle>
+            </div>
+            <p className="text-white/90 text-sm leading-relaxed">
+              Turn your ideas into reality. Fill in the details to kickstart a new project.
+            </p>
+          </div>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <ScrollArea className="flex-1 px-6">
+          <form onSubmit={handleSubmit} className="space-y-4 py-4">
           {/* Project Name */}
           <div className="space-y-2">
             <Label htmlFor="name" className="text-sm font-medium">Project Name *</Label>
@@ -112,23 +146,24 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
             />
           </div>
 
-          {/* Owner and Priority Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Status and Priority Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1">
-                <UserCheck className="w-4 h-4" />
-                Project Owner *
-              </Label>
-              <Select onValueChange={(value) => handleInputChange('owner', value)}>
+              <Label className="text-sm font-medium">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => handleInputChange('status', value)}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project owner" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableTeamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name} (@{member.username})
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="planning">Planning</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="on_hold">On Hold</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="not_started">Not Started</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -143,12 +178,58 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low Priority</SelectItem>
-                  <SelectItem value="medium">Medium Priority</SelectItem>
-                  <SelectItem value="high">High Priority</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Start Date</Label>
+              <Input
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => handleInputChange('startDate', e.target.value)}
+                className="w-full"
+                max={formData.endDate || undefined}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">End Date</Label>
+              <Input
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => handleInputChange('endDate', e.target.value)}
+                className="w-full"
+                min={formData.startDate || undefined}
+              />
+            </div>
+          </div>
+
+          {/* Project Owner */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-1">
+              <UserCheck className="w-4 h-4" />
+              Project Owner *
+            </Label>
+            <Select value={formData.owner} onValueChange={(value) => handleInputChange('owner', value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select project owner" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableTeamMembers.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.displayName} ({member.initials})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Team Members */}
@@ -157,8 +238,12 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
               <Users className="w-4 h-4" />
               Team Members
             </Label>
-            <div className="border rounded-lg p-4 max-h-48 overflow-y-auto">
-              <div className="space-y-2">
+            <div className="border rounded-lg p-4 max-h-40 overflow-y-auto">
+              {membersLoading ? (
+                <p className="text-sm text-gray-500">Loading members...</p>
+              ) : (
+                <>
+                  <div className="space-y-2">
                 {availableTeamMembers.map((member) => (
                   <div key={member.id} className="flex items-center space-x-2">
                     <input
@@ -172,13 +257,15 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
                       htmlFor={`member-${member.id}`} 
                       className="text-sm cursor-pointer flex-1"
                     >
-                      {member.name} (@{member.username})
+                      {member.displayName} ({member.initials})
                     </label>
                   </div>
                 ))}
-              </div>
-              {formData.teamMembers.length === 0 && (
-                <p className="text-sm text-gray-500 italic">No team members selected</p>
+                  </div>
+                  {availableTeamMembers.length === 0 && (
+                    <p className="text-sm text-gray-500 italic">No organization members found</p>
+                  )}
+                </>
               )}
             </div>
             <p className="text-xs text-gray-500">
@@ -187,7 +274,7 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex justify-end space-x-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -200,8 +287,9 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 };
 
