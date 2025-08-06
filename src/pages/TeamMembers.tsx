@@ -60,11 +60,11 @@ const TeamMembers = () => {
   const orgId = searchParams.get('org_id');
 
   useEffect(() => {
-    if (user) {
+    if (user && orgId) {
       fetchTeamMembers();
       fetchInvitedTeamMembers();
     }
-  }, [user]);
+  }, [user, orgId]);
 
   // Fetch designations
   useEffect(() => {
@@ -91,7 +91,7 @@ const TeamMembers = () => {
           id: org.id,
           email: org.email,
           role: org.role,
-          joined_at: org.accepted_at || '',
+          joined_at: org.accepted_at || org.invited_at || org.updated_at || '',
           // project_count: org.project_count  || 0, // Default to 0 if not provided
           designation: org.designation || undefined, // Keep as undefined if not provided
         };
@@ -438,7 +438,7 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       {/* <TableCell>{member.project_count}</TableCell> */}
-                      <TableCell>{new Date(member.joined_at).toLocaleDateString()}</TableCell>
+                      <TableCell>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>{member.role !== 'owner' && <Button onClick={() => handleRemoveTeamMember(member.id)}>Remove</Button>}</TableCell>
                     </TableRow>
                   ))}
@@ -524,7 +524,7 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       {/* <TableCell>{member.project_count}</TableCell> */}
-                      <TableCell>{new Date(member.joined_at).toLocaleDateString()}</TableCell>
+                      <TableCell>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>{<Button onClick={() => handleRemoveTeamMember(member.id)}>Remove</Button>}</TableCell>
                     </TableRow>
                   ))}

@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/navigation/MainNavigation";
+import { api } from "@/services/apiService";
+import { API_ENDPOINTS } from "@/../config";
+import { useOrganizations } from "@/hooks/useOrganizations";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,14 +52,14 @@ interface Project {
   id: string;
   name: string;
   description: string;
-  status: 'active' | 'completed' | 'on-hold' | 'planning';
+  status: string;
   progress: number;
   startDate: string;
   endDate: string;
   teamMembers: string[];
   tasksCount: number;
   completedTasks: number;
-  priority: 'high' | 'medium' | 'low';
+  priority: string;
   category: string;
 }
 
@@ -75,6 +78,7 @@ const Projects = () => {
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const { data: organizations } = useOrganizations();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
@@ -90,79 +94,38 @@ const Projects = () => {
     }
   }, [user, loading, navigate]);
 
-  // Sample projects data
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: "P001",
-      name: "TasksMate Mobile App",
-      description: "Develop mobile application for TasksMate with cross-platform compatibility",
-      status: "active",
-      progress: 65,
-      startDate: "2024-01-15",
-      endDate: "2024-06-30",
-      teamMembers: ["JD", "SK", "MR"],
-      tasksCount: 24,
-      completedTasks: 16,
-      priority: "high",
-      category: "Development"
-    },
-    {
-      id: "P002",
-      name: "UI/UX Redesign",
-      description: "Complete redesign of the user interface with modern design principles",
-      status: "active",
-      progress: 40,
-      startDate: "2024-02-01",
-      endDate: "2024-05-15",
-      teamMembers: ["SK", "AM"],
-      tasksCount: 18,
-      completedTasks: 7,
-      priority: "medium",
-      category: "Design"
-    },
-    {
-      id: "P003",
-      name: "Security Audit",
-      description: "Comprehensive security review and implementation of security measures",
-      status: "completed",
-      progress: 100,
-      startDate: "2024-01-01",
-      endDate: "2024-03-15",
-      teamMembers: ["MR", "JD"],
-      tasksCount: 12,
-      completedTasks: 12,
-      priority: "high",
-      category: "Security"
-    },
-    {
-      id: "P004",
-      name: "API Integration",
-      description: "Integration with third-party APIs for enhanced functionality",
-      status: "planning",
-      progress: 10,
-      startDate: "2024-04-01",
-      endDate: "2024-07-30",
-      teamMembers: ["AM", "MR"],
-      tasksCount: 8,
-      completedTasks: 1,
-      priority: "medium",
-      category: "Development"
-    },
-    {
-      id: "P005",
-      name: "Marketing Campaign",
-      description: "Launch comprehensive marketing campaign for Q2",
-      status: "on-hold",
-      progress: 25,
-      startDate: "2024-03-01",
-      endDate: "2024-05-30",
-      teamMembers: ["AM"],
-      tasksCount: 15,
-      completedTasks: 4,
-      priority: "low",
-      category: "Marketing"
-    }
-  ]);
+  // Fetch projects from backend
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (loading) return;
+      const orgId = organizations?.[0]?.id;
+      if (!user || !orgId) return;
+      try {
+        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}?org_id=${orgId}`);
+        const mapped: Project[] = res.map((p: any) => ({
+          id: p.project_id,
+          name: p.name,
+          description: p.description,
+          status: p.status,
+          progress: Number(p.progress_percent ?? 0),
+          startDate: p.start_date ?? '',
+          endDate: p.end_date ?? '',
+          teamMembers: p.team_members ?? [],
+          tasksCount: p.tasks_total ?? 0,
+          completedTasks: p.tasks_completed ?? 0,
+          priority: p.priority,
+          category: 'General',
+        }));
+        setProjects(mapped);
+      } catch (err) {
+        console.error('Failed to fetch projects', err);
+      }
+    };
+    fetchProjects();
+  }, [user, loading, organizations]);
+
+  // Projects state populated from backend
+  const [projects, setProjects] = useState<Project[]>([]);
 
   if (loading) {
     return (
@@ -290,16 +253,58 @@ const Projects = () => {
     ));
   };
 
-  const handleNewProject = (projectData: any) => {
+  const handleNewProject = async (projectData: any) => {
+    // Optimistically add project locally; also attempt to persist to backend
+    const orgId = organizations?.[0]?.id;
+
+    if (orgId) {
+      try {
+        const created = await api.post<any>(API_ENDPOINTS.PROJECTS, {
+          org_id: orgId,
+          name: projectData.name,
+          description: projectData.description,
+          status: projectData.status,
+          priority: projectData.priority,
+          start_date: projectData.startDate || null,
+          end_date: projectData.endDate || null,
+          owner: projectData.owner,
+          team_members: projectData.teamMembers || [],
+        });
+
+        // Prefer the server-generated card if available
+        if (created && created.project_id) {
+          const newProject: Project = {
+            id: created.project_id,
+            name: created.name,
+            description: created.description,
+            status: created.status,
+            progress: Number(created.progress_percent ?? 0),
+            startDate: created.start_date ?? new Date().toISOString().split("T")[0],
+            endDate: created.end_date ?? "", // fallback
+            teamMembers: (created.team_members ?? projectData.teamMembers) || [],
+            tasksCount: created.tasks_total ?? 0,
+            completedTasks: created.tasks_completed ?? 0,
+            priority: created.priority,
+            category: "General",
+          };
+          setProjects(prev => [...prev, newProject]);
+          setIsNewProjectModalOpen(false);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to create project on server", err);
+      }
+    }
+
     const newProject: Project = {
       id: `P${(projects.length + 1).toString().padStart(3, '0')}`,
       name: projectData.name,
       description: projectData.description,
-      status: 'planning',
+      status: projectData.status as any,
       progress: 0,
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 90 days from now
-      teamMembers: projectData.teamMembers || [],
+      teamMembers: [projectData.owner, ...(projectData.teamMembers || [])].filter(Boolean),
       tasksCount: 0,
       completedTasks: 0,
       priority: projectData.priority,
