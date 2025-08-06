@@ -101,7 +101,7 @@ const Projects = () => {
       const orgId = organizations?.[0]?.id;
       if (!user || !orgId) return;
       try {
-        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}?org_id=${orgId}`);
+        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}`);
         const mapped: Project[] = res.map((p: any) => ({
           id: p.project_id,
           name: p.name,
