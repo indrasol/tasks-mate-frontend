@@ -615,7 +615,7 @@ const Organizations = () => {
                     placeholder="Search by name, ID, role, description..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-52 md:w-64 bg-transparent border-gray-200/50"
+                    className="pl-10 w-52 md:w-64 bg-transparent border-gray-200/50 transition-all duration-300 focus:w-72 md:focus:w-96"
                   />
                 </div>
 
@@ -820,11 +820,11 @@ const Organizations = () => {
             )}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-6">
+          <div className="grid gap-4 md:gap-6 auto-rows-max grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {filteredOrganizations.map((org) => (
               <Card
                 key={org.org_id}
-                className="relative cursor-pointer overflow-hidden backdrop-blur-sm bg-white/90 dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-500 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 ease-in-out hover:-translate-y-2 group"
+                className="relative cursor-pointer overflow-hidden flex flex-col h-full backdrop-blur-sm bg-white/90 dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-500 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 ease-in-out hover:-translate-y-2 group"
                 onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
                 tabIndex={0}
                 onKeyDown={(e) => {
@@ -834,7 +834,7 @@ const Organizations = () => {
                 <div className="h-3 w-full bg-gradient-to-r from-green-500 to-green-600 group-hover:scale-105 transition-transform duration-300"></div>
 
 
-                <CardContent className="p-6">
+                <CardContent className="p-6 flex-1">
                   <div className="flex items-start space-x-4">
                     <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-300">
                       <Building2 className="w-6 h-6 text-green-600 dark:text-green-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300" />

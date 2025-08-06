@@ -38,6 +38,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/services/apiService';
 import { API_ENDPOINTS } from '@/../config';
 import { BackendOrg, Organization } from '@/types/organization';
+import { useOrganizations } from '@/hooks/useOrganizations';
+import type { SimpleOrg } from '@/hooks/useOrganizations';
 import path from 'path';
 
 interface MainNavigationProps {
@@ -62,9 +64,16 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
 
   const orgId = useMemo(() => searchParams.get('org_id'), [searchParams]);
 
+  const { data: orgList } = useOrganizations();
+  const userOrganizations = (orgList ?? []) as SimpleOrg[];
+
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [currentOrgName, setCurrentOrgName] = useState('');
-  const [userOrganizations, setUserOrganizations] = useState<Array<{ id: string, name: string }>>([]);
+  const currentOrgName = useMemo(() => {
+    if (!orgId) return '';
+    const currentOrg = userOrganizations.find((org) => org.id === orgId);
+    return currentOrg?.name ?? '';
+  }, [orgId, userOrganizations]);
+  
 
   // Broadcast sidebar collapse
   useEffect(() => {
@@ -73,41 +82,33 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   }, [isCollapsed]);
 
   // Avoid duplicate fetches
-  const lastFetchedOrgId = useRef<string | null>(null);
+  
 
   useEffect(() => {
     // Only fetch if user is logged in and orgId is set, and if the orgId has changed
 
-    if (!user || !orgId || lastFetchedOrgId.current?.toString()?.trim() === orgId?.toString()?.trim()) {
+    if (!user || !orgId) {
       return;
     }
 
-    const fetchOrganizationData = async () => {
-      try {
-        const data = await api.get<BackendOrg[]>(API_ENDPOINTS.ORGANIZATIONS);
-        const formattedOrgs = (data || []).map(org => ({
-          id: org.org_id,
-          name: org.name,
-        }));
 
-        setUserOrganizations(formattedOrgs);
-        lastFetchedOrgId.current = orgId;
-      } catch (error) {
-        console.error('Error fetching organizations:', error);
-      }
-    };
 
-    fetchOrganizationData();
+
+
+
+
+
+
+
+        
+
+
+
+
+
   }, [user, orgId]);
 
-  useEffect(() => {
-    if (orgId && userOrganizations.length > 0) {
-      const currentOrg = userOrganizations.find(org => org.id === orgId);
-      setCurrentOrgName(currentOrg?.name ?? '');
-    } else {
-      setCurrentOrgName('');
-    }
-  }, [orgId, userOrganizations]);
+
 
   const handleSignOut = async () => {
     await signOut();
@@ -174,7 +175,18 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
 
         {/* Organization Dropdown - Show only when inside an org */}
         {orgId && !isCollapsed && (
-          <div className="px-3 py-2 border-b border-gray-100">
+          <div className="px-3 py-2 border-b border-gray-100 space-y-2">
+            {/* Back to Organizations Button */}
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/org')}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center space-x-2">
+                <ArrowLeft className="w-4 h-4 text-gray-600" />
+                <span className="text-sm font-medium text-gray-700">Back to Organizations</span>
+              </div>
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -199,15 +211,6 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                   {currentOrgName}
                 </DropdownMenuItem>
 
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem
-                  onClick={() => navigate('/org')}
-                  className="cursor-pointer"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Organizations
-                </DropdownMenuItem>
 
                 {userOrganizations.length > 1 && (
                   <>
