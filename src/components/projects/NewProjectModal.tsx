@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -27,9 +27,11 @@ interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (projectData: any) => void;
+  /** Organization ID in which the new project is being created */
+  orgId?: string;
 }
 
-const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) => {
+const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId }: NewProjectModalProps) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -42,9 +44,18 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
   });
 
   // Fetch organization members
+  // If an orgId was passed explicitly use that, otherwise fall back to the first
+  // organization the current user belongs to.
   const { data: organizations } = useOrganizations();
-  const orgId = organizations?.[0]?.id;
-  const { data: orgMembersRaw, isLoading: membersLoading } = useOrganizationMembers(orgId);
+  const effectiveOrgId = orgId ?? organizations?.[0]?.id;
+  const { data: orgMembersRaw, isLoading: membersLoading, refetch: refetchOrgMembers } = useOrganizationMembers(effectiveOrgId);
+
+  // Refresh members list whenever the modal is opened to ensure latest data
+  useEffect(() => {
+    if (isOpen) {
+      refetchOrgMembers();
+    }
+  }, [isOpen, refetchOrgMembers]);
   const orgMembers: BackendOrgMember[] = (orgMembersRaw ?? []) as BackendOrgMember[];
 
   type TeamMember = { id: string; displayName: string; initials: string };
