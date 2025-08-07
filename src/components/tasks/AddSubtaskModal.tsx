@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, Calendar, User } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { taskService } from "@/services/taskService";
 
 interface Task {
   id: string;
@@ -37,81 +38,34 @@ interface AddSubtaskModalProps {
 const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded }: AddSubtaskModalProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
-
-  // Mock tasks data - in real app this would come from API or localStorage
-  const mockTasks: Task[] = [
-    {
-      id: "T1234",
-      name: "Implement user authentication",
-      description: "Set up Supabase auth with email/password login",
-      status: "in-progress",
-      owner: "JD",
-      targetDate: "Dec 15",
-      comments: 3,
-      progress: 60,
-      tags: ["authentication", "backend", "supabase"],
-      createdBy: "JD",
-      createdDate: "Dec 8"
-    },
-    {
-      id: "T1235", 
-      name: "Design task cards",
-      description: "Create responsive task card components with glassmorphism",
-      status: "completed",
-      owner: "SK",
-      targetDate: "Dec 10",
-      comments: 7,
-      progress: 100,
-      tags: ["ui", "design", "frontend"],
-      createdBy: "SK",
-      createdDate: "Dec 5"
-    },
-    {
-      id: "T1236",
-      name: "Set up CI/CD pipeline",
-      description: "Configure automated testing and deployment",
-      status: "todo",
-      owner: "MR",
-      targetDate: "Dec 20",
-      comments: 1,
-      progress: 0,
-      tags: ["devops", "automation"],
-      createdBy: "MR",
-      createdDate: "Dec 7"
-    },
-    {
-      id: "T1237",
-      name: "Add real-time notifications",
-      description: "Implement Supabase realtime for task updates",
-      status: "blocked",
-      owner: "AM",
-      targetDate: "Dec 18",
-      comments: 5,
-      progress: 25,
-      tags: ["realtime", "notifications", "backend"],
-      createdBy: "AM",
-      createdDate: "Dec 6"
-    },
-    {
-      id: "T1238",
-      name: "Create mobile responsive design",
-      description: "Optimize UI for mobile devices",
-      status: "todo",
-      owner: "SK",
-      targetDate: "Dec 22",
-      comments: 2,
-      progress: 0,
-      tags: ["mobile", "responsive", "ui"],
-      createdBy: "SK",
-      createdDate: "Dec 9"
-    }
-  ];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load tasks from localStorage if available, otherwise use mock data
-    const storedTasks = localStorage.getItem('duplicatedTasks');
-    const duplicatedTasks = storedTasks ? JSON.parse(storedTasks) : [];
-    setAvailableTasks([...mockTasks, ...duplicatedTasks]);
+    setLoading(true);
+    setError(null);
+    taskService.getTasks()
+      .then((data) => {
+        const mapped = (data || []).map((t: any) => ({
+          id: t.task_id,
+          name: t.title,
+          description: t.description,
+          status: t.status,
+          owner: t.assignee_id,
+          targetDate: t.due_date,
+          comments: 0,
+          progress: 0,
+          tags: t.tags,
+          createdBy: t.created_by,
+          createdDate: t.created_at,
+        }));
+        setAvailableTasks(mapped);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load tasks");
+        setLoading(false);
+      });
   }, []);
 
   const filteredTasks = availableTasks.filter(task => {
@@ -158,6 +112,9 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded }: AddSubtaskModal
     }
     onOpenChange(isOpen);
   };
+
+  if (loading) return <div className="p-8 text-center">Loading tasks...</div>;
+  if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

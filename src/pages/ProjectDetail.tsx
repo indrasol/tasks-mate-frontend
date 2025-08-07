@@ -9,25 +9,26 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { 
-    ArrowLeft,
-    Calendar, 
-    Users, 
-    Target, 
-    Pencil,
-    Trash2,
-    Edit,
-    MoreVertical,
-    Check,
-    Clock,
-    CheckCircle2,
-    AlertCircle,
-    Plus,
-    FileText,
-    Upload,
-    Link,
-    File,
-    ExternalLink
+import {
+  ArrowLeft,
+  Calendar,
+  Users,
+  Target,
+  Pencil,
+  Trash2,
+  Edit,
+  MoreVertical,
+  Check,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Plus,
+  FileText,
+  Upload,
+  Link,
+  File,
+  ExternalLink,
+  Delete
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -58,6 +59,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { taskService } from '@/services/taskService';
 
 interface Project {
   id: string;
@@ -74,13 +76,13 @@ interface Project {
   category: string;
 }
 
-interface Member{
-    displayName?: string;
-    initials: string;
-    name: string;
-    role: string;
-    designation:string;
-  }
+interface Member {
+  displayName?: string;
+  initials: string;
+  name: string;
+  role: string;
+  designation: string;
+}
 
 
 interface Resource {
@@ -106,7 +108,7 @@ const ProjectDetail = () => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [newUrl, setNewUrl] = useState('');
   const [newUrlName, setNewUrlName] = useState('');
-    const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -126,7 +128,7 @@ const ProjectDetail = () => {
     "archived",
     "not_started",
     "active",
-] as const;
+  ] as const;
 
   const updateProject = async (payload: Record<string, unknown>) => {
     if (!project) return;
@@ -144,7 +146,7 @@ const ProjectDetail = () => {
     updateProject({ status: newStatus });
   };
 
-    const handlePriorityChange = (p: string) => updateProject({ priority: p });
+  const handlePriorityChange = (p: string) => updateProject({ priority: p });
 
   const openEditModal = () => {
     if (!project) return;
@@ -250,7 +252,7 @@ const ProjectDetail = () => {
     fetchProject();
   }, [id]);
 
-   // Fetch resources separately
+  // Fetch resources separately
   const fetchResources = async () => {
     if (!id) return;
     try {
@@ -319,42 +321,39 @@ const ProjectDetail = () => {
     }
   };
 
-  // Upload file resource
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !project) return;
-    setUploading(true);
-    const formData = new FormData();
-    Array.from(e.target.files).forEach(file => {
-      formData.append('files', file);
-    });
-    formData.append('uploadedBy', user?.email || 'Current User');
+  // Attachment upload
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || !project?.id) return;
     try {
-      const res = await api.post<any[]>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      const res_upload = await api.post<any>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, {
-        project_id:project.id,
-        resource_type: 'url',
-        name: newUrlName,
-        url: newUrl,
-        created_by: user?.user_metadata?.username,
-      });
-
+      for (const file of Array.from(files)) {
+        // 1. Upload to Supabase Storage
+        const { url, path, resourceId } = await taskService.uploadProjectResourceToStorage({
+          projectId: project.id,
+          file,
+        });
+        // 2. Save metadata to backend
+        await api.post<any>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, {
+          project_id: project.id,
+          resource_type: 'url',
+          name: file.name,
+          url: url,
+          created_by: user?.user_metadata?.username,
+          id: resourceId,
+        });
+      }
       fetchResources();
-    } catch (err) {
-      // handle error
+    } catch (err: any) {
     }
     setUploading(false);
   };
 
-  
+
   // Remove member (DELETE with user_id and project_id)
   const handleRemoveMember = async (member: Member) => {
     if (!project) return;
     try {
       await api.del(
-        `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,{}
+        `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`, {}
       );
       fetchTeamMembers();
     } catch (err) {
@@ -395,7 +394,7 @@ const ProjectDetail = () => {
     if (!project) return;
     try {
       await api.del(
-        `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`,{}
+        `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`, {}
       );
       fetchResources();
     } catch (err) {
@@ -416,7 +415,18 @@ const ProjectDetail = () => {
       // handle error
     }
   };
-  
+
+  const handleDownload =  async (resource: Resource) => {
+    if (!project) return;
+    try {
+      await api.get(
+        `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`
+      );
+      fetchResources();
+    } catch (err) {
+      // handle error
+    }
+  };
 
   if (loading || !project) {
     return (
@@ -470,15 +480,15 @@ const ProjectDetail = () => {
         <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
           <div className="w-full">
             <div className="flex items-center justify-between mb-4">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Projects
               </Button>
-              
+
 
             </div>
 
@@ -488,11 +498,10 @@ const ProjectDetail = () => {
                   {/* Status toggle circle moved here */}
                   <div
                     onClick={toggleComplete}
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                      project.status === 'completed'
-                        ? 'bg-tasksmate-gradient border-transparent'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
+                      ? 'bg-tasksmate-gradient border-transparent'
+                      : 'border-gray-300 hover:border-gray-400'
+                      }`}
                   >
                     {project.status === 'completed' && <Check className="w-3 h-3 text-white" />}
                   </div>
@@ -502,9 +511,9 @@ const ProjectDetail = () => {
                   </Badge>
                 </div>
                 <p className="text-gray-600 text-lg max-w-3xl">{project.description}</p>
-                
+
                 <div className="flex items-center gap-4 mt-4">
-                  
+
                   <Badge variant="secondary" className={`flex items-center gap-1 ${getStatusMeta(project.status).color}`}>{getStatusIcon(project.status)} {getStatusMeta(project.status).label}</Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -743,7 +752,8 @@ const ProjectDetail = () => {
                           multiple
                           className="hidden"
                           id="file-upload"
-                          onChange={handleFileUpload}
+                          onChange={(e) => handleFileUpload(e.target.files)}
+                          accept="*/*"
                           disabled={uploading}
                         />
                         <label
@@ -767,29 +777,29 @@ const ProjectDetail = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                                                 <div>
-                           <label className="block text-sm font-medium text-gray-700 mb-2">URL Name</label>
-                           <Input
-                             type="text"
-                             value={newUrlName}
-                             onChange={(e) => setNewUrlName(e.target.value)}
-                             placeholder="e.g., Design Mockups, API Documentation"
-                           />
-                         </div>
-                         <div>
-                           <label className="block text-sm font-medium text-gray-700 mb-2">URL</label>
-                           <Input
-                             type="url"
-                             value={newUrl}
-                             onChange={(e) => setNewUrl(e.target.value)}
-                             placeholder="https://example.com"
-                           />
-                         </div>
-                        <Button 
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">URL Name</label>
+                          <Input
+                            type="text"
+                            value={newUrlName}
+                            onChange={(e) => setNewUrlName(e.target.value)}
+                            placeholder="e.g., Design Mockups, API Documentation"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">URL</label>
+                          <Input
+                            type="url"
+                            value={newUrl}
+                            onChange={(e) => setNewUrl(e.target.value)}
+                            placeholder="https://example.com"
+                          />
+                        </div>
+                        <Button
                           className="w-full bg-tasksmate-gradient"
-                                                     onClick={handleAddUrl}
-                                                     disabled={!newUrl || !newUrlName}
-                   
+                          onClick={handleAddUrl}
+                          disabled={!newUrl || !newUrlName}
+
                         >
                           <Plus className="w-4 h-4 mr-2" />
                           Add URL
@@ -808,8 +818,8 @@ const ProjectDetail = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                                         <div className="space-y-3">
-                       {resources.map((resource) => (
+                    <div className="space-y-3">
+                      {resources.map((resource) => (
                         <div key={resource.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -836,8 +846,8 @@ const ProjectDetail = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             {resource.type === 'url' ? (
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 size="sm"
                                 onClick={() => window.open(resource.url, '_blank')}
                               >
@@ -845,12 +855,23 @@ const ProjectDetail = () => {
                                 Open
                               </Button>
                             ) : (
-                              <Button variant="outline" size="sm">
+                              <Button variant="outline" size="sm" onClick={()=>handleDownload(resource)}>
                                 <FileText className="w-4 h-4 mr-1" />
                                 Download
                               </Button>
                             )}
-                            <DropdownMenu>
+
+                            <Button variant="outline" size="sm">
+                              <Edit className="w-4 h-4 mr-2" />
+                              Rename
+                            </Button>
+
+                            <Button variant="outline" size="sm">
+                              <Delete className="w-4 h-4 mr-2" />
+                              Delete
+                            </Button>
+
+                            {/* <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">
                                   <MoreVertical className="w-4 h-4" />
@@ -865,7 +886,7 @@ const ProjectDetail = () => {
                                   Delete
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
-                            </DropdownMenu>
+                            </DropdownMenu> */}
                           </div>
                         </div>
                       ))}

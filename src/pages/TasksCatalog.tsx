@@ -39,6 +39,7 @@ import {
 import TaskListView from "@/components/tasks/TaskListView";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 import MainNavigation from "@/components/navigation/MainNavigation";
+import { taskService } from "@/services/taskService";
 
 interface Task {
   id: string;
@@ -97,6 +98,37 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoadingTasks(true);
+    setError(null);
+    taskService.getTasks()
+      .then((data) => {
+        // Map backend data to frontend Task type
+        const mapped = (data || []).map((t: any) => ({
+          id: t.task_id,
+          name: t.title,
+          description: t.description,
+          status: t.status,
+          owner: t.assignee_id, // You may want to map user ID to display name
+          targetDate: t.due_date,
+          comments: 0, // Placeholder, update if backend provides
+          progress: 0, // Placeholder, update if backend provides
+          tags: t.tags,
+          createdBy: t.created_by,
+          createdDate: t.created_at,
+        }));
+        setTasks(mapped);
+        setLoadingTasks(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load tasks");
+        setLoadingTasks(false);
+      });
+  }, []);
 
   useEffect(() => {
     const handler = (e:any) => setSidebarCollapsed(e.detail.collapsed);
@@ -107,90 +139,6 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   // Mock project context
   const currentProject = 'TasksMate Web';
-
-  // Tasks state - enhanced with more sample data
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: "T1234",
-      name: "Implement user authentication",
-      description: "Set up Supabase auth with email/password login",
-      status: "in-progress",
-      owner: "JD",
-      targetDate: "2024-12-15",
-      comments: 3,
-      progress: 60,
-      tags: ["authentication", "backend", "supabase"],
-      createdBy: "JD",
-      createdDate: "2024-12-08"
-    },
-    {
-      id: "T1235", 
-      name: "Design task cards",
-      description: "Create responsive task card components with glassmorphism",
-      status: "completed",
-      owner: "SK",
-      targetDate: "2024-12-10",
-      comments: 7,
-      progress: 100,
-      tags: ["ui", "design", "frontend"],
-      createdBy: "SK",
-      createdDate: "2024-12-05"
-    },
-    {
-      id: "T1236",
-      name: "Set up CI/CD pipeline",
-      description: "Configure automated testing and deployment",
-      status: "todo",
-      owner: "MR",
-      targetDate: "2024-12-20",
-      comments: 1,
-      progress: 0,
-      tags: ["devops", "automation"],
-      createdBy: "MR",
-      createdDate: "2024-12-07"
-    },
-    {
-      id: "T1237",
-      name: "Add real-time notifications",
-      description: "Implement Supabase realtime for task updates",
-      status: "blocked",
-      owner: "AM",
-      targetDate: "2024-12-18",
-      comments: 5,
-      progress: 25,
-      tags: ["realtime", "notifications", "backend"],
-      createdBy: "AM",
-      createdDate: "2024-12-06"
-    },
-    {
-      id: "T1238",
-      name: "Mobile app testing",
-      description: "Comprehensive testing across iOS and Android platforms",
-      status: "in-progress",
-      owner: "SK",
-      targetDate: "2024-12-25",
-      comments: 2,
-      progress: 40,
-      tags: ["mobile", "testing", "qa"],
-      createdBy: "JD",
-      createdDate: "2024-12-01"
-    }
-  ]);
-
-  // Listen for new task creation events
-  useEffect(() => {
-    const handleTaskCreated = (event: CustomEvent) => {
-      const newTask = event.detail;
-      console.log("TasksCatalog received new task:", newTask);
-      setTasks(prev => [newTask, ...prev]);
-    };
-
-    window.addEventListener('taskCreated', handleTaskCreated as EventListener);
-    
-    return () => {
-      window.removeEventListener('taskCreated', handleTaskCreated as EventListener);
-    };
-  }, []);
 
   // Enhanced date filtering logic
   const isDateInRange = (taskDate: string, filter: string) => {
@@ -323,6 +271,14 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     setDateFilter("all");
     setSearchQuery("");
   };
+
+  // In the render, show loading/error states
+  if (loadingTasks) {
+    return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div></div>;
+  }
+  if (error) {
+    return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">

@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Plus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { taskService } from "@/services/taskService";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Task {
   id: string;
@@ -49,7 +51,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    status: "todo",
+    status: "not_started",
     owner: "",
     targetDate: "",
     tags: [] as string[],
@@ -63,6 +65,8 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     { id: 'BUG-002', title: 'Task deletion confirmation dialog missing' },
     { id: 'BUG-003', title: 'Profile image upload fails silently' },
   ];
+
+  const { user } = useAuth();
 
   // Set default tags when modal opens
   useEffect(() => {
@@ -83,59 +87,54 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     }
   }, [open, defaultTags, isConvertingFromBug]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.owner.trim()) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    // Generate task ID
-    const taskId = `T${Math.floor(Math.random() * 9000) + 1000}`;
-    
-    // Combine all tags (form tags + bug IDs + project name)
-    const allTags = [
-      ...(projectName ? [projectName] : []),
-      ...formData.tags,
-      ...selectedBugs
-    ];
-    
-    // Create new task object
-    const newTask: Task = {
-      id: taskId,
-      name: formData.name,
-      description: formData.description,
-      status: formData.status,
-      owner: formData.owner,
-      targetDate: formData.targetDate || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      comments: 0,
-      progress: 0,
-      tags: allTags,
-      createdBy: formData.owner,
-      createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    };
-    
-    console.log("Creating new task:", newTask);
-    
-    // Call the callback to add task to catalog
-    onTaskCreated(newTask);
-    
-    toast.success("Task created successfully!");
-    
-    // Reset form
-    setFormData({
-      name: "",
-      description: "",
-      status: "todo",
-      owner: "",
-      targetDate: "",
-      tags: [],
-    });
-    setTagInput("");
-    setSelectedBugs([]);
-    
-    onOpenChange(false);
+    try {
+      const allTags = [
+        ...(projectName ? [projectName] : []),
+        ...formData.tags,
+        ...selectedBugs
+      ];
+      const payload = {
+        project_id: "P00001", // TODO: Replace with real project ID if available
+        title: formData.name,
+        description: formData.description,
+        status: formData.status,
+        assignee_id: user.id.toString(),
+        due_date: formData.targetDate,
+        tags: allTags,
+        priority: "low", // Add priority if needed
+      };
+      const created = await taskService.createTask(payload);
+      // Map backend response to Task type
+      const newTask = {
+        id: created.task_id,
+        name: created.title,
+        description: created.description,
+        status: created.status,
+        owner: created.assignee_id,
+        targetDate: created.due_date,
+        comments: 0,
+        progress: 0,
+        tags: created.tags,
+        createdBy: created.created_by,
+        createdDate: created.created_at,
+      };
+      onTaskCreated(newTask);
+      toast.success("Task created successfully!");
+      setFormData({ name: "", description: "", status: "not_started", owner: "", targetDate: "", tags: [] });
+      setTagInput("");
+      setSelectedBugs([]);
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create task");
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -157,7 +156,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     if (isConvertingFromBug && defaultTags.includes(tagToRemove)) {
       return;
     }
-    
+
     setFormData(prev => ({
       ...prev,
       tags: prev.tags.filter(tag => tag !== tagToRemove)
@@ -204,7 +203,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
               </div>
             </div>
             <SheetDescription className="text-white/90 text-sm leading-relaxed">
-              {isConvertingFromBug 
+              {isConvertingFromBug
                 ? "Transform this bug report into an actionable task. The bug ID will be automatically linked."
                 : "Transform your ideas into actionable tasks. Fill in the details below to bring your vision to life."
               }
@@ -323,11 +322,10 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                           <Badge
                             key={index}
                             variant="secondary"
-                            className={`flex items-center space-x-1 ${
-                              isDefaultBugTag 
-                                ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-300' 
+                            className={`flex items-center space-x-1 ${isDefaultBugTag
+                                ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-300'
                                 : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                            }`}
+                              }`}
                           >
                             <span>{tag}</span>
                             {!isDefaultBugTag && (
@@ -359,10 +357,10 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border shadow-lg z-50">
-                      <SelectItem value="todo">
+                      <SelectItem value="not_started">
                         <div className="flex items-center space-x-2">
                           <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                          <span>To Do</span>
+                          <span>Not Started</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="in-progress">
@@ -420,16 +418,16 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
 
               <div className="pb-6">
                 <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => onOpenChange(false)}
                     className="flex-1 h-12 text-base"
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     className="flex-1 h-12 text-base bg-tasksmate-gradient hover:scale-105 transition-transform"
                   >
                     {isConvertingFromBug ? "Convert to Task" : "Create Task"}

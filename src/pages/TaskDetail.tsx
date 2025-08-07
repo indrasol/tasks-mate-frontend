@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,13 +31,18 @@ import {
 import { toast } from "sonner";
 import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
 import AddSubtaskModal from "@/components/tasks/AddSubtaskModal";
-
+import { taskService } from "@/services/taskService";
+import { api } from "@/services/apiService";
+import { API_ENDPOINTS } from "@/../config";
 const TaskDetail = () => {
   const { taskId } = useParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('active');
-  const [taskName, setTaskName] = useState('Redesign Dashboard UI');
-  const [description, setDescription] = useState('Create modern, responsive dashboard with glassmorphism effects. The design should include smooth animations, proper spacing, and intuitive navigation patterns.');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [task, setTask] = useState<any>(null);
+  const [status, setStatus] = useState('');
+  const [taskName, setTaskName] = useState('');
+  const [description, setDescription] = useState('');
   const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
   const [isAddSubtaskOpen, setIsAddSubtaskOpen] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(true);
@@ -45,46 +50,136 @@ const TaskDetail = () => {
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Comments state
-  const [comments, setComments] = useState([
-    { id: 1, user: 'Mike R.', time: '2 hours ago', content: 'Updated the color scheme based on feedback', avatar: 'MR' },
-    { id: 2, user: 'Alex M.', time: '2 days ago', content: 'Great progress on the wireframes!', avatar: 'AM' },
-    { id: 3, user: 'Sarah K.', time: '3 days ago', content: 'Initial wireframes look promising. Let\'s iterate on the navigation flow.', avatar: 'SK' },
-  ]);
+  const [comments, setComments] = useState<any[]>([]);
+  const [loadingComments, setLoadingComments] = useState(true);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
-  const [editingComment, setEditingComment] = useState<number | null>(null);
+  const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
 
+  // Attachments state
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(true);
+  const [attachmentsError, setAttachmentsError] = useState<string | null>(null);
+  // History state
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  // Subtask details state
+  const [subtaskDetails, setSubtaskDetails] = useState<any[]>([]);
+  const [dependencyDetails, setDependencyDetails] = useState<any[]>([]);
+
+  // Move all state declarations to the top
+  const [subtasks, setSubtasks] = useState<string[]>([]);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!taskId) return;
+    setLoading(true);
+    setError(null);
+    taskService.getTaskById(taskId)
+      .then((data: any) => {
+        setTask(data);
+        setTaskName(data.title);
+        setDescription(data.description);
+        setStatus(data.status);
+        setSubtasks(data.sub_tasks || []);
+        setLoading(false);
+      })
+      .catch((err: any) => {
+        setError(err.message || "Failed to load task");
+        setLoading(false);
+      });
+  }, [taskId]);
+
+  // Fetch comments from backend
+  // useEffect(() => {
+  //   if (!taskId) return;
+  //   setLoadingComments(true);
+  //   setCommentsError(null);
+  //   api.get(`/api/v1/tasks/comments?task_id=${taskId}`)
+  //     .then((data:any[]) => {
+  //       setComments(data || []);
+  //       setLoadingComments(false);
+  //     })
+  //     .catch((err) => {
+  //       setCommentsError(err.message || "Failed to load comments");
+  //       setLoadingComments(false);
+  //     });
+  // }, [taskId]);
+
+  // Fetch attachments
+  // useEffect(() => {
+  //   if (!taskId) return;
+  //   setLoadingAttachments(true);
+  //   setAttachmentsError(null);
+  //   taskService.getTaskAttachments(taskId)
+  //     .then((data: any[]) => {
+  //       setAttachments(data || []);
+  //       setLoadingAttachments(false);
+  //     })
+  //     .catch((err: any) => {
+  //       setAttachmentsError(err.message || "Failed to load attachments");
+  //       setLoadingAttachments(false);
+  //     });
+  // }, [taskId]);
+  // Fetch history
+  // useEffect(() => {
+  //   if (!taskId) return;
+  //   setLoadingHistory(true);
+  //   setHistoryError(null);
+  //   taskService.getTaskHistory(taskId)
+  //     .then((data: any[]) => {
+  //       setHistory(data || []);
+  //       setLoadingHistory(false);
+  //     })
+  //     .catch((err: any) => {
+  //       setHistoryError(err.message || "Failed to load history");
+  //       setLoadingHistory(false);
+  //     });
+  // }, [taskId]);
+  // Fetch full subtask details
+  useEffect(() => {
+    if (!subtasks.length) { setSubtaskDetails([]); return; }
+    Promise.all(subtasks.map((id) => taskService.getTaskById(id) as Promise<any>))
+      .then((details: any) => setSubtaskDetails(details as any[]))
+      .catch(() => setSubtaskDetails([]));
+  }, [subtasks]);
+  // Fetch full dependency details
+  useEffect(() => {
+    if (!task || !task.dependencies || !task.dependencies.length) { setDependencyDetails([]); return; }
+    Promise.all((task.dependencies as string[]).map((id: string) => taskService.getTaskById(id) as Promise<any>))
+      .then((details: any) => setDependencyDetails(details as any[]))
+      .catch(() => setDependencyDetails([]));
+  }, [task]);
+
   // Mock data for the task
-  const task = {
-    id: taskId || 'T1234',
-    name: taskName,
-    description: description,
-    status: status,
-    progress: 65,
-    owner: 'Sarah K.',
-    targetDate: '2024-01-15',
-    createdDate: '2024-01-01',
-    comments: comments.length,
-    tags: ['UI/UX', 'Frontend', 'Dashboard']
-  };
+  // const task = {
+  //   id: taskId || 'T1234',
+  //   name: taskName,
+  //   description: description,
+  //   status: status,
+  //   progress: 65,
+  //   owner: 'Sarah K.',
+  //   targetDate: '2024-01-15',
+  //   createdDate: '2024-01-01',
+  //   comments: comments.length,
+  //   tags: ['UI/UX', 'Frontend', 'Dashboard']
+  // };
 
-  const [subtasks, setSubtasks] = useState([
-    { id: 1, name: 'Create wireframes', completed: true, owner: 'Sarah K.', due: '2024-01-05', taskId: 'T1001', status: 'completed' },
-    { id: 2, name: 'Design system components', completed: true, owner: 'Mike R.', due: '2024-01-08', taskId: 'T1002', status: 'completed' },
-    { id: 3, name: 'Implement glassmorphism cards', completed: false, owner: 'Sarah K.', due: '2024-01-12', taskId: 'T1003', status: 'in-progress' },
-    { id: 4, name: 'Add micro-interactions', completed: false, owner: 'Alex M.', due: '2024-01-15', taskId: 'T1004', status: 'todo' },
-  ]);
-
-  // Save Changes functionality
-  const handleSaveChanges = () => {
-    // In a real app, this would save to database
-    console.log('Saving task changes:', {
-      id: task.id,
-      name: taskName,
-      description: description,
-      status: status
-    });
-    toast.success('Task changes saved successfully!');
+  const handleSaveChanges = async () => {
+    if (!taskId) return;
+    try {
+      await taskService.updateTask(taskId, {
+        name: taskName,
+        description,
+        status,
+      });
+      toast.success('Task changes saved successfully!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save changes');
+    }
   };
 
   // File upload handlers
@@ -122,82 +217,116 @@ const TaskDetail = () => {
   };
 
   // Comment functions
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      const comment = {
-        id: Date.now(),
-        user: 'Current User',
-        time: 'Just now',
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    try {
+      const payload = {
+        task_id: taskId,
         content: newComment,
-        avatar: 'CU'
       };
-      setComments([comment, ...comments]);
-      setNewComment('');
+      const created = await api.post(`${API_ENDPOINTS.TASK_COMMENTS}?project_id=${task?.project_id}`, payload);
+      setComments([created, ...comments]);
+      setNewComment("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add comment");
     }
   };
-
-  const handleEditComment = (commentId: number) => {
-    const comment = comments.find(c => c.id === commentId);
+  const handleEditComment = (commentId: string) => {
+    const comment = comments.find((c) => c.comment_id === commentId);
     if (comment) {
       setEditingComment(commentId);
       setEditCommentText(comment.content);
     }
   };
-
-  const handleSaveEdit = () => {
-    if (editCommentText.trim() && editingComment) {
-      setComments(comments.map(comment => 
-        comment.id === editingComment 
-          ? { ...comment, content: editCommentText }
-          : comment
-      ));
+  const handleSaveEdit = async () => {
+    if (!editCommentText.trim() || !editingComment) return;
+    try {
+      const updated = await api.put(`${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`, { content: editCommentText });
+      setComments(comments.map((c) => c.comment_id === editingComment ? updated : c));
       setEditingComment(null);
-      setEditCommentText('');
+      setEditCommentText("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update comment");
     }
   };
-
   const handleCancelEdit = () => {
     setEditingComment(null);
     setEditCommentText('');
   };
-
-  const handleDeleteComment = (commentId: number) => {
-    setComments(comments.filter(comment => comment.id !== commentId));
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await api.del(`${API_ENDPOINTS.TASK_COMMENTS}/${commentId}?project_id=${task?.project_id}`, {});
+      setComments(comments.filter((c) => c.comment_id !== commentId));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete comment");
+    }
   };
 
-  const handleAddSubtask = (selectedTask: any) => {
-    const newSubtask = {
-      id: Date.now(),
-      name: selectedTask.name,
-      completed: false,
-      owner: selectedTask.owner,
-      due: selectedTask.targetDate,
-      taskId: selectedTask.id,
-      status: selectedTask.status
-    };
-    setSubtasks(prev => [...prev, newSubtask]);
-    toast.success(`Subtask "${selectedTask.name}" added successfully!`);
+  // For add/delete/toggle subtask, update backend (if supported)
+  const handleAddSubtask = async (selectedTask: any) => {
+    try {
+      // Add subtask ID to sub_tasks array and update backend
+      const updatedSubtasks = [...subtasks, selectedTask.id];
+      await taskService.updateTask(taskId, { sub_tasks: updatedSubtasks });
+      setSubtasks(updatedSubtasks);
+      toast.success(`Subtask "${selectedTask.name}" added successfully!`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add subtask');
+    }
+  };
+  const handleSubtaskToggle = async (subtaskId: string) => {
+    // Toggle logic can be implemented if backend supports subtask status
+  };
+  const handleDeleteSubtask = async (subtaskId: string) => {
+    try {
+      const updatedSubtasks = subtasks.filter((id) => id !== subtaskId);
+      await taskService.updateTask(taskId, { sub_tasks: updatedSubtasks });
+      setSubtasks(updatedSubtasks);
+      toast.success('Subtask deleted successfully!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete subtask');
+    }
   };
 
-  const handleSubtaskToggle = (subtaskId: number) => {
-    setSubtasks(prev => prev.map(subtask => {
-      if (subtask.id === subtaskId) {
-        const newCompleted = !subtask.completed;
-        return {
-          ...subtask,
-          completed: newCompleted,
-          status: newCompleted ? 'completed' : 'in-progress'
-        };
+  // Attachment upload
+  const handleAttachmentUpload = async (files: FileList | null) => {
+    if (!files || !task?.project_id || !taskId) return;
+    try {
+      for (const file of Array.from(files)) {
+        // 1. Upload to Supabase Storage
+        const { url, path, attachmentId } = await taskService.uploadTaskAttachmentToStorage({
+          projectId: task.project_id,
+          taskId,
+          file,
+        });
+        // 2. Save metadata to backend
+        await taskService.uploadTaskAttachment(task.project_id, {
+          task_id: taskId,
+          name: file.name,
+          url,
+          path,
+          attachment_id: attachmentId,
+        });
       }
-      return subtask;
-    }));
+      // Refresh attachments
+      const data:any[] = await taskService.getTaskAttachments(taskId);
+      if(data)
+        setAttachments(data);
+      else
+        setAttachments([])
+      toast.success('Attachment(s) uploaded!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload attachment');
+    }
   };
-
-  const handleDeleteSubtask = (subtaskId: number) => {
-    const subtaskToDelete = subtasks.find(s => s.id === subtaskId);
-    setSubtasks(prev => prev.filter(subtask => subtask.id !== subtaskId));
-    if (subtaskToDelete) {
-      toast.success(`Subtask "${subtaskToDelete.name}" deleted successfully!`);
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!task?.project_id) return;
+    try {
+      await taskService.deleteTaskAttachment(attachmentId, task.project_id);
+      setAttachments(attachments.filter(a => a.attachment_id !== attachmentId));
+      toast.success('Attachment deleted!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete attachment');
     }
   };
 
@@ -220,6 +349,19 @@ const TaskDetail = () => {
     };
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div></div>;
+  }
+  if (error) {
+    return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
+  }
+
+  // In the render, show loading/error states for attachments/history
+  // if (loadingAttachments) return <div className="p-8 text-center">Loading attachments...</div>;
+  // if (attachmentsError) return <div className="p-8 text-center text-red-500">{attachmentsError}</div>;
+  // if (loadingHistory) return <div className="p-8 text-center">Loading history...</div>;
+  // if (historyError) return <div className="p-8 text-center text-red-500">{historyError}</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -258,7 +400,7 @@ const TaskDetail = () => {
               <div className={`w-1 h-12 rounded-full ${getStatusColor(task.status)}`}></div>
               <div>
                 <Badge className="text-xs font-mono bg-green-600 text-white mb-2">
-                  {task.id}
+                  {task.task_id}
                 </Badge>
                 <Input 
                   value={taskName}
@@ -320,57 +462,61 @@ const TaskDetail = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {subtasks.map((subtask) => (
-                  <div key={subtask.id} className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 micro-lift group">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-0 h-auto"
-                      onClick={() => handleSubtaskToggle(subtask.id)}
-                    >
-                      {subtask.completed ? (
-                        <CheckCircle className="h-5 w-5 text-tasksmate-green-end" />
-                      ) : (
-                        <Circle className="h-5 w-5 text-gray-400" />
-                      )}
-                    </Button>
-                    <div className="flex-1">
-                      <div className={`font-medium ${subtask.completed ? 'line-through text-gray-500' : ''}`}>
-                        {subtask.name}
+                {subtasks.map((subtaskId) => {
+                  const subtask = task.sub_tasks?.find(s => s.id === subtaskId);
+                  if (!subtask) return null; // Should not happen if subtasks are fetched correctly
+                  return (
+                    <div key={subtaskId} className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 micro-lift group">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-0 h-auto"
+                        onClick={() => handleSubtaskToggle(subtaskId)}
+                      >
+                        {subtask.completed ? (
+                          <CheckCircle className="h-5 w-5 text-tasksmate-green-end" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-gray-400" />
+                        )}
+                      </Button>
+                      <div className="flex-1">
+                        <div className={`font-medium ${subtask.completed ? 'line-through text-gray-500' : ''}`}>
+                          {subtask.name}
+                        </div>
+                        <div className="text-sm text-gray-500 flex items-center space-x-2">
+                          <span>{subtask.owner}</span>
+                          <span>•</span>
+                          <span>{new Date(subtask.due).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {subtaskId}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500 flex items-center space-x-2">
-                        <span>{subtask.owner}</span>
-                        <span>•</span>
-                        <span>{new Date(subtask.due).toLocaleDateString()}</span>
-                        <span>•</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {subtask.taskId}
-                        </Badge>
-                      </div>
+                      <Badge 
+                        className={`text-xs ${
+                          subtask.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          subtask.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                          subtask.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {subtask.status === 'completed' ? 'Completed' :
+                         subtask.status === 'in-progress' ? 'In Progress' :
+                         subtask.status === 'blocked' ? 'Blocked' :
+                         'To Do'}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                        onClick={() => handleDeleteSubtask(subtaskId)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
-                    <Badge 
-                      className={`text-xs ${
-                        subtask.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        subtask.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                        subtask.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {subtask.status === 'completed' ? 'Completed' :
-                       subtask.status === 'in-progress' ? 'In Progress' :
-                       subtask.status === 'blocked' ? 'Blocked' :
-                       'To Do'}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                      onClick={() => handleDeleteSubtask(subtask.id)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
 
@@ -395,10 +541,11 @@ const TaskDetail = () => {
                   </div>
                   
                   <input
+                    ref={fileInputRef}
                     type="file"
                     multiple
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={(e) => handleFileUpload(e.target.files)}
+                    onChange={(e) => handleAttachmentUpload(e.target.files)}
                     accept="*/*"
                   />
                   
@@ -406,26 +553,27 @@ const TaskDetail = () => {
                     variant="outline"
                     size="sm"
                     className="absolute top-4 right-4"
-                    onClick={handleFileInputClick}
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
                 
-                {uploadedFiles.length > 0 && (
+                {attachments.length > 0 && (
                   <div className="mt-4 space-y-2">
                     <h4 className="font-medium text-sm text-gray-700">Uploaded Files:</h4>
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                    {attachments.map((file, index) => (
+                      <div key={file.attachment_id || index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                         <div className="flex items-center space-x-2">
                           <FileText className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm">{file.name}</span>
-                          <span className="text-xs text-gray-400">({(file.size / 1024).toFixed(1)} KB)</span>
+                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm underline">
+                            {file.name}
+                          </a>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeFile(index)}
+                          onClick={() => handleDeleteAttachment(file.attachment_id)}
                           className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                         >
                           <X className="h-3 w-3" />
@@ -484,24 +632,24 @@ const TaskDetail = () => {
                     {/* Comments list */}
                     <div className="space-y-4">
                       {comments.map((comment) => (
-                        <div key={comment.id} className="flex space-x-3 group">
+                        <div key={comment.comment_id} className="flex space-x-3 group">
                           <Avatar className="w-8 h-8">
                             <AvatarFallback className="text-xs">
-                              {comment.avatar}
+                              {comment.user?.avatar || 'CU'}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center justify-between">
                               <div className="text-sm">
-                                <span className="font-medium">{comment.user}</span>
-                                <span className="text-gray-500 ml-2">{comment.time}</span>
+                                <span className="font-medium">{comment.user?.name || 'Current User'}</span>
+                                <span className="text-gray-500 ml-2">{comment.created_at}</span>
                               </div>
                               <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 w-6 p-0"
-                                  onClick={() => handleEditComment(comment.id)}
+                                  onClick={() => handleEditComment(comment.comment_id)}
                                 >
                                   <Edit className="h-3 w-3" />
                                 </Button>
@@ -509,13 +657,13 @@ const TaskDetail = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                  onClick={() => handleDeleteComment(comment.id)}
+                                  onClick={() => handleDeleteComment(comment.comment_id)}
                                 >
                                   <X className="h-3 w-3" />
                                 </Button>
                               </div>
                             </div>
-                            {editingComment === comment.id ? (
+                            {editingComment === comment.comment_id ? (
                               <div className="space-y-2">
                                 <Textarea
                                   value={editCommentText}
@@ -641,48 +789,17 @@ const TaskDetail = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3 max-h-64 overflow-y-auto">
-                  <div className="flex items-start space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <div className="flex-1">
-                      <div className="text-gray-900">Status changed to <strong>Active</strong></div>
-                      <div className="text-gray-500 text-xs">Sarah K. • 2 hours ago</div>
+                  {history.map((item) => (
+                    <div key={item.id} className="flex items-start space-x-3 text-sm">
+                      <div className="w-2 h-2 bg-gray-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div className="flex-1">
+                        <div className="text-gray-900">{item.action}</div>
+                        <div className="text-gray-500 text-xs">
+                          {item.user?.name || 'System'} • {new Date(item.timestamp).toLocaleDateString()}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <div className="flex-1">
-                      <div className="text-gray-900">Subtask <strong>"Design system components"</strong> completed</div>
-                      <div className="text-gray-500 text-xs">Mike R. • 1 day ago</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <div className="flex-1">
-                      <div className="text-gray-900">Comment added by <strong>Alex M.</strong></div>
-                      <div className="text-gray-500 text-xs">Alex M. • 2 days ago</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <div className="flex-1">
-                      <div className="text-gray-900">Subtask <strong>"Create wireframes"</strong> completed</div>
-                      <div className="text-gray-500 text-xs">Sarah K. • 3 days ago</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <div className="flex-1">
-                      <div className="text-gray-900">Task assigned to <strong>Sarah K.</strong></div>
-                      <div className="text-gray-500 text-xs">John D. • 1 week ago</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <div className="flex-1">
-                      <div className="text-gray-900">Task created</div>
-                      <div className="text-gray-500 text-xs">John D. • 2 weeks ago</div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
