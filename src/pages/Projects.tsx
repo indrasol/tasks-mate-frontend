@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import { api } from "@/services/apiService";
 import { API_ENDPOINTS } from "@/../config";
@@ -46,7 +47,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import NewProjectModal from '@/components/projects/NewProjectModal';
+import { getStatusMeta, getPriorityColor, formatDate, deriveDisplayFromEmail } from "@/lib/projectUtils";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import type { BackendOrgMember } from "@/types/organization";
 
 interface Project {
   id: string;
@@ -60,6 +65,7 @@ interface Project {
   tasksCount: number;
   completedTasks: number;
   priority: string;
+  owner: string;
   category: string;
 }
 
@@ -79,6 +85,36 @@ const Projects = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const { data: organizations } = useOrganizations();
+  const currentOrgId = useCurrentOrgId() ?? organizations?.[0]?.id;
+  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
+  const orgMembers: BackendOrgMember[] = (orgMembersRaw ?? []) as BackendOrgMember[];
+
+  const userDisplayMap = React.useMemo(() => {
+    const map: Record<string, { displayName: string; initials: string }> = {};
+    orgMembers.forEach(m => {
+      const info = deriveDisplayFromEmail(m.email ?? m.user_id);
+      map[m.user_id] = info;
+    });
+    return map;
+  }, [orgMembers]);
+  const renderMemberAvatar = (memberId: string, idx: number) => {
+    const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
+    return (
+      <HoverCard key={idx}>
+        <HoverCardTrigger asChild>
+          <Avatar className="w-6 h-6 border-2 border-white cursor-default">
+            <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+              {info.initials}
+            </AvatarFallback>
+          </Avatar>
+        </HoverCardTrigger>
+        <HoverCardContent className="text-sm p-2">
+          {info.displayName}
+        </HoverCardContent>
+      </HoverCard>
+    );
+  };
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
@@ -98,7 +134,7 @@ const Projects = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       if (loading) return;
-      const orgId = organizations?.[0]?.id;
+      const orgId = currentOrgId;
       if (!user || !orgId) return;
       try {
         const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}`);
@@ -108,12 +144,13 @@ const Projects = () => {
           description: p.description,
           status: p.status,
           progress: Number(p.progress_percent ?? 0),
-          startDate: p.start_date ?? '',
+          startDate: p.start_date ?? p.created_at ?? '',
           endDate: p.end_date ?? '',
           teamMembers: p.team_members ?? [],
           tasksCount: p.tasks_total ?? 0,
           completedTasks: p.tasks_completed ?? 0,
           priority: p.priority,
+          owner: p.owner ?? "",
           category: 'General',
         }));
         setProjects(mapped);
@@ -122,7 +159,7 @@ const Projects = () => {
       }
     };
     fetchProjects();
-  }, [user, loading, organizations]);
+  }, [user, loading, currentOrgId]);
 
   // Projects state populated from backend
   const [projects, setProjects] = useState<Project[]>([]);
@@ -139,44 +176,19 @@ const Projects = () => {
     return null;
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active": return "bg-blue-100 text-blue-800";
-      case "completed": return "bg-green-100 text-green-800";
-      case "on-hold": return "bg-yellow-100 text-yellow-800";
-      case "planning": return "bg-purple-100 text-purple-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "active": return "Active";
-      case "completed": return "Completed";
-      case "on-hold": return "On Hold";
-      case "planning": return "Planning";
-      default: return "Unknown";
-    }
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "active": return <Clock className="w-4 h-4" />;
       case "completed": return <CheckCircle2 className="w-4 h-4" />;
-      case "on-hold": return <AlertCircle className="w-4 h-4" />;
+      case "on_hold": return <AlertCircle className="w-4 h-4" />;
       case "planning": return <Target className="w-4 h-4" />;
       default: return <FolderOpen className="w-4 h-4" />;
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high": return "bg-red-100 text-red-800";
-      case "medium": return "bg-orange-100 text-orange-800";
-      case "low": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
+
 
   const isDateInRange = (projectDate: string, filter: string) => {
     const date = new Date(projectDate);
@@ -213,7 +225,7 @@ const Projects = () => {
         aValue = priorityOrder[a.priority as keyof typeof priorityOrder];
         bValue = priorityOrder[b.priority as keyof typeof priorityOrder];
       } else if (sortBy === 'status') {
-        const statusOrder = { active: 4, planning: 3, 'on-hold': 2, completed: 1 };
+        const statusOrder = { completed: 6, in_progress:5, planning: 4, on_hold:3, not_started:2, archived:1 };
         aValue = statusOrder[a.status as keyof typeof statusOrder];
         bValue = statusOrder[b.status as keyof typeof statusOrder];
       }
@@ -238,24 +250,43 @@ const Projects = () => {
   }));
 
   const handleProjectClick = (projectId: string) => {
-    navigate(`/projects/${projectId}`);
+    if (currentOrgId) {
+      navigate(`/projects/${projectId}?org_id=${currentOrgId}`);
+    } else {
+      navigate(`/projects/${projectId}`);
+    }
   };
 
-  const handleProjectStatusToggle = (projectId: string) => {
-    setProjects(prev => prev.map(project => 
-      project.id === projectId 
-        ? { 
-            ...project, 
-            status: project.status === 'completed' ? 'active' : 'completed',
-            progress: project.status === 'completed' ? project.progress : 100
+  const handleProjectStatusToggle = async (projectId: string) => {
+    // Capture previous status before optimistic update
+    const prevStatus = projects.find(p => p.id === projectId)?.status;
+    const newStatus = prevStatus === 'completed' ? 'not_started' : 'completed';
+
+    // 1️⃣ Optimistic UI update for snappy UX
+    setProjects(prev => prev.map(project =>
+      project.id === projectId
+        ? {
+            ...project,
+            status: newStatus,
           }
         : project
     ));
+
+    // 2️⃣ Persist change to backend
+    try {
+      await api.put(`${API_ENDPOINTS.PROJECTS}/${projectId}`, { status: newStatus });
+    } catch (err) {
+      console.error('Failed to update project status', err);
+      // 3️⃣ Revert UI if the backend rejects the change
+      setProjects(prev => prev.map(project =>
+        project.id === projectId ? { ...project, status: prevStatus ?? project.status } : project
+      ));
+    }
   };
 
   const handleNewProject = async (projectData: any) => {
     // Optimistically add project locally; also attempt to persist to backend
-    const orgId = organizations?.[0]?.id;
+    const orgId = currentOrgId;
 
     if (orgId) {
       try {
@@ -284,8 +315,9 @@ const Projects = () => {
             teamMembers: (created.team_members ?? projectData.teamMembers) || [],
             tasksCount: created.tasks_total ?? 0,
             completedTasks: created.tasks_completed ?? 0,
-            priority: created.priority,
-            category: "General",
+                      priority: created.priority,
+          owner: created.owner ?? projectData.owner,
+          category: "General",
           };
           setProjects(prev => [...prev, newProject]);
           setIsNewProjectModalOpen(false);
@@ -308,6 +340,7 @@ const Projects = () => {
       tasksCount: 0,
       completedTasks: 0,
       priority: projectData.priority,
+      owner: projectData.owner,
       category: 'General'
     };
     
@@ -357,27 +390,45 @@ const Projects = () => {
               </div>
               
               {/* Status tag positioned at the right */}
-              <Badge 
-                variant="secondary" 
-                className={`text-xs ${getStatusColor(project.status)}`}
-              >
-                {getStatusText(project.status)}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant="secondary" 
+                    className={`text-xs ${getStatusMeta(project.status).color}`}
+                  >
+                    {getStatusMeta(project.status).label}
+                  </Badge>
+                  <Badge className={`text-xs ${getPriorityColor(project.priority)}`}>
+                    {project.priority.toUpperCase()}
+                  </Badge>
+                </div>
+                {/* <Badge className={`text-xs ${getPriorityColor(project.priority)}`}>
+                  {project.priority.toUpperCase()}
+                </Badge> */}
+              </div>
             </div>
             
-            <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+            <CardTitle className={`text-lg font-semibold transition-colors ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
               {project.name}
             </CardTitle>
           </CardHeader>
           
           <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600 line-clamp-2">{project.description}</p>
+            <p className={`text-sm line-clamp-2 ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>{project.description}</p>
             
-            {/* Priority Badge */}
-            <div className="flex items-center gap-2">
-              <Badge className={`text-xs ${getPriorityColor(project.priority)}`}>
-                {project.priority.toUpperCase()}
+            {/* Owner & Dates */}
+            <div className="flex items-center justify-between text-sm">
+              <Badge className="text-xs bg-indigo-100 text-indigo-800">
+                Owner: {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
               </Badge>
+              <div className="flex items-center gap-2">
+                <Badge className="text-xs bg-blue-100 text-blue-800">
+                  Start: {formatDate(project.startDate)}
+                </Badge>
+                <Badge className="text-xs bg-red-100 text-red-800">
+                  End: {formatDate(project.endDate)}
+                </Badge>
+              </div>
             </div>
             
             {/* Progress */}
@@ -402,7 +453,7 @@ const Projects = () => {
               </div>
               <div className="flex items-center gap-1 text-gray-600">
                 <Calendar className="w-4 h-4" />
-                <span>{new Date(project.endDate).toLocaleDateString()}</span>
+                <span>{formatDate(project.endDate)}</span>
               </div>
             </div>
             
@@ -413,13 +464,8 @@ const Projects = () => {
                 <span className="text-sm text-gray-600">Team</span>
               </div>
               <div className="flex -space-x-2">
-                {project.teamMembers.slice(0, 3).map((member, index) => (
-                  <Avatar key={index} className="w-6 h-6 border-2 border-white">
-                    <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
-                      {member}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
+                {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
+                  
                 {project.teamMembers.length > 3 && (
                   <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
                     <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
@@ -471,14 +517,22 @@ const Projects = () => {
                   <div className="md:col-span-2">
                     <div className="flex items-center gap-3">
                       <div>
-                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <h3 className={`font-semibold transition-colors ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
                           {project.name}
                         </h3>
-                        <p className="text-sm text-gray-600 truncate max-w-xs">{project.description}</p>
-                        {/* Priority Badge */}
-                        <Badge className={`text-xs mt-1 ${getPriorityColor(project.priority)}`}>
-                          {project.priority.toUpperCase()}
-                        </Badge>
+                        <p className={`text-sm truncate max-w-xs ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>{project.description}</p>
+                        {/* Owner & Dates */}
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <Badge className="text-xs bg-indigo-100 text-indigo-800">
+                            Owner: {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
+                          </Badge>
+                          <Badge className="text-xs bg-blue-100 text-blue-800">
+                            Start: {formatDate(project.startDate)}
+                          </Badge>
+                          <Badge className="text-xs bg-red-100 text-red-800">
+                            End: {formatDate(project.endDate)}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -505,7 +559,7 @@ const Projects = () => {
                   <div className="text-center">
                     <div className="flex items-center gap-1 text-gray-600">
                       <Calendar className="w-4 h-4" />
-                      <span className="text-sm">{new Date(project.endDate).toLocaleDateString()}</span>
+                      <span className="text-sm">{formatDate(project.endDate)}</span>
                     </div>
                     <p className="text-xs text-gray-500">due date</p>
                   </div>
@@ -514,22 +568,23 @@ const Projects = () => {
               
               {/* Status tag and team positioned at the right end - Similar to Tasks */}
               <div className="ml-4 flex flex-col items-end space-y-2">
-                <Badge 
-                  variant="secondary" 
-                  className={`text-xs ${getStatusColor(project.status)}`}
-                >
-                  {getStatusText(project.status)}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant="secondary" 
+                    className={`text-xs ${getStatusMeta(project.status).color}`}
+                  >
+                    {getStatusMeta(project.status).label}
+                  </Badge>
+                  <Badge className={`text-xs ${getPriorityColor(project.priority)}`}>
+                    {project.priority.toUpperCase()}
+                  </Badge>
+                </div>
                 
                 {/* Team under status tag */}
                 <div className="flex -space-x-2">
-                  {project.teamMembers.slice(0, 3).map((member, index) => (
-                    <Avatar key={index} className="w-6 h-6 border-2 border-white">
-                      <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
-                        {member}
-                      </AvatarFallback>
-                    </Avatar>
-                  ))}
+                  {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
+                    
+                      
                   {project.teamMembers.length > 3 && (
                     <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
                       <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
@@ -604,7 +659,7 @@ const Projects = () => {
                     <SelectItem value="completed">
                       <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Completed</span>
                     </SelectItem>
-                    <SelectItem value="on-hold">
+                    <SelectItem value="on_hold">
                       <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">On Hold</span>
                     </SelectItem>
                   </SelectContent>
@@ -748,6 +803,7 @@ const Projects = () => {
         isOpen={isNewProjectModalOpen} 
         onClose={() => setIsNewProjectModalOpen(false)}
         onSubmit={handleNewProject}
+        orgId={currentOrgId}
       />
     </div>
   );
