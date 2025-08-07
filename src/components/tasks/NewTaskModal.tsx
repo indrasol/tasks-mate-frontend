@@ -23,20 +23,14 @@ import { X, Plus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { taskService } from "@/services/taskService";
 import { useAuth } from "@/hooks/useAuth";
-
-interface Task {
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-  owner: string;
-  targetDate: string;
-  comments: number;
-  progress: number;
-  tags: string[];
-  createdBy: string;
-  createdDate: string;
-}
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { BackendOrgMember } from "@/types/organization";
+import { api } from "@/services/apiService";
+import { API_ENDPOINTS } from "@/../config";
+import { Project } from "@/types/projects";
+import { Task } from "@/types/tasks";
 
 interface NewTaskModalProps {
   open: boolean;
@@ -49,6 +43,7 @@ interface NewTaskModalProps {
 
 const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false, projectName }: NewTaskModalProps) => {
   const [formData, setFormData] = useState({
+    projectId: "",
     name: "",
     description: "",
     status: "not_started",
@@ -67,6 +62,66 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
   ];
 
   const { user } = useAuth();
+
+  const { data: organizations } = useOrganizations();
+  const currentOrgId = useCurrentOrgId() ?? organizations?.[0]?.id;
+  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
+  const orgMembers: BackendOrgMember[] = (orgMembersRaw ?? []) as BackendOrgMember[];
+
+  // Projects state populated from backend
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  const [projectMembers, setProjectMembers] = useState<any[]>([]);
+
+  const [loadingProjects, setLoadingProjects] = useState(false);
+
+  // Fetch projects from backend
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const orgId = currentOrgId;
+      if (!user || !orgId) return;
+
+      setLoadingProjects(true);
+
+      try {
+        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}`);
+        const mapped: Project[] = res.map((p: any) => ({
+          id: p.project_id,
+          name: p.name,
+          description: p.description,
+          status: p.status,
+          progress: Number(p.progress_percent ?? 0),
+          startDate: p.start_date ?? p.created_at ?? '',
+          endDate: p.end_date ?? '',
+          teamMembers: p.team_members ?? [],
+          tasksCount: p.tasks_total ?? 0,
+          completedTasks: p.tasks_completed ?? 0,
+          priority: p.priority,
+          owner: p.owner ?? "",
+          category: 'General',
+        }));
+        setProjects(mapped);
+      } catch (err) {
+        console.error('Failed to fetch projects', err);
+      }
+      setLoadingProjects(false);
+    };
+    fetchProjects();
+  }, [user, currentOrgId]);
+
+  useEffect(() => {
+    const fetchProjectMembers = async () => {
+      if (!formData.projectId) return;
+      try {
+        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECT_MEMBERS}?project_id=${formData.projectId}`);
+        setProjectMembers(res);
+      } catch (err) {
+        console.error('Failed to fetch project members', err);
+      }
+    };
+
+    fetchProjectMembers();
+  }, [formData.projectId]);
 
   // Set default tags when modal opens
   useEffect(() => {
@@ -90,28 +145,28 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name.trim() || !formData.owner.trim()) {
+    if (!formData.name.trim() || !formData.projectId.trim() || !formData.owner.trim()) {
       toast.error("Please fill in all required fields");
       return;
     }
 
     try {
       const allTags = [
-        ...(projectName ? [projectName] : []),
+        ...(formData.projectId ? [formData.projectId] : []),
         ...formData.tags,
         ...selectedBugs
       ];
       const payload = {
-        project_id: "P00001", // TODO: Replace with real project ID if available
+        project_id: formData.projectId, // TODO: Replace with real project ID if available
         title: formData.name,
         description: formData.description,
         status: formData.status,
-        assignee_id: user.id.toString(),
+        assignee_id: formData.owner,
         due_date: formData.targetDate,
         tags: allTags,
         priority: "low", // Add priority if needed
       };
-      const created = await taskService.createTask(payload);
+      const created: any = await taskService.createTask(payload);
       // Map backend response to Task type
       const newTask = {
         id: created.task_id,
@@ -128,7 +183,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
       };
       onTaskCreated(newTask);
       toast.success("Task created successfully!");
-      setFormData({ name: "", description: "", status: "not_started", owner: "", targetDate: "", tags: [] });
+      setFormData({ projectId: "", name: "", description: "", status: "not_started", owner: "", targetDate: "", tags: [] });
       setTagInput("");
       setSelectedBugs([]);
       onOpenChange(false);
@@ -243,6 +298,28 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                 />
               </div>
 
+              {/* Project Dropdown */}
+              <div className="space-y-3">
+                <Label htmlFor="project" className="text-sm font-semibold text-gray-700">
+                  Project *
+                </Label>
+                <Select
+                  value={formData.projectId}
+                  onValueChange={(value) => handleInputChange("projectId", value)}
+                >
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select project"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border shadow-lg z-50">
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Only show bugs dropdown if not converting from bug */}
               {!isConvertingFromBug && (
                 <div className="space-y-3">
@@ -323,8 +400,8 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                             key={index}
                             variant="secondary"
                             className={`flex items-center space-x-1 ${isDefaultBugTag
-                                ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-300'
-                                : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                              ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-300'
+                              : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
                               }`}
                           >
                             <span>{tag}</span>
@@ -394,10 +471,13 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                       <SelectValue placeholder="Select owner" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border shadow-lg z-50">
-                      <SelectItem value="JD">John Doe (JD)</SelectItem>
-                      <SelectItem value="SK">Sarah Kim (SK)</SelectItem>
-                      <SelectItem value="MR">Mike Rodriguez (MR)</SelectItem>
-                      <SelectItem value="AM">Anna Miller (AM)</SelectItem>
+
+                      {projectMembers.map((orgMember) => (
+                        <SelectItem key={orgMember.username} value={orgMember.username}>
+                          {orgMember.username} {orgMember.designation}
+                        </SelectItem>
+                      ))}
+
                     </SelectContent>
                   </Select>
                 </div>

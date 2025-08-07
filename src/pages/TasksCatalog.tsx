@@ -40,20 +40,8 @@ import TaskListView from "@/components/tasks/TaskListView";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import { taskService } from "@/services/taskService";
+import { BackendTask, Task } from "@/types/tasks";
 
-interface Task {
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-  owner: string;
-  targetDate: string;
-  comments: number;
-  progress: number;
-  tags?: string[];
-  createdBy?: string;
-  createdDate?: string;
-}
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'name' | 'status' | 'targetDate' | 'createdDate' | 'progress' | 'owner';
@@ -106,7 +94,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     setLoadingTasks(true);
     setError(null);
     taskService.getTasks()
-      .then((data) => {
+      .then((data:BackendTask[]) => {
         // Map backend data to frontend Task type
         const mapped = (data || []).map((t: any) => ({
           id: t.task_id,

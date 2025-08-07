@@ -220,9 +220,14 @@ const ProjectDetail = () => {
     }
   }, [user, loading, navigate]);
 
+   const [loadingProject, setLoadingProject] = useState(false);
+  
+   
+
   useEffect(() => {
     if (!id) return;
     const fetchProject = async () => {
+      setLoadingProject(true);
       try {
         const res = await api.get<any>(`${API_ENDPOINTS.PROJECTS}/detail/${id}`);
         // Map API response to local Project shape
@@ -248,6 +253,7 @@ const ProjectDetail = () => {
       } catch (err) {
         setProject(null);
       }
+      setLoadingProject(false);
     };
     fetchProject();
   }, [id]);
@@ -427,6 +433,17 @@ const ProjectDetail = () => {
       // handle error
     }
   };
+
+   if (loadingProject) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading Project...</p>
+          </div>
+        </div>
+      );
+    }
 
   if (loading || !project) {
     return (

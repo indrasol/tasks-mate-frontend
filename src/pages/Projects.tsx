@@ -52,22 +52,8 @@ import NewProjectModal from '@/components/projects/NewProjectModal';
 import { getStatusMeta, getPriorityColor, formatDate, deriveDisplayFromEmail } from "@/lib/projectUtils";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import type { BackendOrgMember } from "@/types/organization";
+import { Project } from '@/types/projects';
 
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-  progress: number;
-  startDate: string;
-  endDate: string;
-  teamMembers: string[];
-  tasksCount: number;
-  completedTasks: number;
-  priority: string;
-  owner: string;
-  category: string;
-}
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'name' | 'progress' | 'startDate' | 'endDate' | 'priority' | 'status';
@@ -136,6 +122,9 @@ const Projects = () => {
       if (loading) return;
       const orgId = currentOrgId;
       if (!user || !orgId) return;
+
+      setLoadingProjects(true);
+
       try {
         const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}`);
         const mapped: Project[] = res.map((p: any) => ({
@@ -157,12 +146,26 @@ const Projects = () => {
       } catch (err) {
         console.error('Failed to fetch projects', err);
       }
+      setLoadingProjects(false);
     };
     fetchProjects();
   }, [user, loading, currentOrgId]);
 
   // Projects state populated from backend
   const [projects, setProjects] = useState<Project[]>([]);
+
+  const [loadingProjects, setLoadingProjects] = useState(false);
+
+  if (loadingProjects) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading Projects...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
