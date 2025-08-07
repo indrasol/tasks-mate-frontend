@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,23 +10,24 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { 
-  ArrowLeft,
-  Calendar, 
-  Users, 
-  Target, 
-  MoreVertical,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  Edit,
-  Settings,
-  MessageSquare,
-  FileText,
-  Upload,
-  Link,
-  File,
-  ExternalLink
+    ArrowLeft,
+    Calendar, 
+    Users, 
+    Target, 
+    Pencil,
+    Trash2,
+    Edit,
+    MoreVertical,
+    Check,
+    Clock,
+    CheckCircle2,
+    AlertCircle,
+    Plus,
+    FileText,
+    Upload,
+    Link,
+    File,
+    ExternalLink
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -36,7 +37,27 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/services/apiService";
+import { deriveDisplayFromEmail, getStatusMeta, getPriorityColor, type ProjectStatus } from "@/lib/projectUtils";
 import { API_ENDPOINTS } from "@/../config";
+import { useProjectStats } from "@/hooks/useProjectStats";
+import { useProjectMembers } from "@/hooks/useProjectMembers";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Project {
   id: string;
@@ -54,6 +75,7 @@ interface Project {
 }
 
 interface Member{
+    displayName?: string;
     initials: string;
     name: string;
     role: string;
@@ -72,15 +94,123 @@ interface Resource {
 }
 
 const ProjectDetail = () => {
-  const { user, loading } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { user, loading } = useAuth() || { user: null, loading: true } as const;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { id } = useParams();
+  const { data: stats } = useProjectStats(id);
+  const { data: membersData } = useProjectMembers(id);
   const [project, setProject] = useState<Project | null>(null);
-  const [teamMembers, setTeamMembers] = useState<Member[]>([]);  
+  const [teamMembers, setTeamMembers] = useState<Member[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [newUrl, setNewUrl] = useState('');
   const [newUrlName, setNewUrlName] = useState('');
-  const [uploading, setUploading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+
+  // Edit modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editStatus, setEditStatus] = useState<ProjectStatus>('active');
+  const [editPriority, setEditPriority] = useState<string>('medium');
+
+  // Utility helpers -------------------------------------------------
+  const priorityOptions = ["critical", "high", "medium", "low", "none"] as const;
+  const statusOptions = [
+    "planning",
+    "in_progress",
+    "on_hold",
+    "on-hold",
+    "completed",
+    "archived",
+    "not_started",
+    "active",
+] as const;
+
+  const updateProject = async (payload: Record<string, unknown>) => {
+    if (!project) return;
+    setProject(prev => (prev ? { ...prev, ...payload } as any : prev)); // optimistic
+    try {
+      await api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, payload);
+    } catch (err) {
+      console.error("Failed to update project", err);
+    }
+  };
+
+  const toggleComplete = () => {
+    if (!project) return;
+    const newStatus = project.status === "completed" ? "not_started" : "completed";
+    updateProject({ status: newStatus });
+  };
+
+    const handlePriorityChange = (p: string) => updateProject({ priority: p });
+
+  const openEditModal = () => {
+    if (!project) return;
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!project) return;
+    const payload: Record<string, unknown> = {};
+    if (editName !== project.name) payload.name = editName;
+    if (editDescription !== project.description) payload.description = editDescription;
+    if (editStatus !== project.status) payload.status = editStatus;
+    if (editPriority !== project.priority) payload.priority = editPriority;
+    if (Object.keys(payload).length) {
+      await updateProject(payload);
+    }
+    setEditOpen(false);
+  };
+
+  // Sync modal form values when opened
+  useEffect(() => {
+    if (editOpen && project) {
+      setEditName(project.name);
+      setEditDescription(project.description);
+      setEditStatus(project.status as ProjectStatus);
+      setEditPriority(project.priority);
+    }
+  }, [editOpen, project]);
+
+  const handleDelete = async () => {
+    if (!project) return;
+    if (!confirm("Delete this project?")) return;
+    try {
+      await api.del(`${API_ENDPOINTS.PROJECTS}/${project.id}`, {});
+      navigate(`/projects?org_id=${searchParams.get("org_id") ?? ""}`);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // When react-query returns data, normalise into Member shape
+  useEffect(() => {
+    if (!membersData) return;
+    setTeamMembers(
+      membersData.map((m) => ({
+        initials:
+          m.email?.split("@")[0]?.[0]?.toUpperCase() ??
+          m.username?.[0]?.toUpperCase() ?? "?",
+        name: m.username || m.email || m.user_id,
+        displayName: deriveDisplayFromEmail(m.email ?? m.username ?? m.user_id).displayName,
+        role: m.role || "member",
+        designation: m.designation || "",
+      }))
+    );
+  }, [membersData]);
+
+  // Sync with sidebar collapse/expand events
+  useEffect(() => {
+    const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
+    window.addEventListener('sidebar-toggle', handler);
+    // Initialise based on current CSS var set by MainNavigation
+    setSidebarCollapsed(
+      getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem'
+    );
+    return () => window.removeEventListener('sidebar-toggle', handler);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -124,15 +254,24 @@ const ProjectDetail = () => {
   const fetchResources = async () => {
     if (!id) return;
     try {
-      const res = await api.get<Resource[]>(`${API_ENDPOINTS.PROJECTS_RESOURCES}?project_id=${id}`);
-      setResources(res);
+      const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${id}`);
+      const mappedResources: Resource[] = res.map((r) => ({
+        id: r.resource_id ?? r.id ?? r.name,
+        type: r.resource_type ?? 'url',
+        name: r.name ?? r.resource_name ?? 'Untitled',
+        url: r.url ?? r.resource_url,
+        size: r.size ?? undefined,
+        uploadedBy: r.created_by ?? r.uploaded_by ?? '—',
+        uploadedAt: r.created_at ?? new Date().toISOString(),
+      }));
+      setResources(mappedResources);
     } catch (err) {
       setResources([]);
     }
   };
 
   useEffect(() => {
-    // fetchResources();
+    fetchResources();
     // eslint-disable-next-line
   }, [id]);
 
@@ -140,7 +279,7 @@ const ProjectDetail = () => {
   const fetchTeamMembers = async () => {
     if (!id) return;
     try {
-      const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS_MEMBERS}?project_id=${id}`);
+      const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECT_MEMBERS}?project_id=${id}`);
       setTeamMembers(
         (res ?? []).map((m: any) => ({
           initials: m.initials || m.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '',
@@ -163,12 +302,13 @@ const ProjectDetail = () => {
   const handleAddUrl = async () => {
     if (!newUrl || !newUrlName || !project) return;
     try {
-      const res = await api.post<any>(`${API_ENDPOINTS.PROJECTS_RESOURCES}/${project.id}`, {
-        project_id:project.id,
-        type: 'url',
-        name: newUrlName,
-        url: newUrl,
-        uploadedBy: user?.user_metadata?.username,
+      await api.post<any>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, {
+        project_id: project.id,
+        project_name: project.name,
+        resource_name: newUrlName,
+        resource_url: newUrl,
+        resource_type: 'url',
+        created_by: user?.user_metadata?.username,
       });
       // setResources([...resources, res]);
       setNewUrl('');
@@ -189,16 +329,16 @@ const ProjectDetail = () => {
     });
     formData.append('uploadedBy', user?.email || 'Current User');
     try {
-      const res = await api.post<any[]>(`${API_ENDPOINTS.PROJECTS_RESOURCES}/${project.id}`, formData, {
+      const res = await api.post<any[]>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      const res_upload = await api.post<any>(`${API_ENDPOINTS.PROJECTS_RESOURCES}/${project.id}`, {
+      const res_upload = await api.post<any>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, {
         project_id:project.id,
-        type: 'url',
+        resource_type: 'url',
         name: newUrlName,
         url: newUrl,
-        uploadedBy: user?.user_metadata?.username,
+        created_by: user?.user_metadata?.username,
       });
 
       fetchResources();
@@ -214,7 +354,7 @@ const ProjectDetail = () => {
     if (!project) return;
     try {
       await api.del(
-        `${API_ENDPOINTS.PROJECTS_MEMBERS}/${member.name}/${project.id}`,{}
+        `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,{}
       );
       fetchTeamMembers();
     } catch (err) {
@@ -227,7 +367,7 @@ const ProjectDetail = () => {
     if (!project) return;
     try {
       await api.put(
-        `${API_ENDPOINTS.PROJECTS_MEMBERS}/${member.name}/${project.id}`,
+        `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
         { role: newRole }
       );
       fetchTeamMembers();
@@ -241,7 +381,7 @@ const ProjectDetail = () => {
     if (!project) return;
     try {
       await api.put(
-        `${API_ENDPOINTS.PROJECTS_MEMBERS}/${member.name}/${project.id}`,
+        `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
         { designation: newDesignation }
       );
       fetchTeamMembers();
@@ -255,7 +395,7 @@ const ProjectDetail = () => {
     if (!project) return;
     try {
       await api.del(
-        `${API_ENDPOINTS.PROJECTS_RESOURCES}/${resource.id}?project_id=${project.id}`,{}
+        `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`,{}
       );
       fetchResources();
     } catch (err) {
@@ -268,7 +408,7 @@ const ProjectDetail = () => {
     if (!project) return;
     try {
       await api.put(
-        `${API_ENDPOINTS.PROJECTS_RESOURCES}/${resource.id}?project_id=${project.id}`,
+        `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`,
         { name: newName }
       );
       fetchResources();
@@ -325,61 +465,126 @@ const ProjectDetail = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <MainNavigation />
 
-      <div className="ml-64 transition-all duration-300">
+      <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Header */}
         <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <div className="flex items-center justify-between mb-4">
               <Button 
                 variant="ghost" 
-                onClick={() => navigate('/projects')}
+                onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Projects
               </Button>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Project
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-red-600">
-                    Archive Project
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+
             </div>
 
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
+                  {/* Status toggle circle moved here */}
+                  <div
+                    onClick={toggleComplete}
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
+                      project.status === 'completed'
+                        ? 'bg-tasksmate-gradient border-transparent'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    {project.status === 'completed' && <Check className="w-3 h-3 text-white" />}
+                  </div>
                   <h1 className="font-sora font-bold text-3xl text-gray-900">{project.name}</h1>
-                                  <Badge className="text-sm font-mono bg-blue-600 text-white">
-                  {project.id}
-                </Badge>
+                  <Badge className="text-sm font-mono bg-blue-600 text-white">
+                    {project.id}
+                  </Badge>
                 </div>
                 <p className="text-gray-600 text-lg max-w-3xl">{project.description}</p>
                 
                 <div className="flex items-center gap-4 mt-4">
-                  <Badge className={`flex items-center gap-1 ${getStatusColor(project.status)}`}>
-                    {getStatusIcon(project.status)}
-                    {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                  </Badge>
-                  <Badge className={getPriorityColor(project.priority)}>
-                    {project.priority.toUpperCase()} PRIORITY
-                  </Badge>
-                  <Badge variant="outline">{project.category}</Badge>
+                  
+                  <Badge variant="secondary" className={`flex items-center gap-1 ${getStatusMeta(project.status).color}`}>{getStatusIcon(project.status)} {getStatusMeta(project.status).label}</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Badge className={`cursor-pointer ${getPriorityColor(project.priority)}`}>{project.priority.toUpperCase()}</Badge>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {priorityOptions.map(opt => (
+                        <DropdownMenuItem key={opt} onClick={() => handlePriorityChange(opt)}>
+                          {opt.toUpperCase()}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                    <DialogTrigger asChild>
+                      <Pencil
+                        className="w-4 h-4 cursor-pointer hover:scale-110 transition"
+                        onClick={openEditModal}
+                      />
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Edit Project</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Name</label>
+                          <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Description</label>
+                          <Textarea
+                            value={editDescription}
+                            onChange={(e) => setEditDescription(e.target.value)}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Status</label>
+                            <Select value={editStatus} onValueChange={(val) => setEditStatus(val as ProjectStatus)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {statusOptions.map((s) => (
+                                  <SelectItem key={s} value={s}>
+                                    {getStatusMeta(s as any).label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Priority</label>
+                            <Select value={editPriority} onValueChange={(val) => setEditPriority(val)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select priority" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {priorityOptions.map((p) => (
+                                  <SelectItem key={p} value={p}>
+                                    {p.toUpperCase()}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter className="mt-6">
+                        <Button onClick={handleEditSave} className="bg-tasksmate-gradient">
+                          Save
+                        </Button>
+                        <DialogClose asChild>
+                          <Button variant="outline">Cancel</Button>
+                        </DialogClose>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Trash2 className="w-4 h-4 cursor-pointer hover:scale-110 hover:text-red-600 transition" onClick={handleDelete} />
                 </div>
               </div>
             </div>
@@ -388,20 +593,20 @@ const ProjectDetail = () => {
 
         {/* Stats Cards */}
         <div className="px-6 py-6">
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <Card className="glass border-0 shadow-tasksmate">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Progress</p>
-                      <p className="text-2xl font-bold text-gray-900">{project.progress}%</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats?.progress_percent ?? project.progress}%</p>
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                       <Target className="w-6 h-6 text-blue-600" />
                     </div>
                   </div>
-                  <Progress value={project.progress} className="mt-3" />
+                  <Progress value={stats?.progress_percent ?? project.progress} className="mt-3" />
                 </CardContent>
               </Card>
 
@@ -410,7 +615,7 @@ const ProjectDetail = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Tasks</p>
-                      <p className="text-2xl font-bold text-gray-900">{project.completedTasks}/{project.tasksCount}</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats?.tasks_completed ?? project.completedTasks}/{stats?.tasks_total ?? project.tasksCount}</p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-green-600" />
@@ -424,7 +629,7 @@ const ProjectDetail = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Team Members</p>
-                      <p className="text-2xl font-bold text-gray-900">{project.teamMembers.length}</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats?.team_members ?? project.teamMembers.length}</p>
                     </div>
                     <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                       <Users className="w-6 h-6 text-purple-600" />
@@ -439,7 +644,7 @@ const ProjectDetail = () => {
                     <div>
                       <p className="text-sm text-gray-600">Days Left</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {Math.ceil((new Date(project.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
+                        {stats?.days_left ?? Math.ceil((new Date(project.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -505,7 +710,7 @@ const ProjectDetail = () => {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-sm font-medium">{member.name}</p>
+                              <p className="text-sm font-medium">{member.displayName}</p>
                               <p className="text-xs text-gray-600">{member.role}</p>
                               <p className="text-xs text-gray-600">{member.designation}</p>
                             </div>
