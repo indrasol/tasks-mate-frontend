@@ -5,6 +5,7 @@ export interface Task {
   description: string;
   status: string;
   owner: string;
+  startDate?: string;
   targetDate: string;
   comments: number;
   progress: number;
@@ -18,7 +19,8 @@ export interface BackendTask {
   title: string;
   description: string;
   status: string;
-  assignee_id: string;
+  assignee: string;
+  start_date?: string;
   due_date: string;
   comments?: number;
   progress?: number;

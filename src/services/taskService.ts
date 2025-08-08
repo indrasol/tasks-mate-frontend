@@ -24,7 +24,7 @@ export const taskService = {
   },
 
   async createTask(task: any) {
-    task.task_id =  uuidv4();    
+    // Do NOT set task_id on the client; backend generates sequential IDs (e.g., T00001)
     return api.post(`${API_ENDPOINTS.TASKS}`, task);
   },
 
