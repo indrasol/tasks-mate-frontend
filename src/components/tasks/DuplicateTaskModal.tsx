@@ -17,6 +17,7 @@ import TaskTagsField from "./duplicate/TaskTagsField";
 import TaskStatusOwnerFields from "./duplicate/TaskStatusOwnerFields";
 import TaskDateField from "./duplicate/TaskDateField";
 import DuplicateTaskActions from "./duplicate/DuplicateTaskActions";
+import { taskService } from "@/services/taskService";
 
 interface Task {
   id: string;
@@ -55,7 +56,7 @@ const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskMod
   });
   const [tagInput, setTagInput] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name.trim() || !formData.owner.trim()) {
@@ -63,32 +64,24 @@ const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskMod
       return;
     }
 
-    // Create duplicated task object
-    const duplicatedTask: Task = {
-      id: formData.id,
-      name: formData.name,
-      description: formData.description,
-      status: formData.status,
-      owner: formData.owner,
-      targetDate: formData.targetDate || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      comments: 0,
-      progress: 0,
-      tags: formData.tags,
-      createdBy: formData.owner,
-      createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    };
-    
-    console.log("Creating new task:", duplicatedTask);
-    
-    // Dispatch custom event to notify catalog of new task
-    window.dispatchEvent(new CustomEvent('taskCreated', { detail: duplicatedTask }));
-    
-    toast.success(`Task ${duplicatedTask.id} created successfully!`);
-    
-    onOpenChange(false);
-    
-    // Navigate to tasks catalog to see the new task
-    navigate('/tasks_catalog');
+    try {
+      const payload = {
+        projectId: "demo-project-id", // TODO: Replace with real project ID if available
+        name: formData.name,
+        description: formData.description,
+        status: formData.status,
+        owner: formData.owner,
+        targetDate: formData.targetDate,
+        tags: formData.tags,
+        priority: "none", // Add priority if needed
+      };
+      const created = await taskService.createTask(payload);
+      toast.success(`Task ${created.task_id} created successfully!`);
+      onOpenChange(false);
+      navigate('/tasks_catalog');
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create task");
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
