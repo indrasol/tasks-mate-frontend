@@ -35,7 +35,7 @@ import { taskService } from "@/services/taskService";
 import { api } from "@/services/apiService";
 import { API_ENDPOINTS } from "@/../config";
 
-import { getStatusMeta, getPriorityColor } from "@/lib/projectUtils";
+import { getStatusMeta, getPriorityColor, formatDate, deriveDisplayFromEmail } from "@/lib/projectUtils";
 import MainNavigation from "@/components/navigation/MainNavigation";
 
 const TaskDetail = () => {
@@ -109,7 +109,27 @@ const TaskDetail = () => {
     setError(null);
     taskService.getTaskById(taskId)
       .then((data: any) => {
-        setTask(data);
+
+        const mapped = {
+          id: data.task_id,
+          name: data.title,
+          description: data.description,
+          // Normalize API statuses for UI expectations
+          status: (data.status || "not_started")
+            .replace("in_progress", "in-progress")
+            .replace("not_started", "todo"),
+          owner: data.assignee, // Backend returns 'assignee'
+          startDate: data.start_date,
+          targetDate: data.due_date,
+          comments: data.comments ?? 0,
+          progress: data.progress ?? 0,
+          priority: data.priority,
+          tags: data.tags,
+          createdBy: data.created_by,
+          createdDate: data.created_at,
+        };
+
+        setTask(mapped);
         setTaskName(data.title);
         setDescription(data.description);
         setStatus(data.status);
@@ -367,6 +387,20 @@ const TaskDetail = () => {
       case 'blocked': return 'bg-red-500';
       case 'pending': return 'bg-yellow-500';
       default: return 'bg-gray-500';
+    }
+  };
+
+  
+  const getStatusText = (status: string) => {
+    const normalized = status.replace("in_progress", "in-progress");
+    switch (normalized) {
+      case "completed": return "Completed";
+      case "in-progress": return "In Progress";
+      case "blocked": return "Blocked";
+      case "not_started": return "Not Started";
+      case "on_hold": return "On Hold";
+      case "archived": return "Archived";
+      default: return "Unknown";
     }
   };
 
@@ -773,28 +807,34 @@ const TaskDetail = () => {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm text-gray-600">Created</Label>
-                      <span className="text-sm">{new Date(task.createdDate).toLocaleDateString()}</span>
+                      <span className="text-sm">{formatDate(task.startDate ?? task.createdDate)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <Label className="text-sm text-gray-600">Target Date</Label>
                       <div className="flex items-center space-x-1">
                         <Calendar className="h-3 w-3 text-gray-400" />
-                        <span className="text-sm">{new Date(task.targetDate).toLocaleDateString()}</span>
+                        <span className="text-sm">{formatDate(task.targetDate ?? task.endDate)}</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <Label className="text-sm text-gray-600">Owner</Label>
                       <div className="flex items-center space-x-2">
-                        <Avatar className="w-5 h-5">
+                        {(() => {
+                          const nameSource = (task.owner ?? "") as string;
+                          if (!nameSource) return "👤 —";
+                          const { displayName } = deriveDisplayFromEmail(nameSource);
+                          return `👤 ${displayName}`;
+                        })()}
+                        {/* <Avatar className="w-5 h-5">
                           <AvatarFallback className="text-xs">SK</AvatarFallback>
                         </Avatar>
-                        <span className="text-sm">{task.owner}</span>
+                        <span className="text-sm">{task.owner}</span> */}
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <Label className="text-sm text-gray-600">Status</Label>
                       <Badge className={`${getStatusBadge(task.status)} text-xs`}>
-                        {task.status}
+                        {getStatusText(task.status)}
                       </Badge>
                     </div>
                   </div>
