@@ -48,6 +48,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     description: "",
     // Use backend enum values to avoid mapping bugs
     status: "not_started",
+    priority: "low",
     // Store user_id for owner; will be sent as assignee_id
     owner: "",
     startDate: "",
@@ -64,6 +65,19 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
   const [projects, setProjects] = useState<Project[]>([]);
 
   const [loadingProjects, setLoadingProjects] = useState(false);
+
+  // Utility helpers -------------------------------------------------
+  const priorityOptions = ["critical", "high", "medium", "low", "none"] as const;
+  const statusOptions = [
+    "planning",
+    "in_progress",
+    "on_hold",
+    "on-hold",
+    "completed",
+    "archived",
+    "not_started",
+    "active",
+  ] as const;
 
   // Fetch projects from backend
   useEffect(() => {
@@ -157,7 +171,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         start_date: formData.startDate || null,
         due_date: formData.targetDate || null,
         tags: allTags,
-        priority: "low", // Add priority if needed
+        priority: formData.priority,
       };
       const created: any = await taskService.createTask(payload);
       // Map backend response to Task type
@@ -167,6 +181,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         description: created.description,
         // Normalize for UI where we render in-progress with hyphen
         status: (created.status || "not_started").replace("in_progress", "in-progress"),
+        priority: created.priority,
         owner: created.assignee,
         targetDate: created.due_date,
         comments: created.comments ?? 0,
@@ -177,7 +192,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
       };
       onTaskCreated(newTask);
       toast.success("Task created successfully!");
-      setFormData({ projectId: "", name: "", description: "", status: "not_started", owner: "", startDate: "", targetDate: "", tags: [] });
+      setFormData({ projectId: "", name: "", description: "", status: "not_started", priority: "low", owner: "", startDate: "", targetDate: "", tags: [] });
       setTagInput("");
       onOpenChange(false);
     } catch (err: any) {
@@ -375,42 +390,35 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border shadow-lg z-50">
-                      <SelectItem value="not_started">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                          <span>Not Started</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="in_progress">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                          <span>In Progress</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="completed">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                          <span>Completed</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="blocked">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                          <span>Blocked</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="on_hold">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                          <span>On Hold</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="archived">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                          <span>Archived</span>
-                        </div>
-                      </SelectItem>
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                            <span>{status}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="priority" className="text-sm font-semibold text-gray-700">
+                    Priority
+                  </Label>
+                  <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border shadow-lg z-50">
+                      {priorityOptions.map((priority) => (
+                        <SelectItem key={priority} value={priority}>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                            <span>{priority}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

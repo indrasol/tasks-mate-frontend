@@ -3,20 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, MoreVertical, Check } from "lucide-react";
-
-interface Task {
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-  owner: string;
-  targetDate: string;
-  comments: number;
-  progress: number;
-  tags?: string[];
-  createdBy?: string;
-  createdDate?: string;
-}
+import { Task } from "@/types/tasks";
 
 interface TaskListViewProps {
   tasks: Task[];

@@ -6,12 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { 
-  Check, 
-  Search, 
-  Plus, 
-  MoreVertical, 
-  MessageSquare, 
+import {
+  Check,
+  Search,
+  Plus,
+  MoreVertical,
+  MessageSquare,
   LogOut,
   Grid3X3,
   List,
@@ -54,7 +54,7 @@ type SortDirection = 'asc' | 'desc';
 const TasksCatalog = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
-  
+
   // Handle authentication and loading BEFORE any other hooks
   useEffect(() => {
     if (!loading && !user) {
@@ -101,7 +101,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     setLoadingTasks(true);
     setError(null);
     taskService.getTasks()
-      .then((data:BackendTask[]) => {
+      .then((data: BackendTask[]) => {
         // Map backend data to frontend Task type
         const mapped = (data || []).map((t: any) => ({
           id: t.task_id,
@@ -116,6 +116,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           targetDate: t.due_date,
           comments: t.comments ?? 0,
           progress: t.progress ?? 0,
+          priority: t.priority,
           tags: t.tags,
           createdBy: t.created_by,
           createdDate: t.created_at,
@@ -130,7 +131,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   }, []);
 
   useEffect(() => {
-    const handler = (e:any) => setSidebarCollapsed(e.detail.collapsed);
+    const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
     window.addEventListener('sidebar-toggle', handler);
     setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem');
     return () => window.removeEventListener('sidebar-toggle', handler);
@@ -143,7 +144,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const isDateInRange = (taskDate: string, filter: string) => {
     const date = new Date(taskDate);
     const now = new Date();
-    
+
     switch (filter) {
       case "thisWeek":
         const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
@@ -187,7 +188,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const filteredTasks = useMemo(() => {
     return sortTasks(tasks.filter(task => {
       // Search filter
-      const matchesSearch = searchQuery === "" || 
+      const matchesSearch = searchQuery === "" ||
         task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -234,7 +235,11 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   };
 
   const handleTaskClick = (taskId: string) => {
-    navigate(`/tasks/${taskId}`);
+    if (currentOrgId) {
+      navigate(`/tasks/${taskId}?org_id=${currentOrgId}`);
+    } else {
+      navigate(`/tasks/${taskId}`);
+    }    
   };
 
   const handleNewTask = () => {
@@ -251,11 +256,30 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   };
 
   const handleTaskStatusToggle = (taskId: string) => {
-    setTasks(prev => prev.map(task => 
-      task.id === taskId 
+
+    // Capture previous status before optimistic update
+    const prevStatus = tasks.find(p => p.id === taskId)?.status;
+    const newStatus = prevStatus === 'completed' ? 'not_started' : 'completed';
+
+    // 1️⃣ Optimistic UI update for snappy UX
+    setTasks(prev => prev.map(task =>
+      task.id === taskId
         ? { ...task, status: task.status === 'completed' ? 'todo' : 'completed' }
         : task
     ));
+
+    // 2️⃣ Persist change to backend
+    try {
+
+      taskService.updateTask(taskId, { status: newStatus });
+
+    } catch (err) {
+      console.error('Failed to update project status', err);
+      // 3️⃣ Revert UI if the backend rejects the change
+      setTasks(prev => prev.map(task =>
+        task.id === taskId ? { ...task, status: prevStatus ?? task.status } : task
+      ));
+    }
   };
 
   const toggleSort = (option: SortOption) => {
@@ -284,7 +308,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <MainNavigation 
+      <MainNavigation
         onNewTask={handleNewTask}
         onNewMeeting={handleNewMeeting}
       />
@@ -297,7 +321,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Tasks Catalog</h1>
               <p className="text-gray-600">Manage and track all your tasks in one place</p>
             </div>
-            <Button 
+            <Button
               onClick={handleNewTask}
               className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
             >
@@ -315,8 +339,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               {/* Search Bar - Left side */}
               <div className="relative w-80">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input 
-                  placeholder="Search by keyword or ID (e.g. T1234)" 
+                <Input
+                  placeholder="Search by keyword or ID (e.g. T1234)"
                   className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -326,7 +350,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               {/* Filters and Controls - Right side */}
               <div className="flex items-center space-x-4">
                 <Filter className="w-4 h-4 text-gray-500" />
-                
+
                 {/* Status Filter Dropdown */}
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
                   <SelectTrigger className="w-32">
@@ -468,8 +492,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
             {view === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredTasks.map((task) => (
-                  <Card 
-                    key={task.id} 
+                  <Card
+                    key={task.id}
                     className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200"
                     onClick={() => handleTaskClick(task.id)}
                   >
@@ -478,12 +502,11 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-2">
                           {/* Checkbox styled like TasksMate logo */}
-                          <div 
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                              task.status === 'completed' 
-                                ? 'bg-tasksmate-gradient border-transparent' 
-                                : 'border-gray-300 hover:border-gray-400'
-                            }`}
+                          <div
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${task.status === 'completed'
+                              ? 'bg-tasksmate-gradient border-transparent'
+                              : 'border-gray-300 hover:border-gray-400'
+                              }`}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleTaskStatusToggle(task.id);
@@ -493,22 +516,24 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               <Check className="h-3 w-3 text-white" />
                             )}
                           </div>
-                          <Badge className="text-xs font-mono bg-green-600 text-white">
+                          <Badge className={`text-xs font-mono bg-green-600 text-white ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
                             {task.id}
                           </Badge>
                         </div>
-                        
+
                         {/* Status tag positioned at the right */}
-                        <Badge 
-                          variant="secondary" 
-                          className={`text-xs ${
-                            task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        <Badge
+                          variant="secondary"
+                          className={`text-xs ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
                             task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                            task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}
+                              task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                            }`}
                         >
                           {getStatusText(task.status)}
+                        </Badge>
+                        <Badge className="text-xs font-mono bg-green-600 text-white">
+                          {task.priority}
                         </Badge>
                       </div>
 
@@ -538,7 +563,22 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                             )}
                           </div>
                         )}
+
+
                       </div>
+
+                      <div className="pb-2">
+                        {/* Start Date */}
+                        <div className="flex items-center justify-between">
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                            {`🟢Start date: ${formatDate(task.startDate ?? task.createdDate)}`}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                            🎯 {task.targetDate || '—'}
+                          </Badge>
+                        </div>
+                      </div>
+
 
                       {/* Footer with metadata and comments */}
                       <div className="pt-4 border-t border-gray-200">
@@ -555,14 +595,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 return `👤 ${displayName}`;
                               })()}
                             </Badge>
-                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
-                              {`🟢Start date: ${formatDate(task.startDate ?? task.createdDate)}`}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
-                              🎯 {task.targetDate || '—'}
-                            </Badge>
+
                           </div>
-                          
+
                           {/* Comments */}
                           <div className="flex items-center space-x-1 text-gray-500">
                             <MessageSquare className="h-4 w-4" />
@@ -575,8 +610,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 ))}
               </div>
             ) : (
-              <TaskListView 
-                tasks={filteredTasks} 
+              <TaskListView
+                tasks={filteredTasks}
                 onTaskClick={handleTaskClick}
                 onTaskStatusToggle={handleTaskStatusToggle}
               />
@@ -587,8 +622,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 <Grid3X3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg mb-2">No tasks found</p>
                 <p className="text-gray-400 mb-4">
-                  {searchQuery || filterStatus !== "all" || filterOwner !== "all" || dateFilter !== "all" 
-                    ? "Try adjusting your filters or search query" 
+                  {searchQuery || filterStatus !== "all" || filterOwner !== "all" || dateFilter !== "all"
+                    ? "Try adjusting your filters or search query"
                     : "Create your first task to get started"
                   }
                 </p>
@@ -599,7 +634,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   >
                     Clear Filters
                   </Button> */}
-                  <Button 
+                  <Button
                     className="bg-tasksmate-gradient hover:scale-105 transition-transform"
                     onClick={handleNewTask}
                   >
@@ -613,8 +648,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         </div>
 
         {/* New Task Modal */}
-        <NewTaskModal 
-          open={isNewTaskModalOpen} 
+        <NewTaskModal
+          open={isNewTaskModalOpen}
           onOpenChange={setIsNewTaskModalOpen}
           onTaskCreated={handleTaskCreated}
         />
