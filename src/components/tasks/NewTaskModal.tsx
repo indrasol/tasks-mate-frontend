@@ -26,10 +26,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
-import { BackendOrgMember } from "@/types/organization";
 import { api } from "@/services/apiService";
 import { API_ENDPOINTS } from "@/../config";
 import { Project } from "@/types/projects";
+import type { BackendOrgMember } from "@/types/organization";
+import { deriveDisplayFromEmail } from "@/lib/projectUtils";
 import { Task } from "@/types/tasks";
 
 interface NewTaskModalProps {
@@ -38,40 +39,29 @@ interface NewTaskModalProps {
   onTaskCreated: (task: Task) => void;
   defaultTags?: string[];
   isConvertingFromBug?: boolean;
-  projectName?: string;
 }
 
-const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false, projectName }: NewTaskModalProps) => {
+const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false }: NewTaskModalProps) => {
   const [formData, setFormData] = useState({
     projectId: "",
     name: "",
     description: "",
+    // Use backend enum values to avoid mapping bugs
     status: "not_started",
+    // Store user_id for owner; will be sent as assignee_id
     owner: "",
+    startDate: "",
     targetDate: "",
     tags: [] as string[],
   });
   const [tagInput, setTagInput] = useState("");
-  const [selectedBugs, setSelectedBugs] = useState<string[]>([]);
-
-  // Mock data for bugs
-  const availableBugs = [
-    { id: 'BUG-001', title: 'Login button not responsive on mobile' },
-    { id: 'BUG-002', title: 'Task deletion confirmation dialog missing' },
-    { id: 'BUG-003', title: 'Profile image upload fails silently' },
-  ];
 
   const { user } = useAuth();
 
   const { data: organizations } = useOrganizations();
   const currentOrgId = useCurrentOrgId() ?? organizations?.[0]?.id;
-  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
-  const orgMembers: BackendOrgMember[] = (orgMembersRaw ?? []) as BackendOrgMember[];
-
   // Projects state populated from backend
   const [projects, setProjects] = useState<Project[]>([]);
-
-  const [projectMembers, setProjectMembers] = useState<any[]>([]);
 
   const [loadingProjects, setLoadingProjects] = useState(false);
 
@@ -109,19 +99,9 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     fetchProjects();
   }, [user, currentOrgId]);
 
-  useEffect(() => {
-    const fetchProjectMembers = async () => {
-      if (!formData.projectId) return;
-      try {
-        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECT_MEMBERS}?project_id=${formData.projectId}`);
-        setProjectMembers(res);
-      } catch (err) {
-        console.error('Failed to fetch project members', err);
-      }
-    };
-
-    fetchProjectMembers();
-  }, [formData.projectId]);
+  // Organization members for Owner dropdown
+  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
+  const orgMembers: BackendOrgMember[] = (orgMembersRaw ?? []) as BackendOrgMember[];
 
   // Set default tags when modal opens
   useEffect(() => {
@@ -142,6 +122,18 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     }
   }, [open, defaultTags, isConvertingFromBug]);
 
+  // Initialize start date to today when modal opens
+  useEffect(() => {
+    if (open) {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      const iso = `${yyyy}-${mm}-${dd}`;
+      setFormData((prev) => ({ ...prev, startDate: prev.startDate || iso }));
+    }
+  }, [open]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -151,18 +143,19 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     }
 
     try {
-      const allTags = [
-        ...(formData.projectId ? [formData.projectId] : []),
-        ...formData.tags,
-        ...selectedBugs
-      ];
+      const allTags = [...formData.tags];
       const payload = {
-        project_id: formData.projectId, // TODO: Replace with real project ID if available
+        org_id: currentOrgId,
+        project_id: formData.projectId,
         title: formData.name,
         description: formData.description,
+        // Send backend-compatible status values (e.g., in_progress)
         status: formData.status,
-        assignee_id: formData.owner,
-        due_date: formData.targetDate,
+        // Send user_id to backend
+        assignee: formData.owner,
+        // Backend expects YYYY-MM-DD; allow empty as null
+        start_date: formData.startDate || null,
+        due_date: formData.targetDate || null,
         tags: allTags,
         priority: "low", // Add priority if needed
       };
@@ -172,20 +165,20 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         id: created.task_id,
         name: created.title,
         description: created.description,
-        status: created.status,
-        owner: created.assignee_id,
+        // Normalize for UI where we render in-progress with hyphen
+        status: (created.status || "not_started").replace("in_progress", "in-progress"),
+        owner: created.assignee,
         targetDate: created.due_date,
-        comments: 0,
-        progress: 0,
+        comments: created.comments ?? 0,
+        progress: created.progress ?? 0,
         tags: created.tags,
         createdBy: created.created_by,
         createdDate: created.created_at,
       };
       onTaskCreated(newTask);
       toast.success("Task created successfully!");
-      setFormData({ projectId: "", name: "", description: "", status: "not_started", owner: "", targetDate: "", tags: [] });
+      setFormData({ projectId: "", name: "", description: "", status: "not_started", owner: "", startDate: "", targetDate: "", tags: [] });
       setTagInput("");
-      setSelectedBugs([]);
       onOpenChange(false);
     } catch (err: any) {
       toast.error(err.message || "Failed to create task");
@@ -225,15 +218,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     }
   };
 
-  const handleBugSelect = (bugId: string) => {
-    if (!selectedBugs.includes(bugId)) {
-      setSelectedBugs(prev => [...prev, bugId]);
-    }
-  };
-
-  const handleRemoveBug = (bugId: string) => {
-    setSelectedBugs(prev => prev.filter(id => id !== bugId));
-  };
+  // Bugs linking UI removed until backend endpoint is available.
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -320,57 +305,13 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                 </Select>
               </div>
 
-              {/* Only show bugs dropdown if not converting from bug */}
-              {!isConvertingFromBug && (
-                <div className="space-y-3">
-                  <Label htmlFor="bugs" className="text-sm font-semibold text-gray-700">
-                    Bugs (Optional)
-                  </Label>
-                  <Select onValueChange={handleBugSelect}>
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select bugs to link" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border shadow-lg z-50">
-                      {availableBugs.filter(bug => !selectedBugs.includes(bug.id)).map((bug) => (
-                        <SelectItem key={bug.id} value={bug.id}>
-                          {bug.id} - {bug.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedBugs.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedBugs.map((bugId) => {
-                        const bug = availableBugs.find(b => b.id === bugId);
-                        return (
-                          <Badge
-                            key={bugId}
-                            variant="secondary"
-                            className="flex items-center space-x-1 bg-red-100 text-red-800 hover:bg-red-200"
-                          >
-                            <span>{bug?.id}</span>
-                            <X
-                              className="h-3 w-3 cursor-pointer hover:text-red-900"
-                              onClick={() => handleRemoveBug(bugId)}
-                            />
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Bugs dropdown removed to avoid mock data; integrate once backend endpoint is available */}
 
               <div className="space-y-3">
                 <Label htmlFor="tags" className="text-sm font-semibold text-gray-700">
                   Tags
                 </Label>
-                {projectName && (
-                  <p className="text-xs text-gray-500">
-                    <Badge className="bg-teal-100 text-teal-800 text-xs mr-1">{projectName}</Badge>
-                    will be automatically added to this task
-                  </p>
-                )}
+                {/* No automatic tags applied */}
                 <div className="space-y-2">
                   <div className="flex space-x-2">
                     <Input
@@ -440,7 +381,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                           <span>Not Started</span>
                         </div>
                       </SelectItem>
-                      <SelectItem value="in-progress">
+                      <SelectItem value="in_progress">
                         <div className="flex items-center space-x-2">
                           <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                           <span>In Progress</span>
@@ -458,6 +399,18 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                           <span>Blocked</span>
                         </div>
                       </SelectItem>
+                      <SelectItem value="on_hold">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                          <span>On Hold</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="archived">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                          <span>Archived</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -472,28 +425,46 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                     </SelectTrigger>
                     <SelectContent className="bg-white border shadow-lg z-50">
 
-                      {projectMembers.map((orgMember) => (
-                        <SelectItem key={orgMember.username} value={orgMember.username}>
-                          {orgMember.username} {orgMember.designation}
-                        </SelectItem>
-                      ))}
+                      {orgMembers.map((m) => {
+                        const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
+                        const { displayName } = deriveDisplayFromEmail(username);
+                        return (
+                          <SelectItem key={m.user_id} value={String(username)}>
+                            {displayName} {m.designation ? `(${m.designation})` : ""}
+                          </SelectItem>
+                        );
+                      })}
 
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <Label htmlFor="targetDate" className="text-sm font-semibold text-gray-700">
-                  Target Date
-                </Label>
-                <Input
-                  id="targetDate"
-                  type="date"
-                  value={formData.targetDate}
-                  onChange={(e) => handleInputChange("targetDate", e.target.value)}
-                  className="h-12"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <Label htmlFor="startDate" className="text-sm font-semibold text-gray-700">
+                    Start Date
+                  </Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => handleInputChange("startDate", e.target.value)}
+                    className="h-12"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="targetDate" className="text-sm font-semibold text-gray-700">
+                    Target Date
+                  </Label>
+                  <Input
+                    id="targetDate"
+                    type="date"
+                    value={formData.targetDate}
+                    onChange={(e) => handleInputChange("targetDate", e.target.value)}
+                    className="h-12"
+                  />
+                </div>
               </div>
 
               <div className="pb-6">

@@ -21,6 +21,10 @@ import {
   CalendarRange
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { deriveDisplayFromEmail, formatDate } from "@/lib/projectUtils";
 import {
   Select,
   SelectContent,
@@ -89,6 +93,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { data: organizations } = useOrganizations();
+  const currentOrgId = useCurrentOrgId() ?? organizations?.[0]?.id;
+  const { data: orgMembers } = useOrganizationMembers(currentOrgId);
 
   useEffect(() => {
     setLoadingTasks(true);
@@ -100,11 +107,15 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           id: t.task_id,
           name: t.title,
           description: t.description,
-          status: t.status,
-          owner: t.assignee_id, // You may want to map user ID to display name
+          // Normalize API statuses for UI expectations
+          status: (t.status || "not_started")
+            .replace("in_progress", "in-progress")
+            .replace("not_started", "todo"),
+          owner: t.assignee, // Backend returns 'assignee'
+          startDate: t.start_date,
           targetDate: t.due_date,
-          comments: 0, // Placeholder, update if backend provides
-          progress: 0, // Placeholder, update if backend provides
+          comments: t.comments ?? 0,
+          progress: t.progress ?? 0,
           tags: t.tags,
           createdBy: t.created_by,
           createdDate: t.created_at,
@@ -206,17 +217,20 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   };
 
   const getStatusText = (status: string) => {
-    switch (status) {
+    const normalized = status.replace("in_progress", "in-progress");
+    switch (normalized) {
       case "completed": return "Completed";
       case "in-progress": return "In Progress";
       case "blocked": return "Blocked";
-      case "todo": return "To Do";
+      case "not_started": return "Not Started";
+      case "on_hold": return "On Hold";
+      case "archived": return "Archived";
       default: return "Unknown";
     }
   };
 
   const getUniqueOwners = () => {
-    return Array.from(new Set(tasks.map(task => task.owner)));
+    return Array.from(new Set(tasks.map(task => task.owner).filter(Boolean)));
   };
 
   const handleTaskClick = (taskId: string) => {
@@ -533,13 +547,19 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           {/* Metadata as colored tags */}
                           <div className="flex flex-wrap gap-1">
                             <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                              👤 {task.createdBy || task.owner}
+                              {(() => {
+                                const m = (orgMembers || []).find((x: any) => x.user_id === task.owner);
+                                const nameSource = (task.owner ?? "") as string;
+                                if (!nameSource) return "👤 —";
+                                const { displayName } = deriveDisplayFromEmail(nameSource);
+                                return `👤 ${displayName}`;
+                              })()}
                             </Badge>
                             <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
-                              📅 {task.createdDate || 'N/A'}
+                              {`🟢Start date: ${formatDate(task.startDate ?? task.createdDate)}`}
                             </Badge>
                             <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
-                              🎯 {task.targetDate}
+                              🎯 {task.targetDate || '—'}
                             </Badge>
                           </div>
                           
@@ -564,6 +584,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
             {filteredTasks.length === 0 && (
               <div className="text-center py-12">
+                <Grid3X3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg mb-2">No tasks found</p>
                 <p className="text-gray-400 mb-4">
                   {searchQuery || filterStatus !== "all" || filterOwner !== "all" || dateFilter !== "all" 
@@ -571,12 +592,21 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     : "Create your first task to get started"
                   }
                 </p>
-                <Button 
-                  className="bg-tasksmate-gradient hover:scale-105 transition-transform"
-                  onClick={clearFilters}
-                >
-                  Clear Filters
-                </Button>
+                <div className="flex items-center justify-center gap-3">
+                  {/* <Button 
+                    variant="outline"
+                    onClick={clearFilters}
+                  >
+                    Clear Filters
+                  </Button> */}
+                  <Button 
+                    className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                    onClick={handleNewTask}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Task
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -587,7 +617,6 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           open={isNewTaskModalOpen} 
           onOpenChange={setIsNewTaskModalOpen}
           onTaskCreated={handleTaskCreated}
-          projectName={currentProject}
         />
       </div>
     </div>
