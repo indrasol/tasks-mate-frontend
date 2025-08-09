@@ -4,11 +4,12 @@ export interface Task {
   name: string;
   description: string;
   status: string;
+  priority?:string;
   owner: string;
   startDate?: string;
-  targetDate: string;
-  comments: number;
-  progress: number;
+  targetDate?: string;
+  comments?: number;
+  progress?: number;
   tags?: string[];
   createdBy?: string;
   createdDate?: string;
@@ -19,9 +20,10 @@ export interface BackendTask {
   title: string;
   description: string;
   status: string;
+  priority?:string;
   assignee: string;
   start_date?: string;
-  due_date: string;
+  due_date?: string;
   comments?: number;
   progress?: number;
   tags?: string[];

@@ -187,6 +187,8 @@ const ProjectDetail = () => {
     }
   };
 
+  const [userRole, setUserRole] = useState<string | null>(null);
+
   // When react-query returns data, normalise into Member shape
   useEffect(() => {
     if (!membersData) return;
@@ -201,6 +203,7 @@ const ProjectDetail = () => {
         designation: m.designation || "",
       }))
     );
+    setUserRole(membersData.find((member) => member.username === user?.user_metadata?.username)?.role);
   }, [membersData]);
 
   // Sync with sidebar collapse/expand events
@@ -220,9 +223,9 @@ const ProjectDetail = () => {
     }
   }, [user, loading, navigate]);
 
-   const [loadingProject, setLoadingProject] = useState(false);
-  
-   
+  const [loadingProject, setLoadingProject] = useState(false);
+
+
 
   useEffect(() => {
     if (!id) return;
@@ -422,7 +425,7 @@ const ProjectDetail = () => {
     }
   };
 
-  const handleDownload =  async (resource: Resource) => {
+  const handleDownload = async (resource: Resource) => {
     if (!project) return;
     try {
       await api.get(
@@ -434,16 +437,53 @@ const ProjectDetail = () => {
     }
   };
 
-   if (loadingProject) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading Project...</p>
-          </div>
-        </div>
+  
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+
+  const openAddMemberModal = () => {
+    setAddMemberOpen(true);
+  };
+
+  const closeAddMemberModal = () => {
+    setAddMemberOpen(false);
+  };
+
+  const handleAddMember = async (member: Member) => {
+    if (!project) return;
+    try {
+      await api.post(
+        `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
+        { role: member.role }
       );
+      fetchTeamMembers();
+    } catch (err) {
+      // handle error
     }
+  };
+
+  const handleDeleteMember = async (member: Member) => {
+    if (!project) return;
+    try {
+      await api.del(
+        `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
+        { role: member.role }
+      );
+      fetchTeamMembers();
+    } catch (err) {
+      // handle error
+    }
+  };
+
+  if (loadingProject) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading Project...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || !project) {
     return (
@@ -485,8 +525,6 @@ const ProjectDetail = () => {
       default: return "bg-gray-100 text-gray-800";
     }
   };
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -724,6 +762,12 @@ const ProjectDetail = () => {
                       <CardTitle className="flex items-center gap-2">
                         <Users className="w-5 h-5" />
                         Team Members
+
+                        {userRole === "owner" || userRole === "admin" && (
+                          <Button variant="ghost" onClick={openAddMemberModal}>
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        )}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -740,6 +784,13 @@ const ProjectDetail = () => {
                               <p className="text-xs text-gray-600">{member.role}</p>
                               <p className="text-xs text-gray-600">{member.designation}</p>
                             </div>
+
+                            {
+                              userRole === "owner" || userRole === "admin" && (
+                                <Button variant="ghost" onClick={() => handleDeleteMember(member)}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
                           </div>
                         ))}
                       </div>
@@ -872,7 +923,7 @@ const ProjectDetail = () => {
                                 Open
                               </Button>
                             ) : (
-                              <Button variant="outline" size="sm" onClick={()=>handleDownload(resource)}>
+                              <Button variant="outline" size="sm" onClick={() => handleDownload(resource)}>
                                 <FileText className="w-4 h-4 mr-1" />
                                 Download
                               </Button>
