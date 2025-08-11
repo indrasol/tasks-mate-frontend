@@ -30,8 +30,9 @@ import { api } from "@/services/apiService";
 import { API_ENDPOINTS } from "@/../config";
 import { Project } from "@/types/projects";
 import type { BackendOrgMember } from "@/types/organization";
-import { deriveDisplayFromEmail } from "@/lib/projectUtils";
+import { deriveDisplayFromEmail, getPriorityColor } from "@/lib/projectUtils";
 import { Task } from "@/types/tasks";
+import { getStatusMeta } from "@/lib/projectUtils";
 
 interface NewTaskModalProps {
   open: boolean;
@@ -39,9 +40,20 @@ interface NewTaskModalProps {
   onTaskCreated: (task: Task) => void;
   defaultTags?: string[];
   isConvertingFromBug?: boolean;
+  initialData?: Partial<{
+    projectId: string;
+    name: string;
+    description: string;
+    status: string; // backend enum preferred (e.g., in_progress)
+    priority: string;
+    owner: string;
+    startDate: string; // YYYY-MM-DD or ISO
+    targetDate: string; // YYYY-MM-DD or ISO
+    tags: string[];
+  }>;
 }
 
-const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false }: NewTaskModalProps) => {
+const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false, initialData }: NewTaskModalProps) => {
   const [formData, setFormData] = useState({
     projectId: "",
     name: "",
@@ -69,14 +81,12 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
   // Utility helpers -------------------------------------------------
   const priorityOptions = ["critical", "high", "medium", "low", "none"] as const;
   const statusOptions = [
-    "planning",
     "in_progress",
-    "on_hold",
-    "on-hold",
-    "completed",
-    "archived",
     "not_started",
-    "active",
+    "completed",
+    "on_hold",
+    "blocked",
+    "archived",
   ] as const;
 
   // Fetch projects from backend
@@ -148,6 +158,31 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     }
   }, [open]);
 
+  // Apply initial data for duplication/edit-like flows
+  useEffect(() => {
+    if (!open || !initialData) return;
+    const normalizeDate = (d?: string) => {
+      if (!d) return "";
+      // If ISO string, take date part
+      return d.length > 10 ? d.slice(0, 10) : d;
+    };
+    const normalizeStatus = (s?: string) => {
+      if (!s) return undefined;
+      return s.replace("in-progress", "in_progress");
+    };
+    setFormData(prev => ({
+      projectId: initialData.projectId ?? prev.projectId,
+      name: initialData.name ?? prev.name,
+      description: initialData.description ?? prev.description,
+      status: normalizeStatus(initialData.status) ?? prev.status,
+      priority: initialData.priority ?? prev.priority,
+      owner: initialData.owner ?? prev.owner,
+      startDate: normalizeDate(initialData.startDate) || prev.startDate,
+      targetDate: normalizeDate(initialData.targetDate) || prev.targetDate,
+      tags: Array.isArray(initialData.tags) ? [...initialData.tags] : prev.tags,
+    }));
+  }, [open, initialData]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -189,6 +224,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         tags: created.tags,
         createdBy: created.created_by,
         createdDate: created.created_at,
+        projectId: created.project_id || formData.projectId,
       };
       onTaskCreated(newTask);
       toast.success("Task created successfully!");
@@ -390,14 +426,14 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border shadow-lg z-50">
-                      {statusOptions.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                            <span>{status}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {statusOptions.map((status) => {
+                        const meta = getStatusMeta(status);
+                        return (
+                          <SelectItem key={status} value={status}>
+                            <span className={`px-2 py-1 rounded-full text-xs ${meta.color}`}>{meta.label}</span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -413,10 +449,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                     <SelectContent className="bg-white border shadow-lg z-50">
                       {priorityOptions.map((priority) => (
                         <SelectItem key={priority} value={priority}>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                            <span>{priority}</span>
-                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(priority)}`}>{priority.toUpperCase()}</span>
                         </SelectItem>
                       ))}
                     </SelectContent>

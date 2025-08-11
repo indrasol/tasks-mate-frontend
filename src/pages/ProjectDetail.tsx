@@ -6,16 +6,18 @@ import MainNavigation from "@/components/navigation/MainNavigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import CopyableBadge from "@/components/ui/copyable-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import NewProjectModal from '@/components/projects/NewProjectModal';
+import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
   Calendar,
   Users,
   Target,
   Pencil,
-  Trash2,
   Edit,
   MoreVertical,
   Check,
@@ -28,14 +30,9 @@ import {
   Link,
   File,
   ExternalLink,
-  Delete
+  Trash2
 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+// Dropdown removed for priority badge in header
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/services/apiService";
 import { deriveDisplayFromEmail, getStatusMeta, getPriorityColor, type ProjectStatus } from "@/lib/projectUtils";
@@ -109,6 +106,13 @@ const ProjectDetail = () => {
   const [newUrl, setNewUrl] = useState('');
   const [newUrlName, setNewUrlName] = useState('');
   const [uploading, setUploading] = useState(false);
+  // Resource modals state
+  const [isDeleteResourceOpen, setIsDeleteResourceOpen] = useState(false);
+  const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
+  const [isEditUrlOpen, setIsEditUrlOpen] = useState(false);
+  const [resourceToEdit, setResourceToEdit] = useState<Resource | null>(null);
+  const [editUrlName, setEditUrlName] = useState("");
+  const [editUrlValue, setEditUrlValue] = useState("");
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -123,11 +127,9 @@ const ProjectDetail = () => {
     "planning",
     "in_progress",
     "on_hold",
-    "on-hold",
     "completed",
     "archived",
     "not_started",
-    "active",
   ] as const;
 
   const updateProject = async (payload: Record<string, unknown>) => {
@@ -176,15 +178,13 @@ const ProjectDetail = () => {
     }
   }, [editOpen, project]);
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+
   const handleDelete = async () => {
     if (!project) return;
-    if (!confirm("Delete this project?")) return;
-    try {
-      await api.del(`${API_ENDPOINTS.PROJECTS}/${project.id}`, {});
-      navigate(`/projects?org_id=${searchParams.get("org_id") ?? ""}`);
-    } catch (err) {
-      console.error(err);
-    }
+    setConfirmOpen(true);
   };
 
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -343,7 +343,7 @@ const ProjectDetail = () => {
         // 2. Save metadata to backend
         await api.post<any>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, {
           project_id: project.id,
-          resource_type: 'url',
+          resource_type: 'file',
           name: file.name,
           url: url,
           created_by: user?.user_metadata?.username,
@@ -418,6 +418,19 @@ const ProjectDetail = () => {
       await api.put(
         `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`,
         { name: newName }
+      );
+      fetchResources();
+    } catch (err) {
+      // handle error
+    }
+  };
+
+  const handleUpdateUrlResource = async (resource: Resource, name: string, urlStr: string) => {
+    if (!project) return;
+    try {
+      await api.put(
+        `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`,
+        { name, url: urlStr }
       );
       fetchResources();
     } catch (err) {
@@ -517,24 +530,15 @@ const ProjectDetail = () => {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high": return "bg-red-100 text-red-800";
-      case "medium": return "bg-orange-100 text-orange-800";
-      case "low": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Header */}
-        <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
+        <div className="px-6 pt-6 pb-11 bg-white/50 border-b border-gray-200">
           <div className="w-full">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
                 onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)}
@@ -548,115 +552,64 @@ const ProjectDetail = () => {
             </div>
 
             <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  {/* Status toggle circle moved here */}
-                  <div
-                    onClick={toggleComplete}
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
-                      ? 'bg-tasksmate-gradient border-transparent'
-                      : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                  >
-                    {project.status === 'completed' && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                  <h1 className="font-sora font-bold text-3xl text-gray-900">{project.name}</h1>
-                  <Badge className="text-sm font-mono bg-blue-600 text-white">
-                    {project.id}
-                  </Badge>
+              <div className="flex flex-col items-center">
+                <div
+                  onClick={toggleComplete}
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
+                    ? 'bg-tasksmate-gradient border-transparent'
+                    : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                >
+                  {project.status === 'completed' && <Check className="w-3 h-3 text-white" />}
                 </div>
-                <p className="text-gray-600 text-lg max-w-3xl">{project.description}</p>
-
-                <div className="flex items-center gap-4 mt-4">
-
-                  <Badge variant="secondary" className={`flex items-center gap-1 ${getStatusMeta(project.status).color}`}>{getStatusIcon(project.status)} {getStatusMeta(project.status).label}</Badge>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Badge className={`cursor-pointer ${getPriorityColor(project.priority)}`}>{project.priority.toUpperCase()}</Badge>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      {priorityOptions.map(opt => (
-                        <DropdownMenuItem key={opt} onClick={() => handlePriorityChange(opt)}>
-                          {opt.toUpperCase()}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Dialog open={editOpen} onOpenChange={setEditOpen}>
-                    <DialogTrigger asChild>
-                      <Pencil
-                        className="w-4 h-4 cursor-pointer hover:scale-110 transition"
-                        onClick={openEditModal}
-                      />
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Edit Project</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Name</label>
-                          <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Description</label>
-                          <Textarea
-                            value={editDescription}
-                            onChange={(e) => setEditDescription(e.target.value)}
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Status</label>
-                            <Select value={editStatus} onValueChange={(val) => setEditStatus(val as ProjectStatus)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {statusOptions.map((s) => (
-                                  <SelectItem key={s} value={s}>
-                                    {getStatusMeta(s as any).label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Priority</label>
-                            <Select value={editPriority} onValueChange={(val) => setEditPriority(val)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select priority" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {priorityOptions.map((p) => (
-                                  <SelectItem key={p} value={p}>
-                                    {p.toUpperCase()}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                      <DialogFooter className="mt-6">
-                        <Button onClick={handleEditSave} className="bg-tasksmate-gradient">
-                          Save
-                        </Button>
-                        <DialogClose asChild>
-                          <Button variant="outline">Cancel</Button>
-                        </DialogClose>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                <div className="w-1 h-10 rounded-full bg-blue-500 mt-2"></div>
+              </div>
+              <div className="flex-1 min-w-0 ml-3 space-y-2">
+                {/* Top row: ID + status + priority + actions */}
+                <div className="flex items-center gap-3">
+                  <CopyableBadge copyText={project.id} variant="default" className="text-sm font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
+                    {project.id}
+                  </CopyableBadge>
+                  <Badge variant="secondary" className={`text-xs ${getStatusMeta(project.status).color}`}>
+                    {getStatusMeta(project.status).label}
+                  </Badge>
+                  <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
+                    {project.priority.toUpperCase()}
+                  </Badge>
+                  <Edit
+                    className="w-4 h-4 cursor-pointer hover:scale-110 transition"
+                    onClick={() => setIsEditSheetOpen(true)}
+                  />
                   <Trash2 className="w-4 h-4 cursor-pointer hover:scale-110 hover:text-red-600 transition" onClick={handleDelete} />
                 </div>
+                {/* Title on its own row beside vertical line */}
+                <div className="mt-2">
+                  <h1 className="font-sora font-bold text-3xl text-gray-900">{project.name}</h1>
+                </div>
+                {/* Description moved to card in Overview tab */}
               </div>
             </div>
           </div>
         </div>
 
+        {/* Description above Stats */}
+        <div className="px-6 py-4">
+          <div className="w-full">
+            <Card className="glass border-0 shadow-tasksmate mb-6">
+              <CardHeader>
+                <CardTitle className="font-sora">Description</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-gray-700 whitespace-pre-line">
+                  {project.description || '—'}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
         {/* Stats Cards */}
-        <div className="px-6 py-6">
+        <div className="px-6 py-2">
           <div className="w-full">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <Card className="glass border-0 shadow-tasksmate">
@@ -678,7 +631,7 @@ const ProjectDetail = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Tasks</p>
+                      <p className="text-sm text-gray-600">Tasks Completed</p>
                       <p className="text-2xl font-bold text-gray-900">{stats?.tasks_completed ?? project.completedTasks}/{stats?.tasks_total ?? project.tasksCount}</p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -688,19 +641,7 @@ const ProjectDetail = () => {
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Team Members</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats?.team_members ?? project.teamMembers.length}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-6 h-6 text-purple-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Team Members stat card removed per request */}
 
               <Card className="glass border-0 shadow-tasksmate">
                 <CardContent className="p-6">
@@ -761,7 +702,7 @@ const ProjectDetail = () => {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Users className="w-5 h-5" />
-                        Team Members
+                        Team Members ({teamMembers.length})
 
                         {userRole === "owner" || userRole === "admin" && (
                           <Button variant="ghost" onClick={openAddMemberModal}>
@@ -915,28 +856,52 @@ const ProjectDetail = () => {
                           <div className="flex items-center gap-2">
                             {resource.type === 'url' ? (
                               <Button
-                                variant="outline"
-                                size="sm"
+                                variant="ghost"
+                                size="icon"
+                                title="Open"
                                 onClick={() => window.open(resource.url, '_blank')}
                               >
-                                <ExternalLink className="w-4 h-4 mr-1" />
-                                Open
+                                <ExternalLink className="w-4 h-4" />
                               </Button>
                             ) : (
-                              <Button variant="outline" size="sm" onClick={() => handleDownload(resource)}>
-                                <FileText className="w-4 h-4 mr-1" />
-                                Download
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Download"
+                                onClick={() => handleDownload(resource)}
+                              >
+                                <FileText className="w-4 h-4" />
                               </Button>
                             )}
 
-                            <Button variant="outline" size="sm">
-                              <Edit className="w-4 h-4 mr-2" />
-                              Rename
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Rename"
+                              onClick={() => {
+                                if (resource.type === 'url') {
+                                  setResourceToEdit(resource);
+                                  setEditUrlName(resource.name);
+                                  setEditUrlValue(resource.url || "");
+                                  setIsEditUrlOpen(true);
+                                } else {
+                                  const newName = window.prompt('Enter new name', resource.name);
+                                  if (newName && newName !== resource.name) {
+                                    handleRenameResource(resource, newName);
+                                  }
+                                }
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
                             </Button>
 
-                            <Button variant="outline" size="sm">
-                              <Delete className="w-4 h-4 mr-2" />
-                              Delete
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Delete"
+                              onClick={() => { setResourceToDelete(resource); setIsDeleteResourceOpen(true); }}
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
 
                             {/* <DropdownMenu>
@@ -966,6 +931,177 @@ const ProjectDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Project Sheet using NewProjectModal with initial values */}
+      {project && (
+        <NewProjectModal
+          isOpen={isEditSheetOpen}
+          onClose={() => setIsEditSheetOpen(false)}
+          onSubmit={async (data) => {
+            try {
+              const updated: any = await api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, {
+              name: data.name,
+              description: data.description,
+              status: data.status,
+              priority: data.priority,
+              start_date: data.startDate || null,
+              end_date: data.endDate || null,
+              owner: data.owner,
+              team_members: data.teamMembers,
+              });
+
+              // Optimistically sync local UI with server (fallback to submitted values)
+              setProject((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  name: (updated?.name ?? data.name) || prev.name,
+                  description: (updated?.description ?? data.description) || prev.description,
+                  status: (updated?.status ?? data.status ?? prev.status) as any,
+                  priority: (updated?.priority ?? data.priority ?? prev.priority) as any,
+                  startDate: ((updated?.start_date ?? data.startDate) ?? prev.startDate) as any,
+                  endDate: ((updated?.end_date ?? data.endDate) ?? prev.endDate) as any,
+                };
+              });
+            } catch (e) {
+              // no-op, errors are logged by api layer
+            } finally {
+              setIsEditSheetOpen(false);
+            }
+          }}
+          orgId={searchParams.get('org_id') ?? undefined}
+          mode="edit"
+          initialData={{
+            name: project.name,
+            description: project.description,
+            owner: (project as any).owner,
+            teamMembers: [],
+            priority: project.priority,
+            status: project.status as any,
+            startDate: project.startDate,
+            endDate: project.endDate,
+          }}
+        />
+      )}
+
+      {/* Delete confirm dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              This action cannot be undone. Type the project ID
+              <span className="mx-1 inline-block align-middle align-middle">
+                <CopyableBadge
+                  copyText={project?.id ?? ''}
+                  variant="default"
+                  className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white"
+                >
+                  {project?.id}
+                </CopyableBadge>
+              </span>
+              to confirm deletion.
+            </p>
+            <Label className="text-xs text-gray-500">Enter Project ID</Label>
+            <Input value={confirmText} onChange={(e)=>setConfirmText(e.target.value)} placeholder="Enter the project ID to confirm" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={()=>setConfirmOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-red-600 text-white"
+              disabled={!project || confirmText !== project?.id}
+              onClick={async ()=>{
+                if (!project) return;
+                try {
+                  await api.del(`${API_ENDPOINTS.PROJECTS}/${project.id}`, {});
+                  navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`);
+                } catch (e) {}
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Resource Confirm Dialog */}
+      <Dialog open={isDeleteResourceOpen} onOpenChange={setIsDeleteResourceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Resource</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete <span className="font-medium">{resourceToDelete?.name}</span>?
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteResourceOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-red-600 text-white"
+              onClick={async () => {
+                if (!resourceToDelete || !project) return;
+                try {
+                  await api.del(
+                    `${API_ENDPOINTS.PROJECT_RESOURCES}/${resourceToDelete.id}?project_id=${project.id}`,
+                    {}
+                  );
+                  setIsDeleteResourceOpen(false);
+                  setResourceToDelete(null);
+                  fetchResources();
+                } catch (e) {}
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit URL Modal */}
+      <Dialog open={isEditUrlOpen} onOpenChange={setIsEditUrlOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit URL</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs text-gray-500">URL Name</Label>
+              <Input
+                value={editUrlName}
+                onChange={(e) => setEditUrlName(e.target.value)}
+                placeholder="Enter a descriptive name"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">URL</Label>
+              <Input
+                type="url"
+                value={editUrlValue}
+                onChange={(e) => setEditUrlValue(e.target.value)}
+                placeholder="https://example.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditUrlOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-tasksmate-gradient"
+              disabled={!editUrlName || !editUrlValue}
+              onClick={async () => {
+                if (!resourceToEdit) return;
+                await handleUpdateUrlResource(resourceToEdit, editUrlName, editUrlValue);
+                setIsEditUrlOpen(false);
+                setResourceToEdit(null);
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

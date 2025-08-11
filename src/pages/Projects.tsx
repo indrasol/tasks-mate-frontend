@@ -10,6 +10,7 @@ import { useOrganizations } from "@/hooks/useOrganizations";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import CopyableBadge from "@/components/ui/copyable-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { 
@@ -29,7 +30,8 @@ import {
   SortDesc,
   SortAsc,
   CalendarRange,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -102,6 +104,18 @@ const Projects = () => {
   };
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Identify current user strings for ownership checks
+  const userIdentifiers = React.useMemo(() => {
+    const ids: string[] = [];
+    if (user?.id) ids.push(String(user.id));
+    if ((user as any)?.username) ids.push(String((user as any).username));
+    if (user?.email) {
+      ids.push(String(user.email));
+      ids.push(deriveDisplayFromEmail(user.email).displayName);
+    }
+    return ids.map((x) => x.toLowerCase());
+  }, [user]);
 
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -287,6 +301,22 @@ const Projects = () => {
     }
   };
 
+  const canDeleteProject = (project: Project) => {
+    const ownerString = String(project.owner ?? '').toLowerCase();
+    const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
+    return userIdentifiers.includes(ownerString) || userIdentifiers.includes(ownerDisplay);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!window.confirm('Delete this project? This action cannot be undone.')) return;
+    try {
+      await api.del(`${API_ENDPOINTS.PROJECTS}/${projectId}`, {});
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+    } catch (e) {
+      console.error('Failed to delete project', e);
+    }
+  };
+
   const handleNewProject = async (projectData: any) => {
     // Optimistically add project locally; also attempt to persist to backend
     const orgId = currentOrgId;
@@ -387,9 +417,9 @@ const Projects = () => {
                     <Check className="h-3 w-3 text-white" />
                   )}
                 </div>
-                <Badge className="text-xs font-mono bg-blue-600 text-white">
+                <CopyableBadge copyText={project.id} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
                   {project.id}
-                </Badge>
+                </CopyableBadge>
               </div>
               
               {/* Status tag positioned at the right */}
@@ -401,9 +431,10 @@ const Projects = () => {
                   >
                     {getStatusMeta(project.status).label}
                   </Badge>
-                  <Badge className={`text-xs ${getPriorityColor(project.priority)}`}>
+                  <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
                     {project.priority.toUpperCase()}
                   </Badge>
+                  
                 </div>
                 {/* <Badge className={`text-xs ${getPriorityColor(project.priority)}`}>
                   {project.priority.toUpperCase()}
@@ -421,15 +452,17 @@ const Projects = () => {
             
             {/* Owner & Dates */}
             <div className="flex items-center justify-between text-sm">
-              <Badge className="text-xs bg-indigo-100 text-indigo-800">
+              <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
                 Owner: {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
               </Badge>
               <div className="flex items-center gap-2">
-                <Badge className="text-xs bg-blue-100 text-blue-800">
-                  Start: {formatDate(project.startDate)}
+                <span className="text-xs text-gray-600">Start:</span>
+                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                  {formatDate(project.startDate)}
                 </Badge>
-                <Badge className="text-xs bg-red-100 text-red-800">
-                  End: {formatDate(project.endDate)}
+                <span className="text-xs text-gray-600">End:</span>
+                <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
+                  {formatDate(project.endDate)}
                 </Badge>
               </div>
             </div>
@@ -448,15 +481,17 @@ const Projects = () => {
               </div>
             </div>
             
-            {/* Tasks Summary */}
+            {/* Tasks Summary & Created date */}
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-1 text-gray-600">
                 <Target className="w-4 h-4" />
                 <span>{project.completedTasks}/{project.tasksCount} tasks</span>
               </div>
-              <div className="flex items-center gap-1 text-gray-600">
-                <Calendar className="w-4 h-4" />
-                <span>{formatDate(project.endDate)}</span>
+              <div className="flex items-center gap-2 text-gray-600">
+                <span className="text-xs">Created:</span>
+                <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                  {formatDate(project.startDate)}
+                </Badge>
               </div>
             </div>
             
@@ -526,14 +561,16 @@ const Projects = () => {
                         <p className={`text-sm truncate max-w-xs ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>{project.description}</p>
                         {/* Owner & Dates */}
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <Badge className="text-xs bg-indigo-100 text-indigo-800">
+                          <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
                             Owner: {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
                           </Badge>
+                          <span className="text-xs text-gray-600">Start:</span>
                           <Badge className="text-xs bg-blue-100 text-blue-800">
-                            Start: {formatDate(project.startDate)}
+                            {formatDate(project.startDate)}
                           </Badge>
+                          <span className="text-xs text-gray-600">End:</span>
                           <Badge className="text-xs bg-red-100 text-red-800">
-                            End: {formatDate(project.endDate)}
+                            {formatDate(project.endDate)}
                           </Badge>
                         </div>
                       </div>
@@ -578,9 +615,10 @@ const Projects = () => {
                   >
                     {getStatusMeta(project.status).label}
                   </Badge>
-                  <Badge className={`text-xs ${getPriorityColor(project.priority)}`}>
+                  <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
                     {project.priority.toUpperCase()}
                   </Badge>
+                  
                 </div>
                 
                 {/* Team under status tag */}
@@ -644,7 +682,7 @@ const Projects = () => {
               <div className="flex items-center space-x-4">
                 <Filter className="w-4 h-4 text-gray-500" />
                 
-                {/* Status Filter Dropdown */}
+                {/* Status Filter Dropdown - aligned with Tasks */}
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
                   <SelectTrigger className="w-32">
                     <SelectValue placeholder="Status" />
@@ -653,17 +691,29 @@ const Projects = () => {
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Status</span>
                     </SelectItem>
-                    <SelectItem value="active">
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">Active</span>
+                    <SelectItem value="not_started">
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Not Started</span>
                     </SelectItem>
-                    <SelectItem value="planning">
-                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Planning</span>
+                    <SelectItem value="in-progress">
+                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">In Progress</span>
                     </SelectItem>
                     <SelectItem value="completed">
                       <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Completed</span>
                     </SelectItem>
+                    <SelectItem value="blocked">
+                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Blocked</span>
+                    </SelectItem>
                     <SelectItem value="on_hold">
                       <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">On Hold</span>
+                    </SelectItem>
+                    <SelectItem value="paused">
+                      <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">Paused</span>
+                    </SelectItem>
+                    <SelectItem value="planning">
+                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Planning</span>
+                    </SelectItem>
+                    <SelectItem value="archived">
+                      <span className="px-2 py-1 rounded-full text-xs bg-black text-white">Archived</span>
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -677,6 +727,9 @@ const Projects = () => {
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Priority</span>
                     </SelectItem>
+                    <SelectItem value="critical">
+                      <span className="px-2 py-1 rounded-full text-xs bg-red-600 text-white">CRITICAL</span>
+                    </SelectItem>
                     <SelectItem value="high">
                       <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">High</span>
                     </SelectItem>
@@ -685,6 +738,9 @@ const Projects = () => {
                     </SelectItem>
                     <SelectItem value="low">
                       <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Low</span>
+                    </SelectItem>
+                    <SelectItem value="none">
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">NONE</span>
                     </SelectItem>
                   </SelectContent>
                 </Select>

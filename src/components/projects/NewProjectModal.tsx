@@ -22,6 +22,7 @@ import { Target, Users, UserCheck } from 'lucide-react';
 import type { BackendOrgMember } from "@/types/organization";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { getStatusMeta, getPriorityColor } from "@/lib/projectUtils";
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -29,9 +30,21 @@ interface NewProjectModalProps {
   onSubmit: (projectData: any) => void;
   /** Organization ID in which the new project is being created */
   orgId?: string;
+  /** Optional edit mode props */
+  mode?: 'create' | 'edit';
+  initialData?: Partial<{
+    name: string;
+    description: string;
+    owner: string;
+    teamMembers: string[];
+    priority: string;
+    status: string;
+    startDate: string;
+    endDate: string;
+  }>;
 }
 
-const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId }: NewProjectModalProps) => {
+const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', initialData }: NewProjectModalProps) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -57,6 +70,21 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId }: NewProjectModalPr
     }
   }, [isOpen, refetchOrgMembers]);
   const orgMembers: BackendOrgMember[] = (orgMembersRaw ?? []) as BackendOrgMember[];
+  // Apply initial data on open (edit mode)
+  useEffect(() => {
+    if (!isOpen || !initialData) return;
+    setFormData(prev => ({
+      name: initialData.name ?? prev.name,
+      description: initialData.description ?? prev.description,
+      owner: initialData.owner ?? prev.owner,
+      teamMembers: initialData.teamMembers ?? prev.teamMembers,
+      priority: initialData.priority ?? prev.priority,
+      status: initialData.status ?? prev.status,
+      startDate: initialData.startDate ?? prev.startDate,
+      endDate: initialData.endDate ?? prev.endDate,
+    }));
+  }, [isOpen, initialData]);
+
 
   type TeamMember = { id: string; displayName: string; initials: string };
   const availableTeamMembers: TeamMember[] = useMemo(
@@ -76,8 +104,10 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId }: NewProjectModalPr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.description || !formData.owner) {
-      return;
+    if (mode === 'create') {
+      if (!formData.name || !formData.description || !formData.owner) {
+        return;
+      }
     }
     
     onSubmit(formData);
@@ -120,11 +150,11 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId }: NewProjectModalPr
                 <Target className="h-5 w-5 text-white" />
               </div>
               <SheetTitle className="text-2xl font-bold text-white font-sora">
-                Create New Project
+                {mode === 'edit' ? 'Edit Project' : 'Create New Project'}
               </SheetTitle>
             </div>
             <p className="text-white/90 text-sm leading-relaxed">
-              Turn your ideas into reality. Fill in the details to kickstart a new project.
+              {mode === 'edit' ? 'Update your project details.' : 'Turn your ideas into reality. Fill in the details to kickstart a new project.'}
             </p>
           </div>
         </div>
@@ -165,16 +195,26 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId }: NewProjectModalPr
                 value={formData.status}
                 onValueChange={(value) => handleInputChange('status', value)}
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <div className={`px-2 py-1 rounded-full text-xs ${getStatusMeta(formData.status).color}`}>
+                    {getStatusMeta(formData.status).label}
+                  </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="planning">Planning</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="on_hold">On Hold</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                  <SelectItem value="not_started">Not Started</SelectItem>
+                  {[
+                    'planning',
+                    'in_progress',
+                    'on_hold',
+                    'completed',
+                    'archived',
+                    'not_started',
+                  ].map((s) => (
+                    <SelectItem key={s} value={s}>
+                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusMeta(s).color}`}>
+                        {getStatusMeta(s).label}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -185,15 +225,19 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId }: NewProjectModalPr
                 value={formData.priority} 
                 onValueChange={(value) => handleInputChange('priority', value)}
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-full">
+                  <div className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(formData.priority)}`}>
+                    {formData.priority.toUpperCase()}
+                  </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                  <SelectItem value="none">None</SelectItem>
+                  {['critical','high','medium','low','none'].map((p) => (
+                    <SelectItem key={p} value={p}>
+                      <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>
+                        {p.toUpperCase()}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -292,9 +336,9 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId }: NewProjectModalPr
             <Button 
               type="submit" 
               className="bg-tasksmate-gradient hover:scale-105 transition-transform"
-              disabled={!formData.name || !formData.description || !formData.owner}
+              disabled={mode === 'create' ? (!formData.name || !formData.description || !formData.owner) : false}
             >
-              Create Project
+              {mode === 'edit' ? 'Save' : 'Create Project'}
             </Button>
           </div>
         </form>

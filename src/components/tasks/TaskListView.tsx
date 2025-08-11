@@ -1,23 +1,34 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { MessageSquare, MoreVertical, Check } from "lucide-react";
+import CopyableIdBadge from "@/components/ui/copyable-id-badge";
+import { MessageSquare, Check } from "lucide-react";
 import { Task } from "@/types/tasks";
+import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
+import { useState, useEffect } from "react";
+import { api } from "@/services/apiService";
+import { toast } from "sonner";
+import { API_ENDPOINTS } from "@/../config";
 
 interface TaskListViewProps {
   tasks: Task[];
   onTaskClick: (taskId: string) => void;
   onTaskStatusToggle: (taskId: string) => void;
+  projectMap: Record<string, string>;
+  canDeleteTask?: (task: Task) => boolean;
+  onDeleteTask?: (taskId: string) => void;
 }
 
-const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewProps) => {
+const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle, projectMap, canDeleteTask, onDeleteTask }: TaskListViewProps) => {
   const getStatusText = (status: string) => {
-    switch (status) {
+    const normalized = status.replace("in_progress", "in-progress");
+    switch (normalized) {
       case "completed": return "Completed";
       case "in-progress": return "In Progress";
       case "blocked": return "Blocked";
-      case "todo": return "To Do";
+      case "not_started": return "Not Started";
+      case "on_hold": return "On Hold";
+      case "archived": return "Archived";
       default: return "Unknown";
     }
   };
@@ -31,8 +42,8 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewPr
           onClick={() => onTaskClick(task.id)}
         >
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4 flex-1 min-w-0">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-4 flex-1 min-w-0">
                 {/* Checkbox and ID */}
                 <div className="flex items-center space-x-2">
                   <div 
@@ -50,76 +61,95 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle }: TaskListViewPr
                       <Check className="h-3 w-3 text-white" />
                     )}
                   </div>
-                  <Badge className="text-xs font-mono bg-green-600 text-white">
-                    {task.id}
-                  </Badge>
+                  <div onClick={(e)=>e.stopPropagation()}>
+                    <CopyableIdBadge id={task.id} isCompleted={task.status==='completed'} />
+                  </div>
                 </div>
 
                 {/* Task info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-3">
-                    <h3 className="font-semibold text-gray-900 hover:text-blue-600 transition-colors truncate">
+                  <div className="flex items-center flex-wrap gap-2">
+                    <h3 className={`font-semibold transition-colors truncate ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-900 hover:text-blue-600' }`}>
                       {task.name}
                     </h3>
+                    {/* Owner badge next to title */}
+                    <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                      {(() => {
+                        const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                        return `👤 ${displayName}`;
+                      })()}
+                    </Badge>
                   </div>
-                  <p className="text-sm text-gray-600 truncate mt-1">{task.description}</p>
-                  
-                  {/* Tags */}
-                  {task.tags && task.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {task.tags.slice(0, 3).map((tag, index) => (
-                        <Badge
-                          key={index}
-                          variant="secondary"
-                          className="text-xs bg-purple-100 text-purple-800"
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                      {task.tags.length > 3 && (
-                        <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                          +{task.tags.length - 3}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
+                  <p className={`text-sm truncate mt-1 ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>{task.description}</p>
 
                   {/* Metadata row */}
                   <div className="flex items-center mt-2">
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                        👤 {task.createdBy || task.owner}
+                    <div className="flex flex-wrap items-center gap-1">
+                       {/* Project */}
+                       <span className="text-gray-600 text-xs">Project:</span>
+                       <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
+                         {projectMap[(task as any).projectId] ?? "—"}
+                       </Badge>
+                       {/* Dates */}
+                      <span className="text-gray-600 text-xs">Start date:</span>
+                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                        {formatDate(task.startDate ?? task.createdDate)}
                       </Badge>
-                      <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
-                        📅 {task.createdDate || 'N/A'}
-                      </Badge>
+                      <span className="text-gray-600 text-xs">Due date:</span>
                       <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
-                        🎯 {task.targetDate}
+                        {task.targetDate ? formatDate(task.targetDate) : "—"}
                       </Badge>
+                      <span className="text-gray-600 text-xs">Created:</span>
+                      <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                        {formatDate(task.createdDate ?? (task.startDate as any))}
+                      </Badge>
+                      {/* Comments */}
+                      <div className="flex items-center gap-1 text-gray-500">
+                        <MessageSquare className="h-4 w-4" />
+                        <span className="text-xs">{task.comments}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Status tag and comments positioned at the right end */}
-              <div className="ml-4 flex flex-col items-end space-y-2">
-                <Badge 
-                  variant="secondary" 
-                  className={`text-xs ${
-                    task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                    task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {getStatusText(task.status)}
-                </Badge>
-                
-                {/* Comments under status tag */}
-                <div className="flex items-center space-x-1 text-gray-500">
-                  <MessageSquare className="h-4 w-4" />
-                  <span className="text-xs">{task.comments}</span>
+              {/* Status, priority, owner above comments */}
+              <div className="ml-4 flex flex-col items-end">
+                <div className="flex items-center gap-1">
+                  {/* Tags before status */}
+                  {task.tags && (
+                    <>
+                      <span className="text-gray-600 text-xs mr-1">Tags:</span>
+                      {task.tags.slice(0, 2).map((tag, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                        {tag}
+                      </Badge>
+                      ))}
+                      {task.tags.length > 2 && (
+                      <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                        +{task.tags.length - 2}
+                      </Badge>
+                      )}
+                    </>
+                  )}
+                  <Badge
+                    variant="secondary"
+                    className={`text-xs ${
+                      task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                      task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                      task.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
+                      task.status === 'archived' ? 'bg-black text-white' :
+                      'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {getStatusText(task.status)}
+                  </Badge>
+                  {/* Priority */}
+                  <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority ?? 'none')}`}>{task.priority?.toUpperCase()}</Badge>
+                  {/* Delete icon removed as requested */}
                 </div>
+                {/* Comments block removed */}
               </div>
             </div>
           </CardContent>

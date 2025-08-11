@@ -13,6 +13,7 @@ export interface Task {
   tags?: string[];
   createdBy?: string;
   createdDate?: string;
+  projectId?: string;
 }
 
 export interface BackendTask {
