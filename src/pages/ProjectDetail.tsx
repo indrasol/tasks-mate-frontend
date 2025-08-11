@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import MainNavigation from "@/components/navigation/MainNavigation";
@@ -39,6 +39,7 @@ import { deriveDisplayFromEmail, getStatusMeta, getPriorityColor, type ProjectSt
 import { API_ENDPOINTS } from "@/../config";
 import { useProjectStats } from "@/hooks/useProjectStats";
 import { useProjectMembers } from "@/hooks/useProjectMembers";
+import { BackendProjectResource, useProjectResources } from "@/hooks/useProjectResources";
 import {
   Dialog,
   DialogTrigger,
@@ -100,19 +101,21 @@ const ProjectDetail = () => {
   const { id } = useParams();
   const { data: stats } = useProjectStats(id);
   const { data: membersData } = useProjectMembers(id);
+  const { data: resourcesData } = useProjectResources(id);
   const [project, setProject] = useState<Project | null>(null);
   const [teamMembers, setTeamMembers] = useState<Member[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
+  const [isLoadingResources, setIsLoadingResources] = useState(false);
   const [newUrl, setNewUrl] = useState('');
   const [newUrlName, setNewUrlName] = useState('');
-  const [uploading, setUploading] = useState(false);
-  // Resource modals state
+  const [isEditUrlOpen, setIsEditUrlOpen] = useState(false);
+  const [editUrlValue, setEditUrlValue] = useState('');
+  const [editUrlName, setEditUrlName] = useState('');
+  const [resourceToEdit, setResourceToEdit] = useState<Resource | null>(null);
   const [isDeleteResourceOpen, setIsDeleteResourceOpen] = useState(false);
   const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
-  const [isEditUrlOpen, setIsEditUrlOpen] = useState(false);
-  const [resourceToEdit, setResourceToEdit] = useState<Resource | null>(null);
-  const [editUrlName, setEditUrlName] = useState("");
-  const [editUrlValue, setEditUrlValue] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -206,6 +209,22 @@ const ProjectDetail = () => {
     setUserRole(membersData.find((member) => member.username === user?.user_metadata?.username)?.role);
   }, [membersData]);
 
+  // When react-query returns data, normalise into Member shape
+  useEffect(() => {
+    if (!resourcesData) return;
+
+    const resArr: Resource[] = resourcesData.map((r) => ({
+      id: r.resource_id,
+      type: r.resource_type as Resource['type'],
+      name: r.resource_name,
+      url: r.resource_url,
+      size: r.resource_size,
+      uploadedBy: r.created_by,
+      uploadedAt: r.created_at,
+    }));
+    setResources(resArr);
+  }, [resourcesData]);
+
   // Sync with sidebar collapse/expand events
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -224,8 +243,6 @@ const ProjectDetail = () => {
   }, [user, loading, navigate]);
 
   const [loadingProject, setLoadingProject] = useState(false);
-
-
 
   useEffect(() => {
     if (!id) return;
@@ -262,29 +279,34 @@ const ProjectDetail = () => {
   }, [id]);
 
   // Fetch resources separately
-  const fetchResources = async () => {
-    if (!id) return;
-    try {
-      const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${id}`);
-      const mappedResources: Resource[] = res.map((r) => ({
-        id: r.resource_id ?? r.id ?? r.name,
-        type: r.resource_type ?? 'url',
-        name: r.name ?? r.resource_name ?? 'Untitled',
-        url: r.url ?? r.resource_url,
-        size: r.size ?? undefined,
-        uploadedBy: r.created_by ?? r.uploaded_by ?? '—',
-        uploadedAt: r.created_at ?? new Date().toISOString(),
-      }));
-      setResources(mappedResources);
-    } catch (err) {
-      setResources([]);
-    }
-  };
+  const fetchResources = useCallback(async () => {
+    if (!project) return;
 
-  useEffect(() => {
-    fetchResources();
-    // eslint-disable-next-line
-  }, [id]);
+    setIsLoadingResources(true);
+    try {
+      const response: BackendProjectResource[] = await api.get<BackendProjectResource[]>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`);
+      const resArr: Resource[] = response.map((r) => ({
+        id: r.resource_id,
+        type: r.resource_type as Resource['type'],
+        name: r.resource_name,
+        url: r.resource_url,
+        size: r.resource_size,
+        uploadedBy: r.created_by,
+        uploadedAt: r.created_at,
+      }));
+      setResources(resArr);
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+      setResources([]);
+    } finally {
+      setIsLoadingResources(false);
+    }
+  }, [project]);
+
+  // useEffect(() => {
+  //   fetchResources();
+  //   // eslint-disable-next-line
+  // }, [id]);
 
   // Fetch team members separately
   const fetchTeamMembers = async () => {
@@ -450,7 +472,7 @@ const ProjectDetail = () => {
     }
   };
 
-  
+
   const [addMemberOpen, setAddMemberOpen] = useState(false);
 
   const openAddMemberModal = () => {
@@ -498,13 +520,13 @@ const ProjectDetail = () => {
     );
   }
 
-  if (loading || !project) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div>
-      </div>
-    );
-  }
+  // if (loading || !project) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center">
+  //       <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div>
+  //     </div>
+  //   );
+  // }
 
   if (!user) {
     return null;
@@ -940,14 +962,14 @@ const ProjectDetail = () => {
           onSubmit={async (data) => {
             try {
               const updated: any = await api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, {
-              name: data.name,
-              description: data.description,
-              status: data.status,
-              priority: data.priority,
-              start_date: data.startDate || null,
-              end_date: data.endDate || null,
-              owner: data.owner,
-              team_members: data.teamMembers,
+                name: data.name,
+                description: data.description,
+                status: data.status,
+                priority: data.priority,
+                start_date: data.startDate || null,
+                end_date: data.endDate || null,
+                owner: data.owner,
+                team_members: data.teamMembers,
               });
 
               // Optimistically sync local UI with server (fallback to submitted values)
@@ -1005,19 +1027,19 @@ const ProjectDetail = () => {
               to confirm deletion.
             </p>
             <Label className="text-xs text-gray-500">Enter Project ID</Label>
-            <Input value={confirmText} onChange={(e)=>setConfirmText(e.target.value)} placeholder="Enter the project ID to confirm" />
+            <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="Enter the project ID to confirm" />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={()=>setConfirmOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancel</Button>
             <Button
               className="bg-red-600 text-white"
               disabled={!project || confirmText !== project?.id}
-              onClick={async ()=>{
+              onClick={async () => {
                 if (!project) return;
                 try {
                   await api.del(`${API_ENDPOINTS.PROJECTS}/${project.id}`, {});
                   navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`);
-                } catch (e) {}
+                } catch (e) { }
               }}
             >
               Delete
@@ -1051,7 +1073,7 @@ const ProjectDetail = () => {
                   setIsDeleteResourceOpen(false);
                   setResourceToDelete(null);
                   fetchResources();
-                } catch (e) {}
+                } catch (e) { }
               }}
             >
               Delete
