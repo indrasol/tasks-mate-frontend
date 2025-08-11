@@ -55,7 +55,7 @@ export const api = {
       method: "PUT",
       body: body instanceof FormData ? body : JSON.stringify(body),
     }),
-  del:  <T>(url: string, body: any, opts?: RequestInit) =>
+  del:  <T>(url: string, body?: any, opts?: RequestInit) =>
     request<T>(url, {
       ...opts,
       method: "DELETE",
