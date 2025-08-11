@@ -2,6 +2,21 @@ import { getToken, removeToken } from "./tokenService";
 
 const DEFAULT_TIMEOUT = 10000; // 10 s
 
+
+function toHttpsIfNeeded(url: string) {
+  try {
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      url.startsWith("http://") &&
+      !/^(http:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?\b/i.test(url)
+    ) {
+      return url.replace(/^http:\/\//i, "https://");
+    }
+  } catch {}
+  return url;
+}
+
 async function request<T>(
   url: string,
   options: RequestInit = {},
@@ -18,7 +33,8 @@ async function request<T>(
   };
 
   try {
-    const response = await fetch(url, { ...options, headers, signal: controller.signal });
+    const safeUrl = toHttpsIfNeeded(url);
+    const response = await fetch(safeUrl, { ...options, headers, signal: controller.signal });
     clearTimeout(timer);
 
     if (response.status === 401) {
