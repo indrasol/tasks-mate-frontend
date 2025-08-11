@@ -46,6 +46,7 @@ import { API_ENDPOINTS } from "@/../config";
 import { getStatusMeta, getPriorityColor, formatDate, deriveDisplayFromEmail } from "@/lib/projectUtils";
 import { useAuth } from "@/hooks/useAuth";
 import MainNavigation from "@/components/navigation/MainNavigation";
+import HistoryCard from "@/components/tasks/HistoryCard";
 
 const TaskDetail = () => {
   const { taskId } = useParams();
@@ -118,7 +119,7 @@ const TaskDetail = () => {
 
   const currentOrgId = useCurrentOrgId();
   const [projectName, setProjectName] = useState<string | null>(null);
-  const [projectsMap, setProjectsMap] = useState<Record<string,string>>({});
+  const [projectsMap, setProjectsMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!taskId) return;
@@ -154,6 +155,7 @@ const TaskDetail = () => {
         setPriority(data.priority);
         setSubtasks(data.sub_tasks || []);
         setLoading(false);
+        fetchHistory();
       })
       .catch((err: any) => {
         setError(err.message || "Failed to load task");
@@ -167,8 +169,8 @@ const TaskDetail = () => {
     (async () => {
       try {
         const projects = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}`);
-        const map: Record<string,string> = {};
-        projects.forEach((pr: any)=>{ map[pr.project_id] = pr.name; });
+        const map: Record<string, string> = {};
+        projects.forEach((pr: any) => { map[pr.project_id] = pr.name; });
         setProjectsMap(map);
         const p = projects.find((x: any) => x.project_id === task.project_id);
         setProjectName(p?.name ?? null);
@@ -210,21 +212,27 @@ const TaskDetail = () => {
   //       setLoadingAttachments(false);
   //     });
   // }, [taskId]);
+
   // Fetch history
-  // useEffect(() => {
-  //   if (!taskId) return;
-  //   setLoadingHistory(true);
-  //   setHistoryError(null);
-  //   taskService.getTaskHistory(taskId)
-  //     .then((data: any[]) => {
-  //       setHistory(data || []);
-  //       setLoadingHistory(false);
-  //     })
-  //     .catch((err: any) => {
-  //       setHistoryError(err.message || "Failed to load history");
-  //       setLoadingHistory(false);
-  //     });
-  // }, [taskId]);
+  const fetchHistory = () => {
+    if (!taskId) return;
+    setLoadingHistory(true);
+    setHistoryError(null);
+    taskService.getTaskHistory(taskId)
+      .then((data: any[]) => {
+        setHistory(data || []);
+        setLoadingHistory(false);
+      })
+      .catch((err: any) => {
+        setHistoryError(err.message || "Failed to load history");
+        setLoadingHistory(false);
+      });
+  };
+
+  useEffect(() => {
+    if(task?.task_id) fetchHistory();
+  }, [task, task?.task_id]);
+
   // Fetch full subtask details
   useEffect(() => {
     if (!subtasks.length) { setSubtaskDetails([]); return; }
@@ -269,6 +277,7 @@ const TaskDetail = () => {
       if (Array.isArray(task?.tags)) payload.tags = task.tags;
       await taskService.updateTask(taskId, payload);
       toast.success('Task changes saved successfully!');
+      fetchHistory();
     } catch (err: any) {
       toast.error(err.message || 'Failed to save changes');
     }
@@ -286,7 +295,7 @@ const TaskDetail = () => {
     setTask((prev: any) => ({ ...prev, status: newStatus }));
 
     try {
-      await taskService.updateTask(taskId, { 
+      await taskService.updateTask(taskId, {
         status: newStatus,
         project_id: task.project_id,
         title: taskName || task.name
@@ -484,7 +493,7 @@ const TaskDetail = () => {
     }
   };
 
-  
+
   const getStatusText = (status: string) => {
     const normalized = status.replace("in_progress", "in-progress");
     switch (normalized) {
@@ -562,7 +571,7 @@ const TaskDetail = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3">
 
-                  <CopyableIdBadge id={task.id} isCompleted={status==='completed'} />
+                  <CopyableIdBadge id={task.id} isCompleted={status === 'completed'} />
 
                   <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                     {(() => {
@@ -586,7 +595,7 @@ const TaskDetail = () => {
                   <Input
                     value={taskName}
                     onChange={(e) => setTaskName(e.target.value)}
-                    className={`text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status==='completed' ? 'line-through text-gray-400' : ''}`}
+                    className={`text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
                   />
                 </div>
 
@@ -627,7 +636,7 @@ const TaskDetail = () => {
                   <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className={`min-h-32 border-0 bg-transparent resize-none focus-visible:ring-0 ${status==='completed' ? 'line-through text-gray-400' : ''}`}
+                    className={`min-h-32 border-0 bg-transparent resize-none focus-visible:ring-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
                     placeholder="Add a description..."
                   />
                 </CardContent>
@@ -660,7 +669,7 @@ const TaskDetail = () => {
                         </Button>
 
                         {/* Task ID beside status toggle */}
-                        <CopyableIdBadge id={String(subtaskId)} isCompleted={subtask.status==='completed'} />
+                        <CopyableIdBadge id={String(subtaskId)} isCompleted={subtask.status === 'completed'} />
 
                         {/* Owner, Status, Priority badges inline with Task ID */}
                         <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
@@ -698,13 +707,13 @@ const TaskDetail = () => {
                           </Badge>
                         </div>
 
-                         {/* Created date */}
-                         <div className="inline-flex items-center gap-1">
-                           <span className="text-gray-600 text-xs">Created:</span>
-                           <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
-                             {formatDate(subtask.created_at)}
-                           </Badge>
-                         </div>
+                        {/* Created date */}
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-gray-600 text-xs">Created:</span>
+                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                            {formatDate(subtask.created_at)}
+                          </Badge>
+                        </div>
 
                         {/* Tags (show up to 2, then +N) */}
                         {Array.isArray(subtask.tags) && subtask.tags.length > 0 && (
@@ -739,7 +748,7 @@ const TaskDetail = () => {
                           {/* Title (second line) */}
                           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 min-w-0">
                             <span className="font-bold">Title :</span>
-                            <span className={`truncate max-w-[14rem] ${subtask.status==='completed' ? 'line-through text-gray-400' : ''}`}>
+                            <span className={`truncate max-w-[14rem] ${subtask.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
                               {subtask.title ?? subtask.name}
                             </span>
                           </div>
@@ -748,7 +757,7 @@ const TaskDetail = () => {
                           {subtask.description && (
                             <div className="flex flex-wrap items-center gap-1 text-sm text-gray-700 mt-2 min-w-0">
                               <span className="font-bold">Description :</span>
-                              <span className={`truncate max-w-[20rem] ${subtask.status==='completed' ? 'line-through text-gray-400' : ''}`}>
+                              <span className={`truncate max-w-[20rem] ${subtask.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
                                 {subtask.description}
                               </span>
                             </div>
@@ -914,13 +923,13 @@ const TaskDetail = () => {
                                     {comment.content || comment.comment}
                                   </div>
                                   {(() => {
-                                  const creator = String(comment.created_by || "").toLowerCase();
-                                  const me = new Set([
-                                    String(user?.id || "").toLowerCase(),
-                                    String(user?.email || "").toLowerCase(),
-                                    String(user?.user_metadata?.username || "").toLowerCase(),
-                                  ]);
-                                  const canEdit = creator && me.has(creator);
+                                    const creator = String(comment.created_by || "").toLowerCase();
+                                    const me = new Set([
+                                      String(user?.id || "").toLowerCase(),
+                                      String(user?.email || "").toLowerCase(),
+                                      String(user?.user_metadata?.username || "").toLowerCase(),
+                                    ]);
+                                    const canEdit = creator && me.has(creator);
                                     return (
                                       <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
                                         <Button
@@ -991,7 +1000,7 @@ const TaskDetail = () => {
                       <Label className="text-sm text-gray-600">Project</Label>
                       <Select
                         value={task.project_id}
-                        onValueChange={(id)=> setTask((prev:any)=> ({...prev, project_id: id}))}
+                        onValueChange={(id) => setTask((prev: any) => ({ ...prev, project_id: id }))}
                       >
                         <SelectTrigger className="text-xs bg-cyan-100 text-cyan-800 rounded-full px-2 py-1 h-6 border-0 w-fit min-w-0 inline-flex hover:bg-cyan-100">
                           <SelectValue placeholder={projectName ?? task.project_name ?? '—'} />
@@ -1017,7 +1026,7 @@ const TaskDetail = () => {
                           <CalendarPicker
                             mode="single"
                             selected={task.startDate ? new Date(task.startDate) : (task.createdDate ? new Date(task.createdDate) : undefined)}
-                            onSelect={(d:any)=> d && setTask((prev:any)=> ({...prev, startDate: d.toISOString().slice(0,10)}))}
+                            onSelect={(d: any) => d && setTask((prev: any) => ({ ...prev, startDate: d.toISOString().slice(0, 10) }))}
                           />
                         </PopoverContent>
                       </Popover>
@@ -1036,7 +1045,7 @@ const TaskDetail = () => {
                           <CalendarPicker
                             mode="single"
                             selected={task.targetDate ? new Date(task.targetDate) : undefined}
-                            onSelect={(d:any)=> d && setTask((prev:any)=> ({...prev, targetDate: d.toISOString().slice(0,10)}))}
+                            onSelect={(d: any) => d && setTask((prev: any) => ({ ...prev, targetDate: d.toISOString().slice(0, 10) }))}
                           />
                         </PopoverContent>
                       </Popover>
@@ -1054,17 +1063,17 @@ const TaskDetail = () => {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm text-gray-600">Tags</Label>
                       <div className="flex items-center gap-1 flex-wrap">
-                        {(task.tags ?? []).slice(0,3).map((tag: string, idx:number) => (
+                        {(task.tags ?? []).slice(0, 3).map((tag: string, idx: number) => (
                           <Badge key={idx} variant="secondary" className="text-xs bg-purple-100 text-purple-800">{tag}</Badge>
                         ))}
-                        {(task.tags ?? []).length>3 && (
-                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task.tags ?? []).length-3}</Badge>
+                        {(task.tags ?? []).length > 3 && (
+                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task.tags ?? []).length - 3}</Badge>
                         )}
                         <Button
                           variant="ghost"
                           size="sm"
                           className="h-6 px-2 text-purple-700 hover:text-purple-900"
-                          onClick={()=> setIsTagInputOpen((v)=>!v)}
+                          onClick={() => setIsTagInputOpen((v) => !v)}
                           title="Add tag"
                         >
                           <Plus className="h-3 w-3" />
@@ -1075,16 +1084,16 @@ const TaskDetail = () => {
                       <div className="flex items-center justify-end gap-2">
                         <Input
                           value={tagInput}
-                          onChange={(e)=> setTagInput(e.target.value)}
+                          onChange={(e) => setTagInput(e.target.value)}
                           placeholder="New tag"
                           className="h-8 w-40"
                         />
                         <Button
                           size="sm"
-                          onClick={()=>{
+                          onClick={() => {
                             const trimmed = tagInput.trim();
                             if (!trimmed) return;
-                            setTask((prev:any)=> ({...prev, tags: [...(prev.tags ?? []), trimmed]}));
+                            setTask((prev: any) => ({ ...prev, tags: [...(prev.tags ?? []), trimmed] }));
                             setTagInput("");
                             setIsTagInputOpen(false);
                           }}
@@ -1096,7 +1105,7 @@ const TaskDetail = () => {
 
                     <div className="flex items-center justify-between mt-2">
                       <Label className="text-sm text-gray-600">Status</Label>
-                      <Select value={status} onValueChange={(v)=>setStatus(v as string)}>
+                      <Select value={status} onValueChange={(v) => setStatus(v as string)}>
                         <SelectTrigger className="bg-transparent border-0 p-0 h-auto flex items-center gap-1 w-fit min-w-[6rem]">
                           <SelectValue
                             placeholder="Status"
@@ -1115,7 +1124,7 @@ const TaskDetail = () => {
 
                     <div className="flex items-center justify-between">
                       <Label className="text-sm text-gray-600">Priority</Label>
-                      <Select value={priority} onValueChange={(v)=>setPriority(v as typeof priority)}>
+                      <Select value={priority} onValueChange={(v) => setPriority(v as typeof priority)}>
                         <SelectTrigger className="bg-transparent border-0 p-0 h-auto flex items-center gap-1 w-fit min-w-[6rem]">
                           <SelectValue placeholder="Priority" className="text-xs" />
                         </SelectTrigger>
@@ -1133,13 +1142,16 @@ const TaskDetail = () => {
               </Card>
 
               {/* History */}
-              <Card className="glass border-0 shadow-tasksmate">
+              <HistoryCard history={history} isLoading={loadingHistory} />
+
+              {/* <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
                   <CardTitle className="font-sora">History</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {history.map((item) => (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">                   
+
+                   {history.map((item) => (
                       <div key={item.id} className="flex items-start space-x-3 text-sm">
                         <div className="w-2 h-2 bg-gray-500 rounded-full mt-2 flex-shrink-0"></div>
                         <div className="flex-1">
@@ -1149,10 +1161,10 @@ const TaskDetail = () => {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    ))} 
                   </div>
                 </CardContent>
-              </Card>
+              </Card> */}
             </div>
           </div>
 
@@ -1189,7 +1201,7 @@ const TaskDetail = () => {
             open={isEditTaskOpen}
             onOpenChange={setIsEditTaskOpen}
             onTaskCreated={async (updated) => {
-              setTask((prev:any) => ({ ...prev, ...updated }));
+              setTask((prev: any) => ({ ...prev, ...updated }));
               setIsEditTaskOpen(false);
               toast.success('Task updated');
             }}
@@ -1222,18 +1234,18 @@ const TaskDetail = () => {
                 </div>
               </div>
               <div className="text-xs text-gray-500 mb-1">Enter Task ID</div>
-              <Input value={deleteConfirmText} onChange={(e)=>setDeleteConfirmText(e.target.value)} placeholder="Enter the task ID to confirm" />
+              <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder="Enter the task ID to confirm" />
               <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={()=>{ setIsDeleteTaskOpen(false); setDeleteConfirmText(''); }}>Cancel</Button>
+                <Button variant="outline" onClick={() => { setIsDeleteTaskOpen(false); setDeleteConfirmText(''); }}>Cancel</Button>
                 <Button
                   className="bg-red-600 text-white"
                   disabled={deleteConfirmText !== task.id}
-                  onClick={async ()=>{
+                  onClick={async () => {
                     try {
                       await api.del(`${API_ENDPOINTS.TASKS}/${task.id}`, {});
                       toast.success('Task deleted');
                       navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`);
-                    } catch (e:any) {
+                    } catch (e: any) {
                       toast.error(e?.message || 'Failed to delete task');
                     }
                   }}
