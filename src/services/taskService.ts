@@ -32,6 +32,15 @@ export const taskService = {
     return api.put(`${API_ENDPOINTS.TASKS}/${taskId}`, updates);
   },
 
+  // ----------------- Subtasks -----------------
+  async addSubtask(taskId: string, subtaskId: string) {
+    return api.post(`${API_ENDPOINTS.TASKS}/${taskId}/subtasks`, { subtask_id: subtaskId });
+  },
+
+  async removeSubtask(taskId: string, subtaskId: string) {
+    return api.del(`${API_ENDPOINTS.TASKS}/${taskId}/subtasks/${subtaskId}`, {});
+  },
+  
   async deleteTask(taskId: string) {
     return api.del(`${API_ENDPOINTS.TASKS}/${taskId}`, {});
   },

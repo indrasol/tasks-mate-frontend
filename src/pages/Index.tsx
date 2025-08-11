@@ -57,7 +57,7 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Navigation */}
       <nav className="px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center">
               <Check className="h-5 w-5 text-white" />
@@ -101,7 +101,7 @@ const Index = () => {
 
       {/* Hero Section */}
       <section className="px-6 py-20">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left Column */}
             <div className="space-y-8 animate-fade-in">
@@ -174,7 +174,7 @@ const Index = () => {
 
       {/* Features Section */}
       <section className="px-6 py-20 bg-white/30">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="font-sora font-bold text-3xl mb-4">
               Everything you need to stay organized
@@ -230,7 +230,7 @@ const Index = () => {
 
       {/* Testimonials */}
       <section className="px-6 py-20">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="font-sora font-bold text-3xl mb-4">
               Loved by teams everywhere
@@ -255,7 +255,7 @@ const Index = () => {
 
       {/* Footer */}
       <footer className="px-6 py-12 border-t border-gray-200 bg-white/50">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="flex items-center space-x-2">
               <div className="w-6 h-6 rounded-full bg-tasksmate-gradient flex items-center justify-center">

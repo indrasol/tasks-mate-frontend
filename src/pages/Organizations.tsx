@@ -16,6 +16,14 @@ import { api } from '@/services/apiService';
 import { API_ENDPOINTS } from '../../config';
 import { useAuth } from '@/hooks/useAuth';
 import { BackendOrg, Organization, OrganizationInvitation } from '@/types/organization';
+import CopyableBadge from '@/components/ui/copyable-badge';
+const CopyOrgId = ({ id, children }: { id: string, children: React.ReactNode }) => (
+  <span onClick={(e)=>e.stopPropagation()}>
+    <CopyableBadge copyText={id} variant="outline">
+      {children}
+    </CopyableBadge>
+  </span>
+);
 // Helper functions for badge colors
 // Helper function to capitalize first letter of each word
 const capitalizeWords = (text: string | null | undefined): string => {
@@ -862,9 +870,11 @@ const Organizations = () => {
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Badge variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
-                                    <Info className="w-3 h-3 mr-1" /> {org.org_id}
-                                  </Badge>
+                                  <span onClick={(e)=>e.stopPropagation()}>
+                                    <CopyableBadge copyText={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
+                                      <Info className="w-3 h-3 mr-1" /> {org.org_id}
+                                    </CopyableBadge>
+                                  </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>Organization ID</p>
@@ -993,9 +1003,11 @@ const Organizations = () => {
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100">{org.name}</h3>
                         <div className="flex items-center flex-wrap gap-2">
                           {org.org_id && (
-                            <Badge variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
-                              <Info className="w-3 h-3 mr-1" /> {org.org_id}
-                            </Badge>
+                            <span onClick={(e)=>e.stopPropagation()}>
+                              <CopyableBadge copyText={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
+                                <Info className="w-3 h-3 mr-1" /> {org.org_id}
+                              </CopyableBadge>
+                            </span>
                           )}
                           <Badge
                             variant="default"
