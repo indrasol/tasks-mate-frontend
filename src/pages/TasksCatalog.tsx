@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import CopyableIdBadge from "@/components/ui/copyable-id-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,13 +19,17 @@ import {
   Filter,
   SortDesc,
   SortAsc,
-  CalendarRange
+  CalendarRange,
+  Trash2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
-import { deriveDisplayFromEmail, formatDate } from "@/lib/projectUtils";
+import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
+import { api } from "@/services/apiService";
+import { toast } from "sonner";
+import { API_ENDPOINTS } from "@/../config";
 import {
   Select,
   SelectContent,
@@ -40,6 +45,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import TaskListView from "@/components/tasks/TaskListView";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 import MainNavigation from "@/components/navigation/MainNavigation";
@@ -85,22 +95,39 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterOwner, setFilterOwner] = useState<string>("all");
+  const [filterPriority, setFilterPriority] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [tab, setTab] = useState<'all' | 'mine'>('all');
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { data: organizations } = useOrganizations();
   const currentOrgId = useCurrentOrgId() ?? organizations?.[0]?.id;
   const { data: orgMembers } = useOrganizationMembers(currentOrgId);
 
+  // Build possible identifiers for current user (id, username, email, displayName)
+  const userIdentifiers = useMemo(() => {
+    if (!user) return [] as string[];
+    const ids: string[] = [];
+    if (user.id) ids.push(String(user.id));
+    if ((user as any).username) ids.push(String((user as any).username));
+    if (user.email) ids.push(String(user.email));
+    if (user.email) {
+      ids.push(deriveDisplayFromEmail(user.email).displayName);
+    }
+    return ids.map((x) => x.toLowerCase());
+  }, [user]);
+
   useEffect(() => {
+    if (!currentOrgId) return;
     setLoadingTasks(true);
     setError(null);
-    taskService.getTasks()
+    taskService.getTasks({ org_id: currentOrgId })
       .then((data: BackendTask[]) => {
         // Map backend data to frontend Task type
         const mapped = (data || []).map((t: any) => ({
@@ -109,8 +136,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           description: t.description,
           // Normalize API statuses for UI expectations
           status: (t.status || "not_started")
-            .replace("in_progress", "in-progress")
-            .replace("not_started", "todo"),
+            .replace("in_progress", "in-progress"),
           owner: t.assignee, // Backend returns 'assignee'
           startDate: t.start_date,
           targetDate: t.due_date,
@@ -118,6 +144,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           progress: t.progress ?? 0,
           priority: t.priority,
           tags: t.tags,
+          projectId: t.project_id,
           createdBy: t.created_by,
           createdDate: t.created_at,
         }));
@@ -128,7 +155,22 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         setError(err.message || "Failed to load tasks");
         setLoadingTasks(false);
       });
-  }, []);
+  }, [currentOrgId]);
+
+  // Fetch projects for current org to map project names
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!currentOrgId) return;
+      try {
+        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}`);
+        const mapped = res.map((p: any) => ({ id: p.project_id, name: p.name }));
+        setProjects(mapped);
+      } catch (e) {
+        console.error("Failed to fetch projects", e);
+      }
+    };
+    fetchProjects();
+  }, [currentOrgId]);
 
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -184,9 +226,33 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     });
   };
 
+  const canDeleteTask = (t: Task) => {
+    const ownerString = String(t.owner ?? '').toLowerCase();
+    const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
+    return userIdentifiers.includes(ownerString) || userIdentifiers.includes(ownerDisplay);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!window.confirm('Delete this task? This action cannot be undone.')) return;
+    try {
+      await taskService.deleteTask(taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+    } catch (e) {
+      console.error('Failed to delete task', e);
+    }
+  };
+
   // Enhanced filter and search logic
   const filteredTasks = useMemo(() => {
     return sortTasks(tasks.filter(task => {
+      // Tab filter (all vs mine)
+      if (tab === 'mine') {
+        const ownerString = String(task.owner ?? '').toLowerCase();
+        const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
+        if (!userIdentifiers.includes(ownerString) && !userIdentifiers.includes(ownerDisplay)) {
+          return false;
+        }
+      }
       // Search filter
       const matchesSearch = searchQuery === "" ||
         task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -199,20 +265,22 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
       // Owner filter
       const matchesOwner = filterOwner === "all" || task.owner === filterOwner;
+      const matchesPriority = filterPriority === "all" || (task.priority ?? 'none') === filterPriority;
 
       // Date filter
       const matchesDate = dateFilter === "all" || isDateInRange(task.targetDate, dateFilter);
 
-      return matchesSearch && matchesStatus && matchesOwner && matchesDate;
+      return matchesSearch && matchesStatus && matchesOwner && matchesPriority && matchesDate;
     }));
-  }, [tasks, searchQuery, filterStatus, filterOwner, dateFilter, sortBy, sortDirection]);
+  }, [tasks, searchQuery, filterStatus, filterOwner, filterPriority, dateFilter, sortBy, sortDirection, tab, user]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed": return "bg-green-500";
       case "in-progress": return "bg-blue-500";
       case "blocked": return "bg-red-500";
-      case "todo": return "bg-gray-400";
+      case "not_started": return "bg-gray-400";
+      case "critical": return "bg-red-500";
       default: return "bg-gray-400";
     }
   };
@@ -226,6 +294,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       case "not_started": return "Not Started";
       case "on_hold": return "On Hold";
       case "archived": return "Archived";
+      
       default: return "Unknown";
     }
   };
@@ -264,14 +333,14 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     // 1️⃣ Optimistic UI update for snappy UX
     setTasks(prev => prev.map(task =>
       task.id === taskId
-        ? { ...task, status: task.status === 'completed' ? 'todo' : 'completed' }
+        ? { ...task, status: task.status === 'completed' ? 'not_started' : 'completed' }
         : task
     ));
 
     // 2️⃣ Persist change to backend
     try {
-
-      taskService.updateTask(taskId, { status: newStatus });
+      const t = tasks.find(x=>x.id===taskId);
+      taskService.updateTask(taskId, { status: newStatus, project_id: (t as any)?.projectId, title: t?.name });
 
     } catch (err) {
       console.error('Failed to update project status', err);
@@ -331,6 +400,16 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           </div>
         </div>
 
+        {/* Tabs for Tasks / My Tasks */}
+        <div className="px-6 pt-4">
+          <Tabs value={tab} onValueChange={v => setTab(v as any)}>
+            <TabsList>
+              <TabsTrigger value="all">Tasks</TabsTrigger>
+              <TabsTrigger value="mine">My Tasks</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
         {/* Enhanced Controls */}
         <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
           <div className="w-full">
@@ -360,8 +439,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Status</span>
                     </SelectItem>
-                    <SelectItem value="todo">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">To Do</span>
+                    <SelectItem value="not_started">
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Not Started</span>
                     </SelectItem>
                     <SelectItem value="in-progress">
                       <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">In Progress</span>
@@ -372,6 +451,29 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     <SelectItem value="blocked">
                       <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Blocked</span>
                     </SelectItem>
+                    <SelectItem value="on_hold">
+                      <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">On Hold</span>
+                    </SelectItem>
+                    <SelectItem value="archived">
+                      <span className="px-2 py-1 rounded-full text-xs bg-black text-white">Archived</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Priority Filter */}
+                <Select value={filterPriority} onValueChange={setFilterPriority}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Priority</span>
+                    </SelectItem>
+                    {['critical','high','medium','low','none'].map(p => (
+                      <SelectItem key={p} value={p}>
+                        <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 
@@ -490,7 +592,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         <div className="px-6 py-6">
           <div className="w-full">
             {view === "grid" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredTasks.map((task) => (
                   <Card
                     key={task.id}
@@ -516,37 +618,48 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               <Check className="h-3 w-3 text-white" />
                             )}
                           </div>
-                          <Badge className={`text-xs font-mono bg-green-600 text-white ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
-                            {task.id}
+                          <div onClick={(e)=>e.stopPropagation()}>
+                            <CopyableIdBadge id={task.id} isCompleted={task.status==='completed'} />
+                          </div>
+                          <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                            {(() => {
+                              const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                              return `👤 ${displayName}`;
+                            })()}
                           </Badge>
                         </div>
 
-                        {/* Status tag positioned at the right */}
-                        <Badge
-                          variant="secondary"
-                          className={`text-xs ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                              task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                            }`}
-                        >
-                          {getStatusText(task.status)}
-                        </Badge>
-                        <Badge className="text-xs font-mono bg-green-600 text-white">
-                          {task.priority}
-                        </Badge>
+                        {/* Status + Priority badges */}
+                        <div className="flex items-center gap-1">
+                          <Badge
+                            variant="secondary"
+                            className={`text-xs ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                                task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                              }`}
+                          >
+                            {getStatusText(task.status)}
+                          </Badge>
+                          <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority ?? 'none')}`}> 
+                            {task.priority?.toUpperCase()}
+                          </Badge>
+                          {/* Delete icon removed as requested */}
+                        </div>
                       </div>
 
                       {/* Task Info - Fixed height to ensure consistent margin line alignment */}
                       <div className="space-y-3 mb-4" style={{ minHeight: '120px' }}>
                         <div>
-                          <h3 className="font-semibold text-gray-900 mb-1 hover:text-blue-600 transition-colors">{task.name}</h3>
-                          <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
+                          <h3 className={`font-semibold mb-1 transition-colors ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-900 hover:text-blue-600'}`}>{task.name}</h3>
+                          <p className={`text-sm line-clamp-2 ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>{task.description}</p>
+                          {/* Project badge removed from here */}
                         </div>
 
                         {/* Tags */}
                         {task.tags && task.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex items-center flex-wrap gap-1">
+                            <span className="text-gray-600 text-xs mr-1">Tags:</span>
                             {task.tags.slice(0, 3).map((tag, index) => (
                               <Badge
                                 key={index}
@@ -568,34 +681,41 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       </div>
 
                       <div className="pb-2">
-                        {/* Start Date */}
+                        {/* Start Date + Due + Created */}
                         <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
-                            {`🟢Start date: ${formatDate(task.startDate ?? task.createdDate)}`}
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-600 text-xs">Start date:</span>
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                            {formatDate(task.startDate ?? task.createdDate)}
                           </Badge>
-                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
-                            🎯 {task.targetDate || '—'}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-600 text-xs">Due date:</span>
+                            <Badge variant="secondary" className="bg-rose-100 text-rose-800 text-xs">
+                            {task.targetDate ? formatDate(task.targetDate) : '—'}
                           </Badge>
                         </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-600 text-xs">Created:</span>
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-800 text-xs">
+                              {formatDate(task.createdDate)}
+                            </Badge>
+                          </div>
                       </div>
 
+
+                      </div>
 
                       {/* Footer with metadata and comments */}
                       <div className="pt-4 border-t border-gray-200">
                         {/* Single row with metadata and comments */}
                         <div className="flex items-center justify-between">
                           {/* Metadata as colored tags */}
-                          <div className="flex flex-wrap gap-1">
-                            <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                              {(() => {
-                                const m = (orgMembers || []).find((x: any) => x.user_id === task.owner);
-                                const nameSource = (task.owner ?? "") as string;
-                                if (!nameSource) return "👤 —";
-                                const { displayName } = deriveDisplayFromEmail(nameSource);
-                                return `👤 ${displayName}`;
-                              })()}
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="text-gray-600 text-xs">Project:</span>
+                            <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
+                              {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
                             </Badge>
-
                           </div>
 
                           {/* Comments */}
@@ -614,6 +734,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 tasks={filteredTasks}
                 onTaskClick={handleTaskClick}
                 onTaskStatusToggle={handleTaskStatusToggle}
+                projectMap={Object.fromEntries(projects.map(p => [p.id, p.name]))}
+                canDeleteTask={canDeleteTask}
+                onDeleteTask={handleDeleteTask}
               />
             )}
 

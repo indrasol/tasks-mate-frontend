@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import CopyableIdBadge from "@/components/ui/copyable-id-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,16 +31,20 @@ import {
   X,
   ChevronDown,
   Upload,
-  FileText
+  FileText,
+  ExternalLink,
+  Trash2
 } from "lucide-react";
 import { toast } from "sonner";
-import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
+// import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
+import NewTaskModal from "@/components/tasks/NewTaskModal";
 import AddSubtaskModal from "@/components/tasks/AddSubtaskModal";
 import { taskService } from "@/services/taskService";
 import { api } from "@/services/apiService";
 import { API_ENDPOINTS } from "@/../config";
 
 import { getStatusMeta, getPriorityColor, formatDate, deriveDisplayFromEmail } from "@/lib/projectUtils";
+import { useAuth } from "@/hooks/useAuth";
 import MainNavigation from "@/components/navigation/MainNavigation";
 
 const TaskDetail = () => {
@@ -51,6 +60,11 @@ const TaskDetail = () => {
   const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
   const [isAddSubtaskOpen, setIsAddSubtaskOpen] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(true);
+  const [isEditTaskOpen, setIsEditTaskOpen] = useState(false);
+  const [isDeleteTaskOpen, setIsDeleteTaskOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isTagInputOpen, setIsTagInputOpen] = useState(false);
+  const [tagInput, setTagInput] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -81,17 +95,16 @@ const TaskDetail = () => {
   // Utility helpers -------------------------------------------------
   const priorityOptions = ["critical", "high", "medium", "low", "none"] as const;
   const statusOptions = [
-    "planning",
     "in_progress",
-    "on_hold",
-    "on-hold",
     "completed",
     "archived",
     "not_started",
-    "active",
+    "blocked",
+    "on_hold",
   ] as const;
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { user } = useAuth();
   // Sync with sidebar collapse/expand events
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -102,6 +115,10 @@ const TaskDetail = () => {
     );
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
+
+  const currentOrgId = useCurrentOrgId();
+  const [projectName, setProjectName] = useState<string | null>(null);
+  const [projectsMap, setProjectsMap] = useState<Record<string,string>>({});
 
   useEffect(() => {
     if (!taskId) return;
@@ -125,6 +142,7 @@ const TaskDetail = () => {
           progress: data.progress ?? 0,
           priority: data.priority,
           tags: data.tags,
+          project_id: data.project_id,
           createdBy: data.created_by,
           createdDate: data.created_at,
         };
@@ -143,21 +161,39 @@ const TaskDetail = () => {
       });
   }, [taskId]);
 
+  // Fetch project name list for current org and map id
+  useEffect(() => {
+    if (!currentOrgId || !task?.project_id) return;
+    (async () => {
+      try {
+        const projects = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}`);
+        const map: Record<string,string> = {};
+        projects.forEach((pr: any)=>{ map[pr.project_id] = pr.name; });
+        setProjectsMap(map);
+        const p = projects.find((x: any) => x.project_id === task.project_id);
+        setProjectName(p?.name ?? null);
+      } catch (e) {
+        setProjectName(null);
+      }
+    })();
+  }, [currentOrgId, task?.project_id]);
+
   // Fetch comments from backend
-  // useEffect(() => {
-  //   if (!taskId) return;
-  //   setLoadingComments(true);
-  //   setCommentsError(null);
-  //   api.get(`/api/v1/tasks/comments?task_id=${taskId}`)
-  //     .then((data:any[]) => {
-  //       setComments(data || []);
-  //       setLoadingComments(false);
-  //     })
-  //     .catch((err) => {
-  //       setCommentsError(err.message || "Failed to load comments");
-  //       setLoadingComments(false);
-  //     });
-  // }, [taskId]);
+  useEffect(() => {
+    if (!taskId) return;
+    setLoadingComments(true);
+    setCommentsError(null);
+    api
+      .get<any[]>(`${API_ENDPOINTS.TASK_COMMENTS}?task_id=${taskId}`)
+      .then((data: any[]) => {
+        setComments(Array.isArray(data) ? data : []);
+        setLoadingComments(false);
+      })
+      .catch((err: any) => {
+        setCommentsError(err.message || "Failed to load comments");
+        setLoadingComments(false);
+      });
+  }, [taskId]);
 
   // Fetch attachments
   // useEffect(() => {
@@ -221,14 +257,44 @@ const TaskDetail = () => {
   const handleSaveChanges = async () => {
     if (!taskId) return;
     try {
-      await taskService.updateTask(taskId, {
-        name: taskName,
+      const payload: any = {
+        title: taskName,
         description,
         status,
-      });
+        priority,
+      };
+      if (task?.project_id) payload.project_id = task.project_id;
+      if (task?.startDate) payload.start_date = new Date(task.startDate);
+      if (task?.targetDate) payload.due_date = new Date(task.targetDate);
+      if (Array.isArray(task?.tags)) payload.tags = task.tags;
+      await taskService.updateTask(taskId, payload);
       toast.success('Task changes saved successfully!');
     } catch (err: any) {
       toast.error(err.message || 'Failed to save changes');
+    }
+  };
+
+  // Toggle status via circle badge (completed ↔ not_started)
+  const handleStatusToggle = async () => {
+    if (!taskId) return;
+    // Determine new status
+    const prevStatus = status;
+    const newStatus = prevStatus === 'completed' ? 'not_started' : 'completed';
+
+    // Optimistic UI update
+    setStatus(newStatus);
+    setTask((prev: any) => ({ ...prev, status: newStatus }));
+
+    try {
+      await taskService.updateTask(taskId, { 
+        status: newStatus,
+        project_id: task.project_id,
+        title: taskName || task.name
+      });
+    } catch (err) {
+      // revert on failure
+      setStatus(prevStatus);
+      setTask((prev: any) => ({ ...prev, status: prevStatus }));
     }
   };
 
@@ -273,9 +339,11 @@ const TaskDetail = () => {
       const payload = {
         task_id: taskId,
         content: newComment,
+        // Send snapshot title when available to satisfy DB schema
+        task_title: taskName || task?.name,
       };
       const created = await api.post(`${API_ENDPOINTS.TASK_COMMENTS}?project_id=${task?.project_id}`, payload);
-      setComments([created, ...comments]);
+      setComments([created as any, ...comments]);
       setNewComment("");
     } catch (err: any) {
       toast.error(err.message || "Failed to add comment");
@@ -291,7 +359,7 @@ const TaskDetail = () => {
   const handleSaveEdit = async () => {
     if (!editCommentText.trim() || !editingComment) return;
     try {
-      const updated = await api.put(`${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`, { content: editCommentText });
+      const updated = await api.put(`${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`, { content: editCommentText, task_title: taskName || task?.name });
       setComments(comments.map((c) => c.comment_id === editingComment ? updated : c));
       setEditingComment(null);
       setEditCommentText("");
@@ -314,24 +382,50 @@ const TaskDetail = () => {
 
   // For add/delete/toggle subtask, update backend (if supported)
   const handleAddSubtask = async (selectedTask: any) => {
+    if (!taskId) return;
     try {
-      // Add subtask ID to sub_tasks array and update backend
-      const updatedSubtasks = [...subtasks, selectedTask.id];
-      await taskService.updateTask(taskId, { sub_tasks: updatedSubtasks });
-      setSubtasks(updatedSubtasks);
+      await taskService.addSubtask(taskId, selectedTask.id);
+      setSubtasks(prev => [...prev, selectedTask.id]);
       toast.success(`Subtask "${selectedTask.name}" added successfully!`);
     } catch (err: any) {
       toast.error(err.message || 'Failed to add subtask');
     }
   };
   const handleSubtaskToggle = async (subtaskId: string) => {
-    // Toggle logic can be implemented if backend supports subtask status
+    // Find subtask
+    const idx = subtaskDetails.findIndex((s: any) => (s.task_id ?? s.id) === subtaskId);
+    if (idx === -1) return;
+    const sub = subtaskDetails[idx];
+    const prevStatus: string = sub.status ?? 'not_started';
+    const newStatus: string = prevStatus === 'completed' ? 'not_started' : 'completed';
+
+    // Optimistic update
+    setSubtaskDetails((prev: any[]) => {
+      const next = [...prev];
+      next[idx] = { ...sub, status: newStatus };
+      return next;
+    });
+
+    try {
+      await taskService.updateTask(subtaskId, {
+        status: newStatus,
+        project_id: sub.project_id,
+        title: sub.title ?? sub.name,
+      });
+    } catch (e) {
+      // revert on failure
+      setSubtaskDetails((prev: any[]) => {
+        const next = [...prev];
+        next[idx] = { ...sub, status: prevStatus };
+        return next;
+      });
+    }
   };
   const handleDeleteSubtask = async (subtaskId: string) => {
+    if (!taskId) return;
     try {
-      const updatedSubtasks = subtasks.filter((id) => id !== subtaskId);
-      await taskService.updateTask(taskId, { sub_tasks: updatedSubtasks });
-      setSubtasks(updatedSubtasks);
+      await taskService.removeSubtask(taskId, subtaskId);
+      setSubtasks(prev => prev.filter(id => id !== subtaskId));
       toast.success('Subtask deleted successfully!');
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete subtask');
@@ -435,83 +529,93 @@ const TaskDetail = () => {
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
 
 
-        <nav className="px-6 py-4 bg-white/50 backdrop-blur-sm border-b border-gray-200" >
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200" >
+          <div className="w-full flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Link to="/tasks_catalog" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors">
+              <Link to={`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`} className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors">
                 <ArrowLeft className="h-4 w-4" />
                 <span>Back to Catalog</span>
               </Link>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <div className="flex items-center space-x-2">
-                <Link to="/" className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-full bg-tasksmate-gradient flex items-center justify-center">
-                    <Check className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="font-sora font-bold">TasksMate</span>
-                </Link>
-              </div>
+              {/* Removed TasksMate logo and divider */}
             </div>
 
-            <div className="flex items-center space-x-4">
-              <Avatar className="w-8 h-8">
-                <AvatarFallback>SK</AvatarFallback>
-              </Avatar>
-            </div>
+            {/* Removed profile avatar */}
           </div>
         </nav>
 
         {/* Header */}
         <header className="px-6 py-6 bg-white/30 backdrop-blur-sm border-b border-gray-200">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className={`w-1 h-12 rounded-full ${getStatusColor(task.status)}`}></div>
-                <div>
-                  <Badge className="text-xs font-mono bg-green-600 text-white mb-2">
-                    {task.task_id}
+          <div className="w-full">
+            <div className="flex items-start justify-between space-x-3">
+              {/* Column with toggle + green bar */}
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${status === 'completed'
+                    ? 'bg-tasksmate-gradient border-transparent' : 'border-gray-300 hover:border-gray-400'}`}
+                  onClick={handleStatusToggle}
+                >
+                  {status === 'completed' && <Check className="h-3 w-3 text-white" />}
+                </div>
+                <div className="w-1 h-10 rounded-full bg-green-500 mt-2"></div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3">
+
+                  <CopyableIdBadge id={task.id} isCompleted={status==='completed'} />
+
+                  <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                    {(() => {
+                      const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                      return `👤 ${displayName}`;
+                    })()}
                   </Badge>
+                  {/* Edit icon removed as requested */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                    onClick={() => setIsDeleteTaskOpen(true)}
+                    title="Delete task"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+                {/* Title */}
+                <div className="mt-2">
                   <Input
                     value={taskName}
                     onChange={(e) => setTaskName(e.target.value)}
-                    className="text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className={`text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status==='completed' ? 'line-through text-gray-400' : ''}`}
                   />
+                </div>
+
+                {/* Meta row */}
+                <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
+                  {/* Tags removed, now in Details card */}
                 </div>
               </div>
 
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {getStatusMeta(s as any).label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {priorityOptions.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
+              {/* Right actions (Save + Duplicate) */}
+              <div className="ml-4 flex items-center gap-2">
+                <Button className="bg-tasksmate-gradient" onClick={handleSaveChanges}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Changes
+                </Button>
+                <Button variant="outline" className="micro-lift" onClick={() => setIsDuplicateOpen(true)}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Duplicate
+                </Button>
+              </div>
             </div>
+
+            {/* Removed status & priority selectors (moved to Details card) */}
           </div>
         </header>
 
         {/* Main Content */}
         <main className="px-6 py-8">
-          <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
+          <div className="w-full grid lg:grid-cols-3 gap-8">
             {/* Left Column - Main Content */}
             <div className="lg:col-span-2 space-y-6">
               {/* Description */}
@@ -523,7 +627,7 @@ const TaskDetail = () => {
                   <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="min-h-32 border-0 bg-transparent resize-none focus-visible:ring-0"
+                    className={`min-h-32 border-0 bg-transparent resize-none focus-visible:ring-0 ${status==='completed' ? 'line-through text-gray-400' : ''}`}
                     placeholder="Add a description..."
                   />
                 </CardContent>
@@ -546,57 +650,112 @@ const TaskDetail = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {subtasks.map((subtaskId) => {
-                    const subtask = task.sub_tasks?.find(s => s.id === subtaskId);
-                    if (!subtask) return null; // Should not happen if subtasks are fetched correctly
+                  {subtaskDetails.map((subtask: any) => {
+                    const subtaskId = subtask.task_id ?? subtask.id;
                     return (
-                      <div key={subtaskId} className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 micro-lift group">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="p-0 h-auto"
-                          onClick={() => handleSubtaskToggle(subtaskId)}
-                        >
-                          {subtask.completed ? (
-                            <CheckCircle className="h-5 w-5 text-tasksmate-green-end" />
-                          ) : (
-                            <Circle className="h-5 w-5 text-gray-400" />
-                          )}
+                      <div key={subtaskId} className="flex flex-wrap items-start gap-2 p-3 rounded-lg bg-white/50 micro-lift group">
+                        {/* Toggle */}
+                        <Button variant="ghost" size="sm" className="p-0 h-auto" onClick={() => handleSubtaskToggle(subtaskId)}>
+                          {subtask.status === 'completed' ? <CheckCircle className="h-5 w-5 text-tasksmate-green-end" /> : <Circle className="h-5 w-5 text-gray-400" />}
                         </Button>
-                        <div className="flex-1">
-                          <div className={`font-medium ${subtask.completed ? 'line-through text-gray-500' : ''}`}>
-                            {subtask.name}
-                          </div>
-                          <div className="text-sm text-gray-500 flex items-center space-x-2">
-                            <span>{subtask.owner}</span>
-                            <span>•</span>
-                            <span>{new Date(subtask.due).toLocaleDateString()}</span>
-                            <span>•</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {subtaskId}
-                            </Badge>
-                          </div>
-                        </div>
-                        <Badge
-                          className={`text-xs ${subtask.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            subtask.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                              subtask.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                            }`}
-                        >
-                          {subtask.status === 'completed' ? 'Completed' :
-                            subtask.status === 'in-progress' ? 'In Progress' :
-                              subtask.status === 'blocked' ? 'Blocked' :
-                                'To Do'}
+
+                        {/* Task ID beside status toggle */}
+                        <CopyableIdBadge id={String(subtaskId)} isCompleted={subtask.status==='completed'} />
+
+                        {/* Owner, Status, Priority badges inline with Task ID */}
+                        <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                          {(() => {
+                            const { displayName } = deriveDisplayFromEmail((subtask.assignee ?? '') as string);
+                            return `👤 ${displayName}`;
+                          })()}
                         </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                          onClick={() => handleDeleteSubtask(subtaskId)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                        <Badge variant="secondary" className={`text-xs ${getStatusMeta((subtask.status || 'not_started') as any).color}`}>
+                          {getStatusMeta((subtask.status || 'not_started') as any).label}
+                        </Badge>
+                        <Badge variant="outline" className={`text-xs ${getPriorityColor(subtask.priority ?? 'none')}`}>{(subtask.priority ?? 'none').toUpperCase()}</Badge>
+
+                        {/* Project */}
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-gray-600 text-xs">Project:</span>
+                          <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
+                            {projectsMap[subtask.project_id as string] ?? (subtask.project_name ?? '—')}
+                          </Badge>
+                        </div>
+
+                        {/* Start date */}
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-gray-600 text-xs">Start date:</span>
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                            {formatDate(subtask.start_date ?? subtask.created_at)}
+                          </Badge>
+                        </div>
+
+                        {/* Due date */}
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-gray-600 text-xs">Due date:</span>
+                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                            {subtask.due_date ? formatDate(subtask.due_date) : '—'}
+                          </Badge>
+                        </div>
+
+                         {/* Created date */}
+                         <div className="inline-flex items-center gap-1">
+                           <span className="text-gray-600 text-xs">Created:</span>
+                           <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                             {formatDate(subtask.created_at)}
+                           </Badge>
+                         </div>
+
+                        {/* Tags (show up to 2, then +N) */}
+                        {Array.isArray(subtask.tags) && subtask.tags.length > 0 && (
+                          <div className="inline-flex items-center gap-1 flex-wrap">
+                            <span className="text-gray-600 text-xs">Tags:</span>
+                            {subtask.tags.slice(0, 2).map((tag: string, idx: number) => (
+                              <Badge key={`${subtaskId}-tag-${idx}`} variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {subtask.tags.length > 2 && (
+                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{subtask.tags.length - 2}</Badge>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Actions to the far right */}
+                        <div className="ml-auto flex items-center gap-1">
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
+                            const url = `/tasks/${subtaskId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                          }}>
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" onClick={() => handleDeleteSubtask(subtaskId)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {/* Content Column (second line under toggle + task id) */}
+                        <div className="flex flex-col min-w-0 basis-full w-full mt-1">
+                          {/* Title (second line) */}
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 min-w-0">
+                            <span className="font-bold">Title :</span>
+                            <span className={`truncate max-w-[14rem] ${subtask.status==='completed' ? 'line-through text-gray-400' : ''}`}>
+                              {subtask.title ?? subtask.name}
+                            </span>
+                          </div>
+
+                          {/* Description below */}
+                          {subtask.description && (
+                            <div className="flex flex-wrap items-center gap-1 text-sm text-gray-700 mt-2 min-w-0">
+                              <span className="font-bold">Description :</span>
+                              <span className={`truncate max-w-[20rem] ${subtask.status==='completed' ? 'line-through text-gray-400' : ''}`}>
+                                {subtask.description}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions removed here as they are placed at far right of first row */}
                       </div>
                     );
                   })}
@@ -685,10 +844,7 @@ const TaskDetail = () => {
                     <CardContent>
                       {/* Add new comment */}
                       <div className="mb-6">
-                        <div className="flex space-x-3">
-                          <Avatar className="w-8 h-8">
-                            <AvatarFallback>CU</AvatarFallback>
-                          </Avatar>
+                        <div className="flex">
                           <div className="flex-1 space-y-2">
                             <Textarea
                               value={newComment}
@@ -715,36 +871,27 @@ const TaskDetail = () => {
                       <div className="space-y-4">
                         {comments.map((comment) => (
                           <div key={comment.comment_id} className="flex space-x-3 group">
-                            <Avatar className="w-8 h-8">
-                              <AvatarFallback className="text-xs">
-                                {comment.user?.avatar || 'CU'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <div className="text-sm">
-                                  <span className="font-medium">{comment.user?.name || 'Current User'}</span>
-                                  <span className="text-gray-500 ml-2">{comment.created_at}</span>
-                                </div>
-                                <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                    onClick={() => handleEditComment(comment.comment_id)}
-                                  >
-                                    <Edit className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                    onClick={() => handleDeleteComment(comment.comment_id)}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
+                            <HoverCard>
+                              <HoverCardTrigger asChild>
+                                <Avatar className="w-8 h-8 border border-white">
+                                  <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                                    {(() => {
+                                      const creator = (comment.created_by || "") as string;
+                                      const { initials } = deriveDisplayFromEmail(creator || "u");
+                                      return initials || "U";
+                                    })()}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </HoverCardTrigger>
+                              <HoverCardContent className="text-xs p-2">
+                                {(() => {
+                                  const creator = (comment.created_by || "") as string;
+                                  const { displayName } = deriveDisplayFromEmail(creator || "user");
+                                  return displayName;
+                                })()}
+                              </HoverCardContent>
+                            </HoverCard>
+                            <div className="flex-1">
                               {editingComment === comment.comment_id ? (
                                 <div className="space-y-2">
                                   <Textarea
@@ -762,8 +909,43 @@ const TaskDetail = () => {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-                                  {comment.content}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="text-sm text-gray-700">
+                                    {comment.content || comment.comment}
+                                  </div>
+                                  {(() => {
+                                  const creator = String(comment.created_by || "").toLowerCase();
+                                  const me = new Set([
+                                    String(user?.id || "").toLowerCase(),
+                                    String(user?.email || "").toLowerCase(),
+                                    String(user?.user_metadata?.username || "").toLowerCase(),
+                                  ]);
+                                  const canEdit = creator && me.has(creator);
+                                    return (
+                                      <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0"
+                                          onClick={() => handleEditComment(comment.comment_id)}
+                                          disabled={!canEdit}
+                                          title={canEdit ? "Edit" : "Only author can edit"}
+                                        >
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                          onClick={() => handleDeleteComment(comment.comment_id)}
+                                          disabled={!canEdit}
+                                          title={canEdit ? "Delete" : "Only author can delete"}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               )}
                             </div>
@@ -806,36 +988,145 @@ const TaskDetail = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
+                      <Label className="text-sm text-gray-600">Project</Label>
+                      <Select
+                        value={task.project_id}
+                        onValueChange={(id)=> setTask((prev:any)=> ({...prev, project_id: id}))}
+                      >
+                        <SelectTrigger className="text-xs bg-cyan-100 text-cyan-800 rounded-full px-2 py-1 h-6 border-0 w-fit min-w-0 inline-flex hover:bg-cyan-100">
+                          <SelectValue placeholder={projectName ?? task.project_name ?? '—'} />
+                        </SelectTrigger>
+                        <SelectContent align="end">
+                          {Object.entries(projectsMap).map(([id, name]) => (
+                            <SelectItem key={id} value={id}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm text-gray-600">Start date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-1 h-6 inline-flex items-center gap-1">
+                            {formatDate(task.startDate ?? task.createdDate)}
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="p-2">
+                          <CalendarPicker
+                            mode="single"
+                            selected={task.startDate ? new Date(task.startDate) : (task.createdDate ? new Date(task.createdDate) : undefined)}
+                            onSelect={(d:any)=> d && setTask((prev:any)=> ({...prev, startDate: d.toISOString().slice(0,10)}))}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm text-gray-600">Due date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="text-xs bg-rose-100 text-rose-800 rounded-full px-2 py-1 h-6 inline-flex items-center gap-1">
+                            {task.targetDate ? formatDate(task.targetDate) : '—'}
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="p-2">
+                          <CalendarPicker
+                            mode="single"
+                            selected={task.targetDate ? new Date(task.targetDate) : undefined}
+                            onSelect={(d:any)=> d && setTask((prev:any)=> ({...prev, targetDate: d.toISOString().slice(0,10)}))}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="flex items-center justify-between">
                       <Label className="text-sm text-gray-600">Created</Label>
-                      <span className="text-sm">{formatDate(task.startDate ?? task.createdDate)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm text-gray-600">Target Date</Label>
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="h-3 w-3 text-gray-400" />
-                        <span className="text-sm">{formatDate(task.targetDate ?? task.endDate)}</span>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                          {formatDate(task.createdDate)}
+                        </Badge>
                       </div>
                     </div>
+                    {/* Owner row removed */}
+                    {/* Tags */}
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm text-gray-600">Owner</Label>
-                      <div className="flex items-center space-x-2">
-                        {(() => {
-                          const nameSource = (task.owner ?? "") as string;
-                          if (!nameSource) return "👤 —";
-                          const { displayName } = deriveDisplayFromEmail(nameSource);
-                          return `👤 ${displayName}`;
-                        })()}
-                        {/* <Avatar className="w-5 h-5">
-                          <AvatarFallback className="text-xs">SK</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">{task.owner}</span> */}
+                      <Label className="text-sm text-gray-600">Tags</Label>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {(task.tags ?? []).slice(0,3).map((tag: string, idx:number) => (
+                          <Badge key={idx} variant="secondary" className="text-xs bg-purple-100 text-purple-800">{tag}</Badge>
+                        ))}
+                        {(task.tags ?? []).length>3 && (
+                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task.tags ?? []).length-3}</Badge>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-purple-700 hover:text-purple-900"
+                          onClick={()=> setIsTagInputOpen((v)=>!v)}
+                          title="Add tag"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
+                    {isTagInputOpen && (
+                      <div className="flex items-center justify-end gap-2">
+                        <Input
+                          value={tagInput}
+                          onChange={(e)=> setTagInput(e.target.value)}
+                          placeholder="New tag"
+                          className="h-8 w-40"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={()=>{
+                            const trimmed = tagInput.trim();
+                            if (!trimmed) return;
+                            setTask((prev:any)=> ({...prev, tags: [...(prev.tags ?? []), trimmed]}));
+                            setTagInput("");
+                            setIsTagInputOpen(false);
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between mt-2">
                       <Label className="text-sm text-gray-600">Status</Label>
-                      <Badge className={`${getStatusBadge(task.status)} text-xs`}>
-                        {getStatusText(task.status)}
-                      </Badge>
+                      <Select value={status} onValueChange={(v)=>setStatus(v as string)}>
+                        <SelectTrigger className="bg-transparent border-0 p-0 h-auto flex items-center gap-1 w-fit min-w-[6rem]">
+                          <SelectValue
+                            placeholder="Status"
+                            className="text-xs"
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              <span className={`px-2 py-1 rounded-full text-xs ${getStatusMeta(s as any).color}`}>{getStatusMeta(s as any).label}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm text-gray-600">Priority</Label>
+                      <Select value={priority} onValueChange={(v)=>setPriority(v as typeof priority)}>
+                        <SelectTrigger className="bg-transparent border-0 p-0 h-auto flex items-center gap-1 w-fit min-w-[6rem]">
+                          <SelectValue placeholder="Priority" className="text-xs" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {priorityOptions.map((p) => (
+                            <SelectItem key={p} value={p}>
+                              <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </CardContent>
@@ -865,32 +1156,94 @@ const TaskDetail = () => {
             </div>
           </div>
 
-          {/* Footer Actions - Updated */}
-          <div className="max-w-7xl mx-auto mt-8 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Button className="bg-tasksmate-gradient" onClick={handleSaveChanges}>
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
-              </Button>
-              <Button variant="outline" className="micro-lift" onClick={() => setIsDuplicateOpen(true)}>
-                <Copy className="mr-2 h-4 w-4" />
-                Duplicate
-              </Button>
-            </div>
-          </div>
+          {/* Footer Actions removed */}
         </main>
 
         {/* Modals */}
-        <DuplicateTaskModal
+        {/* Replace legacy DuplicateTaskModal by reusing NewTaskModal with initialData */}
+        <NewTaskModal
           open={isDuplicateOpen}
           onOpenChange={setIsDuplicateOpen}
-          sourceTask={task}
+          onTaskCreated={() => toast.success('Duplicated task created!')}
+          initialData={{
+            projectId: task?.project_id ?? task?.projectId,
+            name: task?.name,
+            description: task?.description,
+            status: task?.status,
+            priority: task?.priority,
+            owner: task?.owner,
+            startDate: task?.startDate ?? task?.createdDate,
+            targetDate: task?.targetDate,
+            tags: task?.tags ?? [],
+          }}
         />
         <AddSubtaskModal
           open={isAddSubtaskOpen}
           onOpenChange={setIsAddSubtaskOpen}
           onSubtaskAdded={handleAddSubtask}
+          excludeIds={[...(subtasks || []), ...(taskId ? [taskId] : [])]}
         />
+        {/* Edit Task - reuse NewTaskModal in edit mode */}
+        {task && (
+          <NewTaskModal
+            open={isEditTaskOpen}
+            onOpenChange={setIsEditTaskOpen}
+            onTaskCreated={async (updated) => {
+              setTask((prev:any) => ({ ...prev, ...updated }));
+              setIsEditTaskOpen(false);
+              toast.success('Task updated');
+            }}
+            initialData={{
+              projectId: task.project_id ?? task.projectId,
+              name: task.name,
+              description: task.description,
+              status: task.status,
+              priority: task.priority,
+              owner: task.owner,
+              startDate: task.startDate ?? task.createdDate,
+              targetDate: task.targetDate,
+              tags: task.tags ?? [],
+            }}
+          />
+        )}
+
+        {/* Delete confirm dialog for Task */}
+        {task && isDeleteTaskOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-lg p-6 w-[90%] max-w-md shadow-xl">
+              <div className="mb-3">
+                <div className="text-lg font-semibold">Delete Task</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  This action cannot be undone. Type the task ID
+                  <span className="mx-1 inline-block align-middle">
+                    <CopyableIdBadge id={task.id} />
+                  </span>
+                  to confirm deletion.
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 mb-1">Enter Task ID</div>
+              <Input value={deleteConfirmText} onChange={(e)=>setDeleteConfirmText(e.target.value)} placeholder="Enter the task ID to confirm" />
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={()=>{ setIsDeleteTaskOpen(false); setDeleteConfirmText(''); }}>Cancel</Button>
+                <Button
+                  className="bg-red-600 text-white"
+                  disabled={deleteConfirmText !== task.id}
+                  onClick={async ()=>{
+                    try {
+                      await api.del(`${API_ENDPOINTS.TASKS}/${task.id}`, {});
+                      toast.success('Task deleted');
+                      navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`);
+                    } catch (e:any) {
+                      toast.error(e?.message || 'Failed to delete task');
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>
