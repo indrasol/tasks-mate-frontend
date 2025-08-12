@@ -30,7 +30,8 @@ import {
   Link,
   File,
   ExternalLink,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 // Dropdown removed for priority badge in header
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,6 +59,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { taskService } from '@/services/taskService';
+import { toast } from 'sonner';
 
 interface Project {
   id: string;
@@ -115,6 +117,30 @@ const ProjectDetail = () => {
   const [isDeleteResourceOpen, setIsDeleteResourceOpen] = useState(false);
   const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<{ file: File; preview: string }[]>([]);
+
+  // Handle file selection
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+
+    const newFiles = Array.from(files).map(file => ({
+      file,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : ''
+    }));
+
+    setSelectedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  // Handle file removal
+  const handleRemoveFile = (index: number) => {
+    const newFiles = [...selectedFiles];
+    // Revoke the object URL to avoid memory leaks
+    if (newFiles[index].preview) {
+      URL.revokeObjectURL(newFiles[index].preview);
+    }
+    newFiles.splice(index, 1);
+    setSelectedFiles(newFiles);
+  };
   const [uploadProgress, setUploadProgress] = useState(0);
 
   // Edit modal state
@@ -353,10 +379,12 @@ const ProjectDetail = () => {
   };
 
   // Attachment upload
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || !project?.id) return;
+  const handleFileUpload = async () => {
+    if (!project?.id || selectedFiles.length === 0) return;
+
+    setUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      for (const { file } of selectedFiles) {
         // 1. Upload to Supabase Storage
         const { url, path, resourceId } = await taskService.uploadProjectResourceToStorage({
           projectId: project.id,
@@ -365,17 +393,23 @@ const ProjectDetail = () => {
         // 2. Save metadata to backend
         await api.post<any>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, {
           project_id: project.id,
+          project_name: project.name,
           resource_type: 'file',
-          name: file.name,
-          url: url,
+          resource_name: file.name,
+          resource_url: url,
           created_by: user?.user_metadata?.username,
           id: resourceId,
         });
       }
+      // Reset and refresh
+      setSelectedFiles([]);
       fetchResources();
+      toast.success('Files uploaded successfully!');
     } catch (err: any) {
+      toast.error('Failed to upload files');
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
 
@@ -460,15 +494,50 @@ const ProjectDetail = () => {
     }
   };
 
+  // const handleDownload = async (resource: Resource) => {
+  //   if (!project) return;
+  //   try {
+  //     await api.get(
+  //       `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`
+  //     );
+  //     fetchResources();
+  //   } catch (err) {
+  //     // handle error
+  //   }
+  // };
+
   const handleDownload = async (resource: Resource) => {
-    if (!project) return;
+    if (!resource.url) return;
+
     try {
-      await api.get(
-        `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`
-      );
-      fetchResources();
-    } catch (err) {
-      // handle error
+      // Extract the file name from the URL
+      const fileName = resource.url.split('/').pop() || 'download';
+
+      // Fetch the file
+      const response = await fetch(resource.url);
+      if (!response.ok) throw new Error('Failed to download file');
+
+      // Get the blob data
+      const blob = await response.blob();
+
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary anchor element to trigger the download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success('Download started');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download file');
     }
   };
 
@@ -775,25 +844,77 @@ const ProjectDetail = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
-                        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-sm text-gray-600 mb-2">Drag and drop files here, or click to browse</p>
-                        <input
-                          type="file"
-                          multiple
-                          className="hidden"
-                          id="file-upload"
-                          onChange={(e) => handleFileUpload(e.target.files)}
-                          accept="*/*"
-                          disabled={uploading}
-                        />
-                        <label
-                          htmlFor="file-upload"
-                          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
-                        >
-                          {uploading ? "Uploading..." : "Choose Files"}
-                        </label>
-                        <p className="text-xs text-gray-500 mt-2">Support for PDF, DOC, XLS, PNG, JPG files</p>
+                      <div className="space-y-4">
+                        {/* File preview section */}
+                        {selectedFiles.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium">Selected Files ({selectedFiles.length})</h4>
+                            <div className="space-y-2 max-h-40 overflow-y-auto p-2 border rounded-md">
+                              {selectedFiles.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                  <div className="flex items-center space-x-2">
+                                    {file.preview ? (
+                                      <img
+                                        src={file.preview}
+                                        alt={file.file.name}
+                                        className="w-8 h-8 object-cover rounded"
+                                      />
+                                    ) : (
+                                      <File className="w-5 h-5 text-gray-400" />
+                                    )}
+                                    <span className="text-sm truncate max-w-xs">{file.file.name}</span>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => handleRemoveFile(index)}
+                                  >
+                                    <X className="h-4 w-4 text-gray-500" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {selectedFiles.length > 0 && (
+                          <div className="flex items-center justify-center gap-3">
+                            <Button
+                              type="button"
+                              onClick={handleFileUpload}
+                              disabled={uploading}
+                              className="w-full bg-tasksmate-gradient"
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}`}
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* File input area */}
+                        <div className={`border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors ${selectedFiles.length > 0 ? 'mt-4' : ''}`}>
+                          <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                          <p className="text-sm text-gray-600 mb-3">Drag and drop files here, or click to browse</p>
+                          <input
+                            type="file"
+                            multiple
+                            className="hidden"
+                            id="file-upload"
+                            onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+                            accept="*/*"
+                            disabled={uploading}
+                          />
+                          <div className="flex items-center justify-center gap-3">
+                            <label
+                              htmlFor="file-upload"
+                              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                            >
+                              Select Files
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">Support for PDF, DOC, XLS, PNG, JPG files (Max 10MB)</p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -853,9 +974,24 @@ const ProjectDetail = () => {
                       {resources.map((resource) => (
                         <div key={resource.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center overflow-hidden">
                               {resource.type === 'file' ? (
-                                <File className="w-5 h-5 text-blue-600" />
+                                resource.url?.match(/\.(jpg|jpeg|png|gif|webp|ico)$/i) ? (
+                                  <img 
+                                    src={resource.url} 
+                                    alt={resource.name} 
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      // Fallback to file icon if image fails to load
+                                      const target = e.target as HTMLImageElement;
+                                      target.onerror = null;
+                                      target.src = '';
+                                      target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center"><File class="w-5 h-5 text-blue-600" /></div>';
+                                    }}
+                                  />
+                                ) : (
+                                  <File className="w-5 h-5 text-blue-600" />
+                                )
                               ) : (
                                 <ExternalLink className="w-5 h-5 text-blue-600" />
                               )}
@@ -881,7 +1017,24 @@ const ProjectDetail = () => {
                                 variant="ghost"
                                 size="icon"
                                 title="Open"
-                                onClick={() => window.open(resource.url, '_blank')}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (resource.url) {
+                                    // Ensure the URL has a protocol
+                                    let urlToOpen = resource.url;
+                                    if (!/^https?:\/\//i.test(urlToOpen)) {
+                                      urlToOpen = 'https://' + urlToOpen;
+                                    }
+                                    // Create a temporary anchor and trigger click
+                                    const a = document.createElement('a');
+                                    a.href = urlToOpen;
+                                    a.target = '_blank';
+                                    a.rel = 'noopener noreferrer';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                  }
+                                }}
                               >
                                 <ExternalLink className="w-4 h-4" />
                               </Button>
