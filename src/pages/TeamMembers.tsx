@@ -93,7 +93,7 @@ const TeamMembers = () => {
   }, []);
 
   const [inviteRole, setInviteRole] = useState('member');
-  const [roleOptions, setRoleOptions] = useState<string[]>(["owner", "admin", "member"]);
+  const [roleOptions, setRoleOptions] = useState<string[]>(["owner", "member"]);
   // Fetch designations
   // useEffect(() => {
   //   const fetchRoles = async () => {

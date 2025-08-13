@@ -11,6 +11,7 @@ export interface ProjectStats {
   team_members: number;
   days_left: number;
   duration_days?: number;
+  bugs_reported?: number;
 }
 
 /**

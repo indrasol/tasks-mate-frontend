@@ -31,7 +31,8 @@ import {
   File,
   ExternalLink,
   Trash2,
-  X
+  X,
+  Bug
 } from 'lucide-react';
 // Dropdown removed for priority badge in header
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,6 +41,8 @@ import { deriveDisplayFromEmail, getStatusMeta, getPriorityColor, type ProjectSt
 import { API_ENDPOINTS } from "@/../config";
 import { useProjectStats } from "@/hooks/useProjectStats";
 import { useProjectMembers } from "@/hooks/useProjectMembers";
+  import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+  import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { BackendProjectResource, useProjectResources } from "@/hooks/useProjectResources";
 import {
   Dialog,
@@ -82,6 +85,8 @@ interface Member {
   name: string;
   role: string;
   designation: string;
+  email?: string;
+  user_id?: string;
 }
 
 
@@ -103,6 +108,8 @@ const ProjectDetail = () => {
   const { id } = useParams();
   const { data: stats } = useProjectStats(id);
   const { data: membersData } = useProjectMembers(id);
+  const currentOrgId = useCurrentOrgId();
+  const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId);
   const { data: resourcesData } = useProjectResources(id);
   const [project, setProject] = useState<Project | null>(null);
   const [teamMembers, setTeamMembers] = useState<Member[]>([]);
@@ -222,17 +229,21 @@ const ProjectDetail = () => {
   useEffect(() => {
     if (!membersData) return;
     setTeamMembers(
-      membersData.map((m) => ({
-        initials:
-          m.email?.split("@")[0]?.[0]?.toUpperCase() ??
-          m.username?.[0]?.toUpperCase() ?? "?",
-        name: m.username || m.email || m.user_id,
-        displayName: deriveDisplayFromEmail(m.email ?? m.username ?? m.user_id).displayName,
-        role: m.role || "member",
-        designation: m.designation || "",
-      }))
+      membersData.map((m) => {
+        const identifier = m.username || m.email || m.user_id;
+        const display = deriveDisplayFromEmail(identifier).displayName;
+        const initials = display ? display.charAt(0).toUpperCase() : "?";
+        return {
+          initials,
+          name: m.user_id, // keep id for API ops
+          email: m.email,
+          displayName: display,
+          role: m.role || "member",
+          designation: m.designation || "",
+        } as Member;
+      })
     );
-    setUserRole(membersData.find((member) => member.username === user?.user_metadata?.username)?.role);
+    setUserRole(membersData.find((member) => (member.username ?? member.email ?? member.user_id) === user?.user_metadata?.username)?.role);
   }, [membersData]);
 
   // When react-query returns data, normalise into Member shape
@@ -417,12 +428,21 @@ const ProjectDetail = () => {
   const handleRemoveMember = async (member: Member) => {
     if (!project) return;
     try {
+      // Optimistic UI update - remove the member immediately
+      setTeamMembers(prev => prev.filter(m => m.name !== member.name));
+      
+      // Then make the API call
       await api.del(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`, {}
       );
-      fetchTeamMembers();
+      
+      // No need to call fetchTeamMembers() since we've already updated the UI
+      // and the optimistic update preserves the existing member data for remaining members
     } catch (err) {
-      // handle error
+      // If there's an error, refresh the whole list to get back to a consistent state
+      console.error('Error removing member:', err);
+      fetchTeamMembers();
+      toast.error('Failed to remove team member');
     }
   };
 
@@ -543,8 +563,10 @@ const ProjectDetail = () => {
 
 
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [selectedOrgMemberIds, setSelectedOrgMemberIds] = useState<string[]>([]);
 
   const openAddMemberModal = () => {
+    setSelectedOrgMemberIds([]);
     setAddMemberOpen(true);
   };
 
@@ -565,16 +587,133 @@ const ProjectDetail = () => {
     }
   };
 
+  const handleAddOrgMemberToProject = async () => {
+    if (!project || selectedOrgMemberIds.length === 0) return;
+    const toAdd = [...new Set(selectedOrgMemberIds)];
+    
+    // Filter out any members who are already in the project
+    const existingMemberIds = new Set(teamMembers.map(m => m.name));
+    const filteredToAdd = toAdd.filter(uid => !existingMemberIds.has(uid));
+    
+    if (filteredToAdd.length === 0) {
+      toast.info('Selected members are already part of the project');
+      setAddMemberOpen(false);
+      setSelectedOrgMemberIds([]);
+      return;
+    }
+    
+    try {
+      await Promise.allSettled(
+        filteredToAdd.map((uid) =>
+          api.post(
+            `${API_ENDPOINTS.PROJECT_MEMBERS}`,
+            { project_id: project.id, user_id: uid, role: "member" }
+          )
+        )
+      );
+      setTeamMembers(prev => {
+        const existing = new Set(prev.map(p => p.name));
+        const additions: Member[] = [];
+        filteredToAdd.forEach(uid => {
+          if (existing.has(uid)) return;
+          const found = orgMembers.find(m => m.user_id === uid);
+          const email = found?.email ?? uid;
+          const display = deriveDisplayFromEmail(email).displayName;
+          additions.push({ initials: display.charAt(0).toUpperCase(), name: uid, role: "member", designation: "", displayName: display, email });
+        });
+        return [...prev, ...additions];
+      });
+    } catch (err) {
+      console.error("Failed to add members", err);
+    } finally {
+      setAddMemberOpen(false);
+      setSelectedOrgMemberIds([]);
+    }
+  };
+
+  // Modal for adding existing org members to project
+  const AddMemberDialog = () => {
+    // Create a filtered list of available org members
+    const availableMembers = orgMembers.filter(m => {
+      // Filter out members already in the project using both membersData and teamMembers
+      const isInMembersData = membersData?.some(pm => pm.user_id === m.user_id);
+      const isInTeamMembers = teamMembers.some(tm => tm.name === m.user_id);
+      return !isInMembersData && !isInTeamMembers;
+    });
+    
+    return (
+      <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Project Member</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Label>Select organization members</Label>
+            <div className="border rounded-md p-3 max-h-64 overflow-y-auto space-y-2">
+              {availableMembers.length > 0 ? (
+                availableMembers.map((m) => {
+                  const email = m.email ?? m.user_id;
+                  const name = email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                  const checked = selectedOrgMemberIds.includes(m.user_id);
+                  return (
+                    <label key={m.user_id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4"
+                        checked={checked}
+                        onChange={(e) => {
+                          setSelectedOrgMemberIds(prev => e.target.checked ? [...prev, m.user_id] : prev.filter(id => id !== m.user_id));
+                        }}
+                      />
+                      <span className="text-sm">{name} ({email})</span>
+                    </label>
+                  );
+                })
+              ) : (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <Users className="w-12 h-12 text-gray-300 mb-2" />
+                  <p className="text-gray-500 font-medium">All organization members are already added to this project</p>
+                  <p className="text-gray-400 text-sm mt-1">There are no available members to add</p>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setAddMemberOpen(false)}>Close</Button>
+              {availableMembers.length > 0 && (
+                <Button 
+                  onClick={handleAddOrgMemberToProject} 
+                  disabled={selectedOrgMemberIds.length === 0} 
+                  className="bg-green-500 hover:bg-green-600"
+                >
+                  Add {selectedOrgMemberIds.length > 0 ? `(${selectedOrgMemberIds.length})` : ""}
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
   const handleDeleteMember = async (member: Member) => {
     if (!project) return;
     try {
+      // Optimistic UI update - remove the member immediately
+      setTeamMembers(prev => prev.filter(m => m.name !== member.name));
+      
+      // Then make the API call
       await api.del(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
         { role: member.role }
       );
-      fetchTeamMembers();
+      
+      // No need to call fetchTeamMembers() since we've already updated the UI
+      // and the optimistic update preserves the existing member data for remaining members
     } catch (err) {
-      // handle error
+      // If there's an error, refresh the whole list to get back to a consistent state
+      console.error('Error removing member:', err);
+      fetchTeamMembers();
+      toast.error('Failed to remove team member');
     }
   };
 
@@ -599,6 +738,30 @@ const ProjectDetail = () => {
 
   if (!user) {
     return null;
+  }
+
+  // Graceful fallback when project failed to load or does not exist
+  if (!loadingProject && !project) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <MainNavigation />
+        <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+          <div className="px-6 py-10">
+            <Card className="max-w-2xl mx-auto">
+              <CardHeader>
+                <CardTitle>Project not found</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 mb-4">We couldn't load this project. It may have been deleted or you may not have access.</p>
+                <Button onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)} className="bg-green-500 hover:bg-green-600">
+                  Back to Projects
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const getStatusColor = (status: string) => {
@@ -646,26 +809,26 @@ const ProjectDetail = () => {
               <div className="flex flex-col items-center">
                 <div
                   onClick={toggleComplete}
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${(project?.status === 'completed')
                     ? 'bg-tasksmate-gradient border-transparent'
                     : 'border-gray-300 hover:border-gray-400'
                     }`}
                 >
-                  {project.status === 'completed' && <Check className="w-3 h-3 text-white" />}
+                  {project?.status === 'completed' && <Check className="w-3 h-3 text-white" />}
                 </div>
                 <div className="w-1 h-10 rounded-full bg-blue-500 mt-2"></div>
               </div>
               <div className="flex-1 min-w-0 ml-3 space-y-2">
                 {/* Top row: ID + status + priority + actions */}
                 <div className="flex items-center gap-3">
-                  <CopyableBadge copyText={project.id} variant="default" className="text-sm font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
-                    {project.id}
+                  <CopyableBadge copyText={project?.id ?? ''} variant="default" className="text-sm font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
+                    {project?.id}
                   </CopyableBadge>
-                  <Badge variant="secondary" className={`text-xs ${getStatusMeta(project.status).color}`}>
-                    {getStatusMeta(project.status).label}
+                  <Badge variant="secondary" className={`text-xs ${getStatusMeta(project?.status ?? 'not_started').color}`}>
+                    {getStatusMeta(project?.status ?? 'not_started').label}
                   </Badge>
-                  <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
-                    {project.priority.toUpperCase()}
+                  <Badge className={`text-xs ${getPriorityColor(project?.priority ?? 'none')} hover:bg-inherit hover:text-inherit`}>
+                    {(project?.priority ?? 'none').toUpperCase()}
                   </Badge>
                   <Edit
                     className="w-4 h-4 cursor-pointer hover:scale-110 transition"
@@ -675,7 +838,7 @@ const ProjectDetail = () => {
                 </div>
                 {/* Title on its own row beside vertical line */}
                 <div className="mt-2">
-                  <h1 className="font-sora font-bold text-3xl text-gray-900">{project.name}</h1>
+                  <h1 className="font-sora font-bold text-3xl text-gray-900">{project?.name ?? ''}</h1>
                 </div>
                 {/* Description moved to card in Overview tab */}
               </div>
@@ -692,7 +855,7 @@ const ProjectDetail = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-gray-700 whitespace-pre-line">
-                  {project.description || '—'}
+                  {project?.description || '—'}
                 </div>
               </CardContent>
             </Card>
@@ -708,13 +871,13 @@ const ProjectDetail = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Progress</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats?.progress_percent ?? project.progress}%</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats?.progress_percent ?? project?.progress ?? 0}%</p>
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                       <Target className="w-6 h-6 text-blue-600" />
                     </div>
                   </div>
-                  <Progress value={stats?.progress_percent ?? project.progress} className="mt-3" />
+                  <Progress value={stats?.progress_percent ?? project?.progress ?? 0} className="mt-3" />
                 </CardContent>
               </Card>
 
@@ -723,7 +886,7 @@ const ProjectDetail = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Tasks Completed</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats?.tasks_completed ?? project.completedTasks}/{stats?.tasks_total ?? project.tasksCount}</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats?.tasks_completed ?? project?.completedTasks ?? 0}/{stats?.tasks_total ?? project?.tasksCount ?? 0}</p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-green-600" />
@@ -732,7 +895,22 @@ const ProjectDetail = () => {
                 </CardContent>
               </Card>
 
-              {/* Team Members stat card removed per request */}
+              {/* Bugs Reported stats card */}
+              <Card className="glass border-0 shadow-tasksmate">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Bugs Reported</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {stats?.bugs_reported ?? 0}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                      <Bug className="w-6 h-6 text-red-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               <Card className="glass border-0 shadow-tasksmate">
                 <CardContent className="p-6">
@@ -740,7 +918,7 @@ const ProjectDetail = () => {
                     <div>
                       <p className="text-sm text-gray-600">Days Left</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {stats?.days_left ?? Math.ceil((new Date(project.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
+                        {stats?.days_left ?? (project?.endDate ? Math.ceil((new Date(project.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0)}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -772,16 +950,16 @@ const ProjectDetail = () => {
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">Start Date</span>
-                          <span className="font-medium">{new Date(project.startDate).toLocaleDateString()}</span>
+                          <span className="font-medium">{project?.startDate ? new Date(project.startDate).toLocaleDateString() : '-'}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">End Date</span>
-                          <span className="font-medium">{new Date(project.endDate).toLocaleDateString()}</span>
+                          <span className="font-medium">{project?.endDate ? new Date(project.endDate).toLocaleDateString() : '-'}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">Duration</span>
                           <span className="font-medium">
-                            {Math.ceil((new Date(project.endDate).getTime() - new Date(project.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
+                            {project?.endDate && project?.startDate ? Math.ceil((new Date(project.endDate).getTime() - new Date(project.startDate).getTime()) / (1000 * 60 * 60 * 24)) : 0} days
                           </span>
                         </div>
                       </div>
@@ -791,12 +969,13 @@ const ProjectDetail = () => {
                   {/* Team Members */}
                   <Card className="glass border-0 shadow-tasksmate">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Users className="w-5 h-5" />
-                        Team Members ({teamMembers.length})
-
-                        {userRole === "owner" || userRole === "admin" && (
-                          <Button variant="ghost" onClick={openAddMemberModal}>
+                      <CardTitle className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2">
+                          <Users className="w-5 h-5" />
+                          Team Members ({teamMembers.length})
+                        </span>
+                        {(userRole === "owner" || userRole === "admin") && (
+                          <Button size="icon" variant="ghost" onClick={openAddMemberModal}>
                             <Plus className="w-4 h-4" />
                           </Button>
                         )}
@@ -812,17 +991,16 @@ const ProjectDetail = () => {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-sm font-medium">{member.displayName}</p>
+                              <p className="text-sm font-medium">{member.displayName ?? deriveDisplayFromEmail(member.name ?? member.email ?? "").displayName}</p>
                               <p className="text-xs text-gray-600">{member.role}</p>
                               <p className="text-xs text-gray-600">{member.designation}</p>
                             </div>
 
-                            {
-                              userRole === "owner" || userRole === "admin" && (
-                                <Button variant="ghost" onClick={() => handleDeleteMember(member)}>
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              )}
+                            {userRole === "owner" && member.role !== "owner" && (
+                              <Button title="Remove member" variant="ghost" onClick={() => handleDeleteMember(member)} className="ml-auto">
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </Button>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1277,6 +1455,9 @@ const ProjectDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Member Modal */}
+      <AddMemberDialog />
     </div>
   );
 };
