@@ -37,7 +37,15 @@ export function getPriorityColor(priority: string): string {
 
 export function formatDate(dateStr?: string | null): string {
   if (!dateStr) return "—";
-  const d = new Date(dateStr);
+  // Treat any ISO-like string that starts with YYYY-MM-DD as a local date (ignore timezone)
+  const head = /^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(dateStr);
+  let d: Date;
+  if (head) {
+    const [_, y, mo, da] = head;
+    d = new Date(Number(y), Number(mo) - 1, Number(da));
+  } else {
+    d = new Date(dateStr);
+  }
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString('en-US', {
     month: 'short',
