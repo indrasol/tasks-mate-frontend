@@ -20,8 +20,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { useSearchParams } from 'react-router-dom';
-import { BackendOrgMember, BackendOrgMemberInvite, OrgMember, OrgMemberInvite } from '@/types/organization';
+import { BackendOrg, BackendOrgMember, BackendOrgMemberInvite, OrgMember, OrgMemberInvite } from '@/types/organization';
 import { format } from 'path';
+import { useCurrentOrganization } from '@/hooks/useCurrentOrganization';
 
 interface TeamMember {
   id: string;
@@ -64,6 +65,10 @@ const TeamMembers = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const orgId = searchParams.get('org_id');
+
+  const { data: currentOrganization } = useCurrentOrganization(orgId);
+
+  // console.log(currentOrganization,'currentOrganization');
 
   useEffect(() => {
     if (user && orgId) {
@@ -178,10 +183,13 @@ const TeamMembers = () => {
     try {
       const payload = {
         org_id: orgId,
+        org_name: currentOrganization?.name,
         email: inviteEmail.trim(),
         role: inviteRole.trim(),
         designation: inviteDesignation.trim(),
       };
+
+      // console.log(payload);
 
       const data = await api.post(API_ENDPOINTS.ORGANIZATION_INVITES, payload);
 
@@ -252,6 +260,54 @@ const TeamMembers = () => {
       setTeamMembers(prev => prev.map(m => m.user_id === memberId ? { ...m, designation: value } : m));
     }
   };
+
+  const handleChangeRole = async (orgId: string, memberId: string, value: string, email?: string, type?: string) => {
+
+    // TODO: call backend API to persist designation change
+    if (type === "invited") {
+      try {
+        const data = await api.put(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
+          email: email,
+          org_id: orgId,
+          role: value
+        });
+      } catch (error) {
+        console.error('Error updating role:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update role",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else {
+      try {
+        const data = await api.put(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`, {
+          user_id: memberId,
+          org_id: orgId,
+          role: value
+        });
+      } catch (error) {
+        console.error('Error updating role:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update role",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    toast({
+      title: "Success",
+      description: "Role updated successfully"
+    });
+    if (type === "invited") {
+      setInvitedTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: value } : m));
+    } else {
+      setTeamMembers(prev => prev.map(m => m.user_id === memberId ? { ...m, role: value } : m));
+    }
+  };
+
 
   const handleRemoveTeamMember = async (orgId: string, memberId: string, type?: string) => {
     // setTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m } : m));
@@ -485,7 +541,7 @@ const TeamMembers = () => {
                         {member.email}
                       </TableCell>
                       <TableCell>
-                        <Select defaultValue={member.role}>
+                        <Select defaultValue={member.role} disabled={member.role === 'owner'} onValueChange={(val) => handleChangeRole(member.org_id, member.user_id, val)}>
                           <SelectTrigger className="w-24">
                             <SelectValue />
                           </SelectTrigger>
@@ -579,7 +635,7 @@ const TeamMembers = () => {
                         {member.email}
                       </TableCell>
                       <TableCell>
-                        <Select defaultValue={member.role} disabled={member.role === 'owner'}>
+                        <Select defaultValue={member.role} disabled={member.role === 'owner'}  onValueChange={(val) => handleChangeRole(member.org_id, member.id, val, member.email, "invited")}>
                           <SelectTrigger className="w-24">
                             <SelectValue />
                           </SelectTrigger>

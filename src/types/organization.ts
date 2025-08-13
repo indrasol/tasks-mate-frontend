@@ -15,10 +15,17 @@ export interface Organization {
 export interface OrganizationInvitation {
   id: string;
   org_id: string;
-  org_name: string;
-  role: string;
+  org_name?: string;
+  role?: string;
+  designation?: string;
   invited_by: string;
-  invited_at: string;
+  sent_at?: string;
+  expires_at?: string;
+  cancel_date?: string;
+  created_at?: string;
+  updated_at?: string;
+  accepted_at?: string;
+  accepted_by?: string;
   email: string;
   status: 'pending' | 'accepted' | 'rejected';
 }
