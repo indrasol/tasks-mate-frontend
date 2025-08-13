@@ -41,6 +41,23 @@ export const taskService = {
     return api.del(`${API_ENDPOINTS.TASKS}/${taskId}/subtasks/${subtaskId}`, {});
   },
   
+  // ----------------- Dependencies -----------------
+  async addDependency(taskId: string, dependencyId: string) {
+    try {
+      return await api.post(`${API_ENDPOINTS.TASKS}/${taskId}/dependencies`, { dependency_id: dependencyId });
+    } catch (e: any) {
+      // Fallback when the endpoint isn't available yet (optional)
+      throw e;
+    }
+  },
+  async removeDependency(taskId: string, dependencyId: string) {
+    try {
+      return await api.del(`${API_ENDPOINTS.TASKS}/${taskId}/dependencies/${dependencyId}`, {});
+    } catch (e: any) {
+      throw e;
+    }
+  },
+  
   async deleteTask(taskId: string) {
     return api.del(`${API_ENDPOINTS.TASKS}/${taskId}`, {});
   },
@@ -51,25 +68,37 @@ export const taskService = {
   async uploadTaskAttachment(projectId: string, data: any) {
     return api.post(`${API_ENDPOINTS.TASK_ATTACHMENTS}?project_id=${projectId}`, data);
   },
+
+  async uploadTaskAttachmentForm(projectId: string, taskId: string, file: File, title?: string) {
+    const form = new FormData();
+    form.append("project_id", projectId);
+    form.append("task_id", taskId);
+    if (title) form.append("title", title);
+    form.append("file", file);
+    // IMPORTANT: let fetch set multipart headers; don't set Content-Type manually
+    return api.post(`${API_ENDPOINTS.TASK_ATTACHMENTS}?project_id=${encodeURIComponent(projectId)}`, form);
+  },
+
   async deleteTaskAttachment(attachmentId: string, projectId: string) {
     return api.del(`${API_ENDPOINTS.TASK_ATTACHMENTS}/${attachmentId}?project_id=${projectId}`, {});
   },
   // History
-  async getTaskHistory(taskId: string) {
-    return api.get(`${API_ENDPOINTS.TASK_HISTORY}?task_id=${taskId}`);
+  async getTaskHistory(taskId: string, taskTitle?: string) {
+    const q = new URLSearchParams({ task_id: taskId, ...(taskTitle ? { title: taskTitle } : {}) } as any).toString();
+    return api.get(`${API_ENDPOINTS.TASK_HISTORY}?${q}`);
   },
   async addTaskHistory(projectId: string, data: any) {
     return api.post(`${API_ENDPOINTS.TASK_HISTORY}?project_id=${projectId}`, data);
   },
   // Supabase Storage: Task Attachment
-  async uploadTaskAttachmentToStorage({ projectId, taskId, file }: { projectId: string, taskId: string, file: File }) {
-    const attachmentId = uuidv4();
-    const path = `${projectId}/${taskId}/${attachmentId}/${file.name}`;
-    const { error } = await supabase.storage.from('task-attachments').upload(path, file, { upsert: true });
-    if (error) throw error;
-    const { data } = supabase.storage.from('task-attachments').getPublicUrl(path);
-    return { url: data.publicUrl, path, attachmentId };
-  },
+  // async uploadTaskAttachmentToStorage({ projectId, taskId, file }: { projectId: string, taskId: string, file: File }) {
+  //   const attachmentId = uuidv4();
+  //   const path = `${projectId}/${taskId}/${attachmentId}/${file.name}`;
+  //   const { error } = await supabase.storage.from('task-attachments').upload(path, file, { upsert: true });
+  //   if (error) throw error;
+  //   const { data } = supabase.storage.from('task-attachments').getPublicUrl(path);
+  //   return { url: data.publicUrl, path, attachmentId };
+  // },
   // Supabase Storage: Task Inline Image
   async uploadTaskInlineImageToStorage({ projectId, taskId, file }: { projectId: string, taskId: string, file: File }) {
     const imageId = uuidv4();

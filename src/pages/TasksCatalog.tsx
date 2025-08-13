@@ -681,41 +681,42 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       </div>
 
                       <div className="pb-2">
-                        {/* Start Date + Due + Created */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
+                        {/* Start Date + Due */}
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-1 whitespace-nowrap">
                             <span className="text-gray-600 text-xs">Start date:</span>
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
-                            {formatDate(task.startDate ?? task.createdDate)}
-                          </Badge>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-gray-600 text-xs">Due date:</span>
-                            <Badge variant="secondary" className="bg-rose-100 text-rose-800 text-xs">
-                            {task.targetDate ? formatDate(task.targetDate) : '—'}
-                          </Badge>
-                        </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-gray-600 text-xs">Created:</span>
-                            <Badge variant="secondary" className="bg-gray-100 text-gray-800 text-xs">
-                              {formatDate(task.createdDate)}
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs whitespace-nowrap">
+                              {formatDate(task.startDate ?? task.createdDate)}
                             </Badge>
                           </div>
+                          <div className="flex items-center gap-1 whitespace-nowrap">
+                            <span className="text-gray-600 text-xs">Due date:</span>
+                            <Badge variant="secondary" className="bg-rose-100 text-rose-800 text-xs whitespace-nowrap">
+                              {task.targetDate ? formatDate(task.targetDate) : '—'}
+                            </Badge>
+                          </div>
+                        </div>
                       </div>
-
-
-                      </div>
+ 
 
                       {/* Footer with metadata and comments */}
                       <div className="pt-4 border-t border-gray-200">
                         {/* Single row with metadata and comments */}
                         <div className="flex items-center justify-between">
                           {/* Metadata as colored tags */}
-                          <div className="flex flex-wrap items-center gap-1">
-                            <span className="text-gray-600 text-xs">Project:</span>
-                            <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
-                              {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
-                            </Badge>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-1 whitespace-nowrap">
+                              <span className="text-gray-600 text-xs">Project:</span>
+                              <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
+                                {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1 whitespace-nowrap">
+                              <span className="text-gray-600 text-xs">Created:</span>
+                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                                {formatDate(task.createdDate)}
+                              </Badge>
+                            </div>
                           </div>
 
                           {/* Comments */}

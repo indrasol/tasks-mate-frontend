@@ -26,9 +26,10 @@ async function request<T>(
   const timer = setTimeout(() => controller.abort(), timeout);
 
   const token = getToken();
+  const isFormDataBody = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(!isFormDataBody ? { "Content-Type": "application/json" } : {}),
     ...options.headers,
   };
 
@@ -49,6 +50,18 @@ async function request<T>(
       // Prefer backend-provided error descriptions
       const errorMessage = body?.detail ?? body?.message ?? response.statusText;
       throw new Error(errorMessage);
+    }
+
+    // Handle empty responses (e.g., 204 No Content) gracefully
+    if (response.status === 204) {
+      return undefined as unknown as T;
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      // If server didn't return JSON, avoid parsing errors
+      const text = await response.text();
+      return (text as unknown) as T;
     }
 
     return (await response.json()) as T;

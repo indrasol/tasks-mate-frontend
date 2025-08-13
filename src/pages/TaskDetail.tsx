@@ -39,6 +39,7 @@ import { toast } from "sonner";
 // import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 import AddSubtaskModal from "@/components/tasks/AddSubtaskModal";
+import AddDependencyModal from "@/components/tasks/AddDependencyModal";
 import { taskService } from "@/services/taskService";
 import { api } from "@/services/apiService";
 import { API_ENDPOINTS } from "@/../config";
@@ -60,6 +61,7 @@ const TaskDetail = () => {
   const [description, setDescription] = useState('');
   const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
   const [isAddSubtaskOpen, setIsAddSubtaskOpen] = useState(false);
+  const [isAddDependencyOpen, setIsAddDependencyOpen] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(true);
   const [isEditTaskOpen, setIsEditTaskOpen] = useState(false);
   const [isDeleteTaskOpen, setIsDeleteTaskOpen] = useState(false);
@@ -121,6 +123,23 @@ const TaskDetail = () => {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [projectsMap, setProjectsMap] = useState<Record<string, string>>({});
 
+  // Local date helpers to avoid timezone off-by-one issues
+  const toYMDLocal = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const fromYMDLocal = (s?: string): Date | undefined => {
+    if (!s) return undefined;
+    const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(s);
+    if (!m) return undefined;
+    const [_, y, mo, d] = m;
+    return new Date(Number(y), Number(mo) - 1, Number(d));
+  };
+
+  // Note: Changes in details are saved via the "Save Changes" button to create a single, consolidated history event
+
   useEffect(() => {
     if (!taskId) return;
     setLoading(true);
@@ -146,6 +165,7 @@ const TaskDetail = () => {
           project_id: data.project_id,
           createdBy: data.created_by,
           createdDate: data.created_at,
+          dependencies: data.dependencies ?? [],
         };
 
         setTask(mapped);
@@ -198,27 +218,27 @@ const TaskDetail = () => {
   }, [taskId]);
 
   // Fetch attachments
-  // useEffect(() => {
-  //   if (!taskId) return;
-  //   setLoadingAttachments(true);
-  //   setAttachmentsError(null);
-  //   taskService.getTaskAttachments(taskId)
-  //     .then((data: any[]) => {
-  //       setAttachments(data || []);
-  //       setLoadingAttachments(false);
-  //     })
-  //     .catch((err: any) => {
-  //       setAttachmentsError(err.message || "Failed to load attachments");
-  //       setLoadingAttachments(false);
-  //     });
-  // }, [taskId]);
+  useEffect(() => {
+    if (!taskId) return;
+    setLoadingAttachments(true);
+    setAttachmentsError(null);
+    taskService.getTaskAttachments(taskId)
+      .then((data: any[]) => {
+        setAttachments(data || []);
+        setLoadingAttachments(false);
+      })
+      .catch((err: any) => {
+        setAttachmentsError(err.message || "Failed to load attachments");
+        setLoadingAttachments(false);
+      });
+  }, [taskId]);
 
   // Fetch history
   const fetchHistory = () => {
     if (!taskId) return;
     setLoadingHistory(true);
     setHistoryError(null);
-    taskService.getTaskHistory(taskId)
+    taskService.getTaskHistory(taskId, taskName || task?.name)
       .then((data: any[]) => {
         setHistory(data || []);
         setLoadingHistory(false);
@@ -229,9 +249,7 @@ const TaskDetail = () => {
       });
   };
 
-  useEffect(() => {
-    if(task?.task_id) fetchHistory();
-  }, [task, task?.task_id]);
+  // Remove automatic history refetch on every local task change; fetch only when needed
 
   // Fetch full subtask details
   useEffect(() => {
@@ -272,14 +290,15 @@ const TaskDetail = () => {
         priority,
       };
       if (task?.project_id) payload.project_id = task.project_id;
-      if (task?.startDate) payload.start_date = new Date(task.startDate);
-      if (task?.targetDate) payload.due_date = new Date(task.targetDate);
+      if (task?.startDate) payload.start_date = toYMDLocal(fromYMDLocal(task.startDate) || new Date());
+      if (task?.targetDate) payload.due_date = toYMDLocal(fromYMDLocal(task.targetDate) || new Date());
       if (Array.isArray(task?.tags)) payload.tags = task.tags;
       await taskService.updateTask(taskId, payload);
       toast.success('Task changes saved successfully!');
       fetchHistory();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to save changes');
+      const msg = err?.message || (err?.detail ? String(err.detail) : 'Failed to save changes');
+      toast.error(msg);
     }
   };
 
@@ -300,10 +319,14 @@ const TaskDetail = () => {
         project_id: task.project_id,
         title: taskName || task.name
       });
-    } catch (err) {
+      // Refresh history to reflect the change immediately
+      fetchHistory();
+    } catch (err: any) {
       // revert on failure
       setStatus(prevStatus);
       setTask((prev: any) => ({ ...prev, status: prevStatus }));
+      const msg = err?.message || (err?.detail ? String(err.detail) : 'Failed to update status');
+      toast.error(msg);
     }
   };
 
@@ -396,6 +419,7 @@ const TaskDetail = () => {
       await taskService.addSubtask(taskId, selectedTask.id);
       setSubtasks(prev => [...prev, selectedTask.id]);
       toast.success(`Subtask "${selectedTask.name}" added successfully!`);
+      fetchHistory();
     } catch (err: any) {
       toast.error(err.message || 'Failed to add subtask');
     }
@@ -436,8 +460,67 @@ const TaskDetail = () => {
       await taskService.removeSubtask(taskId, subtaskId);
       setSubtasks(prev => prev.filter(id => id !== subtaskId));
       toast.success('Subtask deleted successfully!');
+      fetchHistory();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete subtask');
+    }
+  };
+
+  // Dependencies handlers
+  const handleAddDependency = async (selectedTask: any) => {
+    if (!taskId) return;
+    try {
+      await taskService.addDependency(taskId, selectedTask.id);
+      setTask((prev: any) => ({ ...prev, dependencies: [...(prev?.dependencies ?? []), selectedTask.id] }));
+      setDependencyDetails((prev: any[]) => [...prev, selectedTask]);
+      toast.success(`Dependency "${selectedTask.name}" added successfully!`);
+      fetchHistory();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add dependency');
+    }
+  };
+  
+  const handleDeleteDependency = async (dependencyId: string) => {
+    if (!taskId) return;
+    try {
+      await taskService.removeDependency(taskId, dependencyId);
+      setTask((prev: any) => ({ ...prev, dependencies: (prev?.dependencies ?? []).filter((id: string) => id !== dependencyId) }));
+      setDependencyDetails((prev: any[]) => prev.filter((d: any) => (d.task_id ?? d.id) !== dependencyId));
+      toast.success('Dependency removed successfully!');
+      fetchHistory();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove dependency');
+    }
+  };
+  
+  const handleDependencyToggle = async (dependencyId: string) => {
+    // Find dependency
+    const idx = dependencyDetails.findIndex((d: any) => (d.task_id ?? d.id) === dependencyId);
+    if (idx === -1) return;
+    const dep = dependencyDetails[idx];
+    const prevStatus: string = dep.status ?? 'not_started';
+    const newStatus: string = prevStatus === 'completed' ? 'not_started' : 'completed';
+
+    // Optimistic update
+    setDependencyDetails((prev: any[]) => {
+      const next = [...prev];
+      next[idx] = { ...dep, status: newStatus };
+      return next;
+    });
+
+    try {
+      await taskService.updateTask(dependencyId, {
+        status: newStatus,
+        project_id: dep.project_id,
+        title: dep.title ?? dep.name,
+      });
+    } catch (e) {
+      // revert on failure
+      setDependencyDetails((prev: any[]) => {
+        const next = [...prev];
+        next[idx] = { ...dep, status: prevStatus };
+        return next;
+      });
     }
   };
 
@@ -446,38 +529,24 @@ const TaskDetail = () => {
     if (!files || !task?.project_id || !taskId) return;
     try {
       for (const file of Array.from(files)) {
-        // 1. Upload to Supabase Storage
-        const { url, path, attachmentId } = await taskService.uploadTaskAttachmentToStorage({
-          projectId: task.project_id,
-          taskId,
-          file,
-        });
-        // 2. Save metadata to backend
-        await taskService.uploadTaskAttachment(task.project_id, {
-          task_id: taskId,
-          name: file.name,
-          url,
-          path,
-          attachment_id: attachmentId,
-        });
+        await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name);
       }
-      // Refresh attachments
       const data: any[] = await taskService.getTaskAttachments(taskId);
-      if (data)
-        setAttachments(data);
-      else
-        setAttachments([])
+      setAttachments(Array.isArray(data) ? data : []);
       toast.success('Attachment(s) uploaded!');
+      fetchHistory();
     } catch (err: any) {
       toast.error(err.message || 'Failed to upload attachment');
     }
   };
+
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!task?.project_id) return;
     try {
       await taskService.deleteTaskAttachment(attachmentId, task.project_id);
       setAttachments(attachments.filter(a => a.attachment_id !== attachmentId));
       toast.success('Attachment deleted!');
+      fetchHistory();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete attachment');
     }
@@ -579,6 +648,32 @@ const TaskDetail = () => {
                       return `👤 ${displayName}`;
                     })()}
                   </Badge>
+                  {/* Status selector (moved from Details card) */}
+                  <Select value={status} onValueChange={(v) => { setStatus(v as string); }}>
+                    <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {statusOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusMeta(s as any).color}`}>{getStatusMeta(s as any).label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {/* Priority selector (moved from Details card) */}
+                  <Select value={priority} onValueChange={(v) => { setPriority(v as typeof priority); }}>
+                    <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {priorityOptions.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {/* Edit icon removed as requested */}
                   <Button
                     variant="ghost"
@@ -765,6 +860,129 @@ const TaskDetail = () => {
                         </div>
 
                         {/* Actions removed here as they are placed at far right of first row */}
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              {/* Documents Section - Enhanced */}
+              {/* Dependencies */}
+              <Card className="glass border-0 shadow-tasksmate">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="font-sora">Dependencies</CardTitle>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="micro-lift"
+                      onClick={() => setIsAddDependencyOpen(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Dependency
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {dependencyDetails.map((dep: any) => {
+                    const depId = dep.task_id ?? dep.id;
+                    return (
+                      <div key={depId} className="flex flex-wrap items-start gap-2 p-3 rounded-lg bg-white/50 micro-lift group">
+                        {/* Toggle */}
+                        <Button variant="ghost" size="sm" className="p-0 h-auto" onClick={() => handleDependencyToggle(depId)}>
+                          {(dep.status ?? '') === 'completed' ? <CheckCircle className="h-5 w-5 text-tasksmate-green-end" /> : <Circle className="h-5 w-5 text-gray-400" />}
+                        </Button>
+
+                        {/* Task ID */}
+                        <CopyableIdBadge id={String(depId)} isCompleted={(dep.status ?? '') === 'completed'} />
+
+                        {/* Owner, Status, Priority badges */}
+                        <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                          {(() => {
+                            const { displayName } = deriveDisplayFromEmail((dep.assignee ?? '') as string);
+                            return `👤 ${displayName}`;
+                          })()}
+                        </Badge>
+                        <Badge variant="secondary" className={`text-xs ${getStatusMeta((dep.status || 'not_started') as any).color}`}>
+                          {getStatusMeta((dep.status || 'not_started') as any).label}
+                        </Badge>
+                        <Badge variant="outline" className={`text-xs ${getPriorityColor(dep.priority ?? 'none')}`}>{(dep.priority ?? 'none').toUpperCase()}</Badge>
+
+                        {/* Project */}
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-gray-600 text-xs">Project:</span>
+                          <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
+                            {projectsMap[dep.project_id as string] ?? (dep.project_name ?? '—')}
+                          </Badge>
+                        </div>
+
+                        {/* Dates */}
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-gray-600 text-xs">Start date:</span>
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                            {formatDate(dep.start_date ?? dep.created_at)}
+                          </Badge>
+                        </div>
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-gray-600 text-xs">Due date:</span>
+                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                            {dep.due_date ? formatDate(dep.due_date) : '—'}
+                          </Badge>
+                        </div>
+
+                        {/* Created date */}
+                        <div className="inline-flex items-center gap-1">
+                          <span className="text-gray-600 text-xs">Created:</span>
+                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                            {formatDate(dep.created_at)}
+                          </Badge>
+                        </div>
+
+                        {/* Tags (show up to 2, then +N) */}
+                        {Array.isArray(dep.tags) && dep.tags.length > 0 && (
+                          <div className="inline-flex items-center gap-1 flex-wrap">
+                            <span className="text-gray-600 text-xs">Tags:</span>
+                            {dep.tags.slice(0, 2).map((tag: string, idx: number) => (
+                              <Badge key={`${depId}-tag-${idx}`} variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {dep.tags.length > 2 && (
+                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{dep.tags.length - 2}</Badge>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Actions to the far right */}
+                        <div className="ml-auto flex items-center gap-1">
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
+                            const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                          }}>
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" onClick={() => handleDeleteDependency(depId)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {/* Content Column */}
+                        <div className="flex flex-col min-w-0 basis-full w-full mt-1">
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 min-w-0">
+                            <span className="font-bold">Title :</span>
+                            <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                              {dep.title ?? dep.name}
+                            </span>
+                          </div>
+                          {dep.description && (
+                            <div className="flex flex-wrap items-center gap-1 text-sm text-gray-700 mt-2 min-w-0">
+                              <span className="font-bold">Description :</span>
+                              <span className={`truncate max-w-[20rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                                {dep.description}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -1000,7 +1218,7 @@ const TaskDetail = () => {
                       <Label className="text-sm text-gray-600">Project</Label>
                       <Select
                         value={task.project_id}
-                        onValueChange={(id) => setTask((prev: any) => ({ ...prev, project_id: id }))}
+                        onValueChange={(id) => { setTask((prev: any) => ({ ...prev, project_id: id })); }}
                       >
                         <SelectTrigger className="text-xs bg-cyan-100 text-cyan-800 rounded-full px-2 py-1 h-6 border-0 w-fit min-w-0 inline-flex hover:bg-cyan-100">
                           <SelectValue placeholder={projectName ?? task.project_name ?? '—'} />
@@ -1025,8 +1243,8 @@ const TaskDetail = () => {
                         <PopoverContent align="end" className="p-2">
                           <CalendarPicker
                             mode="single"
-                            selected={task.startDate ? new Date(task.startDate) : (task.createdDate ? new Date(task.createdDate) : undefined)}
-                            onSelect={(d: any) => d && setTask((prev: any) => ({ ...prev, startDate: d.toISOString().slice(0, 10) }))}
+                            selected={fromYMDLocal(task.startDate) || (task.createdDate ? new Date(task.createdDate) : undefined)}
+                            onSelect={(d: any) => { if (!d) return; setTask((prev: any) => ({ ...prev, startDate: toYMDLocal(d) })); }}
                           />
                         </PopoverContent>
                       </Popover>
@@ -1044,8 +1262,8 @@ const TaskDetail = () => {
                         <PopoverContent align="end" className="p-2">
                           <CalendarPicker
                             mode="single"
-                            selected={task.targetDate ? new Date(task.targetDate) : undefined}
-                            onSelect={(d: any) => d && setTask((prev: any) => ({ ...prev, targetDate: d.toISOString().slice(0, 10) }))}
+                            selected={fromYMDLocal(task.targetDate)}
+                            onSelect={(d: any) => { if (!d) return; setTask((prev: any) => ({ ...prev, targetDate: toYMDLocal(d) })); }}
                           />
                         </PopoverContent>
                       </Popover>
@@ -1103,46 +1321,17 @@ const TaskDetail = () => {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between mt-2">
-                      <Label className="text-sm text-gray-600">Status</Label>
-                      <Select value={status} onValueChange={(v) => setStatus(v as string)}>
-                        <SelectTrigger className="bg-transparent border-0 p-0 h-auto flex items-center gap-1 w-fit min-w-[6rem]">
-                          <SelectValue
-                            placeholder="Status"
-                            className="text-xs"
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map((s) => (
-                            <SelectItem key={s} value={s}>
-                              <span className={`px-2 py-1 rounded-full text-xs ${getStatusMeta(s as any).color}`}>{getStatusMeta(s as any).label}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm text-gray-600">Priority</Label>
-                      <Select value={priority} onValueChange={(v) => setPriority(v as typeof priority)}>
-                        <SelectTrigger className="bg-transparent border-0 p-0 h-auto flex items-center gap-1 w-fit min-w-[6rem]">
-                          <SelectValue placeholder="Priority" className="text-xs" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {priorityOptions.map((p) => (
-                            <SelectItem key={p} value={p}>
-                              <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {/* Status and Priority moved to header */}
                   </div>
                 </CardContent>
               </Card>
 
               {/* History */}
-              <HistoryCard history={history} isLoading={loadingHistory} />
+              <HistoryCard
+                history={history}
+                isLoading={loadingHistory}
+                projectNameById={(id: string) => projectsMap[id]}
+              />
 
               {/* <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
@@ -1194,6 +1383,16 @@ const TaskDetail = () => {
           onOpenChange={setIsAddSubtaskOpen}
           onSubtaskAdded={handleAddSubtask}
           excludeIds={[...(subtasks || []), ...(taskId ? [taskId] : [])]}
+        />
+        {/* Dependencies modal */}
+        <AddDependencyModal
+          open={isAddDependencyOpen}
+          onOpenChange={setIsAddDependencyOpen}
+          onDependencyAdded={handleAddDependency}
+          excludeIds={[
+            ...(Array.isArray(task?.dependencies) ? task.dependencies : []),
+            ...(taskId ? [taskId] : []),
+          ]}
         />
         {/* Edit Task - reuse NewTaskModal in edit mode */}
         {task && (
