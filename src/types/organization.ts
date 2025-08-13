@@ -15,10 +15,17 @@ export interface Organization {
 export interface OrganizationInvitation {
   id: string;
   org_id: string;
-  org_name: string;
-  role: string;
+  org_name?: string;
+  role?: string;
+  designation?: string;
   invited_by: string;
-  invited_at: string;
+  sent_at?: string;
+  expires_at?: string;
+  cancel_date?: string;
+  created_at?: string;
+  updated_at?: string;
+  accepted_at?: string;
+  accepted_by?: string;
   email: string;
   status: 'pending' | 'accepted' | 'rejected';
 }
@@ -70,6 +77,8 @@ export type BackendOrgMember = {
 
 export type OrgMember = {
     id: string; // Unique identifier for the member
+    user_id: string; // User ID (UUID)
+    org_id: string; // Organization ID (UUID)
     email: string; // Username of the member
     role: string; // Role of the member in the organization
     designation?: string; // Designation of the member, optional
@@ -110,6 +119,7 @@ export type BackendOrgMemberInvite = {
 
 export type OrgMemberInvite = {
     id: string; // Unique identifier for the member
+    org_id: string; // Organization ID (UUID)
     email: string; // Username of the member
     role: string; // Role of the member in the organization
     designation?: string; // Designation of the member, optional

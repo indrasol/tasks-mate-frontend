@@ -578,10 +578,10 @@ const Organizations = () => {
                   >
                     <div>
                       <div className="font-medium text-gray-800 dark:text-gray-100">
-                        Invitation to join <span className="font-semibold">{invite.org_id || invite.org_name}</span>
+                        Invitation to join <span className="font-semibold">{invite.org_name || invite.org_id}</span>
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        Invited by {invite.invited_by} on {formatDate(invite.invited_at)} • Role: {capitalizeWords(invite.role)}
+                        Invited by {invite.invited_by} on {formatDate(invite.sent_at)} {invite.role && ` • Role: ${capitalizeWords(invite.role)}`} {invite.designation && ` • Designation: ${capitalizeWords(invite.designation)}`}
                       </div>
                     </div>
                     <div className="flex items-center flex-shrink-0 gap-2">
