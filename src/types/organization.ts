@@ -70,6 +70,8 @@ export type BackendOrgMember = {
 
 export type OrgMember = {
     id: string; // Unique identifier for the member
+    user_id: string; // User ID (UUID)
+    org_id: string; // Organization ID (UUID)
     email: string; // Username of the member
     role: string; // Role of the member in the organization
     designation?: string; // Designation of the member, optional
@@ -110,6 +112,7 @@ export type BackendOrgMemberInvite = {
 
 export type OrgMemberInvite = {
     id: string; // Unique identifier for the member
+    org_id: string; // Organization ID (UUID)
     email: string; // Username of the member
     role: string; // Role of the member in the organization
     designation?: string; // Designation of the member, optional

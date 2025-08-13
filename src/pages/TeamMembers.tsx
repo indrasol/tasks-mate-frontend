@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import {
   Users,
   Search,
-  Plus
+  Plus,
+  X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { API_ENDPOINTS } from '../../config';
@@ -35,17 +36,22 @@ interface TeamMember {
 
 const TeamMembers = () => {
   const [teamMembers, setTeamMembers] = useState<OrgMember[]>([]);
+  const [teamMembersError, setTeamMembersError] = useState('');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('member');
+
   const [updating, setUpdating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const [invitedTeamMembers, setInvitedTeamMembers] = useState<OrgMember[]>([]);
+  const [invitedTeamMembers, setInvitedTeamMembers] = useState<OrgMemberInvite[]>([]);
+  const [invitedTeamMembersError, setInvitedTeamMembersError] = useState('');
   const [loadingInvited, setLoadingInvited] = useState(true);
   const [searchQueryInvited, setSearchQueryInvited] = useState('');
+
+  const [currentUserOrgRole, setCurrentUserOrgRole] = useState('');
 
 
   useEffect(() => {
@@ -53,7 +59,7 @@ const TeamMembers = () => {
     window.addEventListener('sidebar-toggle', handler);
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
-  const [designationOptions, setDesignationOptions] = useState<string[]>([]);
+
   const { toast } = useToast();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -66,6 +72,8 @@ const TeamMembers = () => {
     }
   }, [user, orgId]);
 
+  const [inviteDesignation, setInviteDesignation] = useState('');
+  const [designationOptions, setDesignationOptions] = useState<string[]>([]);
   // Fetch designations
   useEffect(() => {
     const fetchDesignations = async () => {
@@ -79,70 +87,49 @@ const TeamMembers = () => {
     fetchDesignations();
   }, []);
 
+  const [inviteRole, setInviteRole] = useState('member');
+  const [roleOptions, setRoleOptions] = useState<string[]>(["owner", "admin", "member"]);
+  // Fetch designations
+  // useEffect(() => {
+  //   const fetchRoles = async () => {
+  //     try {
+  //       const data = await api.get<{ name: string }[]>(API_ENDPOINTS.USER_ROLES);
+  //       setRoleOptions(data.map(d => d.name));
+  //     } catch (err) {
+  //       console.error('Error fetching roles', err);
+  //     }
+  //   };
+  //   fetchRoles();
+  // }, []);
+
   const fetchTeamMembers = async () => {
     setLoading(true);
+    setTeamMembersError('');
     try {
       // This would need to be implemented based on current organization
       const data = await api.get<BackendOrgMember[]>(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${orgId}`);
 
       const formattedOrgs: OrgMember[] = (data || []).map((org) => {
         const formattedOrg: OrgMember = {
-
           id: org.id,
+          org_id: org.org_id,
+          user_id: org.user_id,
           email: org.email,
           role: org.role,
           joined_at: org.accepted_at || org.invited_at || org.updated_at || '',
-          // project_count: org.project_count  || 0, // Default to 0 if not provided
-          designation: org.designation || undefined, // Keep as undefined if not provided
+          designation: org.designation || undefined,
         };
 
-        // Log each formatted org for debugging
-        // console.log(`Formatted org ${org.org_id}:`, formattedOrg);
         return formattedOrg;
       });
 
-      console.log(formattedOrgs);
-
       setTeamMembers(formattedOrgs);
 
+      setCurrentUserOrgRole(formattedOrgs.find(org => org.user_id === user?.id)?.role || 'member');
 
-      // For now, showing mock data
-      // setTeamMembers([
-      //   {
-      //     id: '1',
-      //     username: 'john.doe',
-      //     display_name: 'John Doe',
-      //     role: 'owner',
-      //     joined_at: '2024-01-15',
-      //     project_count: 5
-      //   },
-      //   {
-      //     id: '2',
-      //     username: 'jane.smith',
-      //     display_name: 'Jane Smith',
-      //     role: 'admin',
-      //     joined_at: '2024-02-01',
-      //     project_count: 3
-      //   },
-      //   {
-      //     id: '3',
-      //     username: 'mike.rodriguez',
-      //     display_name: 'Mike Rodriguez',
-      //     role: 'member',
-      //     joined_at: '2024-03-10',
-      //     project_count: 2
-      //   },
-      //   {
-      //     id: '4',
-      //     username: 'sarah.kim',
-      //     display_name: 'Sarah Kim',
-      //     role: 'admin',
-      //     joined_at: '2024-02-20',
-      //     project_count: 4
-      //   }
-      // ]);
     } catch (error) {
       console.error('Error fetching team members:', error);
+      setTeamMembersError('Error fetching team members');
       setTeamMembers([]);
     } finally {
       setLoading(false);
@@ -151,6 +138,7 @@ const TeamMembers = () => {
 
   const fetchInvitedTeamMembers = async () => {
     setLoadingInvited(true);
+    setInvitedTeamMembersError('');
     try {
       // This would need to be implemented based on current organization
       const data = await api.get<BackendOrgMemberInvite[]>(API_ENDPOINTS.ORGANIZATION_INVITES + `/org/${orgId}`);
@@ -159,24 +147,21 @@ const TeamMembers = () => {
         const formattedOrg: OrgMemberInvite = {
 
           id: org.id,
+          org_id: org.org_id,
           email: org.email,
           role: org.role,
           sent_at: org.sent_at || '',
-          // project_count: org.project_count  || 0, // Default to 0 if not provided
-          designation: org.designation || undefined, // Keep as undefined if not provided
+          designation: org.designation || undefined,
         };
 
-        // Log each formatted org for debugging
-        // console.log(`Formatted org ${org.org_id}:`, formattedOrg);
         return formattedOrg;
       });
 
-      console.log(formattedOrgs);
-
       setInvitedTeamMembers(formattedOrgs);
     } catch (error) {
-      console.error('Error fetching team members:', error);
+      console.error('Error fetching invited team members:', error);
       setInvitedTeamMembers([]);
+      setInvitedTeamMembersError('Error fetching invited team members');
     } finally {
       setLoadingInvited(false);
     }
@@ -195,29 +180,13 @@ const TeamMembers = () => {
         org_id: orgId,
         email: inviteEmail.trim(),
         role: inviteRole.trim(),
-        // designations: selectedDesignation ?? undefined,
+        designation: inviteDesignation.trim(),
       };
 
       const data = await api.post(API_ENDPOINTS.ORGANIZATION_INVITES, payload);
 
-      // Add the newly created organization member directly to state to avoid a full refetch
-      // const newOrg: Organization = {
-      //   org_id: data.org_id,
-      //   name: data.name,
-      //   description: data.description,
-      //   role: data.role,
-      //   designation: data.designation, // Keep as received from backend
-      //   project_count: data.project_count ?? 0,
-      //   member_count: data.member_count ?? 1,  // Default to 1 (the creator) if not provided
-      //   created_by: data.created_by,
-      //   created_at: data.created_at
-      // };
-
-      // setOrganizations(prev => [newOrg, ...prev]);
-
       fetchInvitedTeamMembers(); // Refresh team members list
 
-      // This would need organization context
       toast({
         title: "Success",
         description: "Invitation sent successfully"
@@ -237,14 +206,94 @@ const TeamMembers = () => {
     }
   };
 
-  const handleChangeDesignation = (memberId: string, value: string) => {
-    setTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m, designation: value } : m));
+  const handleChangeDesignation = async (orgId: string, memberId: string, value: string, email?: string, type?: string) => {
+
     // TODO: call backend API to persist designation change
+    if (type === "invited") {
+      try {
+        const data = await api.put(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
+          email: email,
+          org_id: orgId,
+          designation: value
+        });
+      } catch (error) {
+        console.error('Error updating designation:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update designation",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else {
+      try {
+        const data = await api.put(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`, {
+          user_id: memberId,
+          org_id: orgId,
+          designation: value
+        });
+      } catch (error) {
+        console.error('Error updating designation:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update designation",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    toast({
+      title: "Success",
+      description: "Designation updated successfully"
+    });
+    if (type === "invited") {
+      setInvitedTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m, designation: value } : m));
+    } else {
+      setTeamMembers(prev => prev.map(m => m.user_id === memberId ? { ...m, designation: value } : m));
+    }
   };
 
-  const handleRemoveTeamMember = (memberId: string) => {
+  const handleRemoveTeamMember = async (orgId: string, memberId: string, type?: string) => {
     // setTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m } : m));
     // TODO: call backend API to persist designation change
+
+    // TODO: call backend API to persist designation change
+    if (type === "invited") {
+      try {
+        const data = await api.del(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
+          org_id: orgId
+        });
+      } catch (error) {
+        console.error('Error removing member:', error);
+        toast({
+          title: "Error",
+          description: "Failed to remove member",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else {
+      try {
+        const data = await api.del(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`);
+      } catch (error) {
+        console.error('Error removing member:', error);
+        toast({
+          title: "Error",
+          description: "Failed to remove member",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    toast({
+      title: "Success",
+      description: "Member removed successfully"
+    });
+    if (type === "invited") {
+      setInvitedTeamMembers(prev => prev.filter(m => m.id !== memberId));
+    } else {
+      setTeamMembers(prev => prev.filter(m => m.id !== memberId));
+    }
   };
 
   const [filteredTeamMembers, setFilteredTeamMembers] = useState<OrgMember[]>([]);
@@ -252,18 +301,6 @@ const TeamMembers = () => {
   useEffect(() => {
     setFilteredTeamMembers(teamMembers);
   }, [teamMembers]);
-
-  const [filteredInvitedTeamMembers, setFilteredInvitedTeamMembers] = useState<OrgMember[]>([]);
-
-  useEffect(() => {
-    setFilteredInvitedTeamMembers(invitedTeamMembers);
-  }, [invitedTeamMembers]);
-
-  // const filteredTeamMembers = teamMembers.filter(member =>
-  //   member
-  //   // member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  //   // member.username.toLowerCase().includes(searchQuery.toLowerCase())
-  // );
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -275,13 +312,21 @@ const TeamMembers = () => {
       setFilteredTeamMembers(
         teamMembers.filter(member =>
           member.email?.toLowerCase().includes(e.target.value.toLowerCase()) ||
-          member.role.toLowerCase().includes(e.target.value.toLowerCase())
+          member.role.toLowerCase().includes(e.target.value.toLowerCase()) ||
+          member.designation.toLowerCase().includes(e.target.value.toLowerCase()) ||
+          member.joined_at.toLowerCase().includes(e.target.value.toLowerCase())
         )
       );
     }
   }
 
-   const handleFilterChangeInvited = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [filteredInvitedTeamMembers, setFilteredInvitedTeamMembers] = useState<OrgMemberInvite[]>([]);
+
+  useEffect(() => {
+    setFilteredInvitedTeamMembers(invitedTeamMembers);
+  }, [invitedTeamMembers]);
+
+  const handleFilterChangeInvited = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQueryInvited(e.target.value);
     // This will automatically filter the team members based on the search query
     if (e.target.value.trim() === '') {
@@ -291,7 +336,9 @@ const TeamMembers = () => {
       setFilteredInvitedTeamMembers(
         invitedTeamMembers.filter(member =>
           member.email?.toLowerCase().includes(e.target.value.toLowerCase()) ||
-          member.role.toLowerCase().includes(e.target.value.toLowerCase())
+          member.role.toLowerCase().includes(e.target.value.toLowerCase()) ||
+          member.designation.toLowerCase().includes(e.target.value.toLowerCase()) ||
+          member.sent_at.toLowerCase().includes(e.target.value.toLowerCase())
         )
       );
     }
@@ -306,6 +353,14 @@ const TeamMembers = () => {
         </div>
       </div>
     );
+  }
+
+  function capitalizeFirstLetter(opt: string): React.ReactNode {
+    // replace underscores with spaces
+    opt = opt.replace(/_/g, ' ');
+    // capitalize first letter of each word
+    opt = opt.replace(/\b\w/g, (char) => char.toUpperCase());
+    return opt;
   }
 
   return (
@@ -366,8 +421,26 @@ const TeamMembers = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="member">Member</SelectItem>
+                              {roleOptions.map((role) => (
+                                <SelectItem key={role} value={role}>
+                                  {capitalizeFirstLetter(role)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="inviteDesignation">Designation</Label>
+                          <Select value={inviteDesignation} onValueChange={setInviteDesignation}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {designationOptions.map((designation) => (
+                                <SelectItem key={designation} value={designation}>
+                                  {capitalizeFirstLetter(designation)}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -384,17 +457,15 @@ const TeamMembers = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {/* <TableHead>Member</TableHead> */}
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Designation</TableHead>
-                    {/* <TableHead>Projects</TableHead> */}
                     <TableHead>Joined</TableHead>
                     <TableHead>Remove</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTeamMembers.map((member) => (
+                  {filteredTeamMembers.length > 0 ? filteredTeamMembers.map((member) => (
                     <TableRow key={member.email}>
                       {/* <TableCell>
                         <div className="flex items-center space-x-3">
@@ -414,34 +485,43 @@ const TeamMembers = () => {
                         {member.email}
                       </TableCell>
                       <TableCell>
-                        <Select defaultValue={member.role} disabled={member.role === 'owner'}>
+                        <Select defaultValue={member.role}>
                           <SelectTrigger className="w-24">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="owner" disabled>Owner</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="member">Member</SelectItem>
+                            {roleOptions.map(role => (
+                              <SelectItem key={role} value={role}
+                               disabled={(!(currentUserOrgRole === 'owner') && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
+                               >
+                                {capitalizeFirstLetter(role)}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Select value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.id, val)}>
+                        <Select value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
                           <SelectTrigger className="w-32">
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>
                           <SelectContent>
                             {designationOptions.map(opt => (
-                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                              <SelectItem key={opt} value={opt}>{capitalizeFirstLetter(opt)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      {/* <TableCell>{member.project_count}</TableCell> */}
                       <TableCell>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell>{member.role !== 'owner' && <Button onClick={() => handleRemoveTeamMember(member.id)}>Remove</Button>}</TableCell>
+                      <TableCell>{member.role !== 'owner' &&
+
+                        <div className="flex w-10 items-center gap-2">
+                          <X className="w-4 h-4 text-red-500" onClick={() => handleRemoveTeamMember(member.org_id, member.user_id)} />
+                        </div>
+                      }</TableCell>
+
                     </TableRow>
-                  ))}
+                  )) : <TableRow><TableCell colSpan={6} className="h-24 text-center">{teamMembersError ? (<span>{teamMembersError} <br></br> <Button onClick={fetchTeamMembers} variant="outline">Refresh</Button></span>) : loading ? 'Loading...' : 'No team members'}</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent>
@@ -471,7 +551,6 @@ const TeamMembers = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {/* <TableHead>Member</TableHead> */}
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Designation</TableHead>
@@ -480,7 +559,7 @@ const TeamMembers = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredInvitedTeamMembers.map((member) => (
+                  {filteredInvitedTeamMembers.length > 0 ? filteredInvitedTeamMembers.map((member) => (
                     <TableRow key={member.id}>
                       {/* <TableCell>
                         <div className="flex items-center space-x-3">
@@ -505,29 +584,34 @@ const TeamMembers = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="owner" disabled>Owner</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="member">Member</SelectItem>
+                            {roleOptions.map(role => (
+                              <SelectItem key={role} value={role} disabled={!(currentUserOrgRole === 'owner' && role === 'owner') && !(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin'}>
+                                {capitalizeFirstLetter(role)}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Select value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.id, val)}>
+                        <Select value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
                           <SelectTrigger className="w-32">
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>
                           <SelectContent>
                             {designationOptions.map(opt => (
-                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                              <SelectItem key={opt} value={opt}>{capitalizeFirstLetter(opt)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      {/* <TableCell>{member.project_count}</TableCell> */}
-                      <TableCell>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell>{<Button onClick={() => handleRemoveTeamMember(member.id)}>Remove</Button>}</TableCell>
+                      <TableCell>{member.sent_at ? new Date(member.sent_at).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>{member.role !== 'owner' &&
+                        <div className="flex w-10 items-center gap-2">
+                          <X className="w-4 h-4 text-red-500" onClick={() => handleRemoveTeamMember(member.org_id, member.id, "invited")} />
+                        </div>
+                      }</TableCell>
                     </TableRow>
-                  ))}
+                  )) : <TableRow><TableCell colSpan={6} className="h-24 text-center">{invitedTeamMembersError ? (<span>{invitedTeamMembersError} <br></br> <Button onClick={fetchInvitedTeamMembers} variant="outline">Refresh</Button></span>) : loadingInvited ? 'Loading...' : 'No invited members'}</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </CardContent>
