@@ -90,20 +90,13 @@ export const taskService = {
   async addTaskHistory(projectId: string, data: any) {
     return api.post(`${API_ENDPOINTS.TASK_HISTORY}?project_id=${projectId}`, data);
   },
-  // Supabase Storage: Task Attachment
-  // async uploadTaskAttachmentToStorage({ projectId, taskId, file }: { projectId: string, taskId: string, file: File }) {
-  //   const attachmentId = uuidv4();
-  //   const path = `${projectId}/${taskId}/${attachmentId}/${file.name}`;
-  //   const { error } = await supabase.storage.from('task-attachments').upload(path, file, { upsert: true });
-  //   if (error) throw error;
-  //   const { data } = supabase.storage.from('task-attachments').getPublicUrl(path);
-  //   return { url: data.publicUrl, path, attachmentId };
-  // },
   // Supabase Storage: Task Inline Image
   async uploadTaskInlineImageToStorage({ projectId, taskId, file }: { projectId: string, taskId: string, file: File }) {
     const imageId = uuidv4();
     const path = `${projectId}/${taskId}/${imageId}/${file.name}`;
-    const { error } = await supabase.storage.from('task-inline-images').upload(path, file, { upsert: true });
+    const { error } = await supabase.storage.from('task-inline-images').upload(path, file, {  upsert: true,
+      cacheControl: '3600',
+      contentType: file.type });
     if (error) throw error;
     const { data } = supabase.storage.from('task-inline-images').getPublicUrl(path);
     return { url: data.publicUrl, path, imageId };
@@ -112,7 +105,9 @@ export const taskService = {
   async uploadProjectResourceToStorage({ projectId, file }: { projectId: string, file: File }) {
     const resourceId = uuidv4();
     const path = `${projectId}/${resourceId}/${file.name}`;
-    const { error } = await supabase.storage.from('project-resources').upload(path, file, { upsert: true });
+    const { error } = await supabase.storage.from('project-resources').upload(path, file, {  upsert: true,
+      cacheControl: '3600',
+      contentType: file.type });
     if (error) throw error;
     const { data } = supabase.storage.from('project-resources').getPublicUrl(path);
     return { url: data.publicUrl, path, resourceId };
