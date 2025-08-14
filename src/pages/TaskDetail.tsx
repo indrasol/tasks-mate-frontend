@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import CopyableIdBadge from "@/components/ui/copyable-id-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
@@ -78,6 +79,13 @@ const TaskDetail = () => {
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
+  
+  // @mention functionality
+  const [mentionSearchText, setMentionSearchText] = useState("");
+  const [showMentionPopover, setShowMentionPopover] = useState(false);
+  const [mentionAnchorPos, setMentionAnchorPos] = useState({ top: 0, left: 0 });
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Attachments state
   const [attachments, setAttachments] = useState<any[]>([]);
@@ -108,6 +116,9 @@ const TaskDetail = () => {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user } = useAuth();
+  const currentOrgId = useCurrentOrgId();
+  const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId || '');  // Use empty string if undefined
+  
   // Sync with sidebar collapse/expand events
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -118,8 +129,6 @@ const TaskDetail = () => {
     );
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
-
-  const currentOrgId = useCurrentOrgId();
   const [projectName, setProjectName] = useState<string | null>(null);
   const [projectsMap, setProjectsMap] = useState<Record<string, string>>({});
 
@@ -364,20 +373,187 @@ const TaskDetail = () => {
     input?.click();
   };
 
+  // @mention helpers
+  const getCursorPosition = (textarea: HTMLTextAreaElement): number => {
+    return textarea.selectionStart || 0;
+  };
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setNewComment(newText);
+    
+    const curPos = getCursorPosition(e.target);
+    setCursorPosition(curPos);
+    
+    // Get text before cursor
+    const textBeforeCursor = newText.substring(0, curPos);
+    
+    // Check for @ character with regex - find the last @ that's not part of a word
+    const mentionRegex = /(?:^|\s)@(\w*)$/;
+    const matches = textBeforeCursor.match(mentionRegex);
+    
+    if (matches) {
+      // We found an @ symbol that's at start of text or after a space
+      const searchText = matches[1] || "";
+      setMentionSearchText(searchText);
+      
+      if (!showMentionPopover) {
+        setShowMentionPopover(true);
+      }
+      
+      // No need to calculate position - we're using fixed position in the UI
+    } else if (curPos > 0 && newText[curPos - 1] === '@') {
+      // Just typed an @ character
+      setMentionSearchText("");
+      setShowMentionPopover(true);
+    } else if (showMentionPopover) {
+      // If mention popover is open but we don't have an @ symbol anymore, close it
+      setShowMentionPopover(false);
+    }
+  };
+
+  const handleSelectMention = useCallback((username: string) => {
+    if (!commentInputRef.current) return;
+    
+    const textarea = commentInputRef.current;
+    const text = textarea.value;
+    const curPos = getCursorPosition(textarea);
+    
+    // Find the position of the @ character
+    const textBeforeCursor = text.substring(0, curPos);
+    const atIndex = textBeforeCursor.lastIndexOf('@');
+    
+    // Insert the username (only if we found an @ symbol)
+    if (atIndex !== -1) {
+      // Find any text that was already typed after the @
+      const mentionRegex = /@(\w*)$/;
+      const match = textBeforeCursor.match(mentionRegex);
+      const typedAfterAt = match ? match[1].length : 0;
+      
+      // Create new text by replacing what was typed after @ with the selected username
+      const newText = 
+        text.substring(0, atIndex + 1) + // Keep text up to and including @
+        username + ' ' + // Add username and space
+        text.substring(curPos); // Keep text after cursor
+      
+      console.log('Adding mention:', username);
+      console.log('New text:', newText);
+      
+      // Update the comment text
+      setNewComment(newText);
+      
+      // Close the popover
+      setShowMentionPopover(false);
+      
+      // Set focus back to textarea and place cursor after inserted username and space
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = atIndex + username.length + 2; // +2 for @ and space
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 50); // Longer timeout to ensure focus works
+    }
+  }, []);
+
+  // Handle click outside to close mention popover
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (commentInputRef.current && !commentInputRef.current.contains(e.target as Node)) {
+        setShowMentionPopover(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Filter organization members based on search text
+  const filteredMembers = mentionSearchText 
+    ? orgMembers.filter(member => {
+        // Check username, display name and email
+        const searchLower = mentionSearchText.toLowerCase();
+        const usernameMatch = member.email?.toLowerCase().includes(searchLower);
+        const displayName = deriveDisplayFromEmail(member.email || '').displayName.toLowerCase();
+        const displayNameMatch = displayName.includes(searchLower);
+        
+        return usernameMatch || displayNameMatch;
+      })
+    : orgMembers;
+
+  // Function to render comment text with @mentions highlighted
+  const renderCommentWithMentions = (text: string) => {
+    if (!text) return null;
+    
+    // Regular expression to find @mentions
+    const mentionRegex = /@(\w+)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    // Find all mentions and split the text
+    while ((match = mentionRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+      
+      // Add the mention with highlighting
+      parts.push(
+        <span key={`mention-${match.index}`} className="bg-blue-100 text-blue-800 px-1 rounded">
+          {match[0]}
+        </span>
+      );
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add any remaining text after the last match
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+    
+    return parts;
+  };
+
   // Comment functions
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
+    
     try {
+      // Create optimistic comment with temp ID
+      const tempId = `temp-${Date.now()}`;
+      const optimisticComment = {
+        comment_id: tempId,
+        content: newComment,
+        created_by: user?.email || user?.id,
+        created_at: new Date().toISOString(),
+        task_id: taskId,
+        isOptimistic: true
+      };
+      
+      // Apply optimistic update
+      setComments(prev => [optimisticComment, ...prev]);
+      setNewComment("");
+      
       const payload = {
         task_id: taskId,
         content: newComment,
-        // Send snapshot title when available to satisfy DB schema
         task_title: taskName || task?.name,
       };
+      
       const created = await api.post(`${API_ENDPOINTS.TASK_COMMENTS}?project_id=${task?.project_id}`, payload);
-      setComments([created as any, ...comments]);
-      setNewComment("");
+      
+      // Replace optimistic comment with real one
+      setComments(prev => prev.map(c => 
+        c.comment_id === tempId ? created : c
+      ));
+      
+      toast.success("Comment added");
     } catch (err: any) {
+      // Revert optimistic update on error
+      setComments(prev => prev.filter(c => !c.isOptimistic));
+      setNewComment(newComment); // Restore comment text
       toast.error(err.message || "Failed to add comment");
     }
   };
@@ -390,12 +566,37 @@ const TaskDetail = () => {
   };
   const handleSaveEdit = async () => {
     if (!editCommentText.trim() || !editingComment) return;
+    
+    const originalComment = comments.find(c => c.comment_id === editingComment);
+    const originalContent = originalComment?.content || originalComment?.comment || '';
+    
     try {
-      const updated = await api.put(`${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`, { content: editCommentText, task_title: taskName || task?.name });
-      setComments(comments.map((c) => c.comment_id === editingComment ? updated : c));
+      // Apply optimistic update
+      setComments(prev => prev.map(c => 
+        c.comment_id === editingComment 
+          ? {...c, content: editCommentText, isEditing: true} 
+          : c
+      ));
+      
+      const updated = await api.put(
+        `${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`, 
+        { content: editCommentText, task_title: taskName || task?.name }
+      );
+      
+      setComments(prev => prev.map(c => 
+        c.comment_id === editingComment ? Object.assign({}, updated, { isEditing: false }) : c
+      ));
+      
       setEditingComment(null);
       setEditCommentText("");
+      toast.success("Comment updated");
     } catch (err: any) {
+      // Revert on error
+      setComments(prev => prev.map(c => 
+        c.comment_id === editingComment 
+          ? {...c, content: originalContent, isEditing: false} 
+          : c
+      ));
       toast.error(err.message || "Failed to update comment");
     }
   };
@@ -404,10 +605,25 @@ const TaskDetail = () => {
     setEditCommentText('');
   };
   const handleDeleteComment = async (commentId: string) => {
+    // Confirm deletion
+    if (!window.confirm("Are you sure you want to delete this comment?")) {
+      return;
+    }
+    
+    // Store comment for potential restoration
+    const commentToDelete = comments.find(c => c.comment_id === commentId);
+    
     try {
+      // Optimistic removal
+      setComments(prev => prev.filter(c => c.comment_id !== commentId));
+      
       await api.del(`${API_ENDPOINTS.TASK_COMMENTS}/${commentId}?project_id=${task?.project_id}`, {});
-      setComments(comments.filter((c) => c.comment_id !== commentId));
+      toast.success("Comment deleted");
     } catch (err: any) {
+      // Restore comment on error
+      if (commentToDelete) {
+        setComments(prev => [...prev, commentToDelete]);
+      }
       toast.error(err.message || "Failed to delete comment");
     }
   };
@@ -1073,12 +1289,60 @@ const TaskDetail = () => {
                       <div className="mb-6">
                         <div className="flex">
                           <div className="flex-1 space-y-2">
-                            <Textarea
-                              value={newComment}
-                              onChange={(e) => setNewComment(e.target.value)}
-                              placeholder="Add a comment..."
-                              className="min-h-20 resize-none"
-                            />
+                            <div className="relative">
+                              <Textarea
+                                ref={commentInputRef}
+                                value={newComment}
+                                onChange={handleCommentChange}
+                                onClick={() => setShowMentionPopover(false)}
+                                placeholder="Add a comment... (Type @ to mention someone)"
+                                className="min-h-20 resize-none"
+                              />
+                              
+                              {/* @mention popover */}
+                              {showMentionPopover && (
+                                <div 
+                                  className="absolute z-50 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-y-auto w-64"
+                                  style={{
+                                    top: 30, // Position below cursor
+                                    left: 10
+                                  }}
+                                >
+                                  <div className="p-1">
+                                    <div className="px-2 py-1 text-sm font-semibold border-b border-gray-100 mb-1 bg-blue-50 text-blue-800 rounded-t">
+                                      @Mention Team Member
+                                    </div>
+                                    {filteredMembers.length === 0 ? (
+                                      <div className="px-2 py-1 text-sm text-gray-500">No members found</div>
+                                    ) : (
+                                      filteredMembers.map(member => {
+                                        const { displayName } = deriveDisplayFromEmail(member.email || '');
+                                        return (
+                                          <button
+                                            key={member.id || member.user_id}
+                                            className="flex items-center gap-2 w-full text-left px-2 py-1 hover:bg-gray-100 hover:bg-blue-50 active:bg-blue-100 rounded transition-colors"
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                              // Using onMouseDown instead of onClick to prevent focus issues
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleSelectMention(displayName);
+                                            }}
+                                          >
+                                            <Avatar className="h-5 w-5">
+                                              <AvatarFallback className="text-[10px] bg-blue-100 text-blue-800">
+                                                {displayName.substring(0, 2).toUpperCase()}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-sm font-medium">{displayName}</span>
+                                          </button>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                             <div className="flex justify-end">
                               <Button
                                 onClick={handleAddComment}
@@ -1121,11 +1385,16 @@ const TaskDetail = () => {
                             <div className="flex-1">
                               {editingComment === comment.comment_id ? (
                                 <div className="space-y-2">
-                                  <Textarea
-                                    value={editCommentText}
-                                    onChange={(e) => setEditCommentText(e.target.value)}
-                                    className="min-h-16 resize-none"
-                                  />
+                                  <div className="relative">
+                                    <Textarea
+                                      value={editCommentText}
+                                      onChange={(e) => {
+                                        setEditCommentText(e.target.value);
+                                        // You could implement @mention in edit mode too if needed
+                                      }}
+                                      className="min-h-16 resize-none"
+                                    />
+                                  </div>
                                   <div className="flex items-center space-x-2">
                                     <Button size="sm" onClick={handleSaveEdit}>
                                       Save
@@ -1138,7 +1407,7 @@ const TaskDetail = () => {
                               ) : (
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="text-sm text-gray-700">
-                                    {comment.content || comment.comment}
+                                    {renderCommentWithMentions(comment.content || comment.comment)}
                                   </div>
                                   {(() => {
                                     const creator = String(comment.created_by || "").toLowerCase();
