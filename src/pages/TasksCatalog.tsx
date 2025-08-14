@@ -650,17 +650,17 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       </div>
 
                       {/* Task Info - Fixed height to ensure consistent margin line alignment */}
-                      <div className="space-y-3 mb-4" style={{ minHeight: '120px' }}>
+                      <div className="space-y-3 mb-4" style={{ minHeight: '100px' }}>
                         <div>
                           <h3 className={`font-semibold mb-1 transition-colors ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 hover:text-blue-600'}`}>{task.name}</h3>
                           {/* <p className={`text-sm line-clamp-2 ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
                             {task.description}
                           </p> */}
-                          <RichTextEditor
+                          {/* <RichTextEditor
                             content={task.description}
-                            className="min-h-[100px]"
+                            className="max-h-[120px]"
                             hideToolbar
-                          />
+                          /> */}
                           {/* Project badge removed from here */}
                         </div>
 

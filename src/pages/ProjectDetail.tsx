@@ -243,7 +243,9 @@ const ProjectDetail = () => {
         } as Member;
       })
     );
-    setUserRole(membersData.find((member) => (member.username ?? member.email ?? member.user_id) === user?.user_metadata?.username)?.role);
+    // setUserRole(membersData.find((member) => (member.username ?? member.email ?? member.user_id) === user?.user_metadata?.username)?.role);
+    setUserRole(membersData.find((member) => (member.user_id) === user?.id)?.role);
+
   }, [membersData]);
 
   // When react-query returns data, normalise into Member shape
@@ -999,7 +1001,7 @@ const ProjectDetail = () => {
                               <p className="text-xs text-gray-600">{member.designation}</p>
                             </div>
 
-                            {userRole === "owner" && member.role !== "owner" && (
+                            {(userRole === "owner" || userRole === "admin") && member.role !== "owner" && (
                               <Button title="Remove member" variant="ghost" onClick={() => handleDeleteMember(member)} className="ml-auto">
                                 <Trash2 className="w-4 h-4 text-red-500" />
                               </Button>

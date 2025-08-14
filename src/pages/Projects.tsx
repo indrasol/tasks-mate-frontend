@@ -451,7 +451,7 @@ const Projects = () => {
           </CardHeader>
           
           <CardContent className="space-y-4">
-            <HoverCard>
+            {/* <HoverCard>
               <HoverCardTrigger asChild>
                 <p className={`text-sm line-clamp-2 cursor-default ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
                   {project.description}
@@ -460,7 +460,7 @@ const Projects = () => {
               <HoverCardContent side="right" align="start" className="max-w-sm p-4 bg-white shadow-lg rounded-md border border-gray-200">
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{project.description}</p>
               </HoverCardContent>
-            </HoverCard>
+            </HoverCard> */}
             
             {/* Dates */}
             <div className="flex items-center justify-between text-sm">

@@ -569,7 +569,7 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       <TableCell>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell>{member.role !== 'owner' &&
+                      <TableCell>{(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && member.role !== 'owner' &&
 
                         <div className="flex w-10 items-center gap-2">
                           <X className="w-4 h-4 text-red-500" onClick={() => handleRemoveTeamMember(member.org_id, member.user_id)} />
@@ -661,7 +661,7 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       <TableCell>{member.sent_at ? new Date(member.sent_at).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell>{member.role !== 'owner' &&
+                      <TableCell>{(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') &&  member.role !== 'owner' &&
                         <div className="flex w-10 items-center gap-2">
                           <X className="w-4 h-4 text-red-500" onClick={() => handleRemoveTeamMember(member.org_id, member.id, "invited")} />
                         </div>
