@@ -55,6 +55,7 @@ import NewTaskModal from "@/components/tasks/NewTaskModal";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import { taskService } from "@/services/taskService";
 import { BackendTask, Task } from "@/types/tasks";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 
 type ViewMode = 'grid' | 'list';
@@ -294,7 +295,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       case "not_started": return "Not Started";
       case "on_hold": return "On Hold";
       case "archived": return "Archived";
-      
+
       default: return "Unknown";
     }
   };
@@ -308,7 +309,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       navigate(`/tasks/${taskId}?org_id=${currentOrgId}`);
     } else {
       navigate(`/tasks/${taskId}`);
-    }    
+    }
   };
 
   const handleNewTask = () => {
@@ -339,7 +340,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
     // 2️⃣ Persist change to backend
     try {
-      const t = tasks.find(x=>x.id===taskId);
+      const t = tasks.find(x => x.id === taskId);
       taskService.updateTask(taskId, { status: newStatus, project_id: (t as any)?.projectId, title: t?.name });
 
     } catch (err) {
@@ -469,7 +470,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Priority</span>
                     </SelectItem>
-                    {['critical','high','medium','low','none'].map(p => (
+                    {['critical', 'high', 'medium', 'low', 'none'].map(p => (
                       <SelectItem key={p} value={p}>
                         <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
                       </SelectItem>
@@ -618,8 +619,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               <Check className="h-3 w-3 text-white" />
                             )}
                           </div>
-                          <div onClick={(e)=>e.stopPropagation()}>
-                            <CopyableIdBadge id={task.id} isCompleted={task.status==='completed'} />
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <CopyableIdBadge id={task.id} isCompleted={task.status === 'completed'} />
                           </div>
                           <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                             {(() => {
@@ -641,7 +642,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           >
                             {getStatusText(task.status)}
                           </Badge>
-                          <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority ?? 'none')}`}> 
+                          <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority ?? 'none')}`}>
                             {task.priority?.toUpperCase()}
                           </Badge>
                           {/* Delete icon removed as requested */}
@@ -651,8 +652,15 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       {/* Task Info - Fixed height to ensure consistent margin line alignment */}
                       <div className="space-y-3 mb-4" style={{ minHeight: '120px' }}>
                         <div>
-                          <h3 className={`font-semibold mb-1 transition-colors ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-900 hover:text-blue-600'}`}>{task.name}</h3>
-                          <p className={`text-sm line-clamp-2 ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>{task.description}</p>
+                          <h3 className={`font-semibold mb-1 transition-colors ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 hover:text-blue-600'}`}>{task.name}</h3>
+                          {/* <p className={`text-sm line-clamp-2 ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
+                            {task.description}
+                          </p> */}
+                          <RichTextEditor
+                            content={task.description}
+                            className="min-h-[100px]"
+                            hideToolbar
+                          />
                           {/* Project badge removed from here */}
                         </div>
 
@@ -697,7 +705,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           </div>
                         </div>
                       </div>
- 
+
 
                       {/* Footer with metadata and comments */}
                       <div className="pt-4 border-t border-gray-200">

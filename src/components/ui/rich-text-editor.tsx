@@ -11,10 +11,11 @@ import { cn } from '@/lib/utils';
 
 type RichTextEditorProps = {
   content?: string;
-  onChange: (content: string) => void;
+  onChange?: (content: string) => void;
   placeholder?: string;
   className?: string;
   onImageUpload?: (file: File) => Promise<string>;
+  hideToolbar?: boolean;
 };
 
 export function RichTextEditor({
@@ -23,6 +24,7 @@ export function RichTextEditor({
   placeholder = 'Write something...',
   className,
   onImageUpload,
+  hideToolbar = false,
 }: RichTextEditorProps) {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
@@ -30,6 +32,8 @@ export function RichTextEditor({
   const [imageUrl, setImageUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+
 
   const editor = useEditor({
     extensions: [
@@ -51,7 +55,66 @@ export function RichTextEditor({
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
+    editorProps: {
+      handlePaste: (view, event) => handlePaste(view, event),
+    },
   });
+
+  
+  const handlePaste = useCallback(async (view: any, event: ClipboardEvent) => {
+    const items = event.clipboardData?.items;
+    if (!items) return false;
+
+    let hasHandled = false;
+
+    // Check for image files in the clipboard
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1 && onImageUpload) {
+        const file = items[i].getAsFile();
+        if (file) {
+          event.preventDefault();
+          hasHandled = true;
+          
+          try {
+            const url = await onImageUpload(file);
+            if (url) {
+              editor?.chain().focus().setImage({ src: url }).run();
+            }
+          } catch (error) {
+            console.error('Error pasting image:', error);
+          }
+          return true; // We've handled this paste event
+        }
+      }
+    }
+
+    // Handle HTML/text content if no images were found
+    if (!hasHandled && editor && event.clipboardData) {
+      const html = event.clipboardData.getData('text/html');
+      const text = event.clipboardData.getData('text/plain');
+      
+      if (html) {
+        // Handle HTML content
+        event.preventDefault();
+        const pastedHTML = new DOMParser().parseFromString(html, 'text/html');
+        
+        // Clean up the pasted HTML (optional, you can customize this)
+        const cleanHTML = pastedHTML.body.innerHTML
+          .replace(/<\/?span[^>]*>/g, '') // Remove spans
+          .replace(/style="[^"]*"/g, ''); // Remove inline styles
+          
+        editor.commands.insertContent(cleanHTML);
+        return true;
+      } else if (text) {
+        // Handle plain text
+        event.preventDefault();
+        editor.commands.insertContent(text);
+        return true;
+      }
+    }
+
+    return hasHandled;
+  }, [editor, onImageUpload]);
 
   // Update editor content when content prop changes
   useEffect(() => {
@@ -116,7 +179,7 @@ export function RichTextEditor({
 
   return (
     <div className={cn('border rounded-lg overflow-hidden', className)}>
-      <div className="border-b p-2 flex flex-wrap gap-1">
+      {!hideToolbar && <div className="border-b p-2 flex flex-wrap gap-1">
         <Button
           type="button"
           variant="ghost"
@@ -182,13 +245,13 @@ export function RichTextEditor({
             <ImageIcon className="h-4 w-4" />
           </Button>
         )}
-      </div>
+      </div>}
       
       <div className="p-4 min-h-[150px] max-h-[300px] overflow-y-auto">
-        <EditorContent editor={editor} className="prose max-w-none focus:outline-none" />
+        <EditorContent editor={editor} className="prose max-w-none focus:outline-none" disabled={hideToolbar} />
       </div>
 
-      {editor && (
+      {!hideToolbar && editor && (
         // <BubbleMenu 
         //   editor={editor} 
         //   tippyOptions={{ duration: 100 }}

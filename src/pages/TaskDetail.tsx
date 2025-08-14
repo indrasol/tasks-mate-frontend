@@ -49,6 +49,8 @@ import { getStatusMeta, getPriorityColor, formatDate, deriveDisplayFromEmail } f
 import { useAuth } from "@/hooks/useAuth";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import HistoryCard from "@/components/tasks/HistoryCard";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+
 
 const TaskDetail = () => {
   const { taskId } = useParams();
@@ -79,7 +81,7 @@ const TaskDetail = () => {
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
-  
+
   // @mention functionality
   const [mentionSearchText, setMentionSearchText] = useState("");
   const [showMentionPopover, setShowMentionPopover] = useState(false);
@@ -118,7 +120,7 @@ const TaskDetail = () => {
   const { user } = useAuth();
   const currentOrgId = useCurrentOrgId();
   const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId || '');  // Use empty string if undefined
-  
+
   // Sync with sidebar collapse/expand events
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -381,26 +383,26 @@ const TaskDetail = () => {
   const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setNewComment(newText);
-    
+
     const curPos = getCursorPosition(e.target);
     setCursorPosition(curPos);
-    
+
     // Get text before cursor
     const textBeforeCursor = newText.substring(0, curPos);
-    
+
     // Check for @ character with regex - find the last @ that's not part of a word
     const mentionRegex = /(?:^|\s)@(\w*)$/;
     const matches = textBeforeCursor.match(mentionRegex);
-    
+
     if (matches) {
       // We found an @ symbol that's at start of text or after a space
       const searchText = matches[1] || "";
       setMentionSearchText(searchText);
-      
+
       if (!showMentionPopover) {
         setShowMentionPopover(true);
       }
-      
+
       // No need to calculate position - we're using fixed position in the UI
     } else if (curPos > 0 && newText[curPos - 1] === '@') {
       // Just typed an @ character
@@ -414,37 +416,37 @@ const TaskDetail = () => {
 
   const handleSelectMention = useCallback((username: string) => {
     if (!commentInputRef.current) return;
-    
+
     const textarea = commentInputRef.current;
     const text = textarea.value;
     const curPos = getCursorPosition(textarea);
-    
+
     // Find the position of the @ character
     const textBeforeCursor = text.substring(0, curPos);
     const atIndex = textBeforeCursor.lastIndexOf('@');
-    
+
     // Insert the username (only if we found an @ symbol)
     if (atIndex !== -1) {
       // Find any text that was already typed after the @
       const mentionRegex = /@(\w*)$/;
       const match = textBeforeCursor.match(mentionRegex);
       const typedAfterAt = match ? match[1].length : 0;
-      
+
       // Create new text by replacing what was typed after @ with the selected username
-      const newText = 
+      const newText =
         text.substring(0, atIndex + 1) + // Keep text up to and including @
         username + ' ' + // Add username and space
         text.substring(curPos); // Keep text after cursor
-      
+
       console.log('Adding mention:', username);
       console.log('New text:', newText);
-      
+
       // Update the comment text
       setNewComment(newText);
-      
+
       // Close the popover
       setShowMentionPopover(false);
-      
+
       // Set focus back to textarea and place cursor after inserted username and space
       setTimeout(() => {
         textarea.focus();
@@ -461,7 +463,7 @@ const TaskDetail = () => {
         setShowMentionPopover(false);
       }
     };
-    
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -469,57 +471,57 @@ const TaskDetail = () => {
   }, []);
 
   // Filter organization members based on search text
-  const filteredMembers = mentionSearchText 
+  const filteredMembers = mentionSearchText
     ? orgMembers.filter(member => {
-        // Check username, display name and email
-        const searchLower = mentionSearchText.toLowerCase();
-        const usernameMatch = member.email?.toLowerCase().includes(searchLower);
-        const displayName = deriveDisplayFromEmail(member.email || '').displayName.toLowerCase();
-        const displayNameMatch = displayName.includes(searchLower);
-        
-        return usernameMatch || displayNameMatch;
-      })
+      // Check username, display name and email
+      const searchLower = mentionSearchText.toLowerCase();
+      const usernameMatch = member.email?.toLowerCase().includes(searchLower);
+      const displayName = deriveDisplayFromEmail(member.email || '').displayName.toLowerCase();
+      const displayNameMatch = displayName.includes(searchLower);
+
+      return usernameMatch || displayNameMatch;
+    })
     : orgMembers;
 
   // Function to render comment text with @mentions highlighted
   const renderCommentWithMentions = (text: string) => {
     if (!text) return null;
-    
+
     // Regular expression to find @mentions
     const mentionRegex = /@(\w+)/g;
     const parts = [];
     let lastIndex = 0;
     let match;
-    
+
     // Find all mentions and split the text
     while ((match = mentionRegex.exec(text)) !== null) {
       // Add text before the match
       if (match.index > lastIndex) {
         parts.push(text.substring(lastIndex, match.index));
       }
-      
+
       // Add the mention with highlighting
       parts.push(
         <span key={`mention-${match.index}`} className="bg-blue-100 text-blue-800 px-1 rounded">
           {match[0]}
         </span>
       );
-      
+
       lastIndex = match.index + match[0].length;
     }
-    
+
     // Add any remaining text after the last match
     if (lastIndex < text.length) {
       parts.push(text.substring(lastIndex));
     }
-    
+
     return parts;
   };
 
   // Comment functions
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
-    
+
     try {
       // Create optimistic comment with temp ID
       const tempId = `temp-${Date.now()}`;
@@ -531,24 +533,24 @@ const TaskDetail = () => {
         task_id: taskId,
         isOptimistic: true
       };
-      
+
       // Apply optimistic update
       setComments(prev => [optimisticComment, ...prev]);
       setNewComment("");
-      
+
       const payload = {
         task_id: taskId,
         content: newComment,
         task_title: taskName || task?.name,
       };
-      
+
       const created = await api.post(`${API_ENDPOINTS.TASK_COMMENTS}?project_id=${task?.project_id}`, payload);
-      
+
       // Replace optimistic comment with real one
-      setComments(prev => prev.map(c => 
+      setComments(prev => prev.map(c =>
         c.comment_id === tempId ? created : c
       ));
-      
+
       toast.success("Comment added");
     } catch (err: any) {
       // Revert optimistic update on error
@@ -566,35 +568,35 @@ const TaskDetail = () => {
   };
   const handleSaveEdit = async () => {
     if (!editCommentText.trim() || !editingComment) return;
-    
+
     const originalComment = comments.find(c => c.comment_id === editingComment);
     const originalContent = originalComment?.content || originalComment?.comment || '';
-    
+
     try {
       // Apply optimistic update
-      setComments(prev => prev.map(c => 
-        c.comment_id === editingComment 
-          ? {...c, content: editCommentText, isEditing: true} 
+      setComments(prev => prev.map(c =>
+        c.comment_id === editingComment
+          ? { ...c, content: editCommentText, isEditing: true }
           : c
       ));
-      
+
       const updated = await api.put(
-        `${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`, 
+        `${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`,
         { content: editCommentText, task_title: taskName || task?.name }
       );
-      
-      setComments(prev => prev.map(c => 
+
+      setComments(prev => prev.map(c =>
         c.comment_id === editingComment ? Object.assign({}, updated, { isEditing: false }) : c
       ));
-      
+
       setEditingComment(null);
       setEditCommentText("");
       toast.success("Comment updated");
     } catch (err: any) {
       // Revert on error
-      setComments(prev => prev.map(c => 
-        c.comment_id === editingComment 
-          ? {...c, content: originalContent, isEditing: false} 
+      setComments(prev => prev.map(c =>
+        c.comment_id === editingComment
+          ? { ...c, content: originalContent, isEditing: false }
           : c
       ));
       toast.error(err.message || "Failed to update comment");
@@ -609,14 +611,14 @@ const TaskDetail = () => {
     if (!window.confirm("Are you sure you want to delete this comment?")) {
       return;
     }
-    
+
     // Store comment for potential restoration
     const commentToDelete = comments.find(c => c.comment_id === commentId);
-    
+
     try {
       // Optimistic removal
       setComments(prev => prev.filter(c => c.comment_id !== commentId));
-      
+
       await api.del(`${API_ENDPOINTS.TASK_COMMENTS}/${commentId}?project_id=${task?.project_id}`, {});
       toast.success("Comment deleted");
     } catch (err: any) {
@@ -695,7 +697,7 @@ const TaskDetail = () => {
       toast.error(err.message || 'Failed to add dependency');
     }
   };
-  
+
   const handleDeleteDependency = async (dependencyId: string) => {
     if (!taskId) return;
     try {
@@ -708,7 +710,7 @@ const TaskDetail = () => {
       toast.error(err.message || 'Failed to remove dependency');
     }
   };
-  
+
   const handleDependencyToggle = async (dependencyId: string) => {
     // Find dependency
     const idx = dependencyDetails.findIndex((d: any) => (d.task_id ?? d.id) === dependencyId);
@@ -741,6 +743,20 @@ const TaskDetail = () => {
   };
 
   // Attachment upload
+  const handleImageUpload = async (file: File) => {
+    if (!file || !task?.project_id || !taskId) return;
+    try {
+      const data:any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+      if(data?.url){
+        return data?.url;
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload image');
+    }
+    return URL.createObjectURL(file);
+  };
+
+  // Attachment upload
   const handleAttachmentUpload = async (files: FileList | null) => {
     if (!files || !task?.project_id || !taskId) return;
     try {
@@ -755,6 +771,8 @@ const TaskDetail = () => {
       toast.error(err.message || 'Failed to upload attachment');
     }
   };
+
+
 
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!task?.project_id) return;
@@ -944,12 +962,20 @@ const TaskDetail = () => {
                   <CardTitle className="font-sora">Description</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Textarea
+                  {/* <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     className={`min-h-32 border-0 bg-transparent resize-none focus-visible:ring-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
                     placeholder="Add a description..."
+                  /> */}
+                  <RichTextEditor
+                    content={description}
+                    onChange={(content) => setDescription(content)}
+                    placeholder="Add a detailed description..."
+                    onImageUpload={handleImageUpload}
+                    className="min-h-[200px]"
                   />
+
                 </CardContent>
               </Card>
 
@@ -1298,10 +1324,10 @@ const TaskDetail = () => {
                                 placeholder="Add a comment... (Type @ to mention someone)"
                                 className="min-h-20 resize-none"
                               />
-                              
+
                               {/* @mention popover */}
                               {showMentionPopover && (
-                                <div 
+                                <div
                                   className="absolute z-50 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-y-auto w-64"
                                   style={{
                                     top: 30, // Position below cursor
@@ -1471,7 +1497,8 @@ const TaskDetail = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="text-sm text-gray-700 leading-relaxed">
-                    {task.description}
+                    {/* {task.description} */}
+                    Generating the summary...
                   </div>
                 </CardContent>
               </Card>
