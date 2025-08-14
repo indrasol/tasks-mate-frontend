@@ -420,6 +420,9 @@ const Projects = () => {
                 <CopyableBadge copyText={project.id} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
                   {project.id}
                 </CopyableBadge>
+                <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+                  👤 {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
+                </Badge>
               </div>
               
               {/* Status tag positioned at the right */}
@@ -448,19 +451,27 @@ const Projects = () => {
           </CardHeader>
           
           <CardContent className="space-y-4">
-            <p className={`text-sm line-clamp-2 ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>{project.description}</p>
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <p className={`text-sm line-clamp-2 cursor-default ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
+                  {project.description}
+                </p>
+              </HoverCardTrigger>
+              <HoverCardContent side="right" align="start" className="max-w-sm p-4 bg-white shadow-lg rounded-md border border-gray-200">
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{project.description}</p>
+              </HoverCardContent>
+            </HoverCard>
             
-            {/* Owner & Dates */}
+            {/* Dates */}
             <div className="flex items-center justify-between text-sm">
-              <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
-                Owner: {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
-              </Badge>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600">Start:</span>
+                <span className="text-xs text-gray-600">Start Date:</span>
                 <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
                   {formatDate(project.startDate)}
                 </Badge>
-                <span className="text-xs text-gray-600">End:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600">End Date:</span>
                 <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
                   {formatDate(project.endDate)}
                 </Badge>
@@ -548,60 +559,70 @@ const Projects = () => {
                   <Badge className="text-xs font-mono bg-blue-600 text-white">
                     {project.id}
                   </Badge>
+                  <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+                    👤 {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
+                  </Badge>
                 </div>
 
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
                   {/* Project Info */}
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-4">
                     <div className="flex items-center gap-3">
-                      <div>
+                      <div className="w-full">
                         <h3 className={`font-semibold transition-colors ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
                           {project.name}
                         </h3>
-                        <p className={`text-sm truncate max-w-xs ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>{project.description}</p>
-                        {/* Owner & Dates */}
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
-                            Owner: {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
-                          </Badge>
-                          <span className="text-xs text-gray-600">Start:</span>
-                          <Badge className="text-xs bg-blue-100 text-blue-800">
-                            {formatDate(project.startDate)}
-                          </Badge>
-                          <span className="text-xs text-gray-600">End:</span>
-                          <Badge className="text-xs bg-red-100 text-red-800">
-                            {formatDate(project.endDate)}
-                          </Badge>
-                        </div>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <p className={`text-sm truncate max-w-xs cursor-default ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
+                              {project.description}
+                            </p>
+                          </HoverCardTrigger>
+                          <HoverCardContent side="right" align="start" className="max-w-sm p-4 bg-white shadow-lg rounded-md border border-gray-200">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{project.description}</p>
+                          </HoverCardContent>
+                        </HoverCard>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Progress */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Progress</span>
-                      <span className="font-medium">{project.progress}%</span>
+                  {/* Dates - Horizontal layout */}
+                  <div className="md:col-span-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4 text-blue-600" />
+                        <span className="text-xs text-gray-600">Start Date:</span>
+                        <Badge className="text-xs bg-blue-100 text-blue-800">
+                          {formatDate(project.startDate)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4 text-red-600" />
+                        <span className="text-xs text-gray-600">End Date:</span>
+                        <Badge className="text-xs bg-red-100 text-red-800">
+                          {formatDate(project.endDate)}
+                        </Badge>
+                      </div>
                     </div>
-                    <Progress value={project.progress} className="h-2" />
                   </div>
                   
-                  {/* Tasks */}
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 text-gray-600">
+                  {/* Progress and Tasks - Horizontal layout with better spacing */}
+                  <div className="md:col-span-4 flex items-center gap-6 pl-2">
+                    {/* Progress */}
+                    <div className="flex-1 space-y-1 max-w-48">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Progress</span>
+                        <span className="font-medium">{project.progress}%</span>
+                      </div>
+                      <Progress value={project.progress} className="h-2" />
+                    </div>
+                    
+                    {/* Tasks - Horizontally aligned */}
+                    <div className="flex items-center gap-2 text-gray-600">
                       <Target className="w-4 h-4" />
                       <span className="text-sm">{project.completedTasks}/{project.tasksCount}</span>
+                      <span className="text-sm">Tasks</span>
                     </div>
-                    <p className="text-xs text-gray-500">tasks</p>
-                  </div>
-                  
-                  {/* Dates */}
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 text-gray-600">
-                      <Calendar className="w-4 h-4" />
-                      <span className="text-sm">{formatDate(project.endDate)}</span>
-                    </div>
-                    <p className="text-xs text-gray-500">due date</p>
                   </div>
                 </div>
               </div>
