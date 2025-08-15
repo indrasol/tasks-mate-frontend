@@ -41,8 +41,8 @@ import { deriveDisplayFromEmail, getStatusMeta, getPriorityColor, type ProjectSt
 import { API_ENDPOINTS } from "@/../config";
 import { useProjectStats } from "@/hooks/useProjectStats";
 import { useProjectMembers } from "@/hooks/useProjectMembers";
-  import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
-  import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { BackendProjectResource, useProjectResources } from "@/hooks/useProjectResources";
 import {
   Dialog,
@@ -243,7 +243,9 @@ const ProjectDetail = () => {
         } as Member;
       })
     );
-    setUserRole(membersData.find((member) => (member.username ?? member.email ?? member.user_id) === user?.user_metadata?.username)?.role);
+    // setUserRole(membersData.find((member) => (member.username ?? member.email ?? member.user_id) === user?.user_metadata?.username)?.role);
+    setUserRole(membersData.find((member) => (member.user_id) === user?.id)?.role);
+
   }, [membersData]);
 
   // When react-query returns data, normalise into Member shape
@@ -396,21 +398,25 @@ const ProjectDetail = () => {
     setUploading(true);
     try {
       for (const { file } of selectedFiles) {
-        // 1. Upload to Supabase Storage
-        const { url, path, resourceId } = await taskService.uploadProjectResourceToStorage({
-          projectId: project.id,
-          file,
-        });
-        // 2. Save metadata to backend
-        await api.post<any>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, {
-          project_id: project.id,
-          project_name: project.name,
-          resource_type: 'file',
-          resource_name: file.name,
-          resource_url: url,
-          created_by: user?.user_metadata?.username,
-          id: resourceId,
-        });
+
+        await taskService.uploadProjectResourceForm(project.id, project.name, file, file.name);
+
+
+        // // 1. Upload to Supabase Storage
+        // const { url, path, resourceId } = await taskService.uploadProjectResourceToStorage({
+        //   projectId: project.id,
+        //   file,
+        // });
+        // // 2. Save metadata to backend
+        // await api.post<any>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, {
+        //   project_id: project.id,
+        //   project_name: project.name,
+        //   resource_type: 'file',
+        //   resource_name: file.name,
+        //   resource_url: url,
+        //   created_by: user?.user_metadata?.username,
+        //   id: resourceId,
+        // });
       }
       // Reset and refresh
       setSelectedFiles([]);
@@ -423,19 +429,18 @@ const ProjectDetail = () => {
     }
   };
 
-
   // Remove member (DELETE with user_id and project_id)
   const handleRemoveMember = async (member: Member) => {
     if (!project) return;
     try {
       // Optimistic UI update - remove the member immediately
       setTeamMembers(prev => prev.filter(m => m.name !== member.name));
-      
+
       // Then make the API call
       await api.del(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`, {}
       );
-      
+
       // No need to call fetchTeamMembers() since we've already updated the UI
       // and the optimistic update preserves the existing member data for remaining members
     } catch (err) {
@@ -590,18 +595,18 @@ const ProjectDetail = () => {
   const handleAddOrgMemberToProject = async () => {
     if (!project || selectedOrgMemberIds.length === 0) return;
     const toAdd = [...new Set(selectedOrgMemberIds)];
-    
+
     // Filter out any members who are already in the project
     const existingMemberIds = new Set(teamMembers.map(m => m.name));
     const filteredToAdd = toAdd.filter(uid => !existingMemberIds.has(uid));
-    
+
     if (filteredToAdd.length === 0) {
       toast.info('Selected members are already part of the project');
       setAddMemberOpen(false);
       setSelectedOrgMemberIds([]);
       return;
     }
-    
+
     try {
       await Promise.allSettled(
         filteredToAdd.map((uid) =>
@@ -640,7 +645,7 @@ const ProjectDetail = () => {
       const isInTeamMembers = teamMembers.some(tm => tm.name === m.user_id);
       return !isInMembersData && !isInTeamMembers;
     });
-    
+
     return (
       <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
         <DialogContent>
@@ -680,9 +685,9 @@ const ProjectDetail = () => {
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setAddMemberOpen(false)}>Close</Button>
               {availableMembers.length > 0 && (
-                <Button 
-                  onClick={handleAddOrgMemberToProject} 
-                  disabled={selectedOrgMemberIds.length === 0} 
+                <Button
+                  onClick={handleAddOrgMemberToProject}
+                  disabled={selectedOrgMemberIds.length === 0}
                   className="bg-green-500 hover:bg-green-600"
                 >
                   Add {selectedOrgMemberIds.length > 0 ? `(${selectedOrgMemberIds.length})` : ""}
@@ -700,13 +705,13 @@ const ProjectDetail = () => {
     try {
       // Optimistic UI update - remove the member immediately
       setTeamMembers(prev => prev.filter(m => m.name !== member.name));
-      
+
       // Then make the API call
       await api.del(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
         { role: member.role }
       );
-      
+
       // No need to call fetchTeamMembers() since we've already updated the UI
       // and the optimistic update preserves the existing member data for remaining members
     } catch (err) {
@@ -996,7 +1001,7 @@ const ProjectDetail = () => {
                               <p className="text-xs text-gray-600">{member.designation}</p>
                             </div>
 
-                            {userRole === "owner" && member.role !== "owner" && (
+                            {(userRole === "owner" || userRole === "admin") && member.role !== "owner" && (
                               <Button title="Remove member" variant="ghost" onClick={() => handleDeleteMember(member)} className="ml-auto">
                                 <Trash2 className="w-4 h-4 text-red-500" />
                               </Button>
@@ -1155,9 +1160,9 @@ const ProjectDetail = () => {
                             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center overflow-hidden">
                               {resource.type === 'file' ? (
                                 resource.url?.match(/\.(jpg|jpeg|png|gif|webp|ico)$/i) ? (
-                                  <img 
-                                    src={resource.url} 
-                                    alt={resource.name} 
+                                  <img
+                                    src={resource.url}
+                                    alt={resource.name}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
                                       // Fallback to file icon if image fails to load

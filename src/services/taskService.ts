@@ -69,14 +69,25 @@ export const taskService = {
     return api.post(`${API_ENDPOINTS.TASK_ATTACHMENTS}?project_id=${projectId}`, data);
   },
 
-  async uploadTaskAttachmentForm(projectId: string, taskId: string, file: File, title?: string) {
+  async uploadTaskAttachmentForm(projectId: string, taskId: string, file: File, title?: string, isInline?: boolean) {
     const form = new FormData();
     form.append("project_id", projectId);
     form.append("task_id", taskId);
     if (title) form.append("title", title);
     form.append("file", file);
+    form.append("is_inline", isInline ? "true" : "false");
     // IMPORTANT: let fetch set multipart headers; don't set Content-Type manually
     return api.post(`${API_ENDPOINTS.TASK_ATTACHMENTS}?project_id=${encodeURIComponent(projectId)}`, form);
+  },
+
+  async uploadProjectResourceForm(projectId: string, projectName:string, file: File, title?: string) {
+    const form = new FormData();
+    form.append("project_id", projectId);
+    form.append("project_name", projectName);
+    if (title) form.append("title", title);
+    form.append("file", file);
+    // IMPORTANT: let fetch set multipart headers; don't set Content-Type manually
+    return api.post(`${API_ENDPOINTS.PROJECT_RESOURCES}/upload?project_id=${encodeURIComponent(projectId)}`, form);
   },
 
   async deleteTaskAttachment(attachmentId: string, projectId: string) {
