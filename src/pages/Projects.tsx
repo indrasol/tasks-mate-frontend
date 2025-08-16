@@ -140,7 +140,8 @@ const Projects = () => {
       setLoadingProjects(true);
 
       try {
-        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}`);
+        // Use show_all=true to fetch all projects in the organization, not just user's projects
+        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}?show_all=true`);
         const mapped: Project[] = res.map((p: any) => ({
           id: p.project_id,
           name: p.name,
@@ -467,13 +468,13 @@ const Projects = () => {
             {/* Dates */}
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600">Start Date:</span>
+                <span className="text-xs text-gray-600 font-semibold">Start Date:</span>
                 <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
                   {formatDate(project.startDate)}
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600">End Date:</span>
+                <span className="text-xs text-gray-600 font-semibold">End Date:</span>
                 <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
                   {formatDate(project.endDate)}
                 </Badge>
@@ -501,7 +502,7 @@ const Projects = () => {
                 <span>{project.completedTasks}/{project.tasksCount} tasks</span>
               </div>
               <div className="flex items-center gap-2 text-gray-600">
-                <span className="text-xs">Created:</span>
+                <span className="text-xs font-semibold">Created:</span>
                 <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
                   {formatDate(project.startDate)}
                 </Badge>
@@ -615,14 +616,14 @@ const Projects = () => {
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4 text-blue-600" />
-                        <span className="text-xs text-gray-600">Start Date:</span>
+                        <span className="text-xs text-gray-600 font-semibold">Start Date:</span>
                         <Badge className="text-xs bg-blue-100 text-blue-800">
                           {formatDate(project.startDate)}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4 text-red-600" />
-                        <span className="text-xs text-gray-600">End Date:</span>
+                        <span className="text-xs text-gray-600 font-semibold">End Date:</span>
                         <Badge className="text-xs bg-red-100 text-red-800">
                           {formatDate(project.endDate)}
                         </Badge>

@@ -845,6 +845,20 @@ const ProjectDetail = () => {
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+        {/* Permission Banner */}
+        {userRole !== "owner" && userRole !== "admin" && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                <p className="text-amber-800 font-medium">
+                  You are viewing this project as a member. Some actions like editing or deleting the project are restricted to members.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Header */}
         <div className="px-6 pt-6 pb-11 bg-white/50 border-b border-gray-200">
           <div className="w-full">
@@ -886,11 +900,45 @@ const ProjectDetail = () => {
                   <Badge className={`text-xs ${getPriorityColor(project?.priority ?? 'none')} hover:bg-inherit hover:text-inherit`}>
                     {(project?.priority ?? 'none').toUpperCase()}
                   </Badge>
-                  <Edit
-                    className="w-4 h-4 cursor-pointer hover:scale-110 transition"
-                    onClick={() => setIsEditSheetOpen(true)}
-                  />
-                  <Trash2 className="w-4 h-4 cursor-pointer hover:scale-110 hover:text-red-600 transition" onClick={handleDelete} />
+                  {(userRole === "owner" || userRole === "admin") ? (
+                    <div className="cursor-pointer hover:scale-110 transition" title="Edit project">
+                      <Edit
+                        className="w-4 h-4"
+                        onClick={() => setIsEditSheetOpen(true)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative group">
+                      <div className="cursor-not-allowed">
+                        <Edit
+                          className="w-4 h-4 text-gray-400"
+                        />
+                      </div>
+                      <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                        Only owners and admins can edit projects
+                      </div>
+                    </div>
+                  )}
+                  
+                  {(userRole === "owner") ? (
+                    <div className="cursor-pointer hover:scale-110 hover:text-red-600 transition" title="Delete project">
+                      <Trash2 
+                        className="w-4 h-4"
+                        onClick={handleDelete}
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative group">
+                      <div className="cursor-not-allowed">
+                        <Trash2 
+                          className="w-4 h-4 text-gray-400"
+                        />
+                      </div>
+                      <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                        Only project owners can delete projects
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {/* Title on its own row beside vertical line */}
                 <div className="mt-2">
@@ -1074,13 +1122,18 @@ const ProjectDetail = () => {
                               </DialogContent>
                             </Dialog>
                           ) : (
-                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                              {project?.startDate ? 
-                                (project.startDate.includes('T') ? 
-                                  new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
-                                  new Date(project.startDate + 'T12:00:00').toLocaleDateString()) : 
-                                'Not set'}
-                            </Badge>
+                            <div className="relative group">
+                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                {project?.startDate ? 
+                                  (project.startDate.includes('T') ? 
+                                    new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
+                                    new Date(project.startDate + 'T12:00:00').toLocaleDateString()) : 
+                                  'Not set'}
+                              </Badge>
+                              <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                                Only owners and admins can modify dates
+                              </div>
+                            </div>
                           )}
                         </div>
                         
@@ -1157,13 +1210,18 @@ const ProjectDetail = () => {
                               </DialogContent>
                             </Dialog>
                           ) : (
-                            <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
-                              {project?.endDate ? 
-                                (project.endDate.includes('T') ? 
-                                  new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
-                                  new Date(project.endDate + 'T12:00:00').toLocaleDateString()) : 
-                                'Not set'}
-                            </Badge>
+                            <div className="relative group">
+                              <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
+                                {project?.endDate ? 
+                                  (project.endDate.includes('T') ? 
+                                    new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
+                                    new Date(project.endDate + 'T12:00:00').toLocaleDateString()) : 
+                                  'Not set'}
+                              </Badge>
+                              <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                                Only owners and admins can modify dates
+                              </div>
+                            </div>
                           )}
                         </div>
                         

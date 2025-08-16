@@ -193,7 +193,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     const fetchProjects = async () => {
       if (!currentOrgId) return;
       try {
-        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}`);
+        // Fetch *all* projects in the organization (not just those where the current user is a member)
+        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}?show_all=true`);
         const mapped = res.map((p: any) => ({ id: p.project_id, name: p.name }));
         setProjects(mapped);
       } catch (e) {
@@ -938,7 +939,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         {/* Tags */}
                         {task.tags && task.tags.length > 0 && (
                           <div className="flex items-center flex-wrap gap-1">
-                            <span className="text-gray-600 text-xs mr-1">Tags:</span>
+                            <span className="text-gray-600 text-xs mr-1 font-semibold">Tags:</span>
                             {task.tags.slice(0, 3).map((tag, index) => (
                               <Badge
                                 key={index}
@@ -963,13 +964,13 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         {/* Start Date + Due */}
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-1 whitespace-nowrap">
-                            <span className="text-gray-600 text-xs">Start date:</span>
+                            <span className="text-gray-600 text-xs font-semibold">Start date:</span>
                             <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs whitespace-nowrap">
                               {formatDate(task.startDate ?? task.createdDate)}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-1 whitespace-nowrap">
-                            <span className="text-gray-600 text-xs">Due date:</span>
+                            <span className="text-gray-600 text-xs font-semibold">Due date:</span>
                             <Badge variant="secondary" className="bg-rose-100 text-rose-800 text-xs whitespace-nowrap">
                               {task.targetDate ? formatDate(task.targetDate) : '—'}
                             </Badge>
@@ -985,13 +986,13 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           {/* Metadata as colored tags */}
                           <div className="flex flex-wrap items-center gap-2">
                             <div className="flex items-center gap-1 whitespace-nowrap">
-                              <span className="text-gray-600 text-xs">Project:</span>
+                              <span className="text-gray-600 text-xs font-semibold">Project:</span>
                               <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
                                 {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
                               </Badge>
                             </div>
                             <div className="flex items-center gap-1 whitespace-nowrap">
-                              <span className="text-gray-600 text-xs">Created:</span>
+                              <span className="text-gray-600 text-xs font-semibold">Created:</span>
                               <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
                                 {formatDate(task.createdDate)}
                               </Badge>
