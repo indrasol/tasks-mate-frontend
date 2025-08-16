@@ -11,8 +11,8 @@ import {
   Home,
   Check,
   Users,
-  Menu,
-  X,
+  ChevronRight,
+  ChevronLeft,
   Edit3,
   Bug,
   TrendingUp,
@@ -169,7 +169,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="hover:bg-gray-100"
           >
-            {isCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
           </Button>
         </div>
 

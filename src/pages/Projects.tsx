@@ -332,7 +332,9 @@ const Projects = () => {
           start_date: projectData.startDate || null,
           end_date: projectData.endDate || null,
           owner: projectData.owner,
+          owner_designation: projectData.ownerDesignation || "",
           team_members: projectData.teamMembers || [],
+          team_member_designations: projectData.teamMemberDesignations || [],
         });
 
         // Prefer the server-generated card if available
@@ -513,12 +515,34 @@ const Projects = () => {
                 <span className="text-sm text-gray-600">Team</span>
               </div>
               <div className="flex -space-x-2">
-                {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
+                {project.teamMembers.slice(0, 5).map((m, idx) => renderMemberAvatar(m, idx))}
                   
-                {project.teamMembers.length > 3 && (
-                  <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
-                    <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
-                  </div>
+                {project.teamMembers.length > 5 && (
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
+                        <span className="text-xs text-gray-600">+{project.teamMembers.length - 5}</span>
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="p-2 bg-white w-fit max-w-[280px]">
+                      <div className="text-sm font-medium mb-1">Additional Team Members</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {project.teamMembers.slice(5).map((memberId, idx) => {
+                          const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
+                          return (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Avatar className="w-5 h-5 border-2 border-white">
+                                <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                                  {info.initials}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs text-gray-700 truncate">{info.displayName}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 )}
               </div>
             </div>
@@ -644,13 +668,34 @@ const Projects = () => {
                 
                 {/* Team under status tag */}
                 <div className="flex -space-x-2">
-                  {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
+                  {project.teamMembers.slice(0, 5).map((m, idx) => renderMemberAvatar(m, idx))}
                     
-                      
-                  {project.teamMembers.length > 3 && (
-                    <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
-                      <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
-                    </div>
+                  {project.teamMembers.length > 5 && (
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
+                          <span className="text-xs text-gray-600">+{project.teamMembers.length - 5}</span>
+                        </div>
+                      </HoverCardTrigger>
+                      <HoverCardContent className="p-2 bg-white w-fit max-w-[280px]" side="left">
+                        <div className="text-sm font-medium mb-1">Additional Team Members</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {project.teamMembers.slice(5).map((memberId, idx) => {
+                            const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
+                            return (
+                              <div key={idx} className="flex items-center gap-2">
+                                <Avatar className="w-5 h-5 border-2 border-white">
+                                  <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                                    {info.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs text-gray-700 truncate">{info.displayName}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
                   )}
                 </div>
               </div>
