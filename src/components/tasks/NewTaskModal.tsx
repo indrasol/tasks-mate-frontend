@@ -326,7 +326,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                 </Label>
                 <Textarea
                   id="description"
-                  placeholder="Provide detailed information about this task"
+                  placeholder="Provide detailed information about this task. You can also elaborate longer or update inside the task after creation"
                   value={formData.description}
                   onChange={(e) => handleInputChange("description", e.target.value)}
                   rows={4}
