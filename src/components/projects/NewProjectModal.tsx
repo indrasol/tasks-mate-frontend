@@ -86,7 +86,7 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', in
   }, [isOpen, initialData]);
 
 
-  type TeamMember = { id: string; displayName: string; initials: string };
+  type TeamMember = { id: string; displayName: string; initials: string; designation?: string };
   const availableTeamMembers: TeamMember[] = useMemo(
     () =>
       orgMembers.map((m) => {
@@ -97,7 +97,12 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', in
         );
         const displayName = displayTokens.join(" ");
         const initials = displayTokens.map((t) => t[0]).join("").toUpperCase();
-        return { id: m.user_id, displayName, initials };
+        return { 
+          id: m.user_id, 
+          displayName, 
+          initials,
+          designation: m.designation
+        };
       }),
     [orgMembers]
   );
@@ -110,7 +115,27 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', in
       }
     }
     
-    onSubmit(formData);
+    // Find the owner's designation from availableTeamMembers
+    const ownerData = availableTeamMembers.find(member => member.id === formData.owner);
+    const ownerDesignation = ownerData?.designation || "";
+    
+    // Collect designations for all team members
+    const teamMemberDesignations = formData.teamMembers.map(memberId => {
+      const member = availableTeamMembers.find(m => m.id === memberId);
+      return {
+        id: memberId,
+        designation: member?.designation || ""
+      };
+    });
+    
+    // Add owner designation and team member designations to the form data
+    const projectDataWithDesignations = {
+      ...formData,
+      ownerDesignation,
+      teamMemberDesignations
+    };
+    
+    onSubmit(projectDataWithDesignations);
     setFormData({
       name: '',
       description: '',
@@ -124,13 +149,25 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', in
   };
 
   const handleInputChange = (field: string, value: string | string[]) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    if (field === 'owner' && typeof value === 'string') {
+      // When owner changes, remove that user from team members if present
+      setFormData(prev => ({
+        ...prev,
+        owner: value,
+        teamMembers: prev.teamMembers.filter(id => id !== value)
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
   };
 
   const handleTeamMemberToggle = (memberId: string) => {
+    // Don't allow the owner to be added as a team member
+    if (memberId === formData.owner) return;
+    
     setFormData(prev => ({
       ...prev,
       teamMembers: prev.teamMembers.includes(memberId)
@@ -299,26 +336,30 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', in
               ) : (
                 <>
                   <div className="space-y-2">
-                {availableTeamMembers.map((member) => (
-                  <div key={member.id} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={`member-${member.id}`}
-                      checked={formData.teamMembers.includes(member.id)}
-                      onChange={() => handleTeamMemberToggle(member.id)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                    />
-                    <label 
-                      htmlFor={`member-${member.id}`} 
-                      className="text-sm cursor-pointer flex-1"
-                    >
-                      {member.displayName} ({member.initials})
-                    </label>
+                {availableTeamMembers
+                  .filter(member => member.id !== formData.owner) // Exclude the selected owner
+                  .map((member) => (
+                    <div key={member.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`member-${member.id}`}
+                        checked={formData.teamMembers.includes(member.id)}
+                        onChange={() => handleTeamMemberToggle(member.id)}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <label 
+                        htmlFor={`member-${member.id}`} 
+                        className="text-sm cursor-pointer flex-1"
+                      >
+                        {member.displayName} ({member.initials})
+                      </label>
+                    </div>
+                  ))}
                   </div>
-                ))}
-                  </div>
-                  {availableTeamMembers.length === 0 && (
-                    <p className="text-sm text-gray-500 italic">No organization members found</p>
+                  {availableTeamMembers.filter(member => member.id !== formData.owner).length === 0 && (
+                    <p className="text-sm text-gray-500 italic">
+                      {formData.owner ? "No other organization members found" : "No organization members found"}
+                    </p>
                   )}
                 </>
               )}

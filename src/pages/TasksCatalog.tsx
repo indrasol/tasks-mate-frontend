@@ -20,7 +20,10 @@ import {
   SortDesc,
   SortAsc,
   CalendarRange,
-  Trash2
+  Trash2,
+  X,
+  ChevronRight,
+  Calendar
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useOrganizations } from "@/hooks/useOrganizations";
@@ -50,6 +53,20 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import TaskListView from "@/components/tasks/TaskListView";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 import MainNavigation from "@/components/navigation/MainNavigation";
@@ -97,7 +114,20 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterOwner, setFilterOwner] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [filterProject, setFilterProject] = useState<string>("all");
+  const [createdDateFilter, setCreatedDateFilter] = useState<string>("all");
+  const [createdDateRange, setCreatedDateRange] = useState<{
+    from: Date | undefined;
+    to: Date | undefined;
+  }>({ from: undefined, to: undefined });
+  const [isCustomCreatedDateRange, setIsCustomCreatedDateRange] = useState(false);
+  
+  const [dueDateFilter, setDueDateFilter] = useState<string>("all");
+  const [dueDateRange, setDueDateRange] = useState<{
+    from: Date | undefined;
+    to: Date | undefined;
+  }>({ from: undefined, to: undefined });
+  const [isCustomDueDateRange, setIsCustomDueDateRange] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
@@ -183,25 +213,85 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   // Mock project context
   const currentProject = 'TasksMate Web';
 
-  // Enhanced date filtering logic
-  const isDateInRange = (taskDate: string, filter: string) => {
-    const date = new Date(taskDate);
+  // Enhanced date filtering logic with custom date range support
+  const isDateInRange = (
+    taskDate: string, 
+    filter: string, 
+    customRange?: { from: Date | undefined; to: Date | undefined }
+  ) => {
+    if (!taskDate) return true; // Handle empty dates
+    
+    // Normalize the task date to midnight UTC
+    const date = new Date(taskDate + 'T00:00:00Z');
     const now = new Date();
-
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // If we're in custom date range mode and have a valid range
+    if (filter === 'custom' && customRange?.from) {
+      // If only "from" date is set
+      if (!customRange.to) {
+        return date >= customRange.from;
+      }
+      // If both dates are set
+      return date >= customRange.from && date <= customRange.to;
+    }
+    
+    // Handle preset filters
     switch (filter) {
-      case "thisWeek":
-        const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-        const weekEnd = new Date(now.setDate(now.getDate() - now.getDay() + 6));
-        return date >= weekStart && date <= weekEnd;
+      case "today":
+        return date.getFullYear() === today.getFullYear() && 
+               date.getMonth() === today.getMonth() && 
+               date.getDate() === today.getDate();
+               
+      case "tomorrow":
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        return date.getFullYear() === tomorrow.getFullYear() && 
+               date.getMonth() === tomorrow.getMonth() && 
+               date.getDate() === tomorrow.getDate();
+               
+      case "thisWeek": {
+        // Get the first day of current week (Sunday)
+        const firstDay = new Date(today);
+        const day = today.getDay();
+        firstDay.setDate(today.getDate() - day);
+        
+        // Get the last day of current week (Saturday)
+        const lastDay = new Date(firstDay);
+        lastDay.setDate(firstDay.getDate() + 6);
+        
+        return date >= firstDay && date <= lastDay;
+      }
+      
+      case "next7Days": {
+        const nextWeek = new Date(today);
+        nextWeek.setDate(today.getDate() + 7);
+        return date >= today && date <= nextWeek;
+      }
+      
+      case "next30Days": {
+        const next30 = new Date(today);
+        next30.setDate(today.getDate() + 30);
+        return date >= today && date <= next30;
+      }
+      
       case "thisMonth":
-        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-      case "nextMonth":
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1);
-        return date.getMonth() === nextMonth.getMonth() && date.getFullYear() === nextMonth.getFullYear();
+        return date.getMonth() === today.getMonth() && 
+               date.getFullYear() === today.getFullYear();
+               
+      case "nextMonth": {
+        const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+        return date >= nextMonth && date <= lastDayNextMonth;
+      }
+      
       case "overdue":
-        return date < now && tasks.find(t => t.targetDate === taskDate)?.status !== 'completed';
+        // A task is overdue if its due date is before today and it's not completed
+        return date < today && 
+               tasks.find(t => t.targetDate === taskDate)?.status !== 'completed';
+               
       default:
-        return true;
+        return true; // "all" filter or any other value
     }
   };
 
@@ -243,7 +333,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     }
   };
 
-  // Enhanced filter and search logic
+  // Enhanced filter and search logic with custom date range support
   const filteredTasks = useMemo(() => {
     return sortTasks(tasks.filter(task => {
       // Tab filter (all vs mine)
@@ -267,13 +357,34 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       // Owner filter
       const matchesOwner = filterOwner === "all" || task.owner === filterOwner;
       const matchesPriority = filterPriority === "all" || (task.priority ?? 'none') === filterPriority;
+      
+      // Project filter
+      const matchesProject = filterProject === "all" || task.projectId === filterProject;
 
-      // Date filter
-      const matchesDate = dateFilter === "all" || isDateInRange(task.targetDate, dateFilter);
+      // Created date filter - Check createdDate
+      const matchesCreatedDate = 
+        createdDateFilter === "all" || 
+        (isCustomCreatedDateRange && createdDateRange.from) ? 
+          // For custom date range, check created date
+          isDateInRange(task.createdDate, 'custom', createdDateRange) :
+          // For preset filters, check created date
+          isDateInRange(task.createdDate, createdDateFilter);
+          
+      // Due date filter - Check targetDate
+      const matchesDueDate = 
+        dueDateFilter === "all" || 
+        (isCustomDueDateRange && dueDateRange.from) ? 
+          // For custom date range, check due date
+          isDateInRange(task.targetDate, 'custom', dueDateRange) :
+          // For preset filters, check due date
+          isDateInRange(task.targetDate, dueDateFilter);
 
-      return matchesSearch && matchesStatus && matchesOwner && matchesPriority && matchesDate;
+      return matchesSearch && matchesStatus && matchesOwner && matchesPriority && matchesProject && matchesCreatedDate && matchesDueDate;
     }));
-  }, [tasks, searchQuery, filterStatus, filterOwner, filterPriority, dateFilter, sortBy, sortDirection, tab, user]);
+  }, [tasks, searchQuery, filterStatus, filterOwner, filterPriority, filterProject, 
+     createdDateFilter, createdDateRange, isCustomCreatedDateRange,
+     dueDateFilter, dueDateRange, isCustomDueDateRange,
+     sortBy, sortDirection, tab, user]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -360,11 +471,67 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       setSortDirection('asc');
     }
   };
+  
+  // Format date range for display
+  const formatDateRange = (dateRange: { from: Date | undefined; to: Date | undefined }) => {
+    if (!dateRange.from) {
+      return "Custom Range";
+    }
+    
+    const formatDateStr = (date: Date) => {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+    
+    if (!dateRange.to) {
+      return `From ${formatDateStr(dateRange.from)}`;
+    }
+    
+    return `${formatDateStr(dateRange.from)} - ${formatDateStr(dateRange.to)}`;
+  };
+  
+  // Handle Created date range selection
+  const handleCreatedDateRangeSelect = (range: { from: Date | undefined; to: Date | undefined }) => {
+    setCreatedDateRange(range);
+    if (range.from) {
+      setIsCustomCreatedDateRange(true);
+      setCreatedDateFilter('custom');
+    }
+  };
+  
+  // Reset Created date range
+  const resetCreatedDateRange = () => {
+    setIsCustomCreatedDateRange(false);
+    setCreatedDateRange({ from: undefined, to: undefined });
+    setCreatedDateFilter('all');
+  };
+  
+  // Handle Due date range selection
+  const handleDueDateRangeSelect = (range: { from: Date | undefined; to: Date | undefined }) => {
+    setDueDateRange(range);
+    if (range.from) {
+      setIsCustomDueDateRange(true);
+      setDueDateFilter('custom');
+    }
+  };
+  
+  // Reset Due date range
+  const resetDueDateRange = () => {
+    setIsCustomDueDateRange(false);
+    setDueDateRange({ from: undefined, to: undefined });
+    setDueDateFilter('all');
+  };
 
   const clearFilters = () => {
     setFilterStatus("all");
     setFilterOwner("all");
-    setDateFilter("all");
+    setFilterProject("all");
+    setFilterPriority("all");
+    setCreatedDateFilter("all");
+    setIsCustomCreatedDateRange(false);
+    setCreatedDateRange({ from: undefined, to: undefined });
+    setDueDateFilter("all");
+    setIsCustomDueDateRange(false);
+    setDueDateRange({ from: undefined, to: undefined });
     setSearchQuery("");
   };
 
@@ -478,6 +645,23 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   </SelectContent>
                 </Select>
 
+                {/* Project Filter */}
+                <Select value={filterProject} onValueChange={setFilterProject}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
+                    </SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{project.name}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 {/* Owner Filter */}
                 <Select value={filterOwner} onValueChange={setFilterOwner}>
                   <SelectTrigger className="w-32">
@@ -495,30 +679,117 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   </SelectContent>
                 </Select>
 
-                {/* Date Filter */}
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="w-36">
-                    <CalendarRange className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="Date Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Dates</span>
-                    </SelectItem>
-                    <SelectItem value="thisWeek">
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">This Week</span>
-                    </SelectItem>
-                    <SelectItem value="thisMonth">
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">This Month</span>
-                    </SelectItem>
-                    <SelectItem value="nextMonth">
-                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Next Month</span>
-                    </SelectItem>
-                    <SelectItem value="overdue">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Overdue</span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Created Date Filter with Calendar */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant={createdDateFilter !== 'all' || isCustomCreatedDateRange ? "default" : "outline"} 
+                      className={`w-fit ${createdDateFilter !== 'all' || isCustomCreatedDateRange ? "bg-tasksmate-gradient text-white hover:bg-tasksmate-green-end" : ""}`}
+                    >
+                      <Calendar className="w-4 h-4 mr-2" />
+                      {isCustomCreatedDateRange 
+                        ? `Created: ${formatDateRange(createdDateRange)}` 
+                        : 'Created date'}
+                      {(createdDateFilter !== 'all' || isCustomCreatedDateRange) && (
+                        <Button 
+                          variant="ghost" 
+                          className="h-6 w-6 p-0 rounded-full ml-1 hover:bg-white/20"
+                          onClick={(e) => { e.stopPropagation(); resetCreatedDateRange(); }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-4" align="center">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">Select Created Date Range</h4>
+                      </div>
+                      <CalendarComponent
+                        mode="range"
+                        defaultMonth={createdDateRange.from}
+                        selected={createdDateRange}
+                        onSelect={handleCreatedDateRangeSelect}
+                        numberOfMonths={2}
+                        className="rounded-md border"
+                      />
+                      <div className="flex justify-between pt-2">
+                        <Button type="button" onClick={resetCreatedDateRange} variant="outline" size="sm">
+                          Reset
+                        </Button>
+                        <Button 
+                          type="button" 
+                          size="sm"
+                          onClick={() => {
+                            if (createdDateRange.from) {
+                              setIsCustomCreatedDateRange(true);
+                              setCreatedDateFilter('custom');
+                            }
+                          }}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                
+                {/* Due Date Filter with Calendar */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant={dueDateFilter !== 'all' || isCustomDueDateRange ? "default" : "outline"} 
+                      className={`w-fit ${dueDateFilter !== 'all' || isCustomDueDateRange ? "bg-tasksmate-gradient text-white hover:bg-tasksmate-green-end" : ""}`}
+                    >
+                      <CalendarRange className="w-4 h-4 mr-2" />
+                      {isCustomDueDateRange 
+                        ? `Due: ${formatDateRange(dueDateRange)}` 
+                        : 'Due date'}
+                      {(dueDateFilter !== 'all' || isCustomDueDateRange) && (
+                        <Button 
+                          variant="ghost" 
+                          className="h-6 w-6 p-0 rounded-full ml-1 hover:bg-white/20"
+                          onClick={(e) => { e.stopPropagation(); resetDueDateRange(); }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-4" align="center">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">Select Due Date Range</h4>
+                      </div>
+                      <CalendarComponent
+                        mode="range"
+                        defaultMonth={dueDateRange.from}
+                        selected={dueDateRange}
+                        onSelect={handleDueDateRangeSelect}
+                        numberOfMonths={2}
+                        className="rounded-md border"
+                      />
+                      <div className="flex justify-between pt-2">
+                        <Button type="button" onClick={resetDueDateRange} variant="outline" size="sm">
+                          Reset
+                        </Button>
+                        <Button 
+                          type="button" 
+                          size="sm"
+                          onClick={() => {
+                            if (dueDateRange.from) {
+                              setIsCustomDueDateRange(true);
+                              setDueDateFilter('custom');
+                            }
+                          }}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
 
                 {/* Sort Options */}
                 <DropdownMenu>
@@ -754,7 +1025,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 <Grid3X3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg mb-2">No tasks found</p>
                 <p className="text-gray-400 mb-4">
-                  {searchQuery || filterStatus !== "all" || filterOwner !== "all" || dateFilter !== "all"
+                  {searchQuery || filterStatus !== "all" || filterOwner !== "all" || createdDateFilter !== "all" || dueDateFilter !== "all"
                     ? "Try adjusting your filters or search query"
                     : "Create your first task to get started"
                   }
