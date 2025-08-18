@@ -5,13 +5,13 @@ import MainNavigation from "@/components/navigation/MainNavigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -21,12 +21,12 @@ import {
   Area,
   AreaChart
 } from 'recharts';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  CheckCircle2, 
-  Clock, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Users,
+  CheckCircle2,
+  Clock,
   Target,
   Calendar,
   BarChart3,
@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/table";
 import useDashboard from '@/hooks/useDashboard';
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
+import { getPriorityColor, getStatusMeta } from '@/lib/projectUtils';
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
@@ -120,8 +121,8 @@ const Dashboard = () => {
           <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Dashboard</h2>
           <p className="text-red-600">{error}</p>
-          <Button 
-            onClick={() => window.location.reload()} 
+          <Button
+            onClick={() => window.location.reload()}
             className="mt-4 bg-tasksmate-gradient"
           >
             Try Again
@@ -144,6 +145,14 @@ const Dashboard = () => {
     team_members: 24
   };
 
+  const handleProjectClick = (projectId: string) => {
+    if (currentOrgId) {
+      navigate(`/projects/${projectId}?org_id=${currentOrgId}`);
+    } else {
+      navigate(`/projects/${projectId}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <MainNavigation />
@@ -163,7 +172,7 @@ const Dashboard = () => {
         {/* Main Content */}
         <div className="px-6 py-6">
           <div className="w-full space-y-6">
-            
+
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
               <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
@@ -371,7 +380,7 @@ const Dashboard = () => {
                             <span className="text-sm text-gray-600">{member.tasksCompleted} / {member.tasksTotal} tasks</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
+                            <div
                               className="bg-tasksmate-gradient h-2 rounded-full transition-all duration-300"
                               style={{ width: `${(member.tasksCompleted / member.tasksTotal) * 100}%` }}
                             ></div>
@@ -410,19 +419,15 @@ const Dashboard = () => {
                   </TableHeader>
                   <TableBody>
                     {topProjects.map((project, index) => (
-                      <TableRow key={index} 
-                        onClick={() => {
-                          if (project.project_id) {
-                            navigate(`/projects/${project.project_id}`);
-                          }
-                        }}
+                      <TableRow key={index}
+                        onClick={() => handleProjectClick(project?.project_id)}
                         className="cursor-pointer hover:bg-gray-50"
                       >
                         <TableCell className="font-medium">{project.name}</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
                             <div className="w-full bg-gray-200 rounded-full h-2 max-w-[100px]">
-                              <div 
+                              <div
                                 className="bg-tasksmate-gradient h-2 rounded-full"
                                 style={{ width: `${project.progress}%` }}
                               ></div>
@@ -433,15 +438,24 @@ const Dashboard = () => {
                         <TableCell>{project.tasks} total</TableCell>
                         <TableCell>{project.team} members</TableCell>
                         <TableCell>
-                          <Badge 
+                          <Badge
+                            variant="secondary"
+                            className={`text-xs ${getStatusMeta(project?.status)?.color}`}
+                          >
+                            {getStatusMeta(project?.status)?.label}
+                          </Badge>
+                          {/* <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
+                            {project.priority.toUpperCase()}
+                          </Badge> */}
+                          {/* <Badge
                             className={
                               project.status === "Completed" ? "bg-green-100 text-green-800" :
-                              project.status === "Active" ? "bg-blue-100 text-blue-800" :
-                              "bg-gray-100 text-gray-800"
+                                project.status === "Active" ? "bg-blue-100 text-blue-800" :
+                                  "bg-gray-100 text-gray-800"
                             }
                           >
                             {project.status}
-                          </Badge>
+                          </Badge> */}
                         </TableCell>
                       </TableRow>
                     ))}

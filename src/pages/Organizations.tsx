@@ -370,7 +370,9 @@ const Organizations = () => {
 
   const handleOrgCardClick = (orgId: string) => {
     // Navigate to the team members page with the organization ID
-    navigate(`/team-members?org_id=${orgId}`);
+    // navigate(`/team-members?org_id=${orgId}`);
+    navigate(`/dashboard?org_id=${orgId}`);
+
   };
 
   const handleAcceptInvite = async (invitationId: string) => {

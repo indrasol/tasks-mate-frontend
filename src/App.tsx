@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Organizations from "./pages/Organizations";
@@ -40,28 +40,32 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<Index />} />
+
+            <Route path="/" element={
+              <Navigate to={"/index"} replace />
+            } />
+            <Route path="/index" element={<Index />} />
             <Route path="/org" element={<PrivateRoute><Organizations /></PrivateRoute>} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/team-members" element={<TeamMembers />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/tasks_catalog" element={<TasksCatalog />} />
-            <Route path="/tasks/:taskId" element={<TaskDetail />} />
-            <Route path="/meetings" element={<Meetings />} />
-            <Route path="/meetings/:id" element={<MeetingNotebook />} />
-            <Route path="/meetings/status-call/:id" element={<StatusCallMeeting />} />
-            <Route path="/meetings/retrospective/:id" element={<RetrospectiveMeeting />} />
-            <Route path="/meetings/knowshare/:id" element={<KnowshareMeeting />} />
-            <Route path="/meetings/product-call/:id" element={<ProductCallMeeting />} />
-            <Route path="/meetings/ad-hoc/:id" element={<AdHocMeeting />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/projects/:id" element={<ProjectDetail />} />
-            <Route path="/sales-marketing" element={<SalesMarketing />} />
-            <Route path="/tester-zone" element={<TesterZone />} />
-            <Route path="/tester-zone/runs/:id" element={<TestRunDetail />} />
-            <Route path="/tester-zone/runs/:id/bugs" element={<BugBoard />} />
-            <Route path="/tester-zone/runs/:id/bugs/:bugId" element={<BugDetail />} />
-            <Route path="/scratchpad" element={<Scratchpad />} />
+            <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="/team-members" element={<PrivateRoute><TeamMembers /></PrivateRoute>} />
+            <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+            <Route path="/tasks_catalog" element={<PrivateRoute><TasksCatalog /></PrivateRoute>} />
+            <Route path="/tasks/:taskId" element={<PrivateRoute><TaskDetail /></PrivateRoute>} />
+            <Route path="/meetings" element={<PrivateRoute><Meetings /></PrivateRoute>} />
+            <Route path="/meetings/:id" element={<PrivateRoute><MeetingNotebook /></PrivateRoute>} />
+            <Route path="/meetings/status-call/:id" element={<PrivateRoute><StatusCallMeeting /></PrivateRoute>} />
+            <Route path="/meetings/retrospective/:id" element={<PrivateRoute><RetrospectiveMeeting /></PrivateRoute>} />
+            <Route path="/meetings/knowshare/:id" element={<PrivateRoute><KnowshareMeeting /></PrivateRoute>} />
+            <Route path="/meetings/product-call/:id" element={<PrivateRoute><ProductCallMeeting /></PrivateRoute>} />
+            <Route path="/meetings/ad-hoc/:id" element={<PrivateRoute><AdHocMeeting /></PrivateRoute>} />
+            <Route path="/projects" element={<PrivateRoute><Projects /></PrivateRoute>} />
+            <Route path="/projects/:id" element={<PrivateRoute><ProjectDetail /></PrivateRoute>} />
+            <Route path="/sales-marketing" element={<PrivateRoute><SalesMarketing /></PrivateRoute>} />
+            <Route path="/tester-zone" element={<PrivateRoute><TesterZone /></PrivateRoute>} />
+            <Route path="/tester-zone/runs/:id" element={<PrivateRoute><TestRunDetail /></PrivateRoute>} />
+            <Route path="/tester-zone/runs/:id/bugs" element={<PrivateRoute><BugBoard /></PrivateRoute>} />
+            <Route path="/tester-zone/runs/:id/bugs/:bugId" element={<PrivateRoute><BugDetail /></PrivateRoute>} />
+            <Route path="/scratchpad" element={<PrivateRoute><Scratchpad /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

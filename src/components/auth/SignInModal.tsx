@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 interface SignInModalProps {
   open: boolean;
@@ -26,6 +26,10 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
+  const { search } = useLocation();
+  const searchParams = new URLSearchParams(search);
+  const orgId = searchParams.get("org_id");
+
   const handleEmailPasswordSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -39,7 +43,8 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
       });
 
       onOpenChange(false);
-      navigate("/org");
+
+      navigate(orgId ? `/dashboard?org_id=${orgId}` : "/org");
     } catch (error: any) {
       toast({
         title: "Sign in failed",

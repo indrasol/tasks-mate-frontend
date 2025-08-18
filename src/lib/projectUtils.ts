@@ -66,3 +66,12 @@ export function deriveDisplayFromEmail(emailOrUsername: string) {
   const initials = displayTokens.map((t) => t[0]).join("").toUpperCase();
   return { displayName, initials };
 }
+
+
+  export function capitalizeFirstLetter(opt: string): React.ReactNode {
+    // replace underscores with spaces
+    opt = opt.replace(/_/g, ' ');
+    // capitalize first letter of each word
+    opt = opt.replace(/\b\w/g, (char) => char.toUpperCase());
+    return opt;
+  }
