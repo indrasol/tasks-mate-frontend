@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import { api } from "@/services/apiService";
@@ -40,6 +41,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Select,
@@ -64,9 +66,11 @@ type SortDirection = 'asc' | 'desc';
 const Projects = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]); // empty → all
+  const [filterPriorities, setFilterPriorities] = useState<string[]>([]);
+  const [filterProjectName, setFilterProjectName] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('name');
@@ -129,6 +133,17 @@ const Projects = () => {
       navigate('/');
     }
   }, [user, loading, navigate]);
+
+  // Initialize status filters from URL query param (e.g., ?statuses=in_progress,planning)
+  useEffect(() => {
+    const param = searchParams.get('statuses');
+    if (param) {
+      const arr = param.split(',').map(s => s.trim()).filter(Boolean);
+      setFilterStatuses(arr);
+    }
+  // we only want to run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch projects from backend
   useEffect(() => {
@@ -260,11 +275,13 @@ const Projects = () => {
       project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.category.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = filterStatus === "all" || project.status === filterStatus;
-    const matchesPriority = filterPriority === "all" || project.priority === filterPriority;
+    const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(project.status);
+    const matchesPriority = filterPriorities.length === 0 || filterPriorities.includes(project.priority);
     const matchesDate = dateFilter === "all" || isDateInRange(project.endDate, dateFilter);
+    // For Projects page, optional project-name filter (mainly to spotlight one project)
+    const matchesName = filterProjectName === "all" || project.id === filterProjectName;
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesDate;
+    return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesName;
   }));
 
   const handleProjectClick = (projectId: string) => {
@@ -749,66 +766,76 @@ const Projects = () => {
               <div className="flex items-center space-x-4">
                 <Filter className="w-4 h-4 text-gray-500" />
                 
-                {/* Status Filter Dropdown - aligned with Tasks */}
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Status</span>
-                    </SelectItem>
-                    <SelectItem value="not_started">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Not Started</span>
-                    </SelectItem>
-                    <SelectItem value="in-progress">
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">In Progress</span>
-                    </SelectItem>
-                    <SelectItem value="completed">
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Completed</span>
-                    </SelectItem>
-                    <SelectItem value="blocked">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Blocked</span>
-                    </SelectItem>
-                    <SelectItem value="on_hold">
-                      <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">On Hold</span>
-                    </SelectItem>
-                    <SelectItem value="paused">
-                      <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">Paused</span>
-                    </SelectItem>
-                    <SelectItem value="planning">
-                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Planning</span>
-                    </SelectItem>
-                    <SelectItem value="archived">
-                      <span className="px-2 py-1 rounded-full text-xs bg-black text-white">Archived</span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Status Filter – Multi-select */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Status {filterStatuses.length > 0 ? `(${filterStatuses.length})` : ''}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-40">
+                    {[
+                      { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
+                      { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
+                      { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
+                      { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
+                      { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
+                      { value: 'paused', label: 'Paused', cls: 'bg-orange-100 text-orange-800' },
+                      { value: 'planning', label: 'Planning', cls: 'bg-purple-100 text-purple-800' },
+                      { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
+                      { value: 'active', label: 'Active', cls: 'bg-blue-100 text-blue-800' },
+                    ].map(opt => (
+                      <DropdownMenuCheckboxItem
+                        key={opt.value}
+                        checked={filterStatuses.includes(opt.value)}
+                        onCheckedChange={(checked) => {
+                          setFilterStatuses(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value));
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                {/* Priority Filter */}
-                <Select value={filterPriority} onValueChange={setFilterPriority}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Priority" />
+                {/* Priority Filter – Multi-select */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Priority {filterPriorities.length > 0 ? `(${filterPriorities.length})` : ''}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-40">
+                    {['critical','high','medium','low','none'].map(p => (
+                      <DropdownMenuCheckboxItem
+                        key={p}
+                        checked={filterPriorities.includes(p)}
+                        onCheckedChange={(checked) => {
+                          setFilterPriorities(prev => checked ? [...prev, p] : prev.filter(x => x !== p));
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Project Filter (focus on a single project) */}
+                <Select value={filterProjectName} onValueChange={setFilterProjectName}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Project" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Priority</span>
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
                     </SelectItem>
-                    <SelectItem value="critical">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-600 text-white">CRITICAL</span>
-                    </SelectItem>
-                    <SelectItem value="high">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">High</span>
-                    </SelectItem>
-                    <SelectItem value="medium">
-                      <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">Medium</span>
-                    </SelectItem>
-                    <SelectItem value="low">
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Low</span>
-                    </SelectItem>
-                    <SelectItem value="none">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">NONE</span>
-                    </SelectItem>
+                    {projects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{p.name}</span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 
@@ -907,7 +934,7 @@ const Projects = () => {
                 <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg mb-2">No projects found</p>
                 <p className="text-gray-400 mb-4">
-                  {searchQuery || filterStatus !== "all" || filterPriority !== "all" || dateFilter !== "all" 
+                  {searchQuery || filterStatuses.length>0 || filterPriorities.length>0 || dateFilter !== "all" || filterProjectName !== "all" 
                     ? "Try adjusting your filters or search query" 
                     : "Create your first project to get started"
                   }

@@ -27,4 +27,5 @@ export const API_ENDPOINTS = {
   DESIGNATIONS: `${API_BASE_URL}/designations`,
   USER_ROLES: `${API_BASE_URL}/user-roles`,
   GET_EMAIL: `${API_BASE_URL}/get-email`,
+  DASHBOARD: `${API_BASE_URL}/dashboard`,
 };
