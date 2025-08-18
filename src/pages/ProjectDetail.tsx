@@ -107,7 +107,9 @@ const ProjectDetail = () => {
   const [searchParams] = useSearchParams();
   const { id } = useParams();
   const { data: stats } = useProjectStats(id);
-  const { data: membersData } = useProjectMembers(id);
+  // Create our own state tracker for days left to avoid the TypeScript error with mutate
+  const [daysLeft, setDaysLeft] = useState<number | undefined>(undefined);
+  const { data: membersData, refetch: refetchMembers } = useProjectMembers(id);
   const currentOrgId = useCurrentOrgId();
   const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId);
   const { data: resourcesData } = useProjectResources(id);
@@ -274,6 +276,19 @@ const ProjectDetail = () => {
     );
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
+  
+  // Update days left whenever project changes
+  useEffect(() => {
+    if (project?.endDate) {
+      const daysLeftVal = Math.max(0, Math.ceil(
+        (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12,0,0,0)) / 
+        (1000 * 60 * 60 * 24)
+      ));
+      setDaysLeft(daysLeftVal);
+    } else if (stats?.days_left !== undefined) {
+      setDaysLeft(stats.days_left);
+    }
+  }, [project?.endDate, stats?.days_left]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -365,10 +380,12 @@ const ProjectDetail = () => {
     }
   };
 
+  // Ensure membersData is refreshed when the component loads or when id changes
   useEffect(() => {
-    // fetchTeamMembers();
-    // eslint-disable-next-line
-  }, [id]);
+    if (id) {
+      refetchMembers();
+    }
+  }, [id, refetchMembers]);
 
   // Add new URL resource
   const handleAddUrl = async () => {
@@ -457,9 +474,13 @@ const ProjectDetail = () => {
     try {
       await api.put(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
-        { role: newRole }
+        { 
+          role: newRole,
+          // Ensure designation is preserved when changing role
+          designation: member.designation || "" 
+        }
       );
-      fetchTeamMembers();
+      await refetchMembers();
     } catch (err) {
       // handle error
     }
@@ -584,9 +605,15 @@ const ProjectDetail = () => {
     try {
       await api.post(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
-        { role: member.role }
+        { 
+          role: member.role,
+          // Include designation when adding a single member
+          designation: member.designation || "" 
+        }
       );
-      fetchTeamMembers();
+      
+      // Refresh data from the server to ensure designation is loaded
+      await refetchMembers();
     } catch (err) {
       // handle error
     }
@@ -609,13 +636,23 @@ const ProjectDetail = () => {
 
     try {
       await Promise.allSettled(
-        filteredToAdd.map((uid) =>
-          api.post(
+        filteredToAdd.map((uid) => {
+          const foundMember = orgMembers.find(m => m.user_id === uid);
+          return api.post(
             `${API_ENDPOINTS.PROJECT_MEMBERS}`,
-            { project_id: project.id, user_id: uid, role: "member" }
-          )
-        )
+            { 
+              project_id: project.id, 
+              user_id: uid, 
+              role: "member",
+              designation: foundMember?.designation || "" 
+            }
+          );
+        })
       );
+      // Refresh the data from the server to get accurate designation information
+      await refetchMembers();
+      
+      // Also update the local state for immediate UI feedback
       setTeamMembers(prev => {
         const existing = new Set(prev.map(p => p.name));
         const additions: Member[] = [];
@@ -624,7 +661,14 @@ const ProjectDetail = () => {
           const found = orgMembers.find(m => m.user_id === uid);
           const email = found?.email ?? uid;
           const display = deriveDisplayFromEmail(email).displayName;
-          additions.push({ initials: display.charAt(0).toUpperCase(), name: uid, role: "member", designation: "", displayName: display, email });
+          additions.push({ 
+            initials: display.charAt(0).toUpperCase(), 
+            name: uid, 
+            role: "member", 
+            designation: found?.designation || "", 
+            displayName: display, 
+            email 
+          });
         });
         return [...prev, ...additions];
       });
@@ -670,7 +714,14 @@ const ProjectDetail = () => {
                           setSelectedOrgMemberIds(prev => e.target.checked ? [...prev, m.user_id] : prev.filter(id => id !== m.user_id));
                         }}
                       />
-                      <span className="text-sm">{name} ({email})</span>
+                      <span className="text-sm">
+                        {name} ({email})
+                        {m.designation && (
+                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0 ml-2">
+                            {m.designation}
+                          </Badge>
+                        )}
+                      </span>
                     </label>
                   );
                 })
@@ -712,12 +763,12 @@ const ProjectDetail = () => {
         { role: member.role }
       );
 
-      // No need to call fetchTeamMembers() since we've already updated the UI
-      // and the optimistic update preserves the existing member data for remaining members
+      // Refresh the data to ensure our UI is in sync with the backend
+      await refetchMembers();
     } catch (err) {
       // If there's an error, refresh the whole list to get back to a consistent state
       console.error('Error removing member:', err);
-      fetchTeamMembers();
+      await refetchMembers();
       toast.error('Failed to remove team member');
     }
   };
@@ -794,6 +845,20 @@ const ProjectDetail = () => {
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+        {/* Permission Banner */}
+        {userRole !== "owner" && userRole !== "admin" && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                <p className="text-amber-800 font-medium">
+                  You are viewing this project as a member. Some actions like editing or deleting the project are restricted to members.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Header */}
         <div className="px-6 pt-6 pb-11 bg-white/50 border-b border-gray-200">
           <div className="w-full">
@@ -835,11 +900,45 @@ const ProjectDetail = () => {
                   <Badge className={`text-xs ${getPriorityColor(project?.priority ?? 'none')} hover:bg-inherit hover:text-inherit`}>
                     {(project?.priority ?? 'none').toUpperCase()}
                   </Badge>
-                  <Edit
-                    className="w-4 h-4 cursor-pointer hover:scale-110 transition"
-                    onClick={() => setIsEditSheetOpen(true)}
-                  />
-                  <Trash2 className="w-4 h-4 cursor-pointer hover:scale-110 hover:text-red-600 transition" onClick={handleDelete} />
+                  {(userRole === "owner" || userRole === "admin") ? (
+                    <div className="cursor-pointer hover:scale-110 transition" title="Edit project">
+                      <Edit
+                        className="w-4 h-4"
+                        onClick={() => setIsEditSheetOpen(true)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative group">
+                      <div className="cursor-not-allowed">
+                        <Edit
+                          className="w-4 h-4 text-gray-400"
+                        />
+                      </div>
+                      <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                        Only owners and admins can edit projects
+                      </div>
+                    </div>
+                  )}
+                  
+                  {(userRole === "owner") ? (
+                    <div className="cursor-pointer hover:scale-110 hover:text-red-600 transition" title="Delete project">
+                      <Trash2 
+                        className="w-4 h-4"
+                        onClick={handleDelete}
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative group">
+                      <div className="cursor-not-allowed">
+                        <Trash2 
+                          className="w-4 h-4 text-gray-400"
+                        />
+                      </div>
+                      <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                        Only project owners can delete projects
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {/* Title on its own row beside vertical line */}
                 <div className="mt-2">
@@ -923,7 +1022,10 @@ const ProjectDetail = () => {
                     <div>
                       <p className="text-sm text-gray-600">Days Left</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {stats?.days_left ?? (project?.endDate ? Math.ceil((new Date(project.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0)}
+                        {daysLeft !== undefined ? daysLeft : 
+                          (project?.endDate ? 
+                            Math.max(0, Math.ceil((new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12,0,0,0)) / (1000 * 60 * 60 * 24))) : 
+                            (stats?.days_left ?? 0))}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -954,17 +1056,181 @@ const ProjectDetail = () => {
                     <CardContent>
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">Start Date</span>
-                          <span className="font-medium">{project?.startDate ? new Date(project.startDate).toLocaleDateString() : '-'}</span>
+                          <span className="text-sm text-gray-600 flex items-center">
+                            <Calendar className="w-4 h-4 text-blue-600 mr-1" />
+                            Start Date
+                          </span>
+                          {(userRole === "owner" || userRole === "admin") ? (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Badge 
+                                  variant="secondary" 
+                                  className="text-xs bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200 transition-colors px-3 py-1.5"
+                                >
+                                  {project?.startDate ? 
+                                    (project.startDate.includes('T') ? 
+                                      new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
+                                      new Date(project.startDate + 'T12:00:00').toLocaleDateString()) : 
+                                    'Set start date'}
+                                  <Pencil className="w-3 h-3 inline ml-1" />
+                                </Badge>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-[425px]">
+                                <DialogHeader>
+                                  <DialogTitle>Update Start Date</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                  <Input
+                                    type="date"
+                                    value={project?.startDate ? project.startDate.split('T')[0] : ''}
+                                    onChange={(e) => {
+                                      const newStartDate = e.target.value;
+                                      // Optimistic update
+                                      setProject(prev => prev ? {
+                                        ...prev,
+                                        startDate: newStartDate
+                                      } : null);
+                                    }}
+                                  />
+                                </div>
+                                <DialogFooter>
+                                  <DialogClose asChild>
+                                    <Button 
+                                      type="submit"
+                                      onClick={async () => {
+                                        try {
+                                          await updateProject({ start_date: project?.startDate });
+                                          toast.success('Start date updated successfully');
+                                          
+                                          // If end date exists, update days left calculation
+                                          if (project?.endDate) {
+                                            const daysLeftVal = Math.max(0, Math.ceil(
+                                              (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12,0,0,0)) / 
+                                              (1000 * 60 * 60 * 24)
+                                            ));
+                                            setDaysLeft(daysLeftVal);
+                                          }
+                                        } catch (err) {
+                                          toast.error('Failed to update start date');
+                                        }
+                                      }}
+                                    >
+                                      Save
+                                    </Button>
+                                  </DialogClose>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          ) : (
+                            <div className="relative group">
+                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                {project?.startDate ? 
+                                  (project.startDate.includes('T') ? 
+                                    new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
+                                    new Date(project.startDate + 'T12:00:00').toLocaleDateString()) : 
+                                  'Not set'}
+                              </Badge>
+                              <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                                Only owners and admins can modify dates
+                              </div>
+                            </div>
+                          )}
                         </div>
+                        
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">End Date</span>
-                          <span className="font-medium">{project?.endDate ? new Date(project.endDate).toLocaleDateString() : '-'}</span>
+                          <span className="text-sm text-gray-600 flex items-center">
+                            <Calendar className="w-4 h-4 text-red-600 mr-1" />
+                            End Date
+                          </span>
+                          {(userRole === "owner" || userRole === "admin") ? (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Badge 
+                                  variant="secondary" 
+                                  className="text-xs bg-red-100 text-red-800 cursor-pointer hover:bg-red-200 transition-colors px-3 py-1.5"
+                                >
+                                  {project?.endDate ? 
+                                    (project.endDate.includes('T') ? 
+                                      new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
+                                      new Date(project.endDate + 'T12:00:00').toLocaleDateString()) : 
+                                    'Set end date'}
+                                  <Pencil className="w-3 h-3 inline ml-1" />
+                                </Badge>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-[425px]">
+                                <DialogHeader>
+                                  <DialogTitle>Update End Date</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                  <Input
+                                    type="date"
+                                    value={project?.endDate ? project.endDate.split('T')[0] : ''}
+                                    min={project?.startDate ? project.startDate.split('T')[0] : ''}
+                                    onChange={(e) => {
+                                      const newEndDate = e.target.value;
+                                      // Optimistic update
+                                      setProject(prev => prev ? {
+                                        ...prev,
+                                        endDate: newEndDate
+                                      } : null);
+                                    }}
+                                  />
+                                  {project?.startDate && (
+                                    <p className="text-xs text-gray-500">
+                                      Must be on or after the start date ({new Date(project.startDate).toLocaleDateString()})
+                                    </p>
+                                  )}
+                                </div>
+                                <DialogFooter>
+                                  <DialogClose asChild>
+                                    <Button 
+                                      type="submit"
+                                      onClick={async () => {
+                                        try {
+                                          await updateProject({ end_date: project?.endDate });
+                                          toast.success('End date updated successfully');
+                                          
+                                          // Manually update days left to reflect new end date
+                                          if (project?.endDate) {
+                                            const daysLeftVal = Math.max(0, Math.ceil(
+                                              (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12,0,0,0)) / 
+                                              (1000 * 60 * 60 * 24)
+                                            ));
+                                            setDaysLeft(daysLeftVal);
+                                          }
+                                        } catch (err) {
+                                          toast.error('Failed to update end date');
+                                        }
+                                      }}
+                                    >
+                                      Save
+                                    </Button>
+                                  </DialogClose>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          ) : (
+                            <div className="relative group">
+                              <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
+                                {project?.endDate ? 
+                                  (project.endDate.includes('T') ? 
+                                    new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
+                                    new Date(project.endDate + 'T12:00:00').toLocaleDateString()) : 
+                                  'Not set'}
+                              </Badge>
+                              <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                                Only owners and admins can modify dates
+                              </div>
+                            </div>
+                          )}
                         </div>
+                        
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">Duration</span>
                           <span className="font-medium">
-                            {project?.endDate && project?.startDate ? Math.ceil((new Date(project.endDate).getTime() - new Date(project.startDate).getTime()) / (1000 * 60 * 60 * 24)) : 0} days
+                            {project?.endDate && project?.startDate ? 
+                              Math.ceil((new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - 
+                                        new Date(project.startDate.split('T')[0] + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)) : 0} days
                           </span>
                         </div>
                       </div>
@@ -995,16 +1261,68 @@ const ProjectDetail = () => {
                                 {member.initials}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <p className="text-sm font-medium">{member.displayName ?? deriveDisplayFromEmail(member.name ?? member.email ?? "").displayName}</p>
-                              <p className="text-xs text-gray-600">{member.role}</p>
-                              <p className="text-xs text-gray-600">{member.designation}</p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium truncate">
+                                  {member.displayName ?? deriveDisplayFromEmail(member.name ?? member.email ?? "").displayName}
+                                </p>
+                                {member.designation && (
+                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0">
+                                    {member.designation}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-600 mt-1">{member.role}</p>
                             </div>
 
-                            {(userRole === "owner" || userRole === "admin") && member.role !== "owner" && (
-                              <Button title="Remove member" variant="ghost" onClick={() => handleDeleteMember(member)} className="ml-auto">
-                                <Trash2 className="w-4 h-4 text-red-500" />
-                              </Button>
+                            {(userRole === "owner" || userRole === "admin") && (
+                              <div className="flex items-center gap-2">
+                                {userRole === "owner" && (
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button title="Change role" variant="ghost" className="h-8 w-8 p-0">
+                                        <Edit className="w-4 h-4 text-blue-500" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                      <DialogHeader>
+                                        <DialogTitle>Change Member Role</DialogTitle>
+                                      </DialogHeader>
+                                      <div className="grid gap-4 py-4">
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                          <Label htmlFor="role" className="text-right">
+                                            Role
+                                          </Label>
+                                          <Select 
+                                            defaultValue={member.role}
+                                            onValueChange={(value) => handleChangeRole(member, value)}
+                                          >
+                                            <SelectTrigger className="col-span-3">
+                                              <SelectValue placeholder="Select role" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="owner">Owner</SelectItem>
+                                              <SelectItem value="member">Member</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      </div>
+                                      <DialogFooter>
+                                        <DialogClose asChild>
+                                          <Button type="button">
+                                            Close
+                                          </Button>
+                                        </DialogClose>
+                                      </DialogFooter>
+                                    </DialogContent>
+                                  </Dialog>
+                                )}
+                                {member.role !== "owner" && (
+                                  <Button title="Remove member" variant="ghost" onClick={() => handleDeleteMember(member)} className="h-8 w-8 p-0">
+                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                  </Button>
+                                )}
+                              </div>
                             )}
                           </div>
                         ))}

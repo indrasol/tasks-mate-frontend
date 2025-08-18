@@ -262,93 +262,122 @@ const TeamMembers = () => {
   };
 
   const handleChangeRole = async (orgId: string, memberId: string, value: string, email?: string, type?: string) => {
-
-    // TODO: call backend API to persist designation change
-    if (type === "invited") {
-      try {
-        const data = await api.put(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
+    // Don't proceed if we're trying to change to the same role
+    if (type === "invited" && invitedTeamMembers.find(m => m.id === memberId)?.role === value) {
+      return;
+    } else if (!type && teamMembers.find(m => m.user_id === memberId)?.role === value) {
+      return;
+    }
+    
+    // Set updating state to prevent multiple submissions
+    setUpdating(true);
+    
+    try {
+      if (type === "invited") {
+        await api.put(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
           email: email,
           org_id: orgId,
           role: value
         });
-      } catch (error) {
-        console.error('Error updating role:', error);
-        toast({
-          title: "Error",
-          description: "Failed to update role",
-          variant: "destructive"
-        });
-        return;
-      }
-    } else {
-      try {
-        const data = await api.put(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`, {
+        
+        // Update local state
+        setInvitedTeamMembers(prev => prev.map(m => 
+          m.id === memberId ? { ...m, role: value } : m
+        ));
+      } else {
+        await api.put(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`, {
           user_id: memberId,
           org_id: orgId,
           role: value
         });
-      } catch (error) {
-        console.error('Error updating role:', error);
-        toast({
-          title: "Error",
-          description: "Failed to update role",
-          variant: "destructive"
-        });
-        return;
+        
+        // Update local state
+        setTeamMembers(prev => prev.map(m => 
+          m.user_id === memberId ? { ...m, role: value } : m
+        ));
+        
+        // If we just changed our own role, update currentUserOrgRole
+        if (memberId === user?.id) {
+          setCurrentUserOrgRole(value);
+        }
       }
-    }
-    toast({
-      title: "Success",
-      description: "Role updated successfully"
-    });
-    if (type === "invited") {
-      setInvitedTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: value } : m));
-    } else {
-      setTeamMembers(prev => prev.map(m => m.user_id === memberId ? { ...m, role: value } : m));
+      
+      toast({
+        title: "Success",
+        description: "Role updated successfully"
+      });
+    } catch (error) {
+      console.error('Error updating role:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update role",
+        variant: "destructive"
+      });
+      
+      // Refresh the lists to ensure UI is in sync with backend
+      if (type === "invited") {
+        fetchInvitedTeamMembers();
+      } else {
+        fetchTeamMembers();
+      }
+    } finally {
+      setUpdating(false);
     }
   };
 
 
   const handleRemoveTeamMember = async (orgId: string, memberId: string, type?: string) => {
-    // setTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m } : m));
-    // TODO: call backend API to persist designation change
-
-    // TODO: call backend API to persist designation change
-    if (type === "invited") {
-      try {
-        const data = await api.del(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
+    // Set updating state to prevent multiple actions
+    setUpdating(true);
+    
+    try {
+      if (type === "invited") {
+        await api.del(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
           org_id: orgId
         });
-      } catch (error) {
-        console.error('Error removing member:', error);
-        toast({
-          title: "Error",
-          description: "Failed to remove member",
-          variant: "destructive"
-        });
-        return;
+        
+        // Update local state
+        setInvitedTeamMembers(prev => prev.filter(m => m.id !== memberId));
+      } else {
+        // Prevent removing yourself if you're the last owner
+        const isRemovingSelf = memberId === user?.id;
+        const ownersCount = teamMembers.filter(m => m.role === 'owner').length;
+        
+        if (isRemovingSelf && currentUserOrgRole === 'owner' && ownersCount <= 1) {
+          toast({
+            title: "Error",
+            description: "Cannot remove the last owner from organization",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        await api.del(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`);
+        
+        // Update local state
+        setTeamMembers(prev => prev.filter(m => m.user_id !== memberId));
       }
-    } else {
-      try {
-        const data = await api.del(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`);
-      } catch (error) {
-        console.error('Error removing member:', error);
-        toast({
-          title: "Error",
-          description: "Failed to remove member",
-          variant: "destructive"
-        });
-        return;
+      
+      toast({
+        title: "Success",
+        description: "Member removed successfully"
+      });
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove member",
+        variant: "destructive"
+      });
+      
+      // Refresh the lists to ensure UI is in sync with backend
+      if (type === "invited") {
+        fetchInvitedTeamMembers();
+      } else {
+        fetchTeamMembers();
       }
-    }
-    toast({
-      title: "Success",
-      description: "Member removed successfully"
-    });
-    if (type === "invited") {
-      setInvitedTeamMembers(prev => prev.filter(m => m.id !== memberId));
-    } else {
-      setTeamMembers(prev => prev.filter(m => m.id !== memberId));
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -541,15 +570,22 @@ const TeamMembers = () => {
                         {member.email}
                       </TableCell>
                       <TableCell>
-                        <Select defaultValue={member.role} disabled={member.role === 'owner'} onValueChange={(val) => handleChangeRole(member.org_id, member.user_id, val)}>
-                          <SelectTrigger className="w-24">
+                        <Select 
+                          defaultValue={member.role} 
+                          disabled={(currentUserOrgRole !== 'owner' && member.role === 'owner') || updating} 
+                          onValueChange={(val) => handleChangeRole(member.org_id, member.user_id, val)}
+                        >
+                          <SelectTrigger className={`w-24 ${updating ? 'opacity-50' : ''}`}>
                             <SelectValue />
+                            {updating && <span className="ml-2 animate-spin">⟳</span>}
                           </SelectTrigger>
                           <SelectContent>
                             {roleOptions.map(role => (
-                              <SelectItem key={role} value={role}
-                               disabled={(!(currentUserOrgRole === 'owner') && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
-                               >
+                              <SelectItem 
+                                key={role} 
+                                value={role}
+                                disabled={(currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
+                              >
                                 {capitalizeFirstLetter(role)}
                               </SelectItem>
                             ))}
@@ -569,12 +605,13 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       <TableCell>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell>{(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && member.role !== 'owner' &&
-
-                        <div className="flex w-10 items-center gap-2">
-                          <X className="w-4 h-4 text-red-500" onClick={() => handleRemoveTeamMember(member.org_id, member.user_id)} />
-                        </div>
-                      }</TableCell>
+                      <TableCell>
+                        {((currentUserOrgRole === 'owner') || (currentUserOrgRole === 'admin' && member.role !== 'owner')) && (
+                          <div className="flex w-10 items-center gap-2">
+                            <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => handleRemoveTeamMember(member.org_id, member.user_id)} />
+                          </div>
+                        )}
+                      </TableCell>
 
                     </TableRow>
                   )) : <TableRow><TableCell colSpan={6} className="h-24 text-center">{teamMembersError ? (<span>{teamMembersError} <br></br> <Button onClick={fetchTeamMembers} variant="outline">Refresh</Button></span>) : loading ? 'Loading...' : 'No team members'}</TableCell></TableRow>}
@@ -635,13 +672,22 @@ const TeamMembers = () => {
                         {member.email}
                       </TableCell>
                       <TableCell>
-                        <Select defaultValue={member.role} disabled={member.role === 'owner'}  onValueChange={(val) => handleChangeRole(member.org_id, member.id, val, member.email, "invited")}>
-                          <SelectTrigger className="w-24">
+                        <Select 
+                          defaultValue={member.role} 
+                          disabled={(currentUserOrgRole !== 'owner' && member.role === 'owner') || updating}
+                          onValueChange={(val) => handleChangeRole(member.org_id, member.id, val, member.email, "invited")}
+                        >
+                          <SelectTrigger className={`w-24 ${updating ? 'opacity-50' : ''}`}>
                             <SelectValue />
+                            {updating && <span className="ml-2 animate-spin">⟳</span>}
                           </SelectTrigger>
                           <SelectContent>
                             {roleOptions.map(role => (
-                              <SelectItem key={role} value={role} disabled={!(currentUserOrgRole === 'owner' && role === 'owner') && !(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin'}>
+                              <SelectItem 
+                                key={role} 
+                                value={role} 
+                                disabled={(currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
+                              >
                                 {capitalizeFirstLetter(role)}
                               </SelectItem>
                             ))}
@@ -661,11 +707,13 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       <TableCell>{member.sent_at ? new Date(member.sent_at).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell>{(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') &&  member.role !== 'owner' &&
-                        <div className="flex w-10 items-center gap-2">
-                          <X className="w-4 h-4 text-red-500" onClick={() => handleRemoveTeamMember(member.org_id, member.id, "invited")} />
-                        </div>
-                      }</TableCell>
+                      <TableCell>
+                        {((currentUserOrgRole === 'owner') || (currentUserOrgRole === 'admin' && member.role !== 'owner')) && (
+                          <div className="flex w-10 items-center gap-2">
+                            <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => handleRemoveTeamMember(member.org_id, member.id, "invited")} />
+                          </div>
+                        )}
+                      </TableCell>
                     </TableRow>
                   )) : <TableRow><TableCell colSpan={6} className="h-24 text-center">{invitedTeamMembersError ? (<span>{invitedTeamMembersError} <br></br> <Button onClick={fetchInvitedTeamMembers} variant="outline">Refresh</Button></span>) : loadingInvited ? 'Loading...' : 'No invited members'}</TableCell></TableRow>}
                 </TableBody>

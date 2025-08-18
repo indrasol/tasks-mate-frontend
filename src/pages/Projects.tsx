@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import { api } from "@/services/apiService";
@@ -40,6 +41,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Select,
@@ -64,9 +66,11 @@ type SortDirection = 'asc' | 'desc';
 const Projects = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]); // empty → all
+  const [filterPriorities, setFilterPriorities] = useState<string[]>([]);
+  const [filterProjectName, setFilterProjectName] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('name');
@@ -130,6 +134,17 @@ const Projects = () => {
     }
   }, [user, loading, navigate]);
 
+  // Initialize status filters from URL query param (e.g., ?statuses=in_progress,planning)
+  useEffect(() => {
+    const param = searchParams.get('statuses');
+    if (param) {
+      const arr = param.split(',').map(s => s.trim()).filter(Boolean);
+      setFilterStatuses(arr);
+    }
+  // we only want to run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Fetch projects from backend
   useEffect(() => {
     const fetchProjects = async () => {
@@ -140,7 +155,8 @@ const Projects = () => {
       setLoadingProjects(true);
 
       try {
-        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}`);
+        // Use show_all=true to fetch all projects in the organization, not just user's projects
+        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}?show_all=true`);
         const mapped: Project[] = res.map((p: any) => ({
           id: p.project_id,
           name: p.name,
@@ -259,11 +275,13 @@ const Projects = () => {
       project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.category.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = filterStatus === "all" || project.status === filterStatus;
-    const matchesPriority = filterPriority === "all" || project.priority === filterPriority;
+    const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(project.status);
+    const matchesPriority = filterPriorities.length === 0 || filterPriorities.includes(project.priority);
     const matchesDate = dateFilter === "all" || isDateInRange(project.endDate, dateFilter);
+    // For Projects page, optional project-name filter (mainly to spotlight one project)
+    const matchesName = filterProjectName === "all" || project.id === filterProjectName;
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesDate;
+    return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesName;
   }));
 
   const handleProjectClick = (projectId: string) => {
@@ -332,7 +350,9 @@ const Projects = () => {
           start_date: projectData.startDate || null,
           end_date: projectData.endDate || null,
           owner: projectData.owner,
+          owner_designation: projectData.ownerDesignation || "",
           team_members: projectData.teamMembers || [],
+          team_member_designations: projectData.teamMemberDesignations || [],
         });
 
         // Prefer the server-generated card if available
@@ -462,21 +482,7 @@ const Projects = () => {
               </HoverCardContent>
             </HoverCard> */}
             
-            {/* Dates */}
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600">Start Date:</span>
-                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                  {formatDate(project.startDate)}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600">End Date:</span>
-                <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
-                  {formatDate(project.endDate)}
-                </Badge>
-              </div>
-            </div>
+            {/* Dates removed as per request */}
             
             {/* Progress */}
             <div className="space-y-2">
@@ -499,7 +505,7 @@ const Projects = () => {
                 <span>{project.completedTasks}/{project.tasksCount} tasks</span>
               </div>
               <div className="flex items-center gap-2 text-gray-600">
-                <span className="text-xs">Created:</span>
+                <span className="text-xs font-semibold">Created:</span>
                 <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
                   {formatDate(project.startDate)}
                 </Badge>
@@ -513,12 +519,34 @@ const Projects = () => {
                 <span className="text-sm text-gray-600">Team</span>
               </div>
               <div className="flex -space-x-2">
-                {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
+                {project.teamMembers.slice(0, 5).map((m, idx) => renderMemberAvatar(m, idx))}
                   
-                {project.teamMembers.length > 3 && (
-                  <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
-                    <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
-                  </div>
+                {project.teamMembers.length > 5 && (
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
+                        <span className="text-xs text-gray-600">+{project.teamMembers.length - 5}</span>
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="p-2 bg-white w-fit max-w-[280px]">
+                      <div className="text-sm font-medium mb-1">Additional Team Members</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {project.teamMembers.slice(5).map((memberId, idx) => {
+                          const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
+                          return (
+                            <div key={idx} className="flex items-center gap-2">
+                              <Avatar className="w-5 h-5 border-2 border-white">
+                                <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                                  {info.initials}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs text-gray-700 truncate">{info.displayName}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 )}
               </div>
             </div>
@@ -572,39 +600,12 @@ const Projects = () => {
                         <h3 className={`font-semibold transition-colors ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
                           {project.name}
                         </h3>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <p className={`text-sm truncate max-w-xs cursor-default ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
-                              {project.description}
-                            </p>
-                          </HoverCardTrigger>
-                          <HoverCardContent side="right" align="start" className="max-w-sm p-4 bg-white shadow-lg rounded-md border border-gray-200">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{project.description}</p>
-                          </HoverCardContent>
-                        </HoverCard>
+                        {/* Description removed */}
                       </div>
                     </div>
                   </div>
                   
-                  {/* Dates - Horizontal layout */}
-                  <div className="md:col-span-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4 text-blue-600" />
-                        <span className="text-xs text-gray-600">Start Date:</span>
-                        <Badge className="text-xs bg-blue-100 text-blue-800">
-                          {formatDate(project.startDate)}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4 text-red-600" />
-                        <span className="text-xs text-gray-600">End Date:</span>
-                        <Badge className="text-xs bg-red-100 text-red-800">
-                          {formatDate(project.endDate)}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Dates removed */}
                   
                   {/* Progress and Tasks - Horizontal layout with better spacing */}
                   <div className="md:col-span-4 flex items-center gap-6 pl-2">
@@ -644,13 +645,34 @@ const Projects = () => {
                 
                 {/* Team under status tag */}
                 <div className="flex -space-x-2">
-                  {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
+                  {project.teamMembers.slice(0, 5).map((m, idx) => renderMemberAvatar(m, idx))}
                     
-                      
-                  {project.teamMembers.length > 3 && (
-                    <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
-                      <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
-                    </div>
+                  {project.teamMembers.length > 5 && (
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
+                          <span className="text-xs text-gray-600">+{project.teamMembers.length - 5}</span>
+                        </div>
+                      </HoverCardTrigger>
+                      <HoverCardContent className="p-2 bg-white w-fit max-w-[280px]" side="left">
+                        <div className="text-sm font-medium mb-1">Additional Team Members</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {project.teamMembers.slice(5).map((memberId, idx) => {
+                            const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
+                            return (
+                              <div key={idx} className="flex items-center gap-2">
+                                <Avatar className="w-5 h-5 border-2 border-white">
+                                  <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                                    {info.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs text-gray-700 truncate">{info.displayName}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
                   )}
                 </div>
               </div>
@@ -703,66 +725,76 @@ const Projects = () => {
               <div className="flex items-center space-x-4">
                 <Filter className="w-4 h-4 text-gray-500" />
                 
-                {/* Status Filter Dropdown - aligned with Tasks */}
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Status</span>
-                    </SelectItem>
-                    <SelectItem value="not_started">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Not Started</span>
-                    </SelectItem>
-                    <SelectItem value="in-progress">
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">In Progress</span>
-                    </SelectItem>
-                    <SelectItem value="completed">
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Completed</span>
-                    </SelectItem>
-                    <SelectItem value="blocked">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Blocked</span>
-                    </SelectItem>
-                    <SelectItem value="on_hold">
-                      <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">On Hold</span>
-                    </SelectItem>
-                    <SelectItem value="paused">
-                      <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">Paused</span>
-                    </SelectItem>
-                    <SelectItem value="planning">
-                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Planning</span>
-                    </SelectItem>
-                    <SelectItem value="archived">
-                      <span className="px-2 py-1 rounded-full text-xs bg-black text-white">Archived</span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Status Filter – Multi-select */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Status {filterStatuses.length > 0 ? `(${filterStatuses.length})` : ''}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-40">
+                    {[
+                      { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
+                      { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
+                      { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
+                      { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
+                      { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
+                      { value: 'paused', label: 'Paused', cls: 'bg-orange-100 text-orange-800' },
+                      { value: 'planning', label: 'Planning', cls: 'bg-purple-100 text-purple-800' },
+                      { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
+                      { value: 'active', label: 'Active', cls: 'bg-blue-100 text-blue-800' },
+                    ].map(opt => (
+                      <DropdownMenuCheckboxItem
+                        key={opt.value}
+                        checked={filterStatuses.includes(opt.value)}
+                        onCheckedChange={(checked) => {
+                          setFilterStatuses(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value));
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                {/* Priority Filter */}
-                <Select value={filterPriority} onValueChange={setFilterPriority}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Priority" />
+                {/* Priority Filter – Multi-select */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Priority {filterPriorities.length > 0 ? `(${filterPriorities.length})` : ''}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-40">
+                    {['critical','high','medium','low','none'].map(p => (
+                      <DropdownMenuCheckboxItem
+                        key={p}
+                        checked={filterPriorities.includes(p)}
+                        onCheckedChange={(checked) => {
+                          setFilterPriorities(prev => checked ? [...prev, p] : prev.filter(x => x !== p));
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Project Filter (focus on a single project) */}
+                <Select value={filterProjectName} onValueChange={setFilterProjectName}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Project" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Priority</span>
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
                     </SelectItem>
-                    <SelectItem value="critical">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-600 text-white">CRITICAL</span>
-                    </SelectItem>
-                    <SelectItem value="high">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">High</span>
-                    </SelectItem>
-                    <SelectItem value="medium">
-                      <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">Medium</span>
-                    </SelectItem>
-                    <SelectItem value="low">
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Low</span>
-                    </SelectItem>
-                    <SelectItem value="none">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">NONE</span>
-                    </SelectItem>
+                    {projects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{p.name}</span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 
@@ -861,7 +893,7 @@ const Projects = () => {
                 <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg mb-2">No projects found</p>
                 <p className="text-gray-400 mb-4">
-                  {searchQuery || filterStatus !== "all" || filterPriority !== "all" || dateFilter !== "all" 
+                  {searchQuery || filterStatuses.length>0 || filterPriorities.length>0 || dateFilter !== "all" || filterProjectName !== "all" 
                     ? "Try adjusting your filters or search query" 
                     : "Create your first project to get started"
                   }

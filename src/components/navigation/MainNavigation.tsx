@@ -11,8 +11,8 @@ import {
   Home,
   Check,
   Users,
-  Menu,
-  X,
+  ChevronRight,
+  ChevronLeft,
   Edit3,
   Bug,
   TrendingUp,
@@ -34,12 +34,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 
 import { api } from '@/services/apiService';
 import { API_ENDPOINTS } from '@/../config';
 import { BackendOrg, Organization } from '@/types/organization';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import type { SimpleOrg } from '@/hooks/useOrganizations';
+import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
 import path from 'path';
 
 interface MainNavigationProps {
@@ -61,8 +63,16 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [searchParams] = useSearchParams();
-
   const orgId = useMemo(() => searchParams.get('org_id'), [searchParams]);
+  const { data: orgMembers = [] } = useOrganizationMembers(orgId || undefined);
+  // Determine a friendly username to show in the sidebar
+  const profileLabel = useMemo(() => {
+    if (!user) return 'Profile';
+    const usernameMeta = (user as any)?.user_metadata?.username;
+    if (usernameMeta) return deriveDisplayFromEmail(usernameMeta).displayName;
+    if (user.email) return deriveDisplayFromEmail(user.email).displayName;
+    return 'Profile';
+  }, [user]);
 
   const { data: orgList } = useOrganizations();
   const userOrganizations = (orgList ?? []) as SimpleOrg[];
@@ -74,6 +84,20 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     return currentOrg?.name ?? '';
   }, [orgId, userOrganizations]);
   
+  // Resolve designation for current user within current org (if available)
+  const myDesignation = useMemo(() => {
+    if (!user || !orgId) return '';
+    const match = orgMembers.find((m) => {
+      const emailMatch = m.email?.toLowerCase() === (user.email ?? '').toLowerCase();
+      const idMatch = m.user_id === user.id;
+      const usernameMatch = ((user as any)?.user_metadata?.username || '').toLowerCase() === (m.email || '').toLowerCase();
+      return emailMatch || idMatch || usernameMatch;
+    });
+    if (match?.designation) {
+      return match.designation;
+    }
+    return '';
+  }, [orgMembers, user, orgId]);
 
   // Broadcast sidebar collapse
   useEffect(() => {
@@ -169,7 +193,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="hover:bg-gray-100"
           >
-            {isCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
           </Button>
         </div>
 
@@ -277,7 +301,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                   {!isCollapsed && (
                     <div className="flex-1 text-left min-w-0">
                       <p className="text-sm font-medium text-gray-700 truncate">
-                        Profile
+                        {profileLabel}
                       </p>
                     </div>
                   )}
@@ -285,7 +309,12 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56 bg-white border shadow-lg">
                 <div className="px-3 py-2">
-                  <p className="text-sm font-medium text-gray-900">{user?.email}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.email}
+                    {myDesignation && (
+                      <span className="text-gray-500"> ({myDesignation})</span>
+                    )}
+                  </p>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,8 @@ import {
   Upload,
   FileText,
   ExternalLink,
-  Trash2
+  Trash2,
+  Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 // import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
@@ -50,6 +51,7 @@ import { useAuth } from "@/hooks/useAuth";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import HistoryCard from "@/components/tasks/HistoryCard";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 
 const TaskDetail = () => {
@@ -73,6 +75,9 @@ const TaskDetail = () => {
   const [tagInput, setTagInput] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  // Editing toggles
+  const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
 
   // Comments state
   const [comments, setComments] = useState<any[]>([]);
@@ -81,6 +86,8 @@ const TaskDetail = () => {
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
+  // Delete comment modal
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
 
   // @mention functionality
   const [mentionSearchText, setMentionSearchText] = useState("");
@@ -88,6 +95,8 @@ const TaskDetail = () => {
   const [mentionAnchorPos, setMentionAnchorPos] = useState({ top: 0, left: 0 });
   const [cursorPosition, setCursorPosition] = useState(0);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  // Keyboard navigation for @mention suggestions
+  const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
 
   // Attachments state
   const [attachments, setAttachments] = useState<any[]>([]);
@@ -118,6 +127,32 @@ const TaskDetail = () => {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user } = useAuth();
+  // Build possible identifiers for current user to match against task owner/creator
+  const userIdentifiers = useMemo(() => {
+    if (!user) return [] as string[];
+    const ids: string[] = [];
+    if (user.id) ids.push(String(user.id));
+    // Supabase stores custom username inside user_metadata.username
+    const metaUsername = (user as any)?.user_metadata?.username;
+    if (metaUsername) ids.push(String(metaUsername));
+    if (user.email) ids.push(String(user.email));
+    if (user.email) {
+      ids.push(deriveDisplayFromEmail(user.email).displayName);
+    }
+    return ids.map((x) => x.toLowerCase());
+  }, [user]);
+
+  // Allow delete only if current user is task owner/assignee or creator
+  const canDeleteTask = useMemo(() => {
+    if (!task) return false;
+    const ownerString = String(task.owner ?? '').toLowerCase();
+    const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
+    return (
+      userIdentifiers.includes(ownerString) ||
+      userIdentifiers.includes(ownerDisplay)
+    );
+  }, [task, userIdentifiers]);
+
   const currentOrgId = useCurrentOrgId();
   const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId || '');  // Use empty string if undefined
 
@@ -199,7 +234,9 @@ const TaskDetail = () => {
     if (!currentOrgId || !task?.project_id) return;
     (async () => {
       try {
-        const projects = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}`);
+        // Fetch *all* projects in the organization so we can resolve project names even for projects
+        // the current user is not explicitly a member of.
+        const projects = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}?show_all=true`);
         const map: Record<string, string> = {};
         projects.forEach((pr: any) => { map[pr.project_id] = pr.name; });
         setProjectsMap(map);
@@ -249,7 +286,7 @@ const TaskDetail = () => {
     if (!taskId) return;
     setLoadingHistory(true);
     setHistoryError(null);
-    taskService.getTaskHistory(taskId, taskName || task?.name)
+    taskService.getTaskHistory(taskId)
       .then((data: any[]) => {
         setHistory(data || []);
         setLoadingHistory(false);
@@ -306,6 +343,8 @@ const TaskDetail = () => {
       if (Array.isArray(task?.tags)) payload.tags = task.tags;
       await taskService.updateTask(taskId, payload);
       toast.success('Task changes saved successfully!');
+      setIsTitleEditing(false);
+      setIsDescriptionEditing(false);
       fetchHistory();
     } catch (err: any) {
       const msg = err?.message || (err?.detail ? String(err.detail) : 'Failed to save changes');
@@ -390,26 +429,18 @@ const TaskDetail = () => {
     // Get text before cursor
     const textBeforeCursor = newText.substring(0, curPos);
 
-    // Check for @ character with regex - find the last @ that's not part of a word
-    const mentionRegex = /(?:^|\s)@(\w*)$/;
-    const matches = textBeforeCursor.match(mentionRegex);
+    // Show pop-over ONLY when the cursor is currently inside an @-mention that has no
+    // terminating regular space/punctuation yet (i.e. the mention is still being typed).
+    // NBSP (\u00A0) is treated as part of the mention so selecting a name will close it.
+    const inProgressMatch = textBeforeCursor.match(/(?:^|\s)@([^\s]*)$/);
 
-    if (matches) {
-      // We found an @ symbol that's at start of text or after a space
-      const searchText = matches[1] || "";
-      setMentionSearchText(searchText);
-
-      if (!showMentionPopover) {
-        setShowMentionPopover(true);
-      }
-
-      // No need to calculate position - we're using fixed position in the UI
-    } else if (curPos > 0 && newText[curPos - 1] === '@') {
-      // Just typed an @ character
-      setMentionSearchText("");
-      setShowMentionPopover(true);
+    if (inProgressMatch) {
+      // User is typing a mention → keep / open popover
+      setMentionSearchText(inProgressMatch[1] || "");
+      if (!showMentionPopover) setShowMentionPopover(true);
+      setMentionActiveIndex(0);
     } else if (showMentionPopover) {
-      // If mention popover is open but we don't have an @ symbol anymore, close it
+      // Cursor is no longer within a mention → close popover
       setShowMentionPopover(false);
     }
   };
@@ -428,14 +459,17 @@ const TaskDetail = () => {
     // Insert the username (only if we found an @ symbol)
     if (atIndex !== -1) {
       // Find any text that was already typed after the @
-      const mentionRegex = /@(\w*)$/;
+      const mentionRegex = /@([\w]+(?:[\s-][\w]+)*)(?=[\s.,!?]|$)/g;
       const match = textBeforeCursor.match(mentionRegex);
-      const typedAfterAt = match ? match[1].length : 0;
+      const typedAfterAt = match ? match[0].length : 0;
+
+      // Replace regular spaces with non-breaking spaces so the mention is one contiguous token
+      const usernameSafe = username.replace(/ /g, '\u00A0');
 
       // Create new text by replacing what was typed after @ with the selected username
       const newText =
         text.substring(0, atIndex + 1) + // Keep text up to and including @
-        username + ' ' + // Add username and space
+        usernameSafe + ' ' + // Add username (with NBSP) and trailing regular space
         text.substring(curPos); // Keep text after cursor
 
       console.log('Adding mention:', username);
@@ -487,8 +521,9 @@ const TaskDetail = () => {
   const renderCommentWithMentions = (text: string) => {
     if (!text) return null;
 
-    // Regular expression to find @mentions
-    const mentionRegex = /@(\w+)/g;
+    // Regular expression to find @mentions. Names may contain non-breaking spaces (\u00A0) that we insert when the user selects from the popover.
+    // The match stops before the first regular whitespace, punctuation, or line end.
+    const mentionRegex = /@[\w\u00A0]+(?:[\u00A0-][\w\u00A0]+)*(?=[\s.,!?]|$)/g;
     const parts = [];
     let lastIndex = 0;
     let match;
@@ -607,11 +642,6 @@ const TaskDetail = () => {
     setEditCommentText('');
   };
   const handleDeleteComment = async (commentId: string) => {
-    // Confirm deletion
-    if (!window.confirm("Are you sure you want to delete this comment?")) {
-      return;
-    }
-
     // Store comment for potential restoration
     const commentToDelete = comments.find(c => c.comment_id === commentId);
 
@@ -833,6 +863,28 @@ const TaskDetail = () => {
   // if (loadingHistory) return <div className="p-8 text-center">Loading history...</div>;
   // if (historyError) return <div className="p-8 text-center text-red-500">{historyError}</div>;
 
+  // Keyboard navigation handler for the comment textarea when the mention popover is open
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!showMentionPopover || filteredMembers.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setMentionActiveIndex((prev) => (prev + 1) % filteredMembers.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setMentionActiveIndex((prev) => (prev - 1 + filteredMembers.length) % filteredMembers.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const member = filteredMembers[mentionActiveIndex];
+      if (member) {
+        const { displayName } = deriveDisplayFromEmail(member.email || '');
+        handleSelectMention(displayName);
+      }
+    } else if (e.key === 'Escape') {
+      setShowMentionPopover(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Navigation */}
@@ -909,23 +961,34 @@ const TaskDetail = () => {
                     </SelectContent>
                   </Select>
                   {/* Edit icon removed as requested */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                    onClick={() => setIsDeleteTaskOpen(true)}
-                    title="Delete task"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  {canDeleteTask && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                      onClick={() => setIsDeleteTaskOpen(true)}
+                      title="Delete task"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
                 {/* Title */}
-                <div className="mt-2">
-                  <Input
-                    value={taskName}
-                    onChange={(e) => setTaskName(e.target.value)}
-                    className={`text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
-                  />
+                <div className="mt-2 flex items-start gap-2">
+                  {isTitleEditing ? (
+                    <Input
+                      value={taskName}
+                      onChange={(e) => setTaskName(e.target.value)}
+                      className={`text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
+                    />
+                  ) : (
+                    <span className={`text-2xl font-sora font-bold ${status === 'completed' ? 'line-through text-gray-400' : ''}`}>{taskName}</span>
+                  )}
+                  {!isTitleEditing && (
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsTitleEditing(true)}>
+                      <Pencil className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  )}
                 </div>
 
                 {/* Meta row */}
@@ -959,23 +1022,30 @@ const TaskDetail = () => {
               {/* Description */}
               <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
-                  <CardTitle className="font-sora">Description</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="font-sora">Description</CardTitle>
+                    {!isDescriptionEditing && (
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsDescriptionEditing(true)}>
+                        <Pencil className="h-4 w-4 text-gray-500" />
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {/* <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className={`min-h-32 border-0 bg-transparent resize-none focus-visible:ring-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
-                    placeholder="Add a description..."
-                  /> */}
-                  <RichTextEditor
-                    content={description}
-                    onChange={(content) => setDescription(content)}
-                    placeholder="Add a detailed description..."
-                    onImageUpload={handleImageUpload}
-                    className="min-h-[200px]"
-                  />
-
+                  {isDescriptionEditing ? (
+                    <RichTextEditor
+                      content={description}
+                      onChange={(content) => setDescription(content)}
+                      placeholder="Add a detailed description..."
+                      onImageUpload={handleImageUpload}
+                      className="min-h-[200px]"
+                    />
+                  ) : (
+                    <div
+                      className="prose max-w-none text-gray-700"
+                      dangerouslySetInnerHTML={{ __html: description || '<p>No description</p>' }}
+                    />
+                  )}
                 </CardContent>
               </Card>
 
@@ -1317,6 +1387,7 @@ const TaskDetail = () => {
                           <div className="flex-1 space-y-2">
                             <div className="relative">
                               <Textarea
+                                onKeyDown={handleTextareaKeyDown}
                                 ref={commentInputRef}
                                 value={newComment}
                                 onChange={handleCommentChange}
@@ -1341,12 +1412,12 @@ const TaskDetail = () => {
                                     {filteredMembers.length === 0 ? (
                                       <div className="px-2 py-1 text-sm text-gray-500">No members found</div>
                                     ) : (
-                                      filteredMembers.map(member => {
+                                      filteredMembers.map((member, idx) => {
                                         const { displayName } = deriveDisplayFromEmail(member.email || '');
                                         return (
                                           <button
                                             key={member.id || member.user_id}
-                                            className="flex items-center gap-2 w-full text-left px-2 py-1 hover:bg-gray-100 hover:bg-blue-50 active:bg-blue-100 rounded transition-colors"
+                                            className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded transition-colors ${idx === mentionActiveIndex ? 'bg-blue-100' : 'hover:bg-gray-100 hover:bg-blue-50 active:bg-blue-100'}`}
                                             type="button"
                                             onMouseDown={(e) => {
                                               // Using onMouseDown instead of onClick to prevent focus issues
@@ -1459,7 +1530,7 @@ const TaskDetail = () => {
                                           variant="ghost"
                                           size="sm"
                                           className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                          onClick={() => handleDeleteComment(comment.comment_id)}
+                                          onClick={() => setDeleteCommentId(comment.comment_id)}
                                           disabled={!canEdit}
                                           title={canEdit ? "Delete" : "Only author can delete"}
                                         >
@@ -1751,6 +1822,19 @@ const TaskDetail = () => {
             </div>
           </div>
         )}
+        {/* Delete Comment Confirm Dialog */}
+        <Dialog open={!!deleteCommentId} onOpenChange={(open)=>{if(!open) setDeleteCommentId(null);}}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Comment</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-gray-600">Are you sure you want to delete this comment? This action cannot be undone.</p>
+            <DialogFooter className="justify-end gap-2">
+              <Button variant="outline" onClick={()=>setDeleteCommentId(null)}>Cancel</Button>
+              <Button className="bg-red-600 text-white" onClick={()=>{ if(deleteCommentId) handleDeleteComment(deleteCommentId); setDeleteCommentId(null);}}>Delete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
     </div>
