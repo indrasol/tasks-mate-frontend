@@ -47,6 +47,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Tabs,
@@ -111,9 +112,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   // State management - enhanced with new filter and sort options
   const [view, setView] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]); // empty array -> all
   const [filterOwner, setFilterOwner] = useState<string>("all");
-  const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [filterPriorities, setFilterPriorities] = useState<string[]>([]);
   const [filterProject, setFilterProject] = useState<string>("all");
   const [createdDateFilter, setCreatedDateFilter] = useState<string>("all");
   const [createdDateRange, setCreatedDateRange] = useState<{
@@ -353,11 +354,13 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         (task.tags && task.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
 
       // Status filter
-      const matchesStatus = filterStatus === "all" || task.status === filterStatus;
+      const matchesStatus =
+        filterStatuses.length === 0 || filterStatuses.includes(task.status);
 
       // Owner filter
       const matchesOwner = filterOwner === "all" || task.owner === filterOwner;
-      const matchesPriority = filterPriority === "all" || (task.priority ?? 'none') === filterPriority;
+      const matchesPriority =
+        filterPriorities.length === 0 || filterPriorities.includes((task.priority ?? 'none'));
       
       // Project filter
       const matchesProject = filterProject === "all" || task.projectId === filterProject;
@@ -382,7 +385,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
       return matchesSearch && matchesStatus && matchesOwner && matchesPriority && matchesProject && matchesCreatedDate && matchesDueDate;
     }));
-  }, [tasks, searchQuery, filterStatus, filterOwner, filterPriority, filterProject, 
+  }, [tasks, searchQuery, filterStatuses, filterOwner, filterPriorities, filterProject, 
      createdDateFilter, createdDateRange, isCustomCreatedDateRange,
      dueDateFilter, dueDateRange, isCustomDueDateRange,
      sortBy, sortDirection, tab, user]);
@@ -523,10 +526,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   };
 
   const clearFilters = () => {
-    setFilterStatus("all");
+    setFilterStatuses([]);
     setFilterOwner("all");
     setFilterProject("all");
-    setFilterPriority("all");
+    setFilterPriorities([]);
     setCreatedDateFilter("all");
     setIsCustomCreatedDateRange(false);
     setCreatedDateRange({ from: undefined, to: undefined });
@@ -543,6 +546,16 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   if (error) {
     return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
   }
+
+  const statusOptions = [
+    { value: "not_started", label: "Not Started", className: "bg-gray-100 text-gray-800" },
+    { value: "in-progress", label: "In Progress", className: "bg-blue-100 text-blue-800" },
+    { value: "completed", label: "Completed", className: "bg-green-100 text-green-800" },
+    { value: "blocked", label: "Blocked", className: "bg-red-100 text-red-800" },
+    { value: "on_hold", label: "On Hold", className: "bg-yellow-100 text-yellow-800" },
+    { value: "archived", label: "Archived", className: "bg-black text-white" },
+  ];
+  const priorityOptions = ["critical", "high", "medium", "low", "none"];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -599,52 +612,51 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               <div className="flex items-center space-x-4">
                 <Filter className="w-4 h-4 text-gray-500" />
 
-                {/* Status Filter Dropdown */}
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Status</span>
-                    </SelectItem>
-                    <SelectItem value="not_started">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Not Started</span>
-                    </SelectItem>
-                    <SelectItem value="in-progress">
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">In Progress</span>
-                    </SelectItem>
-                    <SelectItem value="completed">
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Completed</span>
-                    </SelectItem>
-                    <SelectItem value="blocked">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Blocked</span>
-                    </SelectItem>
-                    <SelectItem value="on_hold">
-                      <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">On Hold</span>
-                    </SelectItem>
-                    <SelectItem value="archived">
-                      <span className="px-2 py-1 rounded-full text-xs bg-black text-white">Archived</span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* Priority Filter */}
-                <Select value={filterPriority} onValueChange={setFilterPriority}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Priority</span>
-                    </SelectItem>
-                    {['critical', 'high', 'medium', 'low', 'none'].map(p => (
-                      <SelectItem key={p} value={p}>
-                        <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
-                      </SelectItem>
+                {/* Status Filter Multi-Select */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Status {filterStatuses.length > 0 ? `(${filterStatuses.length})` : ''}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-40">
+                    {statusOptions.map(opt => (
+                      <DropdownMenuCheckboxItem
+                        key={opt.value}
+                        checked={filterStatuses.includes(opt.value)}
+                        onCheckedChange={(checked) => {
+                          setFilterStatuses(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value));
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <span className={`px-2 py-1 rounded-full text-xs ${opt.className}`}>{opt.label}</span>
+                      </DropdownMenuCheckboxItem>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Priority Filter Multi-Select */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Priority {filterPriorities.length > 0 ? `(${filterPriorities.length})` : ''}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-40">
+                    {priorityOptions.map(p => (
+                      <DropdownMenuCheckboxItem
+                        key={p}
+                        checked={filterPriorities.includes(p)}
+                        onCheckedChange={(checked) => {
+                          setFilterPriorities(prev => checked ? [...prev, p] : prev.filter(x => x !== p));
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 {/* Project Filter */}
                 <Select value={filterProject} onValueChange={setFilterProject}>
@@ -1026,7 +1038,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 <Grid3X3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg mb-2">No tasks found</p>
                 <p className="text-gray-400 mb-4">
-                  {searchQuery || filterStatus !== "all" || filterOwner !== "all" || createdDateFilter !== "all" || dueDateFilter !== "all"
+                  {searchQuery || filterStatuses.length>0 || filterOwner !== "all" || createdDateFilter !== "all" || dueDateFilter !== "all"
                     ? "Try adjusting your filters or search query"
                     : "Create your first task to get started"
                   }

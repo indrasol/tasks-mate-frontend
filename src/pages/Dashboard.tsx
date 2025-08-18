@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -34,7 +33,10 @@ import {
   PieChart as PieChartIcon,
   Activity,
   BookOpen,
-  FolderOpen
+  FolderOpen,
+  AlertCircle,
+  Info,
+  Loader2
 } from 'lucide-react';
 import {
   Table,
@@ -44,12 +46,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import useDashboard from '@/hooks/useDashboard';
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 
 const Dashboard = () => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const currentOrgId = useCurrentOrgId();
   const [selectedPeriod, setSelectedPeriod] = useState("30d");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { data: dashboardData, loading: dataLoading, error } = useDashboard();
 
   React.useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -60,13 +66,13 @@ const Dashboard = () => {
   }, []);
 
   React.useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       navigate('/');
     }
-  }, [user, loading, navigate]);
+  }, [user, authLoading, navigate]);
 
-  // Sample data for charts
-  const taskCompletionData = [
+  // If data is loading, use API data, otherwise use fallback data
+  const taskCompletionData = dashboardData?.task_completion_trends || [
     { month: 'Jan', completed: 45, pending: 15, blocked: 5 },
     { month: 'Feb', completed: 52, pending: 18, blocked: 3 },
     { month: 'Mar', completed: 48, pending: 22, blocked: 7 },
@@ -75,47 +81,52 @@ const Dashboard = () => {
     { month: 'Jun', completed: 67, pending: 13, blocked: 2 },
   ];
 
-  const projectStatusData = [
+  const projectStatusData = dashboardData?.project_status_distribution || [
     { name: 'Active', value: 12, color: '#3B82F6' },
     { name: 'Completed', value: 8, color: '#10B981' },
     { name: 'On Hold', value: 3, color: '#F59E0B' },
-    { name: 'Planning', value: 5, color: '#8B5CF6' },
+    { name: 'Blocked', value: 5, color: '#EF4444' },
   ];
 
-  const teamProductivityData = [
-    { name: 'John Doe', tasksCompleted: 24, efficiency: 92 },
-    { name: 'Sarah Kim', tasksCompleted: 31, efficiency: 88 },
-    { name: 'Mike Rodriguez', tasksCompleted: 19, efficiency: 85 },
-    { name: 'Anna Martinez', tasksCompleted: 27, efficiency: 90 },
+  const teamProductivityData = dashboardData?.team_productivity || [
+    { name: 'John Doe', tasksCompleted: 24, tasksTotal: 30, efficiency: 92 },
+    { name: 'Sarah Kim', tasksCompleted: 31, tasksTotal: 35, efficiency: 88 },
+    { name: 'Mike Rodriguez', tasksCompleted: 19, tasksTotal: 25, efficiency: 85 },
+    { name: 'Anna Martinez', tasksCompleted: 27, tasksTotal: 32, efficiency: 90 },
   ];
 
-  const meetingData = [
-    { month: 'Jan', statusCalls: 8, retrospectives: 4, knowshare: 6, adhoc: 12 },
-    { month: 'Feb', statusCalls: 10, retrospectives: 3, knowshare: 8, adhoc: 15 },
-    { month: 'Mar', statusCalls: 9, retrospectives: 5, knowshare: 7, adhoc: 10 },
-    { month: 'Apr', statusCalls: 12, retrospectives: 4, knowshare: 9, adhoc: 18 },
-    { month: 'May', statusCalls: 11, retrospectives: 6, knowshare: 5, adhoc: 14 },
-    { month: 'Jun', statusCalls: 13, retrospectives: 4, knowshare: 11, adhoc: 16 },
-  ];
-
-  const projectProgressData = [
-    { name: 'TasksMate Mobile', progress: 65, tasks: 24, completed: 16 },
-    { name: 'UI/UX Redesign', progress: 40, tasks: 18, completed: 7 },
-    { name: 'Security Audit', progress: 100, tasks: 12, completed: 12 },
-    { name: 'API Integration', progress: 10, tasks: 8, completed: 1 },
-  ];
-
-  const topProjects = [
+  const topProjects = dashboardData?.project_performance_summary || [
     { name: "TasksMate Mobile App", progress: 65, tasks: 24, team: 3, status: "Active" },
     { name: "UI/UX Redesign", progress: 40, tasks: 18, team: 2, status: "Active" },
     { name: "Security Audit", progress: 100, tasks: 12, team: 2, status: "Completed" },
     { name: "API Integration", progress: 10, tasks: 8, team: 2, status: "Planning" },
   ];
 
-  if (loading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div>
+        <div className="flex flex-col items-center">
+          <Loader2 className="animate-spin h-16 w-16 text-green-600 mb-4" />
+          <p className="text-gray-600 font-medium">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Dashboard</h2>
+          <p className="text-red-600">{error}</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 bg-tasksmate-gradient"
+          >
+            Try Again
+          </Button>
+        </div>
       </div>
     );
   }
@@ -123,6 +134,15 @@ const Dashboard = () => {
   if (!user) {
     return null;
   }
+
+  // Get KPI data from API or use fallbacks
+  const kpis = dashboardData?.kpis || {
+    total_tasks: 247,
+    active_projects: 12,
+    completed_projects: 8,
+    blocked_projects: 3,
+    team_members: 24
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -134,31 +154,9 @@ const Dashboard = () => {
           <div className="w-full flex items-center justify-between">
             <div>
               <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Dashboard</h1>
-              <p className="text-gray-600">Comprehensive insights into your projects, tasks, and meetings</p>
+              <p className="text-gray-600">Comprehensive insights into your projects and tasks</p>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant={selectedPeriod === "7d" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedPeriod("7d")}
-              >
-                7 Days
-              </Button>
-              <Button 
-                variant={selectedPeriod === "30d" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedPeriod("30d")}
-              >
-                30 Days
-              </Button>
-              <Button 
-                variant={selectedPeriod === "90d" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedPeriod("90d")}
-              >
-                90 Days
-              </Button>
-            </div>
+            {/* Period filter buttons removed */}
           </div>
         </div>
 
@@ -167,17 +165,14 @@ const Dashboard = () => {
           <div className="w-full space-y-6">
             
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="glass border-0 shadow-tasksmate">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Total Tasks</p>
-                      <p className="text-2xl font-bold text-gray-900">247</p>
-                      <div className="flex items-center mt-1">
-                        <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-600 ml-1">+12% vs last month</span>
-                      </div>
+                      <p className="text-2xl font-bold text-gray-900">{kpis.total_tasks}</p>
+
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-blue-600" />
@@ -186,16 +181,13 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=in_progress,planning`)}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Active Projects</p>
-                      <p className="text-2xl font-bold text-gray-900">12</p>
-                      <div className="flex items-center mt-1">
-                        <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-600 ml-1">+2 new projects</span>
-                      </div>
+                      <p className="text-sm text-gray-600 flex items-center gap-1">Active Projects <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400" /></span></p>
+                      <p className="text-2xl font-bold text-gray-900">{kpis.active_projects}</p>
+
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                       <FolderOpen className="w-6 h-6 text-green-600" />
@@ -204,16 +196,48 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate">
+              {/* Completed Projects KPI */}
+              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=completed`)}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Completed Projects</p>
+                      <p className="text-2xl font-bold text-gray-900">{kpis.completed_projects}</p>
+
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Blocked Projects KPI */}
+              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=blocked`)}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Blocked Projects</p>
+                      <p className="text-2xl font-bold text-gray-900">{kpis.blocked_projects}</p>
+
+                    </div>
+                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6 text-red-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/team-members${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Team Members</p>
-                      <p className="text-2xl font-bold text-gray-900">24</p>
-                      <div className="flex items-center mt-1">
+                      <p className="text-2xl font-bold text-gray-900">{kpis.team_members}</p>
+                      {/* <div className="flex items-center mt-1">
                         <TrendingUp className="w-4 h-4 text-green-500" />
                         <span className="text-sm text-green-600 ml-1">89% avg efficiency</span>
-                      </div>
+                      </div> */}
                     </div>
                     <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                       <Users className="w-6 h-6 text-purple-600" />
@@ -260,7 +284,7 @@ const Dashboard = () => {
                         <YAxis />
                         <Tooltip />
                         <Bar dataKey="completed" stackId="a" fill="#10B981" name="Completed" />
-                        <Bar dataKey="pending" stackId="a" fill="#F59E0B" name="Pending" />
+                        <Bar dataKey="pending" stackId="a" fill="#F59E0B" name="Active" />
                         <Bar dataKey="blocked" stackId="a" fill="#EF4444" name="Blocked" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -344,12 +368,12 @@ const Dashboard = () => {
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-sm font-medium">{member.name}</span>
-                            <span className="text-sm text-gray-600">{member.tasksCompleted} tasks</span>
+                            <span className="text-sm text-gray-600">{member.tasksCompleted} / {member.tasksTotal} tasks</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
                               className="bg-tasksmate-gradient h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${member.efficiency}%` }}
+                              style={{ width: `${(member.tasksCompleted / member.tasksTotal) * 100}%` }}
                             ></div>
                           </div>
                         </div>
@@ -363,28 +387,7 @@ const Dashboard = () => {
               </Card>
             </div>
 
-            {/* Project Progress Chart */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5" />
-                  Project Progress Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={projectProgressData} layout="horizontal">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" domain={[0, 100]} />
-                      <YAxis dataKey="name" type="category" width={120} />
-                      <Tooltip formatter={(value) => [`${value}%`, 'Progress']} />
-                      <Bar dataKey="progress" fill="#10B981" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Project Progress Overview card removed */}
 
             {/* Top Projects Table */}
             <Card className="glass border-0 shadow-tasksmate">
@@ -407,7 +410,14 @@ const Dashboard = () => {
                   </TableHeader>
                   <TableBody>
                     {topProjects.map((project, index) => (
-                      <TableRow key={index}>
+                      <TableRow key={index} 
+                        onClick={() => {
+                          if (project.project_id) {
+                            navigate(`/projects/${project.project_id}`);
+                          }
+                        }}
+                        className="cursor-pointer hover:bg-gray-50"
+                      >
                         <TableCell className="font-medium">{project.name}</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
