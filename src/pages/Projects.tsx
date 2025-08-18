@@ -482,21 +482,7 @@ const Projects = () => {
               </HoverCardContent>
             </HoverCard> */}
             
-            {/* Dates */}
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 font-semibold">Start Date:</span>
-                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                  {formatDate(project.startDate)}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 font-semibold">End Date:</span>
-                <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
-                  {formatDate(project.endDate)}
-                </Badge>
-              </div>
-            </div>
+            {/* Dates removed as per request */}
             
             {/* Progress */}
             <div className="space-y-2">
@@ -614,39 +600,12 @@ const Projects = () => {
                         <h3 className={`font-semibold transition-colors ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
                           {project.name}
                         </h3>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <p className={`text-sm truncate max-w-xs cursor-default ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
-                              {project.description}
-                            </p>
-                          </HoverCardTrigger>
-                          <HoverCardContent side="right" align="start" className="max-w-sm p-4 bg-white shadow-lg rounded-md border border-gray-200">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{project.description}</p>
-                          </HoverCardContent>
-                        </HoverCard>
+                        {/* Description removed */}
                       </div>
                     </div>
                   </div>
                   
-                  {/* Dates - Horizontal layout */}
-                  <div className="md:col-span-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4 text-blue-600" />
-                        <span className="text-xs text-gray-600 font-semibold">Start Date:</span>
-                        <Badge className="text-xs bg-blue-100 text-blue-800">
-                          {formatDate(project.startDate)}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4 text-red-600" />
-                        <span className="text-xs text-gray-600 font-semibold">End Date:</span>
-                        <Badge className="text-xs bg-red-100 text-red-800">
-                          {formatDate(project.endDate)}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Dates removed */}
                   
                   {/* Progress and Tasks - Horizontal layout with better spacing */}
                   <div className="md:col-span-4 flex items-center gap-6 pl-2">
