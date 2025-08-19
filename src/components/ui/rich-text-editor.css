@@ -1,0 +1,64 @@
+/* Rich Text Editor styles */
+
+/* Ensure bullet points display properly */
+.ProseMirror ul {
+  list-style-type: disc !important;
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+/* Style task lists */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none !important;
+  padding: 0 !important;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex !important;
+  align-items: flex-start !important;
+  margin: 0.5rem 0 !important;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label {
+  margin-right: 0.5rem !important;
+  user-select: none !important;
+}
+
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1 !important;
+}
+
+/* Ensure nested lists display properly */
+.ProseMirror ul ul,
+.ProseMirror ol ol,
+.ProseMirror ul ol,
+.ProseMirror ol ul {
+  margin: 0.2rem 0 0.2rem 1rem !important;
+}
+
+/* Fix for list item spacing */
+.ProseMirror li p {
+  margin: 0 !important;
+}
+
+/* Fix checkbox alignment */
+.ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  margin: 0.2rem 0.5rem 0 0 !important;
+}
+
+/* Ensure task items have proper spacing */
+.ProseMirror ul[data-type="taskList"] li {
+  padding-left: 0.5rem !important;
+}
+
+/* Add styles for checked items */
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div p {
+  text-decoration: line-through;
+  opacity: 0.7;
+}

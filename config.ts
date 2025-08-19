@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
   TASK_COMMENTS: `${API_BASE_URL}/task-comments`,
   TASK_ATTACHMENTS: `${API_BASE_URL}/task-attachments`,
   TASK_HISTORY: `${API_BASE_URL}/task-history`,
+  SCRATCHPADS: `${API_BASE_URL}/scratchpads`,
   AUTHENTICATE: `${API_BASE_URL}/authenticate`,
   LOGIN: `${API_BASE_URL}/login`,
   REGISTER: `${API_BASE_URL}/register`,

@@ -2,10 +2,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Check, X } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import MainNavigation from "@/components/navigation/MainNavigation";
+import { api } from '@/services/apiService';
+import { API_ENDPOINTS } from '@/../config';
+import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 
 const Scratchpad = () => {
   const { user, loading } = useAuth();
@@ -15,6 +18,7 @@ const Scratchpad = () => {
   const [showSaveCheck, setShowSaveCheck] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const currentOrgId = useCurrentOrgId();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -22,38 +26,25 @@ const Scratchpad = () => {
     }
   }, [user, loading, navigate]);
 
-  // Auto-save with debounce
-  useEffect(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    if (content.trim()) {
-      saveTimeoutRef.current = setTimeout(() => {
-        // Save to localStorage for persistence
-        localStorage.setItem('scratchpad-content', content);
-        setLastSaved(new Date());
-        setShowSaveCheck(true);
-        
-        // Hide checkmark after animation
-        setTimeout(() => setShowSaveCheck(false), 2000);
-      }, 500);
-    }
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [content]);
-
+  // remove auto-save; only manual save
   // Load content on mount
   useEffect(() => {
-    const saved = localStorage.getItem('scratchpad-content');
-    if (saved) {
-      setContent(saved);
-    }
-  }, []);
+    const fetchScratchpad = async () => {
+      if (!currentOrgId) return;
+      try {
+        const res = await api.get<any>(`${API_ENDPOINTS.SCRATCHPADS}/${currentOrgId}`);
+        if (res && typeof res.content === 'string') {
+          setContent(res.content);
+          if (res.updated_at) {
+            setLastSaved(new Date(res.updated_at));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load scratchpad', err);
+      }
+    };
+    fetchScratchpad();
+  }, [currentOrgId]);
 
   // Format current date and time
   const getCurrentDateTime = () => {
@@ -68,10 +59,38 @@ const Scratchpad = () => {
     });
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
     setContent('');
-    localStorage.removeItem('scratchpad-content');
-    setLastSaved(null);
+    if (!currentOrgId) {
+      setLastSaved(null);
+      return;
+    }
+    try {
+      await api.post<any>(`${API_ENDPOINTS.SCRATCHPADS}`, {
+        org_id: currentOrgId,
+        content: '',
+      });
+      setLastSaved(new Date());
+      setShowSaveCheck(true);
+      setTimeout(() => setShowSaveCheck(false), 2000);
+    } catch (err) {
+      console.error('Failed to clear scratchpad', err);
+    }
+  };
+  
+  const handleSave = async () => {
+    if (!currentOrgId || !content.trim()) return;
+    try {
+      await api.post<any>(`${API_ENDPOINTS.SCRATCHPADS}`, {
+        org_id: currentOrgId,
+        content,
+      });
+      setLastSaved(new Date());
+      setShowSaveCheck(true);
+      setTimeout(() => setShowSaveCheck(false), 2000);
+    } catch (err) {
+      console.error('Failed to save scratchpad', err);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -121,6 +140,9 @@ const Scratchpad = () => {
                   <span className="text-sm">Saved</span>
                 </div>
               )}
+              <Button variant="ghost" onClick={handleSave}>
+                Save
+              </Button>
               <Button variant="ghost" onClick={handleClear}>
                 Clear
               </Button>
@@ -137,7 +159,7 @@ const Scratchpad = () => {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Start typing… Use /task or /meeting for quick actions"
+                placeholder="Start typing… Scratch your content here"
                 className="min-h-[calc(100vh-300px)] resize-none border-0 focus:ring-0 focus-visible:ring-0 p-6 text-base leading-relaxed"
                 style={{
                   fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
@@ -147,7 +169,7 @@ const Scratchpad = () => {
             
             {lastSaved && (
               <div className="mt-4 text-center text-sm text-gray-500">
-                Last saved: {lastSaved.toLocaleTimeString()}
+                Last saved: {lastSaved.toLocaleString()}
               </div>
             )}
           </div>
