@@ -150,11 +150,11 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
 
     const baseItems: NavigationItem[] = [
       { name: 'Dashboard', path: '/dashboard', icon: Home },
-      { name: 'Members', path: '/team-members', icon: Users },      
       { name: 'Projects', path: '/projects', icon: Layers },
       { name: 'Tasks', path: '/tasks_catalog', icon: ClipboardList },
       { name: 'Bug Tracker', path: '/tester-zone', icon: Bug },
       { name: 'Scratchpad', path: '/scratchpad', icon: Edit3 },
+      { name: 'Members', path: '/team-members', icon: Users },
       { name: 'Settings', path: '/settings', icon: Settings },
     ];
 

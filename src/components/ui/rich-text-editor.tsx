@@ -1,13 +1,20 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+// @ts-ignore – tiptap task list extensions missing type declarations
+import TaskList from '@tiptap/extension-task-list';
+// @ts-ignore – tiptap task item extension missing type declarations
+import TaskItem from '@tiptap/extension-task-item';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import { Button } from '@/components/ui/button';
-import { Bold, Italic, Underline as UnderlineIcon, Link2 as LinkIcon, Image as ImageIcon, X } from 'lucide-react';
+import { Bold, Italic, Underline as UnderlineIcon, Link2 as LinkIcon, Image as ImageIcon, X, List, CheckSquare } from 'lucide-react';
 import { useState, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+
+// Import CSS for proper list rendering
+import './rich-text-editor.css';
 
 type RichTextEditorProps = {
   content?: string;
@@ -41,6 +48,16 @@ export function RichTextEditor({
         heading: {
           levels: [1, 2, 3],
         },
+        bulletList: {
+          HTMLAttributes: {
+            class: 'bullet-list',
+          },
+        },
+        orderedList: {
+          HTMLAttributes: {
+            class: 'ordered-list',
+          },
+        },
       }),
       Image,
       Link.configure({
@@ -50,6 +67,17 @@ export function RichTextEditor({
         placeholder,
       }),
       Underline,
+      TaskList.configure({
+        HTMLAttributes: {
+          class: 'task-list',
+        },
+      }),
+      TaskItem.configure({
+        nested: true,
+        HTMLAttributes: {
+          class: 'task-item',
+        },
+      }),
     ],
     content,
     onUpdate: ({ editor }) => {
@@ -224,6 +252,27 @@ export function RichTextEditor({
           type="button"
           variant="ghost"
           size="icon"
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          className={cn('h-8 w-8 p-0 rounded', editor.isActive('bulletList') ? 'bg-accent text-accent-foreground' : '')}
+          title="Bullet list"
+        >
+          <List className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+          className={cn('h-8 w-8 p-0 rounded', editor.isActive('taskList') ? 'bg-accent text-accent-foreground' : '')}
+          title="Task checklist"
+        >
+          <CheckSquare className="h-4 w-4" />
+        </Button>
+        <div className="h-8 w-px bg-border mx-1" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
           onClick={setLink}
           className={cn(
             'h-8 w-8 p-0 rounded',
@@ -248,7 +297,10 @@ export function RichTextEditor({
       </div>}
       
       <div className="p-4 min-h-[150px] max-h-[300px] overflow-y-auto">
-        <EditorContent editor={editor} className="prose max-w-none focus:outline-none" disabled={hideToolbar} />
+        <EditorContent 
+          editor={editor} 
+          className="prose max-w-none focus:outline-none rich-text-content" 
+        />
       </div>
 
       {!hideToolbar && editor && (

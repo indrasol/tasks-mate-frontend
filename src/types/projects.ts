@@ -13,4 +13,5 @@ interface Project {
   priority: string;
   owner: string;
   category: string;
+  createdAt?: string;
 }

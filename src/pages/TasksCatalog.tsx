@@ -16,7 +16,6 @@ import {
   LogOut,
   Grid3X3,
   List,
-  Filter,
   SortDesc,
   SortAsc,
   CalendarRange,
@@ -582,35 +581,38 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           </div>
         </div>
 
-        {/* Tabs for Tasks / My Tasks */}
+        {/* Tabs for Tasks / My Tasks with Search bar */}
         <div className="px-6 pt-4">
-          <Tabs value={tab} onValueChange={v => setTab(v as any)}>
-            <TabsList>
-              <TabsTrigger value="all">Tasks</TabsTrigger>
-              <TabsTrigger value="mine">My Tasks</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <Tabs value={tab} onValueChange={v => setTab(v as any)}>
+              <TabsList>
+                <TabsTrigger value="all">Tasks</TabsTrigger>
+                <TabsTrigger value="mine">My Tasks</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {/* placeholder to keep flex spacing */}
+          </div>
         </div>
 
         {/* Enhanced Controls */}
         <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
           <div className="w-full">
             {/* All Controls in One Line */}
-            <div className="flex items-center justify-between">
-              {/* Search Bar - Left side */}
-              <div className="relative w-80">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search by keyword or ID (e.g. T1234)"
-                  className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              {/* Search bar moved above */}
 
-              {/* Filters and Controls - Right side */}
-              <div className="flex items-center space-x-4">
-                <Filter className="w-4 h-4 text-gray-500" />
+              {/* Search + Filters and Controls */}
+              <div className="flex items-center space-x-4 flex-wrap">
+                {/* Search Bar */}
+                <div className="relative w-80">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by keyword or ID (e.g. T1234)"
+                    className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
 
                 {/* Status Filter Multi-Select */}
                 <DropdownMenu>
@@ -697,21 +699,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   <PopoverTrigger asChild>
                     <Button 
                       variant={createdDateFilter !== 'all' || isCustomCreatedDateRange ? "default" : "outline"} 
-                      className={`w-fit ${createdDateFilter !== 'all' || isCustomCreatedDateRange ? "bg-tasksmate-gradient text-white hover:bg-tasksmate-green-end" : ""}`}
+                      className="px-3 py-2 flex items-center gap-1"
                     >
-                      <Calendar className="w-4 h-4 mr-2" />
-                      {isCustomCreatedDateRange 
-                        ? `Created: ${formatDateRange(createdDateRange)}` 
-                        : 'Created date'}
-                      {(createdDateFilter !== 'all' || isCustomCreatedDateRange) && (
-                        <Button 
-                          variant="ghost" 
-                          className="h-6 w-6 p-0 rounded-full ml-1 hover:bg-white/20"
-                          onClick={(e) => { e.stopPropagation(); resetCreatedDateRange(); }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-xs">Created</span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4" align="center">
@@ -753,21 +744,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   <PopoverTrigger asChild>
                     <Button 
                       variant={dueDateFilter !== 'all' || isCustomDueDateRange ? "default" : "outline"} 
-                      className={`w-fit ${dueDateFilter !== 'all' || isCustomDueDateRange ? "bg-tasksmate-gradient text-white hover:bg-tasksmate-green-end" : ""}`}
+                      className="px-3 py-2 flex items-center gap-1"
                     >
-                      <CalendarRange className="w-4 h-4 mr-2" />
-                      {isCustomDueDateRange 
-                        ? `Due: ${formatDateRange(dueDateRange)}` 
-                        : 'Due date'}
-                      {(dueDateFilter !== 'all' || isCustomDueDateRange) && (
-                        <Button 
-                          variant="ghost" 
-                          className="h-6 w-6 p-0 rounded-full ml-1 hover:bg-white/20"
-                          onClick={(e) => { e.stopPropagation(); resetDueDateRange(); }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
+                      <CalendarRange className="w-4 h-4" />
+                      <span className="text-xs">Due</span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4" align="center">
@@ -804,12 +784,11 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   </PopoverContent>
                 </Popover>
 
-                {/* Sort Options */}
+                {/* Sort Options + View Toggle */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      {sortDirection === 'asc' ? <SortAsc className="w-4 h-4 mr-2" /> : <SortDesc className="w-4 h-4 mr-2" />}
-                      Sort
+                    <Button variant="outline" size="sm" className="p-2">
+                      {sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -843,11 +822,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 </DropdownMenu>
 
                 {/* View Toggle */}
-                <div className="flex items-center space-x-2 ml-2">
+                <div className="flex items-center space-x-2">
                   <Button
                     variant={view === 'grid' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setView('grid')}
+                    className="p-2"
                   >
                     <Grid3X3 className="w-4 h-4" />
                   </Button>
@@ -855,6 +835,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     variant={view === 'list' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setView('list')}
+                    className="p-2"
                   >
                     <List className="w-4 h-4" />
                   </Button>
@@ -906,12 +887,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           <div onClick={(e) => e.stopPropagation()}>
                             <CopyableIdBadge id={task.id} isCompleted={task.status === 'completed'} />
                           </div>
-                          <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                            {(() => {
-                              const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
-                              return `👤 ${displayName}`;
-                            })()}
-                          </Badge>
+                          {/* Owner badge moved below title */}
                         </div>
 
                         {/* Status + Priority badges */}
@@ -937,6 +913,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       <div className="space-y-3 mb-4" style={{ minHeight: '100px' }}>
                         <div>
                           <h3 className={`font-semibold mb-1 transition-colors ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 hover:text-blue-600'}`}>{task.name}</h3>
+                          {/* Owner badge moved to metadata section */}
                           {/* <p className={`text-sm line-clamp-2 ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
                             {task.description}
                           </p> */}
@@ -948,26 +925,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           {/* Project badge removed from here */}
                         </div>
 
-                        {/* Tags */}
-                        {task.tags && task.tags.length > 0 && (
-                          <div className="flex items-center flex-wrap gap-1">
-                            <span className="text-gray-600 text-xs mr-1 font-semibold">Tags:</span>
-                            {task.tags.slice(0, 3).map((tag, index) => (
-                              <Badge
-                                key={index}
-                                variant="secondary"
-                                className="text-xs bg-purple-100 text-purple-800"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                            {task.tags.length > 3 && (
-                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                                +{task.tags.length - 3}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
+                        {/* Tags removed for cleaner layout */}
 
 
                       </div>
@@ -976,9 +934,11 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         {/* Start Date + Due */}
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-1 whitespace-nowrap">
-                            <span className="text-gray-600 text-xs font-semibold">Start date:</span>
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs whitespace-nowrap">
-                              {formatDate(task.startDate ?? task.createdDate)}
+                            <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                              {(() => {
+                                const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                                return `👤 ${displayName}`;
+                              })()}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-1 whitespace-nowrap">
@@ -991,30 +951,21 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       </div>
 
 
-                      {/* Footer with metadata and comments */}
+                      {/* Footer with metadata */}
                       <div className="pt-4 border-t border-gray-200">
-                        {/* Single row with metadata and comments */}
-                        <div className="flex items-center justify-between">
-                          {/* Metadata as colored tags */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex items-center gap-1 whitespace-nowrap">
-                              <span className="text-gray-600 text-xs font-semibold">Project:</span>
-                              <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
-                                {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-1 whitespace-nowrap">
-                              <span className="text-gray-600 text-xs font-semibold">Created:</span>
-                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
-                                {formatDate(task.createdDate)}
-                              </Badge>
-                            </div>
+                        {/* Metadata row */}
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <div className="flex items-center gap-1 whitespace-nowrap">
+                            <span className="text-gray-600 text-xs font-semibold">Project:</span>
+                            <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
+                              {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
+                            </Badge>
                           </div>
-
-                          {/* Comments */}
-                          <div className="flex items-center space-x-1 text-gray-500">
-                            <MessageSquare className="h-4 w-4" />
-                            <span className="text-xs">{task.comments}</span>
+                          <div className="flex items-center gap-1 whitespace-nowrap">
+                            <span className="text-gray-600 text-xs font-semibold">Created:</span>
+                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                              {formatDate(task.createdDate)}
+                            </Badge>
                           </div>
                         </div>
                       </div>

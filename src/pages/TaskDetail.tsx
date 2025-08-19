@@ -976,18 +976,32 @@ const TaskDetail = () => {
                 {/* Title */}
                 <div className="mt-2 flex items-start gap-2">
                   {isTitleEditing ? (
-                    <Input
-                      value={taskName}
-                      onChange={(e) => setTaskName(e.target.value)}
-                      className={`text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
-                    />
+                    <div className="flex items-center gap-2 w-full">
+                      <Input
+                        value={taskName}
+                        onChange={(e) => setTaskName(e.target.value)}
+                        className={`text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 ml-2"
+                        onClick={async () => {
+                          await handleSaveChanges();
+                          setIsTitleEditing(false);
+                        }}
+                        title="Save title"
+                      >
+                        <Save className="h-4 w-4 text-green-600" />
+                      </Button>
+                    </div>
                   ) : (
-                    <span className={`text-2xl font-sora font-bold ${status === 'completed' ? 'line-through text-gray-400' : ''}`}>{taskName}</span>
-                  )}
-                  {!isTitleEditing && (
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsTitleEditing(true)}>
-                      <Pencil className="h-4 w-4 text-gray-500" />
-                    </Button>
+                    <>
+                      <span className={`text-2xl font-sora font-bold ${status === 'completed' ? 'line-through text-gray-400' : ''}`}>{taskName}</span>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsTitleEditing(true)}>
+                        <Pencil className="h-4 w-4 text-gray-500" />
+                      </Button>
+                    </>
                   )}
                 </div>
 
@@ -997,12 +1011,8 @@ const TaskDetail = () => {
                 </div>
               </div>
 
-              {/* Right actions (Save + Duplicate) */}
+              {/* Right actions (Duplicate only) */}
               <div className="ml-4 flex items-center gap-2">
-                <Button className="bg-tasksmate-gradient" onClick={handleSaveChanges}>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes
-                </Button>
                 <Button variant="outline" className="micro-lift" onClick={() => setIsDuplicateOpen(true)}>
                   <Copy className="mr-2 h-4 w-4" />
                   Duplicate
@@ -1024,8 +1034,26 @@ const TaskDetail = () => {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <CardTitle className="font-sora">Description</CardTitle>
-                    {!isDescriptionEditing && (
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsDescriptionEditing(true)}>
+                    {isDescriptionEditing ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={async () => {
+                          await handleSaveChanges();
+                          setIsDescriptionEditing(false);
+                        }}
+                        title="Save description"
+                      >
+                        <Save className="h-4 w-4 text-green-600" />
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0" 
+                        onClick={() => setIsDescriptionEditing(true)}
+                      >
                         <Pencil className="h-4 w-4 text-gray-500" />
                       </Button>
                     )}
@@ -1090,21 +1118,7 @@ const TaskDetail = () => {
                         </Badge>
                         <Badge variant="outline" className={`text-xs ${getPriorityColor(subtask.priority ?? 'none')}`}>{(subtask.priority ?? 'none').toUpperCase()}</Badge>
 
-                        {/* Project */}
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-gray-600 text-xs">Project:</span>
-                          <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
-                            {projectsMap[subtask.project_id as string] ?? (subtask.project_name ?? '—')}
-                          </Badge>
-                        </div>
-
-                        {/* Start date */}
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-gray-600 text-xs">Start date:</span>
-                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                            {formatDate(subtask.start_date ?? subtask.created_at)}
-                          </Badge>
-                        </div>
+                        {/* Project and Start date removed as requested */}
 
                         {/* Due date */}
                         <div className="inline-flex items-center gap-1">
@@ -1114,28 +1128,9 @@ const TaskDetail = () => {
                           </Badge>
                         </div>
 
-                        {/* Created date */}
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-gray-600 text-xs">Created:</span>
-                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
-                            {formatDate(subtask.created_at)}
-                          </Badge>
-                        </div>
+                        {/* Created date removed as requested */}
 
-                        {/* Tags (show up to 2, then +N) */}
-                        {Array.isArray(subtask.tags) && subtask.tags.length > 0 && (
-                          <div className="inline-flex items-center gap-1 flex-wrap">
-                            <span className="text-gray-600 text-xs">Tags:</span>
-                            {subtask.tags.slice(0, 2).map((tag: string, idx: number) => (
-                              <Badge key={`${subtaskId}-tag-${idx}`} variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                                {tag}
-                              </Badge>
-                            ))}
-                            {subtask.tags.length > 2 && (
-                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{subtask.tags.length - 2}</Badge>
-                            )}
-                          </div>
-                        )}
+                        {/* Tags removed as requested */}
 
                         {/* Actions to the far right */}
                         <div className="ml-auto flex items-center gap-1">
@@ -1220,21 +1215,7 @@ const TaskDetail = () => {
                         </Badge>
                         <Badge variant="outline" className={`text-xs ${getPriorityColor(dep.priority ?? 'none')}`}>{(dep.priority ?? 'none').toUpperCase()}</Badge>
 
-                        {/* Project */}
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-gray-600 text-xs">Project:</span>
-                          <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
-                            {projectsMap[dep.project_id as string] ?? (dep.project_name ?? '—')}
-                          </Badge>
-                        </div>
-
-                        {/* Dates */}
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-gray-600 text-xs">Start date:</span>
-                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                            {formatDate(dep.start_date ?? dep.created_at)}
-                          </Badge>
-                        </div>
+                        {/* Project and Start date removed as requested */}
                         <div className="inline-flex items-center gap-1">
                           <span className="text-gray-600 text-xs">Due date:</span>
                           <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
@@ -1242,28 +1223,9 @@ const TaskDetail = () => {
                           </Badge>
                         </div>
 
-                        {/* Created date */}
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-gray-600 text-xs">Created:</span>
-                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
-                            {formatDate(dep.created_at)}
-                          </Badge>
-                        </div>
+                        {/* Created date removed as requested */}
 
-                        {/* Tags (show up to 2, then +N) */}
-                        {Array.isArray(dep.tags) && dep.tags.length > 0 && (
-                          <div className="inline-flex items-center gap-1 flex-wrap">
-                            <span className="text-gray-600 text-xs">Tags:</span>
-                            {dep.tags.slice(0, 2).map((tag: string, idx: number) => (
-                              <Badge key={`${depId}-tag-${idx}`} variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                                {tag}
-                              </Badge>
-                            ))}
-                            {dep.tags.length > 2 && (
-                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{dep.tags.length - 2}</Badge>
-                            )}
-                          </div>
-                        )}
+                        {/* Tags removed as requested */}
 
                         {/* Actions to the far right */}
                         <div className="ml-auto flex items-center gap-1">
