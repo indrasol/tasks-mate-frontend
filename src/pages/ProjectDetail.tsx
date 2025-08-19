@@ -63,6 +63,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { taskService } from '@/services/taskService';
 import { toast } from 'sonner';
+import { capitalizeFirstLetter } from '@/lib/projectUtils';
 
 interface Project {
   id: string;
@@ -1268,11 +1269,11 @@ const ProjectDetail = () => {
                                 </p>
                                 {member.designation && (
                                   <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0">
-                                    {member.designation}
+                                    {capitalizeFirstLetter(member.designation)}
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-600 mt-1">{member.role}</p>
+                              <p className="text-xs text-gray-600 mt-1">{capitalizeFirstLetter(member.role)}</p>
                             </div>
 
                             {(userRole === "owner" || userRole === "admin") && (

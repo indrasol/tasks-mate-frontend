@@ -31,6 +31,17 @@ export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
     e.preventDefault();
     setLoading(true);
 
+    // Trim username and password to prevent whitespace-only input
+    if (username.trim() === "" || password.trim() === "") {
+      toast({
+        title: "Invalid input",
+        description: "Username and Password cannot be empty or just spaces.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       const msg = await signUp({ email, password, username });
 
@@ -75,6 +86,11 @@ export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="johndoe"
               required
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Spacebar") {
+                  e.preventDefault();
+                }
+              }}
             />
           </div>
           <div>
@@ -86,6 +102,11 @@ export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="john@company.com"
               required
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Spacebar") {
+                  e.preventDefault();
+                }
+              }}
             />
           </div>
           <div>
@@ -98,6 +119,11 @@ export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
               placeholder="Create a strong password"
               required
               minLength={6}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Spacebar") {
+                  e.preventDefault();
+                }
+              }}
             />
           </div>
           <Button

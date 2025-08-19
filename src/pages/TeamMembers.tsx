@@ -23,6 +23,7 @@ import { useSearchParams } from 'react-router-dom';
 import { BackendOrg, BackendOrgMember, BackendOrgMemberInvite, OrgMember, OrgMemberInvite } from '@/types/organization';
 import { format } from 'path';
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization';
+import { capitalizeFirstLetter } from '@/lib/projectUtils';
 
 interface TeamMember {
   id: string;
@@ -80,17 +81,18 @@ const TeamMembers = () => {
   const [inviteDesignation, setInviteDesignation] = useState('');
   const [designationOptions, setDesignationOptions] = useState<string[]>([]);
   // Fetch designations
-  useEffect(() => {
-    const fetchDesignations = async () => {
-      try {
-        const data = await api.get<{ name: string }[]>(API_ENDPOINTS.DESIGNATIONS);
-        setDesignationOptions(data.map(d => d.name));
-      } catch (err) {
-        console.error('Error fetching designations', err);
-      }
-    };
+  useEffect(() => {    
     fetchDesignations();
   }, []);
+
+  const fetchDesignations = async () => {
+    try {
+      const data = await api.get<{ name: string }[]>(API_ENDPOINTS.DESIGNATIONS);
+      setDesignationOptions(data.map(d => d.name));
+    } catch (err) {
+      console.error('Error fetching designations', err);
+    }
+  };
 
   const [inviteRole, setInviteRole] = useState('member');
   const [roleOptions, setRoleOptions] = useState<string[]>(["owner", "member"]);
@@ -110,6 +112,11 @@ const TeamMembers = () => {
   const fetchTeamMembers = async () => {
     setLoading(true);
     setTeamMembersError('');
+
+    if(designationOptions.length === 0) {
+      fetchDesignations();
+    }
+
     try {
       // This would need to be implemented based on current organization
       const data = await api.get<BackendOrgMember[]>(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${orgId}`);
@@ -144,6 +151,11 @@ const TeamMembers = () => {
   const fetchInvitedTeamMembers = async () => {
     setLoadingInvited(true);
     setInvitedTeamMembersError('');
+    
+    if(designationOptions.length === 0) {
+      fetchDesignations();
+    }
+
     try {
       // This would need to be implemented based on current organization
       const data = await api.get<BackendOrgMemberInvite[]>(API_ENDPOINTS.ORGANIZATION_INVITES + `/org/${orgId}`);
@@ -438,14 +450,6 @@ const TeamMembers = () => {
         </div>
       </div>
     );
-  }
-
-  function capitalizeFirstLetter(opt: string): React.ReactNode {
-    // replace underscores with spaces
-    opt = opt.replace(/_/g, ' ');
-    // capitalize first letter of each word
-    opt = opt.replace(/\b\w/g, (char) => char.toUpperCase());
-    return opt;
   }
 
   return (

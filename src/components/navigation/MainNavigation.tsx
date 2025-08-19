@@ -149,8 +149,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const navigationItems = useMemo(() => {
 
     const baseItems: NavigationItem[] = [
-      { name: 'Members', path: '/team-members', icon: Users },
       { name: 'Dashboard', path: '/dashboard', icon: Home },
+      { name: 'Members', path: '/team-members', icon: Users },      
       { name: 'Projects', path: '/projects', icon: Layers },
       { name: 'Tasks', path: '/tasks_catalog', icon: ClipboardList },
       { name: 'Bug Tracker', path: '/tester-zone', icon: Bug },

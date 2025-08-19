@@ -1,18 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Check, MessageCircle, Zap, Users, ArrowRight, Github, FileText } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { SignUpModal } from "@/components/auth/SignUpModal";
 import { SignInModal } from "@/components/auth/SignInModal";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [signUpOpen, setSignUpOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
   const { user } = useAuth();
+
+  const navigate = useNavigate();
+
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (user) {
+      navigate("/org");
+    }
+  }, [user]);
 
   const features = [
     {
@@ -64,9 +75,9 @@ const Index = () => {
             </div>
             <div className="flex items-baseline space-x-2">
               <span className="font-sora font-bold text-xl">TasksMate</span>
-              <a 
-                href="https://indrasol.com/" 
-                target="_blank" 
+              <a
+                href="https://indrasol.com/"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
               >
@@ -81,7 +92,7 @@ const Index = () => {
               </Link>
             ) : (
               <>
-                <button 
+                <button
                   onClick={() => setSignInOpen(true)}
                   className="text-gray-600 hover:text-gray-900 transition-colors"
                 >
@@ -89,12 +100,27 @@ const Index = () => {
                 </button>
               </>
             )}
-            <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+            <button
+              type="button"
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={() => toast({ title: 'Working on it', description: 'This feature is coming soon!' })}
+            >
+              Features
+            </button>
+            <button
+              type="button"
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={() => toast({ title: 'Working on it', description: 'This feature is coming soon!' })}
+            >
               Docs
-            </a>
-            <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
-              GitHub
-            </a>
+            </button>
+            <button
+              type="button"
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={() => toast({ title: 'Working on it', description: 'This feature is coming soon!' })}
+            >
+              Pricing
+            </button>
           </div>
         </div>
       </nav>
@@ -117,17 +143,17 @@ const Index = () => {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate"
                   onClick={() => setSignUpOpen(true)}
                 >
                   Sign Up
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="lg" 
+                <Button
+                  variant="outline"
+                  size="lg"
                   className="micro-lift"
                   onClick={() => setSignInOpen(true)}
                 >
@@ -183,7 +209,7 @@ const Index = () => {
               Powerful features that make task management effortless
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((feature, index) => (
               <Card key={index} className="glass border-0 shadow-tasksmate micro-lift">
@@ -236,7 +262,7 @@ const Index = () => {
               Loved by teams everywhere
             </h2>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
               <Card key={index} className="glass border-0 shadow-tasksmate micro-lift">
@@ -263,9 +289,9 @@ const Index = () => {
               </div>
               <div className="flex items-baseline space-x-2">
                 <span className="font-sora font-semibold">TasksMate</span>
-                <a 
-                  href="https://indrasol.com/" 
-                  target="_blank" 
+                <a
+                  href="https://indrasol.com/"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
                 >
