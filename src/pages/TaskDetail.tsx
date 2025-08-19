@@ -1712,6 +1712,9 @@ const TaskDetail = () => {
           onOpenChange={setIsAddSubtaskOpen}
           onSubtaskAdded={handleAddSubtask}
           excludeIds={[...(subtasks || []), ...(taskId ? [taskId] : [])]}
+          projectId={task?.project_id ?? task?.projectId}
+          taskId={taskId}
+          owner={task?.owner || user?.email || ''} // Default to current user if no owner set
         />
         {/* Dependencies modal */}
         <AddDependencyModal

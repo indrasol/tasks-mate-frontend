@@ -50,6 +50,8 @@ interface NewTaskModalProps {
     startDate: string; // YYYY-MM-DD or ISO
     targetDate: string; // YYYY-MM-DD or ISO
     tags: string[];
+    is_subtask?: boolean;
+    parentTaskId?: string; // For subtasks, if applicable
   }>;
 }
 
@@ -66,6 +68,8 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     startDate: "",
     targetDate: "",
     tags: [] as string[],
+    is_subtask: false, // Default to false; can be set later if needed
+    parentTaskId: "", // For subtasks, if applicable
   });
   const [tagInput, setTagInput] = useState("");
 
@@ -180,6 +184,9 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
       startDate: normalizeDate(initialData.startDate) || prev.startDate,
       targetDate: normalizeDate(initialData.targetDate) || prev.targetDate,
       tags: Array.isArray(initialData.tags) ? [...initialData.tags] : prev.tags,
+      is_subtask: initialData.is_subtask ?? prev.is_subtask,
+      // If parentTaskId is provided, set it as a subtask
+      parentTaskId: initialData.parentTaskId ?? prev.parentTaskId,
     }));
   }, [open, initialData]);
 
@@ -207,6 +214,9 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         due_date: formData.targetDate || null,
         tags: allTags,
         priority: formData.priority,
+        is_subtask: formData.is_subtask || false,
+        parent_task_id: formData.parentTaskId || null, // For subtasks, if applicable
+
       };
       const created: any = await taskService.createTask(payload);
       // Map backend response to Task type
@@ -225,10 +235,12 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         createdBy: created.created_by,
         createdDate: created.created_at,
         projectId: created.project_id || formData.projectId,
+        is_subtask: created.is_subtask || false,
+        parentTaskId: created.parent_task_id || formData.parentTaskId, // For subtasks, if applicable
       };
       onTaskCreated(newTask);
       toast.success("Task created successfully!");
-      setFormData({ projectId: "", name: "", description: "", status: "not_started", priority: "low", owner: "", startDate: "", targetDate: "", tags: [] });
+      setFormData({ projectId: "", name: "", description: "", status: "not_started", priority: "low", owner: "", startDate: "", targetDate: "", tags: [], is_subtask: false, parentTaskId: "" });
       setTagInput("");
       onOpenChange(false);
     } catch (err: any) {
