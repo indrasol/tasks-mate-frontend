@@ -436,9 +436,9 @@ const Organizations = () => {
         case 'name':
           return a.name.localeCompare(b.name);
         case 'newest':
-          return 0; // Would need created_at field to implement
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case 'oldest':
-          return 0; // Would need created_at field to implement
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         case 'projects':
           return b.project_count - a.project_count;
         default:

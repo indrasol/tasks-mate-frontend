@@ -39,9 +39,12 @@ interface AddSubtaskModalProps {
   onOpenChange: (open: boolean) => void;
   onSubtaskAdded: (task: Task) => void;
   excludeIds?: string[];
+  projectId?: string; // Optional project ID to filter tasks by project
+  taskId?: string; // Optional task ID to filter out current task
+  owner?: string; // Optional owner to set as default for new subtasks
 }
 
-const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [] }: AddSubtaskModalProps) => {
+const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [], projectId, taskId, owner }: AddSubtaskModalProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,7 +58,18 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [] }
     if (!open) return; // only fetch when modal opens
     setLoading(true);
     setError(null);
-    taskService.getTasks(currentOrgId ? { org_id: currentOrgId } : {})
+
+    let params: any = {};
+
+    if (currentOrgId) {
+      params.org_id = currentOrgId;
+    }
+
+    if (projectId) {
+      params.project_id = projectId;
+    }
+
+    taskService.getTasks(params)
       .then((data) => {
         const mapped = ((data as any[]) || []).map((t: any) => ({
           id: t.task_id,
@@ -73,7 +87,7 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [] }
           createdDate: t.created_at,
         }));
         // Exclude tasks specified (such as current task and its existing subtasks)
-        const filtered = mapped.filter((t) => !excludeIds.includes(t.id));
+        const filtered = mapped.filter((t) => !excludeIds.includes(t.id))?.filter((t) => t.status !== "archived" && t.status !== "deleted" && t.status !== "completed");
         setAvailableTasks(filtered);
         setLoading(false);
       })
@@ -85,7 +99,7 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [] }
 
   const filteredTasks = availableTasks.filter(task => {
     if (!searchQuery) return true;
-    
+
     const query = searchQuery.toLowerCase();
     return (
       task.id.toLowerCase().includes(query) ||
@@ -165,7 +179,7 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [] }
             Search and select an existing task to add as a subtask.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {/* Search Input */}
           <div className="relative">
@@ -199,11 +213,10 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [] }
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <div
-                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          task.status === 'completed'
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${task.status === 'completed'
                             ? 'bg-tasksmate-gradient border-transparent'
                             : 'border-gray-300'
-                        }`}
+                          }`}
                       >
                         {task.status === 'completed' && <Check className="h-3 w-3 text-white" />}
                       </div>
@@ -216,14 +229,13 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [] }
                           return `👤 ${displayName}`;
                         })()}
                       </Badge>
-                      <Badge className={`text-xs ${
-                        task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                        task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                        task.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
-                        task.status === 'archived' ? 'bg-black text-white' :
-                        'bg-gray-100 text-gray-800'
-                      } hover:bg-transparent hover:text-inherit`}>
+                      <Badge className={`text-xs ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                            task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                              task.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
+                                task.status === 'archived' ? 'bg-black text-white' :
+                                  'bg-gray-100 text-gray-800'
+                        } hover:bg-transparent hover:text-inherit`}>
                         {getStatusText(task.status)}
                       </Badge>
                       <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority ?? 'none')}`}>{(task.priority ?? 'none').toUpperCase()}</Badge>
@@ -285,6 +297,12 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [] }
         open={isCreateNewOpen}
         onOpenChange={setIsCreateNewOpen}
         onTaskCreated={handleNewTaskCreated}
+        initialData={{
+          projectId: projectId,
+          parentTaskId: taskId, // Pass current task ID as parent
+          is_subtask: true, // Indicate this is a subtask
+          owner: owner, // Default to current user or leave empty
+        }}
       />
     </Dialog>
   );

@@ -14,12 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import CopyableBadge from "@/components/ui/copyable-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { 
-  Plus, 
-  Search, 
-  Calendar, 
-  Users, 
-  Target, 
+import {
+  Plus,
+  Search,
+  Calendar,
+  Users,
+  Target,
   MoreVertical,
   FolderOpen,
   Clock,
@@ -57,6 +57,7 @@ import { getStatusMeta, getPriorityColor, formatDate, deriveDisplayFromEmail } f
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import type { BackendOrgMember } from "@/types/organization";
 import { Project } from '@/types/projects';
+import { toast } from 'sonner';
 
 
 type ViewMode = 'grid' | 'list';
@@ -141,44 +142,45 @@ const Projects = () => {
       const arr = param.split(',').map(s => s.trim()).filter(Boolean);
       setFilterStatuses(arr);
     }
-  // we only want to run once on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // we only want to run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchProjects = async () => {
+    if (loading) return;
+    const orgId = currentOrgId;
+    if (!user || !orgId) return;
+
+    setLoadingProjects(true);
+
+    try {
+      // Use show_all=true to fetch all projects in the organization, not just user's projects
+      const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}?show_all=true`);
+      const mapped: Project[] = res.map((p: any) => ({
+        id: p.project_id,
+        name: p.name,
+        description: p.description,
+        status: p.status,
+        progress: Number(p.progress_percent ?? 0),
+        startDate: p.start_date ?? '',
+        createdAt: p.created_at ?? p.created_date ?? p.created ?? p.start_date ?? '',
+        endDate: p.end_date ?? '',
+        teamMembers: p.team_members ?? [],
+        tasksCount: p.tasks_total ?? 0,
+        completedTasks: p.tasks_completed ?? 0,
+        priority: p.priority,
+        owner: p.owner ?? "",
+        category: 'General',
+      }));
+      setProjects(mapped);
+    } catch (err) {
+      console.error('Failed to fetch projects', err);
+    }
+    setLoadingProjects(false);
+  };
 
   // Fetch projects from backend
   useEffect(() => {
-    const fetchProjects = async () => {
-      if (loading) return;
-      const orgId = currentOrgId;
-      if (!user || !orgId) return;
-
-      setLoadingProjects(true);
-
-      try {
-        // Use show_all=true to fetch all projects in the organization, not just user's projects
-        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}?show_all=true`);
-        const mapped: Project[] = res.map((p: any) => ({
-          id: p.project_id,
-          name: p.name,
-          description: p.description,
-          status: p.status,
-          progress: Number(p.progress_percent ?? 0),
-          startDate: p.start_date ?? '',
-          createdAt: p.created_at ?? p.created_date ?? p.created ?? p.start_date ?? '',
-          endDate: p.end_date ?? '',
-          teamMembers: p.team_members ?? [],
-          tasksCount: p.tasks_total ?? 0,
-          completedTasks: p.tasks_completed ?? 0,
-          priority: p.priority,
-          owner: p.owner ?? "",
-          category: 'General',
-        }));
-        setProjects(mapped);
-      } catch (err) {
-        console.error('Failed to fetch projects', err);
-      }
-      setLoadingProjects(false);
-    };
     fetchProjects();
   }, [user, loading, currentOrgId]);
 
@@ -227,7 +229,7 @@ const Projects = () => {
   const isDateInRange = (projectDate: string, filter: string) => {
     const date = new Date(projectDate);
     const now = new Date();
-    
+
     switch (filter) {
       case "thisWeek":
         const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
@@ -259,7 +261,7 @@ const Projects = () => {
         aValue = priorityOrder[a.priority as keyof typeof priorityOrder];
         bValue = priorityOrder[b.priority as keyof typeof priorityOrder];
       } else if (sortBy === 'status') {
-        const statusOrder = { completed: 6, in_progress:5, planning: 4, on_hold:3, not_started:2, archived:1 };
+        const statusOrder = { completed: 6, in_progress: 5, planning: 4, on_hold: 3, not_started: 2, archived: 1 };
         aValue = statusOrder[a.status as keyof typeof statusOrder];
         bValue = statusOrder[b.status as keyof typeof statusOrder];
       }
@@ -271,7 +273,7 @@ const Projects = () => {
   };
 
   const filteredProjects = sortProjects(projects.filter(project => {
-    const matchesSearch = searchQuery === "" || 
+    const matchesSearch = searchQuery === "" ||
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -302,9 +304,9 @@ const Projects = () => {
     setProjects(prev => prev.map(project =>
       project.id === projectId
         ? {
-            ...project,
-            status: newStatus,
-          }
+          ...project,
+          status: newStatus,
+        }
         : project
     ));
 
@@ -357,51 +359,56 @@ const Projects = () => {
         });
 
         // Prefer the server-generated card if available
-        if (created && created.project_id) {
-          const newProject: Project = {
-            id: created.project_id,
-            name: created.name,
-            description: created.description,
-            status: created.status,
-            progress: Number(created.progress_percent ?? 0),
-            startDate: created.start_date ?? '',
-            createdAt: created.created_at ?? created.start_date ?? new Date().toISOString().split("T")[0],
-            endDate: created.end_date ?? "", // fallback
-            teamMembers: (created.team_members ?? projectData.teamMembers) || [],
-            tasksCount: created.tasks_total ?? 0,
-            completedTasks: created.tasks_completed ?? 0,
-                      priority: created.priority,
-          owner: created.owner ?? projectData.owner,
-          category: "General",
-          };
-          setProjects(prev => [...prev, newProject]);
-          setIsNewProjectModalOpen(false);
-          return;
-        }
+        // if (created && created.project_id) {
+        //   const newProject: Project = {
+        //     id: created.project_id,
+        //     name: created.name,
+        //     description: created.description,
+        //     status: created.status,
+        //     progress: Number(created.progress_percent ?? 0),
+        //     startDate: created.start_date ?? '',
+        //     createdAt: created.created_at ?? created.start_date ?? new Date().toISOString().split("T")[0],
+        //     endDate: created.end_date ?? "", // fallback
+        //     teamMembers: (created.team_members ?? projectData.teamMembers) || [],
+        //     tasksCount: created.tasks_total ?? 0,
+        //     completedTasks: created.tasks_completed ?? 0,
+        //               priority: created.priority,
+        //   owner: created.owner ?? projectData.owner,
+        //   category: "General",
+        //   };
+        //   setProjects(prev => [...prev, newProject]);
+
+        // }
+        setIsNewProjectModalOpen(false);
+        fetchProjects();
+
+        toast.success("Project has been successfully created.");
+
       } catch (err) {
-        console.error("Failed to create project on server", err);
+        console.error("Failed to create project", err);
+        toast.error("Failed to create project.", err?.message || "Failed to create project.");
       }
     }
 
-    const newProject: Project = {
-      id: `P${(projects.length + 1).toString().padStart(3, '0')}`,
-      name: projectData.name,
-      description: projectData.description,
-      status: projectData.status as any,
-      progress: 0,
-      startDate: '',
-      createdAt: new Date().toISOString().split('T')[0],
-      endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 90 days from now
-      teamMembers: [projectData.owner, ...(projectData.teamMembers || [])].filter(Boolean),
-      tasksCount: 0,
-      completedTasks: 0,
-      priority: projectData.priority,
-      owner: projectData.owner,
-      category: 'General'
-    };
-    
-    setProjects([...projects, newProject]);
-    setIsNewProjectModalOpen(false);
+    // const newProject: Project = {
+    //   id: `P${(projects.length + 1).toString().padStart(3, '0')}`,
+    //   name: projectData.name,
+    //   description: projectData.description,
+    //   status: projectData.status as any,
+    //   progress: 0,
+    //   startDate: '',
+    //   createdAt: new Date().toISOString().split('T')[0],
+    //   endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 90 days from now
+    //   teamMembers: [projectData.owner, ...(projectData.teamMembers || [])].filter(Boolean),
+    //   tasksCount: 0,
+    //   completedTasks: 0,
+    //   priority: projectData.priority,
+    //   owner: projectData.owner,
+    //   category: 'General'
+    // };
+
+    // setProjects([...projects, newProject]);
+    // setIsNewProjectModalOpen(false);
   };
 
   const toggleSort = (option: SortOption) => {
@@ -416,8 +423,8 @@ const Projects = () => {
   const ProjectGridView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {filteredProjects.map((project) => (
-        <Card 
-          key={project.id} 
+        <Card
+          key={project.id}
           className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200"
           onClick={() => handleProjectClick(project.id)}
         >
@@ -425,12 +432,11 @@ const Projects = () => {
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center space-x-2">
                 {/* Tick Circle - Similar to Tasks */}
-                <div 
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                    project.status === 'completed' 
-                      ? 'bg-tasksmate-gradient border-transparent' 
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
+                      ? 'bg-tasksmate-gradient border-transparent'
                       : 'border-gray-300 hover:border-gray-400'
-                  }`}
+                    }`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleProjectStatusToggle(project.id);
@@ -444,12 +450,12 @@ const Projects = () => {
                   {project.id}
                 </CopyableBadge>
               </div>
-              
+
               {/* Status tag positioned at the right */}
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2">
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className={`text-xs ${getStatusMeta(project.status).color}`}
                   >
                     {getStatusMeta(project.status).label}
@@ -457,19 +463,19 @@ const Projects = () => {
                   <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
                     {project.priority.toUpperCase()}
                   </Badge>
-                  
+
                 </div>
                 {/* <Badge className={`text-xs ${getPriorityColor(project.priority)}`}>
                   {project.priority.toUpperCase()}
                 </Badge> */}
               </div>
             </div>
-            
+
             <CardTitle className={`text-lg font-semibold transition-colors ${project.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
               {project.name}
             </CardTitle>
           </CardHeader>
-          
+
           <CardContent className="space-y-4">
             {/* <HoverCard>
               <HoverCardTrigger asChild>
@@ -481,9 +487,9 @@ const Projects = () => {
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{project.description}</p>
               </HoverCardContent>
             </HoverCard> */}
-            
+
             {/* Dates removed as per request */}
-            
+
             {/* Progress */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -491,13 +497,13 @@ const Projects = () => {
                 <span className="font-medium">{project.progress}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
+                <div
                   className="bg-tasksmate-gradient h-2 rounded-full transition-all duration-300"
                   style={{ width: `${project.progress}%` }}
                 ></div>
               </div>
             </div>
-            
+
             {/* Tasks Summary & Created date */}
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-1 text-gray-600">
@@ -511,7 +517,7 @@ const Projects = () => {
                 </Badge>
               </div>
             </div>
-            
+
             {/* Team Members */}
             <div className="flex items-center justify-between">
               {/* Owner Badge left */}
@@ -527,7 +533,7 @@ const Projects = () => {
                 <span className="text-sm text-gray-600">Team :</span>
                 <div className="flex -space-x-2">
                   {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
-                    
+
                   {project.teamMembers.length > 3 && (
                     <HoverCard>
                       <HoverCardTrigger asChild>
@@ -567,8 +573,8 @@ const Projects = () => {
   const ProjectListView = () => (
     <div className="space-y-4">
       {filteredProjects.map((project) => (
-        <Card 
-          key={project.id} 
+        <Card
+          key={project.id}
           className="glass border-0 shadow-tasksmate cursor-pointer group hover:shadow-lg transition-all duration-200"
           onClick={() => handleProjectClick(project.id)}
         >
@@ -577,12 +583,11 @@ const Projects = () => {
               <div className="flex items-center space-x-4 flex-1 min-w-0">
                 {/* Checkbox and ID - Similar to Tasks */}
                 <div className="flex items-center space-x-2">
-                  <div 
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                      project.status === 'completed' 
-                        ? 'bg-tasksmate-gradient border-transparent' 
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
+                        ? 'bg-tasksmate-gradient border-transparent'
                         : 'border-gray-300 hover:border-gray-400'
-                    }`}
+                      }`}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleProjectStatusToggle(project.id);
@@ -612,9 +617,9 @@ const Projects = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Dates removed */}
-                  
+
                   {/* Progress and Tasks - Horizontal layout with better spacing */}
                   <div className="md:col-span-4 flex items-center gap-6 pl-2">
                     {/* Progress */}
@@ -625,7 +630,7 @@ const Projects = () => {
                       </div>
                       <Progress value={project.progress} className="h-2" />
                     </div>
-                    
+
                     {/* Tasks - Horizontally aligned */}
                     <div className="flex items-center gap-2 text-gray-600">
                       <Target className="w-4 h-4" />
@@ -635,7 +640,7 @@ const Projects = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Status tag and team positioned at the right end - Similar to Tasks */}
               <div className="ml-4 flex flex-col items-end space-y-2">
                 <div className="flex items-center gap-2">
@@ -643,8 +648,8 @@ const Projects = () => {
                   <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
                     {formatDate(project.createdAt || project.startDate)}
                   </Badge>
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className={`text-xs ${getStatusMeta(project.status).color}`}
                   >
                     {getStatusMeta(project.status).label}
@@ -652,13 +657,13 @@ const Projects = () => {
                   <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
                     {project.priority.toUpperCase()}
                   </Badge>
-                  
+
                 </div>
-                
+
                 {/* Team under status tag */}
                 <div className="flex -space-x-2">
                   {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
-                    
+
                   {project.teamMembers.length > 3 && (
                     <HoverCard>
                       <HoverCardTrigger asChild>
@@ -707,7 +712,7 @@ const Projects = () => {
               <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Projects</h1>
               <p className="text-gray-600">Manage and track all your projects in one place</p>
             </div>
-            <Button 
+            <Button
               className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
               onClick={() => setIsNewProjectModalOpen(true)}
             >
@@ -725,8 +730,8 @@ const Projects = () => {
               {/* Search Bar - Left side */}
               <div className="relative w-80">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input 
-                  placeholder="Search projects..." 
+                <Input
+                  placeholder="Search projects..."
                   className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -736,7 +741,7 @@ const Projects = () => {
               {/* Filters and Controls - Right side */}
               <div className="flex items-center space-x-4">
                 <Filter className="w-4 h-4 text-gray-500" />
-                
+
                 {/* Status Filter – Multi-select */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -778,7 +783,7 @@ const Projects = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-40">
-                    {['critical','high','medium','low','none'].map(p => (
+                    {['critical', 'high', 'medium', 'low', 'none'].map(p => (
                       <DropdownMenuCheckboxItem
                         key={p}
                         checked={filterPriorities.includes(p)}
@@ -905,12 +910,12 @@ const Projects = () => {
                 <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg mb-2">No projects found</p>
                 <p className="text-gray-400 mb-4">
-                  {searchQuery || filterStatuses.length>0 || filterPriorities.length>0 || dateFilter !== "all" || filterProjectName !== "all" 
-                    ? "Try adjusting your filters or search query" 
+                  {searchQuery || filterStatuses.length > 0 || filterPriorities.length > 0 || dateFilter !== "all" || filterProjectName !== "all"
+                    ? "Try adjusting your filters or search query"
                     : "Create your first project to get started"
                   }
                 </p>
-                <Button 
+                <Button
                   className="bg-tasksmate-gradient hover:scale-105 transition-transform"
                   onClick={() => setIsNewProjectModalOpen(true)}
                 >
@@ -923,8 +928,8 @@ const Projects = () => {
         </div>
       </div>
 
-      <NewProjectModal 
-        isOpen={isNewProjectModalOpen} 
+      <NewProjectModal
+        isOpen={isNewProjectModalOpen}
         onClose={() => setIsNewProjectModalOpen(false)}
         onSubmit={handleNewProject}
         orgId={currentOrgId}

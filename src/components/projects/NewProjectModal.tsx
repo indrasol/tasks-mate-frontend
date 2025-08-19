@@ -136,16 +136,16 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', in
     };
     
     onSubmit(projectDataWithDesignations);
-    setFormData({
-      name: '',
-      description: '',
-      owner: '',
-      teamMembers: [],
-      priority: 'low',
-      status: 'not_started',
-      startDate: '',
-      endDate: ''
-    });
+    // setFormData({
+    //   name: '',
+    //   description: '',
+    //   owner: '',
+    //   teamMembers: [],
+    //   priority: 'low',
+    //   status: 'not_started',
+    //   startDate: '',
+    //   endDate: ''
+    // });
   };
 
   const handleInputChange = (field: string, value: string | string[]) => {
