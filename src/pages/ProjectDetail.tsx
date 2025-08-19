@@ -32,6 +32,7 @@ import {
   ExternalLink,
   Trash2,
   X,
+  Save,
   Bug
 } from 'lucide-react';
 // Dropdown removed for priority badge in header
@@ -61,6 +62,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { taskService } from '@/services/taskService';
 import { toast } from 'sonner';
 import { capitalizeFirstLetter } from '@/lib/projectUtils';
@@ -159,6 +161,19 @@ const ProjectDetail = () => {
   const [editDescription, setEditDescription] = useState('');
   const [editStatus, setEditStatus] = useState<ProjectStatus>('active');
   const [editPriority, setEditPriority] = useState<string>('medium');
+  // Inline title & description editing
+  const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [titleInput, setTitleInput] = useState('');
+  const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
+  const [descriptionInput, setDescriptionInput] = useState('');
+
+  // Keep local inputs in sync when project changes
+  useEffect(() => {
+    if (project) {
+      setTitleInput(project.name);
+      setDescriptionInput(project.description);
+    }
+  }, [project]);
 
   // Utility helpers -------------------------------------------------
   const priorityOptions = ["critical", "high", "medium", "low", "none"] as const;
@@ -895,31 +910,63 @@ const ProjectDetail = () => {
                   <CopyableBadge copyText={project?.id ?? ''} variant="default" className="text-sm font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
                     {project?.id}
                   </CopyableBadge>
-                  <Badge variant="secondary" className={`text-xs ${getStatusMeta(project?.status ?? 'not_started').color}`}>
-                    {getStatusMeta(project?.status ?? 'not_started').label}
-                  </Badge>
-                  <Badge className={`text-xs ${getPriorityColor(project?.priority ?? 'none')} hover:bg-inherit hover:text-inherit`}>
-                    {(project?.priority ?? 'none').toUpperCase()}
-                  </Badge>
                   {(userRole === "owner" || userRole === "admin") ? (
-                    <div className="cursor-pointer hover:scale-110 transition" title="Edit project">
-                      <Edit
-                        className="w-4 h-4"
-                        onClick={() => setIsEditSheetOpen(true)}
-                      />
-                    </div>
+                    <>
+                      {/* Status selector */}
+                      <Select
+                        value={project?.status ?? 'not_started'}
+                        onValueChange={(v) => updateProject({ status: v })}
+                      >
+                        <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent align="start">
+                          {[
+                            'planning',
+                            'in_progress',
+                            'active',
+                            'on_hold',
+                            'completed',
+                            'archived',
+                            'not_started',
+                          ].map((s) => (
+                            <SelectItem key={s} value={s}>
+                              <span className={`px-2 py-1 rounded-full text-xs ${getStatusMeta(s as any).color}`}>
+                                {getStatusMeta(s as any).label}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Priority selector */}
+                      <Select
+                        value={project?.priority ?? 'none'}
+                        onValueChange={(v) => handlePriorityChange(v)}
+                      >
+                        <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
+                          <SelectValue placeholder="Priority" />
+                        </SelectTrigger>
+                        <SelectContent align="start">
+                          {priorityOptions.map((p) => (
+                            <SelectItem key={p} value={p}>
+                              <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>
                   ) : (
-                    <div className="relative group">
-                      <div className="cursor-not-allowed">
-                        <Edit
-                          className="w-4 h-4 text-gray-400"
-                        />
-                      </div>
-                      <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
-                        Only owners and admins can edit projects
-                      </div>
-                    </div>
+                    <>
+                      <Badge variant="secondary" className={`text-xs ${getStatusMeta(project?.status ?? 'not_started').color}`}>
+                        {getStatusMeta(project?.status ?? 'not_started').label}
+                      </Badge>
+                      <Badge className={`text-xs ${getPriorityColor(project?.priority ?? 'none')} hover:bg-inherit hover:text-inherit`}>
+                        {(project?.priority ?? 'none').toUpperCase()}
+                      </Badge>
+                    </>
                   )}
+                  {/* Edit icon removed as requested */}
                   
                   {(userRole === "owner") ? (
                     <div className="cursor-pointer hover:scale-110 hover:text-red-600 transition" title="Delete project">
@@ -941,9 +988,44 @@ const ProjectDetail = () => {
                     </div>
                   )}
                 </div>
-                {/* Title on its own row beside vertical line */}
-                <div className="mt-2">
-                  <h1 className="font-sora font-bold text-3xl text-gray-900">{project?.name ?? ''}</h1>
+                {/* Title with inline edit */}
+                <div className="mt-2 flex items-start gap-2">
+                  {isTitleEditing ? (
+                    <div className="flex items-center gap-2 w-full">
+                      <Input
+                        value={titleInput}
+                        onChange={(e) => setTitleInput(e.target.value)}
+                        className="text-3xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 ml-2"
+                        onClick={async () => {
+                          await updateProject({ name: titleInput });
+                          setIsTitleEditing(false);
+                        }}
+                        title="Save title"
+                      >
+                        <Save className="h-4 w-4 text-green-600" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <h1 className="font-sora font-bold text-3xl text-gray-900">{project?.name ?? ''}</h1>
+                      {(userRole === 'owner' || userRole === 'admin') && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => setIsTitleEditing(true)}
+                          title="Edit title"
+                        >
+                          <Pencil className="h-4 w-4 text-gray-500" />
+                        </Button>
+                      )}
+                    </>
+                  )}
                 </div>
                 {/* Description moved to card in Overview tab */}
               </div>
@@ -956,12 +1038,49 @@ const ProjectDetail = () => {
           <div className="w-full">
             <Card className="glass border-0 shadow-tasksmate mb-6">
               <CardHeader>
-                <CardTitle className="font-sora">Description</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="font-sora">Description</CardTitle>
+                  {isDescriptionEditing ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={async () => {
+                        await updateProject({ description: descriptionInput });
+                        setIsDescriptionEditing(false);
+                      }}
+                      title="Save description"
+                    >
+                      <Save className="h-4 w-4 text-green-600" />
+                    </Button>
+                  ) : (
+                    (userRole === 'owner' || userRole === 'admin') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => setIsDescriptionEditing(true)}
+                        title="Edit description"
+                      >
+                        <Pencil className="h-4 w-4 text-gray-500" />
+                      </Button>
+                    )
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-gray-700 whitespace-pre-line">
-                  {project?.description || '—'}
-                </div>
+                {isDescriptionEditing ? (
+                  <RichTextEditor
+                    content={descriptionInput}
+                    onChange={setDescriptionInput}
+                    className="min-h-[200px]"
+                  />
+                ) : (
+                  <div
+                    className="prose max-w-none text-gray-700"
+                    dangerouslySetInnerHTML={{ __html: project?.description || '' }}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>

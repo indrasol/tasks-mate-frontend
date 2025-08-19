@@ -2,7 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CopyableIdBadge from "@/components/ui/copyable-id-badge";
-import { MessageSquare, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { Task } from "@/types/tasks";
 import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
 import { useState, useEffect } from "react";
@@ -72,13 +72,6 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle, projectMap, canD
                     <h3 className={`font-semibold transition-colors truncate ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-900 hover:text-blue-600' }`}>
                       {task.name}
                     </h3>
-                    {/* Owner badge next to title */}
-                    <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                      {(() => {
-                        const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
-                        return `👤 ${displayName}`;
-                      })()}
-                    </Badge>
                     {/* Status badge - moved from right side */}
                     <Badge
                       variant="secondary"
@@ -103,15 +96,13 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle, projectMap, canD
                   {/* Metadata row */}
                   <div className="flex items-center mt-2">
                     <div className="flex flex-wrap items-center gap-1">
-                      <span className="text-gray-600 text-xs font-bold">Created:</span>
-                      <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
-                        {formatDate(task.createdDate ?? (task.startDate as any))}
+                      {/* Owner badge */}
+                      <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                        {(() => {
+                          const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                          return `👤 ${displayName}`;
+                        })()}
                       </Badge>
-                      {/* Comments moved to right of Created */}
-                      <div className="flex items-center gap-1 text-gray-500 ml-2">
-                        <MessageSquare className="h-4 w-4" />
-                        <span className="text-xs">{task.comments}</span>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -128,15 +119,7 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle, projectMap, canD
                     </Badge>
                   </div>
                   
-                  {/* Start Date - moved to right of Project */}
-                  <div className="flex items-center gap-1">
-                    <span className="text-gray-600 text-xs font-bold">Start date:</span>
-                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                      {formatDate(task.startDate ?? task.createdDate)}
-                    </Badge>
-                  </div>
-                  
-                  {/* Due Date - moved to right of Start date */}
+                  {/* Due Date - placed after Project */}
                   <div className="flex items-center gap-1">
                     <span className="text-gray-600 text-xs font-bold">Due date:</span>
                     <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
@@ -144,23 +127,14 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle, projectMap, canD
                     </Badge>
                   </div>
                 </div>
-                
-                {/* Tags moved below Project */}
-                {task.tags && task.tags.length > 0 && (
-                  <div className="flex items-center flex-wrap gap-1 mb-2 justify-end">
-                    <span className="text-gray-600 text-xs font-bold">Tags:</span>
-                    {task.tags.slice(0, 2).map((tag, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                      {tag}
-                    </Badge>
-                    ))}
-                    {task.tags.length > 2 && (
-                    <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                      +{task.tags.length - 2}
-                    </Badge>
-                    )}
-                  </div>
-                )}
+                {/* Tags removed for cleaner list view */}
+                {/* Created date row */}
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-600 text-xs font-bold">Created:</span>
+                  <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                    {formatDate(task.createdDate ?? (task.startDate as any))}
+                  </Badge>
+                </div>
               </div>
             </div>
           </CardContent>
