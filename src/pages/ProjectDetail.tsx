@@ -1759,11 +1759,12 @@ const ProjectDetail = () => {
                   endDate: ((updated?.end_date ?? data.endDate) ?? prev.endDate) as any,
                 };
               });
+              setIsEditSheetOpen(false);
+              toast.success("Project has been successfully updated.");
             } catch (e) {
               // no-op, errors are logged by api layer
-            } finally {
-              setIsEditSheetOpen(false);
-            }
+              toast.error("Failed to update project.", e?.message || "Failed to update project.");
+            } 
           }}
           orgId={searchParams.get('org_id') ?? undefined}
           mode="edit"
