@@ -1,48 +1,40 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  Plus,
-  Settings,
-  User,
-  LogOut,
-  Calendar,
-  ClipboardList,
-  Home,
-  Check,
-  Users,
-  ChevronRight,
-  ChevronLeft,
-  Edit3,
-  Bug,
-  TrendingUp,
-  Building2,
-  Layers,
-  ChevronDown,
-  ArrowLeft,
-  RefreshCw,
-  MapPin
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
+import {
+  ArrowLeft,
+  Bug,
+  Building2,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Edit3,
+  Home,
+  Layers,
+  LogOut,
+  MapPin,
+  RefreshCw,
+  Settings,
+  User,
+  Users
+} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
-import { api } from '@/services/apiService';
-import { API_ENDPOINTS } from '@/../config';
-import { BackendOrg, Organization } from '@/types/organization';
-import { useOrganizations } from '@/hooks/useOrganizations';
-import type { SimpleOrg } from '@/hooks/useOrganizations';
 import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
-import path from 'path';
+import type { SimpleOrg } from '@/hooks/useOrganizations';
+import { useOrganizations } from '@/hooks/useOrganizations';
 
 interface MainNavigationProps {
   onNewTask?: () => void;
@@ -83,7 +75,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     const currentOrg = userOrganizations.find((org) => org.id === orgId);
     return currentOrg?.name ?? '';
   }, [orgId, userOrganizations]);
-  
+
   // Resolve designation for current user within current org (if available)
   const myDesignation = useMemo(() => {
     if (!user || !orgId) return '';
@@ -106,7 +98,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   }, [isCollapsed]);
 
   // Avoid duplicate fetches
-  
+
 
   useEffect(() => {
     // Only fetch if user is logged in and orgId is set, and if the orgId has changed
@@ -124,7 +116,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
 
 
 
-        
+
 
 
 
@@ -173,6 +165,10 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       };
     });
   }, [orgId, location.pathname]);
+
+  const handleUserProfileNavigation = () => {
+    navigate('/user-profile', { state: { orgId } });
+  };
 
   return (
     <nav className={`bg-white border-r border-gray-200 h-screen fixed left-0 top-0 z-50 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}`}>
@@ -289,11 +285,12 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
         <div className="border-t border-gray-200 p-4 space-y-3">
           {/* User Profile Section */}
           <div className="flex items-center justify-between">
-            <DropdownMenu>
+            {/* <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
+                  onClick={handleUserProfileNavigation}
                 >
                   <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                     <User className="w-4 h-4 text-white" />
@@ -317,7 +314,24 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                   </p>
                 </div>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu> */}
+
+            <Button
+              variant="ghost"
+              className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
+              onClick={handleUserProfileNavigation}
+            >
+              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <User className="w-4 h-4 text-white" />
+              </div>
+              {!isCollapsed && (
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-medium text-gray-700 truncate">
+                    {profileLabel}
+                  </p>
+                </div>
+              )}
+            </Button>
 
             {/* Sign Out Button */}
             <Button

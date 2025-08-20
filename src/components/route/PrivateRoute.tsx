@@ -1,12 +1,13 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useLocation } from "react-router-dom";
-import { Skeleton } from "@/components/ui/skeleton";
 
 interface Props {
   children: JSX.Element;
+  checkOrg?: boolean;
 }
 
-export default function PrivateRoute({ children }: Props) {
+export default function PrivateRoute({ children, checkOrg }: Props) {
   const { user, loading } = useAuth();
 
   //check for org_id query param and navigate accordingly
@@ -15,5 +16,9 @@ export default function PrivateRoute({ children }: Props) {
   const orgId = searchParams.get("org_id");
 
   if (loading) return <Skeleton className="w-full h-full" />;
-  return user ? children : <Navigate to={orgId ? `/index?org_id=${orgId}` : "/index"} replace />;
+
+  
+  return (user ?
+    (checkOrg ? (orgId ? children : <Navigate to="/org" replace />) : children) :
+    <Navigate to={orgId ? `/index?org_id=${orgId}` : "/index"} replace />);
 }

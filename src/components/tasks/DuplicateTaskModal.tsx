@@ -1,23 +1,20 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  DialogContent
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
+import { taskService } from "@/services/taskService";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import DuplicateTaskActions from "./duplicate/DuplicateTaskActions";
 import DuplicateTaskHeader from "./duplicate/DuplicateTaskHeader";
+import TaskDateField from "./duplicate/TaskDateField";
+import TaskDescriptionField from "./duplicate/TaskDescriptionField";
 import TaskIdField from "./duplicate/TaskIdField";
 import TaskNameField from "./duplicate/TaskNameField";
-import TaskDescriptionField from "./duplicate/TaskDescriptionField";
-import TaskTagsField from "./duplicate/TaskTagsField";
 import TaskStatusOwnerFields from "./duplicate/TaskStatusOwnerFields";
-import TaskDateField from "./duplicate/TaskDateField";
-import DuplicateTaskActions from "./duplicate/DuplicateTaskActions";
-import { taskService } from "@/services/taskService";
+import TaskTagsField from "./duplicate/TaskTagsField";
 
 interface Task {
   id: string;
@@ -41,10 +38,10 @@ interface DuplicateTaskModalProps {
 
 const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskModalProps) => {
   const navigate = useNavigate();
-  
+
   // Generate new task ID
   const generateTaskId = () => `T${Math.floor(Math.random() * 9000) + 1000}`;
-  
+
   const [formData, setFormData] = useState({
     id: generateTaskId(),
     name: `Copy of ${sourceTask.name}`,
@@ -58,9 +55,13 @@ const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskMod
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.owner.trim()) {
-      toast.error("Please fill in all required fields");
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -75,12 +76,20 @@ const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskMod
         tags: formData.tags,
         priority: "none", // Add priority if needed
       };
-      const created = await taskService.createTask(payload);
-      toast.success(`Task ${created.task_id} created successfully!`);
+      const created: any = await taskService.createTask(payload);
+      toast({
+        title: "Success",
+        description: `Task ${created.task_id} created successfully!`,
+        variant: "default"
+      });
       onOpenChange(false);
       navigate('/tasks_catalog');
     } catch (err: any) {
-      toast.error(err.message || "Failed to create task");
+      toast({
+        title: "Failed to create task",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -134,24 +143,24 @@ const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskMod
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DuplicateTaskHeader sourceTaskName={sourceTask.name} />
-        
+
         <form onSubmit={handleSubmit} className="space-y-6 mt-6">
-          <TaskIdField 
+          <TaskIdField
             taskId={formData.id}
             onRegenerateId={() => setFormData(prev => ({ ...prev, id: generateTaskId() }))}
           />
 
-          <TaskNameField 
+          <TaskNameField
             name={formData.name}
             onChange={(value) => handleInputChange("name", value)}
           />
 
-          <TaskDescriptionField 
+          <TaskDescriptionField
             description={formData.description}
             onChange={(value) => handleInputChange("description", value)}
           />
 
-          <TaskTagsField 
+          <TaskTagsField
             tags={formData.tags}
             tagInput={tagInput}
             onTagInputChange={setTagInput}
@@ -160,21 +169,21 @@ const DuplicateTaskModal = ({ open, onOpenChange, sourceTask }: DuplicateTaskMod
             onTagInputKeyPress={handleTagInputKeyPress}
           />
 
-          <TaskStatusOwnerFields 
+          <TaskStatusOwnerFields
             status={formData.status}
             owner={formData.owner}
             onStatusChange={(value) => handleInputChange("status", value)}
             onOwnerChange={(value) => handleInputChange("owner", value)}
           />
 
-          <TaskDateField 
+          <TaskDateField
             targetDate={formData.targetDate}
             onChange={(value) => handleInputChange("targetDate", value)}
           />
 
-          <DuplicateTaskActions 
+          <DuplicateTaskActions
             onCancel={() => onOpenChange(false)}
-            onSubmit={() => {}}
+            onSubmit={() => { }}
           />
         </form>
       </DialogContent>

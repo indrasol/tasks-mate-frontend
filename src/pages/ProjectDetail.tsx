@@ -1,71 +1,68 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from "@/hooks/useAuth";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import MainNavigation from "@/components/navigation/MainNavigation";
+import NewProjectModal from '@/components/projects/NewProjectModal';
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import CopyableBadge from "@/components/ui/copyable-badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import NewProjectModal from '@/components/projects/NewProjectModal';
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/hooks/useAuth";
 import {
-  ArrowLeft,
-  Calendar,
-  Users,
-  Target,
-  Pencil,
-  Edit,
-  MoreVertical,
-  Check,
-  Clock,
-  CheckCircle2,
   AlertCircle,
-  Plus,
-  FileText,
-  Upload,
-  Link,
-  File,
+  ArrowLeft,
+  Bug,
+  Calendar,
+  Check,
+  CheckCircle2,
+  Clock,
+  Edit,
   ExternalLink,
-  Trash2,
-  X,
+  File,
+  FileText,
+  Link,
+  Pencil,
+  Plus,
   Save,
-  Bug
+  Target,
+  Trash2,
+  Upload,
+  Users,
+  X
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 // Dropdown removed for priority badge in header
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { api } from "@/services/apiService";
-import { deriveDisplayFromEmail, getStatusMeta, getPriorityColor, type ProjectStatus } from "@/lib/projectUtils";
 import { API_ENDPOINTS } from "@/../config";
-import { useProjectStats } from "@/hooks/useProjectStats";
-import { useProjectMembers } from "@/hooks/useProjectMembers";
-import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
-import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
-import { BackendProjectResource, useProjectResources } from "@/hooks/useProjectResources";
 import {
   Dialog,
-  DialogTrigger,
+  DialogClose,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogClose
+  DialogTrigger
 } from "@/components/ui/dialog";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from '@/hooks/use-toast';
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useProjectMembers } from "@/hooks/useProjectMembers";
+import { BackendProjectResource, useProjectResources } from "@/hooks/useProjectResources";
+import { useProjectStats } from "@/hooks/useProjectStats";
+import { capitalizeFirstLetter, deriveDisplayFromEmail, getPriorityColor, getStatusMeta, type ProjectStatus } from "@/lib/projectUtils";
+import { api } from "@/services/apiService";
 import { taskService } from '@/services/taskService';
-import { toast } from 'sonner';
-import { capitalizeFirstLetter } from '@/lib/projectUtils';
 
 interface Project {
   id: string;
@@ -454,9 +451,17 @@ const ProjectDetail = () => {
       // Reset and refresh
       setSelectedFiles([]);
       fetchResources();
-      toast.success('Files uploaded successfully!');
+      toast({
+        title: "Success",
+        description: "Files uploaded successfully!",
+        variant: "default"
+      });
     } catch (err: any) {
-      toast.error('Failed to upload files');
+      toast({
+        title: "Failed to upload files",
+        description: err.message,
+        variant: "destructive"
+      });
     } finally {
       setUploading(false);
     }
@@ -480,7 +485,11 @@ const ProjectDetail = () => {
       // If there's an error, refresh the whole list to get back to a consistent state
       console.error('Error removing member:', err);
       fetchTeamMembers();
-      toast.error('Failed to remove team member');
+      toast({
+        title: "Failed to remove team member",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -499,6 +508,11 @@ const ProjectDetail = () => {
       await refetchMembers();
     } catch (err) {
       // handle error
+      toast({
+        title: "Failed to change team member role",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -513,6 +527,11 @@ const ProjectDetail = () => {
       fetchTeamMembers();
     } catch (err) {
       // handle error
+      toast({
+        title: "Failed to change team member designation",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -526,6 +545,11 @@ const ProjectDetail = () => {
       fetchResources();
     } catch (err) {
       // handle error
+      toast({
+        title: "Failed to delete resource",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -540,6 +564,11 @@ const ProjectDetail = () => {
       fetchResources();
     } catch (err) {
       // handle error
+      toast({
+        title: "Failed to rename resource",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -553,6 +582,11 @@ const ProjectDetail = () => {
       fetchResources();
     } catch (err) {
       // handle error
+      toast({
+        title: "Failed to update resource",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -596,16 +630,32 @@ const ProjectDetail = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      toast.success('Download started');
+      toast({
+        title: "Success",
+        description: "Download started",
+        variant: "default"
+      });
     } catch (error) {
       console.error('Download error:', error);
-      toast.error('Failed to download file');
+      toast({
+        title: "Failed to download file",
+        description: error.message,
+        variant: "destructive"
+      });
     }
   };
 
 
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [selectedOrgMemberIds, setSelectedOrgMemberIds] = useState<string[]>([]);
+
+  const [isBannerVisible, setIsBannerVisible] = useState(true);
+
+  const handleHideBanner = useCallback(() => {
+    setIsBannerVisible(false);
+    // Optional: Store preference in localStorage to persist across page reloads
+    // localStorage.setItem('hidePermissionBanner', 'true');
+  }, []);
 
   const openAddMemberModal = () => {
     setSelectedOrgMemberIds([]);
@@ -632,6 +682,11 @@ const ProjectDetail = () => {
       await refetchMembers();
     } catch (err) {
       // handle error
+      toast({
+        title: "Failed to add team member",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -644,7 +699,11 @@ const ProjectDetail = () => {
     const filteredToAdd = toAdd.filter(uid => !existingMemberIds.has(uid));
 
     if (filteredToAdd.length === 0) {
-      toast.info('Selected members are already part of the project');
+      toast({
+        title: "Info",
+        description: "Selected members are already part of the project",
+        variant: "default"
+      });
       setAddMemberOpen(false);
       setSelectedOrgMemberIds([]);
       return;
@@ -690,6 +749,11 @@ const ProjectDetail = () => {
       });
     } catch (err) {
       console.error("Failed to add members", err);
+      toast({
+        title: "Failed to add team member",
+        description: err.message,
+        variant: "destructive"
+      });
     } finally {
       setAddMemberOpen(false);
       setSelectedOrgMemberIds([]);
@@ -785,7 +849,11 @@ const ProjectDetail = () => {
       // If there's an error, refresh the whole list to get back to a consistent state
       console.error('Error removing member:', err);
       await refetchMembers();
-      toast.error('Failed to remove team member');
+      toast({
+        title: "Failed to remove team member",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -856,13 +924,23 @@ const ProjectDetail = () => {
     }
   };
 
+  
+
+  // // Check localStorage for banner visibility preference on component mount
+  // useEffect(() => {
+  //   const isBannerHidden = localStorage.getItem('hidePermissionBanner') === 'true';
+  //   if (isBannerHidden) {
+  //     setIsBannerVisible(false);
+  //   }
+  // }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Permission Banner */}
-        {userRole !== "owner" && userRole !== "admin" && (
+        {userRole !== "owner" && userRole !== "admin" && isBannerVisible && (
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -871,6 +949,15 @@ const ProjectDetail = () => {
                   You are viewing this project as a member. Some actions like editing or deleting the project are restricted to members.
                 </p>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-amber-600 hover:bg-amber-100"
+                onClick={handleHideBanner}
+                aria-label="Dismiss message"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         )}
@@ -1220,7 +1307,11 @@ const ProjectDetail = () => {
                                       onClick={async () => {
                                         try {
                                           await updateProject({ start_date: project?.startDate });
-                                          toast.success('Start date updated successfully');
+                                          toast({
+                                            title: "Success",
+                                            description: "Start date updated successfully",
+                                            variant: "default"
+                                          });
                                           
                                           // If end date exists, update days left calculation
                                           if (project?.endDate) {
@@ -1231,7 +1322,11 @@ const ProjectDetail = () => {
                                             setDaysLeft(daysLeftVal);
                                           }
                                         } catch (err) {
-                                          toast.error('Failed to update start date');
+                                          toast({
+                                            title: "Failed to update start date",
+                                            description: err.message,
+                                            variant: "destructive"
+                                          });
                                         }
                                       }}
                                     >
@@ -1308,7 +1403,11 @@ const ProjectDetail = () => {
                                       onClick={async () => {
                                         try {
                                           await updateProject({ end_date: project?.endDate });
-                                          toast.success('End date updated successfully');
+                                          toast({
+                                            title: "Success",
+                                            description: "End date updated successfully",
+                                            variant: "default"
+                                          });
                                           
                                           // Manually update days left to reflect new end date
                                           if (project?.endDate) {
@@ -1319,7 +1418,11 @@ const ProjectDetail = () => {
                                             setDaysLeft(daysLeftVal);
                                           }
                                         } catch (err) {
-                                          toast.error('Failed to update end date');
+                                          toast({
+                                            title: "Failed to update end date",
+                                            description: err.message,
+                                            variant: "destructive"
+                                          });
                                         }
                                       }}
                                     >
@@ -1760,10 +1863,18 @@ const ProjectDetail = () => {
                 };
               });
               setIsEditSheetOpen(false);
-              toast.success("Project has been successfully updated.");
+              toast({
+                title: "Success",
+                description: "Project has been successfully updated.",
+                variant: "default"
+              });
             } catch (e) {
               // no-op, errors are logged by api layer
-              toast.error("Failed to update project.", e?.message || "Failed to update project.");
+              toast({
+                title: "Failed to update project.",
+                description: e.message,
+                variant: "destructive"
+              });
             } 
           }}
           orgId={searchParams.get('org_id') ?? undefined}

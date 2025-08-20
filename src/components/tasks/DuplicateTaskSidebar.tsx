@@ -1,13 +1,5 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,10 +10,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { toast } from "@/hooks/use-toast";
 import { X } from "lucide-react";
-import { toast } from "sonner";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface Task {
   id: string;
@@ -64,7 +64,11 @@ const DuplicateTaskSidebar = ({ open, onOpenChange, sourceTask }: DuplicateTaskS
     e.preventDefault();
     
     if (!formData.name.trim() || !formData.owner.trim()) {
-      toast.error("Please fill in all required fields");
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -87,7 +91,11 @@ const DuplicateTaskSidebar = ({ open, onOpenChange, sourceTask }: DuplicateTaskS
     
     // In a real app, you would add this task to your global state or database
     // For now, we'll just show success and navigate to catalog
-    toast.success(`Task ${duplicatedTask.id} created successfully!`);
+    toast({
+      title: "Success",
+      description: `Task ${duplicatedTask.id} created successfully!`,
+      variant: "default"
+    });
     
     onOpenChange(false);
     

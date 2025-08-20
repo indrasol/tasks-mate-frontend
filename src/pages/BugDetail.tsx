@@ -1,14 +1,6 @@
-import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ChevronRight, Upload, Clock, ArrowLeft, Plus, Edit3, Trash2 } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
-import { Button } from '@/components/ui/button';
+import NewTaskModal from '@/components/tasks/NewTaskModal';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -17,8 +9,15 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import NewTaskModal from '@/components/tasks/NewTaskModal';
-import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/hooks/use-toast';
+import { ArrowLeft, ChevronRight, Clock, Edit3, Plus, Trash2, Upload } from 'lucide-react';
+import React, { useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 
 const BugDetail = () => {
   const { id: runId, bugId } = useParams();
@@ -124,7 +123,11 @@ const BugDetail = () => {
 
   const handleSaveGuide = () => {
     console.log('Saving guide:', recreateGuide);
-    toast.success('Guide saved successfully!');
+    toast({
+      title: "Success",
+      description: "Guide saved successfully!",
+      variant: "default"
+    });
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,7 +147,11 @@ const BugDetail = () => {
         };
         reader.readAsDataURL(file);
       });
-      toast.success('Evidence uploaded successfully!');
+      toast({
+        title: "Success",
+        description: "Evidence uploaded successfully!",
+        variant: "default"
+      });
     }
   };
 
@@ -159,7 +166,11 @@ const BugDetail = () => {
 
   const handleSaveEvidence = () => {
     console.log('Saving evidence changes');
-    toast.success('Evidence saved successfully!');
+    toast({
+      title: "Success",
+      description: "Evidence saved successfully!",
+      variant: "default"
+    });
   };
 
   const handleConvertToTask = () => {
@@ -175,7 +186,11 @@ const BugDetail = () => {
     });
     window.dispatchEvent(taskCreatedEvent);
     
-    toast.success('Bug converted to task successfully!');
+    toast({
+      title: "Success",
+      description: "Bug converted to task successfully!",
+      variant: "default"
+    });
   };
 
   return (

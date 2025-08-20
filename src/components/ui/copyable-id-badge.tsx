@@ -1,8 +1,8 @@
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { Check } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "./badge";
-import { Check } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 interface CopyableIdBadgeProps {
   id: string;
@@ -18,10 +18,18 @@ const CopyableIdBadge = ({ id, className, isCompleted = false }: CopyableIdBadge
     try {
       await navigator.clipboard.writeText(id);
       setCopied(true);
-      toast.success("Task ID copied");
+      toast({
+        title: "Success",
+        description: "Task ID copied",
+        variant: "default"
+      });
       setTimeout(() => setCopied(false), 900);
-    } catch (_) {
-      // noop
+    } catch (err: any) {
+      toast({
+        title: "Failed to copy to clipboard",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 

@@ -1,7 +1,4 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -9,21 +6,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 interface SignInModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSwitch: () => void;
 }
 
-export function SignInModal({ open, onOpenChange }: SignInModalProps) {
+export function SignInModal({ open, onOpenChange, onSwitch }: SignInModalProps) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-  const { signIn } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const { signIn, forgotPassword } = useAuth();
   const navigate = useNavigate();
 
   const { search } = useLocation();
@@ -59,6 +60,20 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
   const resetForm = () => {
     setIdentifier("");
     setPassword("");
+  };
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await forgotPassword(identifier);
+      toast({ title: "Check your inbox", description: "We sent you a password reset e-mail." });
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({ title: "Failed to send reset password link", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -100,6 +115,16 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
               required
             />
           </div>
+          <div className="text-right">
+            <button
+              type="button"
+              className="text-sm text-green-600 hover:underline"
+              onClick={handleSend}
+              disabled={submitting}
+            >
+              {submitting ? "Sending reset password link…" : "Forgot password?"}
+            </button>
+          </div>
           <Button
             type="submit"
             className="w-full bg-tasksmate-gradient"
@@ -107,6 +132,19 @@ export function SignInModal({ open, onOpenChange }: SignInModalProps) {
           >
             {loading ? "Signing in..." : "Sign In"}
           </Button>
+          <p className="text-center text-xs mt-4">
+            Don't have an account?{" "}
+            <button
+              type="button"
+              className="text-green-600 hover:underline font-medium"
+              onClick={() => {
+                onOpenChange(false);
+                onSwitch?.();
+              }}
+            >
+              Sign up instead
+            </button>
+          </p>
         </form>
       </DialogContent>
     </Dialog>

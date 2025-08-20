@@ -1,57 +1,55 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import CopyableIdBadge from "@/components/ui/copyable-id-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
-import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import CopyableIdBadge from "@/components/ui/copyable-id-badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/hooks/use-toast";
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import {
-  Check,
   ArrowLeft,
-  Calendar,
-  User,
-  MessageCircle,
-  Zap,
-  Save,
-  Copy,
-  Plus,
+  Check,
   CheckCircle,
-  Circle,
-  Send,
-  Edit,
-  X,
   ChevronDown,
-  Upload,
-  FileText,
+  Circle,
+  Copy,
+  Edit,
   ExternalLink,
+  FileText,
+  MessageCircle,
+  Pencil,
+  Plus,
+  Save,
+  Send,
   Trash2,
-  Pencil
+  Upload,
+  X,
+  Zap
 } from "lucide-react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 // import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
-import NewTaskModal from "@/components/tasks/NewTaskModal";
-import AddSubtaskModal from "@/components/tasks/AddSubtaskModal";
-import AddDependencyModal from "@/components/tasks/AddDependencyModal";
-import { taskService } from "@/services/taskService";
-import { api } from "@/services/apiService";
 import { API_ENDPOINTS } from "@/../config";
+import AddDependencyModal from "@/components/tasks/AddDependencyModal";
+import AddSubtaskModal from "@/components/tasks/AddSubtaskModal";
+import NewTaskModal from "@/components/tasks/NewTaskModal";
+import { api } from "@/services/apiService";
+import { taskService } from "@/services/taskService";
 
-import { getStatusMeta, getPriorityColor, formatDate, deriveDisplayFromEmail } from "@/lib/projectUtils";
-import { useAuth } from "@/hooks/useAuth";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import HistoryCard from "@/components/tasks/HistoryCard";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/useAuth";
+import { deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 
 
 const TaskDetail = () => {
@@ -62,6 +60,7 @@ const TaskDetail = () => {
   const [task, setTask] = useState<any>(null);
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
+  const isInitialMount = useRef({ status: status, priority: priority });
   const [taskName, setTaskName] = useState('');
   const [description, setDescription] = useState('');
   const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
@@ -328,29 +327,76 @@ const TaskDetail = () => {
   //   tags: ['UI/UX', 'Frontend', 'Dashboard']
   // };
 
-  const handleSaveChanges = async () => {
+  const handleSaveChanges = async (isPriorityChange?: string, isStatusChange?: string) => {
     if (!taskId) return;
     try {
       const payload: any = {
         title: taskName,
         description,
-        status,
-        priority,
+        status: isStatusChange ?? status,
+        priority: isPriorityChange ?? priority,
       };
       if (task?.project_id) payload.project_id = task.project_id;
       if (task?.startDate) payload.start_date = toYMDLocal(fromYMDLocal(task.startDate) || new Date());
       if (task?.targetDate) payload.due_date = toYMDLocal(fromYMDLocal(task.targetDate) || new Date());
       if (Array.isArray(task?.tags)) payload.tags = task.tags;
+      console.log(payload, status, priority);
       await taskService.updateTask(taskId, payload);
-      toast.success('Task changes saved successfully!');
+      toast({
+        title: "Success",
+        description: "Task changes saved successfully!",
+        variant: "default"
+      });
       setIsTitleEditing(false);
       setIsDescriptionEditing(false);
       fetchHistory();
     } catch (err: any) {
       const msg = err?.message || (err?.detail ? String(err.detail) : 'Failed to save changes');
-      toast.error(msg);
+      toast({
+        title: "Failed to save changes",
+        description: msg,
+        variant: "destructive"
+      });
     }
   };
+
+
+  const handleStatusChange = async (v: string) => {
+    setStatus(v);
+    handleSaveChanges(null, v);
+  };
+
+  const handlePriorityChange = async (v: string) => {
+    setPriority(v);
+    handleSaveChanges(v, null);
+  };
+
+  // useEffect(() => {
+  //   console.log(status,isInitialMount.current.status)
+  //   if (status === '' || status === null || status === undefined) {
+  //     return;
+  //   }
+  //   if(isInitialMount.current.status === status) {      
+  //     return;
+  //   }else{
+  //     isInitialMount.current.status = status;
+  //     handleSaveChanges();
+  //   }
+
+  // }, [status]);
+
+  // useEffect(() => {
+  //   if (priority === '' || priority === null || priority === undefined) {
+  //     return;
+  //   }
+  //   if(isInitialMount.current.priority === priority) {
+  //     return;
+  //   }else{
+  //     isInitialMount.current.priority = priority;
+  //     handleSaveChanges();
+  //   }
+
+  // }, [priority]);
 
   // Toggle status via circle badge (completed ↔ not_started)
   const handleStatusToggle = async () => {
@@ -376,7 +422,11 @@ const TaskDetail = () => {
       setStatus(prevStatus);
       setTask((prev: any) => ({ ...prev, status: prevStatus }));
       const msg = err?.message || (err?.detail ? String(err.detail) : 'Failed to update status');
-      toast.error(msg);
+      toast({
+        title: "Failed to update status",
+        description: msg,
+        variant: "destructive"
+      });
     }
   };
 
@@ -386,7 +436,11 @@ const TaskDetail = () => {
 
     const newFiles = Array.from(files).slice(0, 5 - uploadedFiles.length);
     setUploadedFiles(prev => [...prev, ...newFiles]);
-    toast.success(`${newFiles.length} file(s) uploaded successfully!`);
+    toast({
+      title: "Success",
+      description: `${newFiles.length} file(s) uploaded successfully!`,
+      variant: "default"
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -586,12 +640,20 @@ const TaskDetail = () => {
         c.comment_id === tempId ? created : c
       ));
 
-      toast.success("Comment added");
+      toast({
+        title: "Success",
+        description: "Comment added",
+        variant: "default"
+      });
     } catch (err: any) {
       // Revert optimistic update on error
       setComments(prev => prev.filter(c => !c.isOptimistic));
       setNewComment(newComment); // Restore comment text
-      toast.error(err.message || "Failed to add comment");
+      toast({
+        title: "Failed to add comment",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
   const handleEditComment = (commentId: string) => {
@@ -626,7 +688,11 @@ const TaskDetail = () => {
 
       setEditingComment(null);
       setEditCommentText("");
-      toast.success("Comment updated");
+      toast({
+        title: "Success",
+        description: "Comment updated",
+        variant: "default"
+      });
     } catch (err: any) {
       // Revert on error
       setComments(prev => prev.map(c =>
@@ -634,7 +700,11 @@ const TaskDetail = () => {
           ? { ...c, content: originalContent, isEditing: false }
           : c
       ));
-      toast.error(err.message || "Failed to update comment");
+      toast({
+        title: "Failed to update comment",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
   const handleCancelEdit = () => {
@@ -650,13 +720,21 @@ const TaskDetail = () => {
       setComments(prev => prev.filter(c => c.comment_id !== commentId));
 
       await api.del(`${API_ENDPOINTS.TASK_COMMENTS}/${commentId}?project_id=${task?.project_id}`, {});
-      toast.success("Comment deleted");
+      toast({
+        title: "Success",
+        description: "Comment deleted",
+        variant: "default"
+      });
     } catch (err: any) {
       // Restore comment on error
       if (commentToDelete) {
         setComments(prev => [...prev, commentToDelete]);
       }
-      toast.error(err.message || "Failed to delete comment");
+      toast({
+        title: "Failed to delete comment",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -666,10 +744,18 @@ const TaskDetail = () => {
     try {
       await taskService.addSubtask(taskId, selectedTask.id);
       setSubtasks(prev => [...prev, selectedTask.id]);
-      toast.success(`Subtask "${selectedTask.name}" added successfully!`);
+      toast({
+        title: "Success",
+        description: `Subtask "${selectedTask.name}" added successfully!`,
+        variant: "default"
+      });
       fetchHistory();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to add subtask');
+      toast({
+        title: "Failed to add subtask",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
   const handleSubtaskToggle = async (subtaskId: string) => {
@@ -707,10 +793,18 @@ const TaskDetail = () => {
     try {
       await taskService.removeSubtask(taskId, subtaskId);
       setSubtasks(prev => prev.filter(id => id !== subtaskId));
-      toast.success('Subtask deleted successfully!');
+      toast({
+        title: "Success",
+        description: "Subtask deleted successfully!",
+        variant: "default"
+      });
       fetchHistory();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete subtask');
+      toast({
+        title: "Failed to delete subtask",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -721,10 +815,18 @@ const TaskDetail = () => {
       await taskService.addDependency(taskId, selectedTask.id);
       setTask((prev: any) => ({ ...prev, dependencies: [...(prev?.dependencies ?? []), selectedTask.id] }));
       setDependencyDetails((prev: any[]) => [...prev, selectedTask]);
-      toast.success(`Dependency "${selectedTask.name}" added successfully!`);
+      toast({
+        title: "Success",
+        description: `Dependency "${selectedTask.name}" added successfully!`,
+        variant: "default"
+      });
       fetchHistory();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to add dependency');
+      toast({
+        title: "Failed to add dependency",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -734,10 +836,18 @@ const TaskDetail = () => {
       await taskService.removeDependency(taskId, dependencyId);
       setTask((prev: any) => ({ ...prev, dependencies: (prev?.dependencies ?? []).filter((id: string) => id !== dependencyId) }));
       setDependencyDetails((prev: any[]) => prev.filter((d: any) => (d.task_id ?? d.id) !== dependencyId));
-      toast.success('Dependency removed successfully!');
+      toast({
+        title: "Success",
+        description: "Dependency removed successfully!",
+        variant: "default"
+      });
       fetchHistory();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to remove dependency');
+      toast({
+        title: "Failed to remove dependency",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -776,12 +886,16 @@ const TaskDetail = () => {
   const handleImageUpload = async (file: File) => {
     if (!file || !task?.project_id || !taskId) return;
     try {
-      const data:any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
-      if(data?.url){
+      const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+      if (data?.url) {
         return data?.url;
       }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to upload image');
+      toast({
+        title: "Failed to upload image",
+        description: err.message,
+        variant: "destructive"
+      });
     }
     return URL.createObjectURL(file);
   };
@@ -795,10 +909,18 @@ const TaskDetail = () => {
       }
       const data: any[] = await taskService.getTaskAttachments(taskId);
       setAttachments(Array.isArray(data) ? data : []);
-      toast.success('Attachment(s) uploaded!');
+      toast({
+        title: "Success",
+        description: "Attachment(s) uploaded!",
+        variant: "default"
+      });
       fetchHistory();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to upload attachment');
+      toast({
+        title: "Failed to upload attachment",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -809,10 +931,18 @@ const TaskDetail = () => {
     try {
       await taskService.deleteTaskAttachment(attachmentId, task.project_id);
       setAttachments(attachments.filter(a => a.attachment_id !== attachmentId));
-      toast.success('Attachment deleted!');
+      toast({
+        title: "Success",
+        description: "Attachment deleted!",
+        variant: "default"
+      });
       fetchHistory();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete attachment');
+      toast({
+        title: "Failed to delete attachment",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -885,6 +1015,7 @@ const TaskDetail = () => {
     }
   };
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Navigation */}
@@ -935,7 +1066,7 @@ const TaskDetail = () => {
                     })()}
                   </Badge>
                   {/* Status selector (moved from Details card) */}
-                  <Select value={status} onValueChange={(v) => { setStatus(v as string); }}>
+                  <Select value={status} onValueChange={handleStatusChange}>
                     <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
@@ -948,7 +1079,7 @@ const TaskDetail = () => {
                     </SelectContent>
                   </Select>
                   {/* Priority selector (moved from Details card) */}
-                  <Select value={priority} onValueChange={(v) => { setPriority(v as typeof priority); }}>
+                  <Select value={priority} onValueChange={handlePriorityChange}>
                     <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
                       <SelectValue placeholder="Priority" />
                     </SelectTrigger>
@@ -982,18 +1113,31 @@ const TaskDetail = () => {
                         onChange={(e) => setTaskName(e.target.value)}
                         className={`text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 ml-2"
-                        onClick={async () => {
-                          await handleSaveChanges();
-                          setIsTitleEditing(false);
-                        }}
-                        title="Save title"
-                      >
-                        <Save className="h-4 w-4 text-green-600" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 ml-2"
+                          onClick={async () => {
+                            await handleSaveChanges();
+                            setIsTitleEditing(false);
+                          }}
+                          title="Save title"
+                        >
+                          <Save className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={async () => {
+                            setIsTitleEditing(false);
+                          }}
+                          title="Cancel"
+                        >
+                          <X className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </>
                     </div>
                   ) : (
                     <>
@@ -1035,23 +1179,36 @@ const TaskDetail = () => {
                   <div className="flex items-center gap-2">
                     <CardTitle className="font-sora">Description</CardTitle>
                     {isDescriptionEditing ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={async () => {
+                            await handleSaveChanges();
+                            setIsDescriptionEditing(false);
+                          }}
+                          title="Save description"
+                        >
+                          <Save className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={async () => {
+                            setIsDescriptionEditing(false);
+                          }}
+                          title="Cancel"
+                        >
+                          <X className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </>
+                    ) : (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0"
-                        onClick={async () => {
-                          await handleSaveChanges();
-                          setIsDescriptionEditing(false);
-                        }}
-                        title="Save description"
-                      >
-                        <Save className="h-4 w-4 text-green-600" />
-                      </Button>
-                    ) : (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 w-6 p-0" 
                         onClick={() => setIsDescriptionEditing(true)}
                       >
                         <Pencil className="h-4 w-4 text-gray-500" />
@@ -1069,10 +1226,16 @@ const TaskDetail = () => {
                       className="min-h-[200px]"
                     />
                   ) : (
-                    <div
-                      className="prose max-w-none text-gray-700"
-                      dangerouslySetInnerHTML={{ __html: description || '<p>No description</p>' }}
+                    <RichTextEditor
+                      content={description}
+                      hideToolbar
+                      className="min-h-[200px]"
                     />
+
+                    // <div
+                    //   className="prose max-w-none text-gray-700"
+                    //   dangerouslySetInnerHTML={{ __html: description || '<p>No description</p>' }}
+                    // />
                   )}
                 </CardContent>
               </Card>
@@ -1149,21 +1312,21 @@ const TaskDetail = () => {
                         <div className="flex flex-col min-w-0 basis-full w-full mt-1">
                           {/* Title (second line) */}
                           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 min-w-0">
-                            <span className="font-bold">Title :</span>
-                            <span className={`truncate max-w-[14rem] ${subtask.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                            {/* <span className="font-bold">Title :</span> */}
+                            <span className={`font-bold truncate max-w-[14rem] ${subtask.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
                               {subtask.title ?? subtask.name}
                             </span>
                           </div>
 
                           {/* Description below */}
-                          {subtask.description && (
+                          {/* {subtask.description && (
                             <div className="flex flex-wrap items-center gap-1 text-sm text-gray-700 mt-2 min-w-0">
                               <span className="font-bold">Description :</span>
                               <span className={`truncate max-w-[20rem] ${subtask.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
                                 {subtask.description}
                               </span>
                             </div>
-                          )}
+                          )} */}
                         </div>
 
                         {/* Actions removed here as they are placed at far right of first row */}
@@ -1694,7 +1857,11 @@ const TaskDetail = () => {
         <NewTaskModal
           open={isDuplicateOpen}
           onOpenChange={setIsDuplicateOpen}
-          onTaskCreated={() => toast.success('Duplicated task created!')}
+          onTaskCreated={() => toast({
+            title: "Success",
+            description: "Duplicated task created!",
+            variant: "default"
+          })}
           initialData={{
             projectId: task?.project_id ?? task?.projectId,
             name: task?.name,
@@ -1727,82 +1894,98 @@ const TaskDetail = () => {
           ]}
         />
         {/* Edit Task - reuse NewTaskModal in edit mode */}
-        {task && (
-          <NewTaskModal
-            open={isEditTaskOpen}
-            onOpenChange={setIsEditTaskOpen}
-            onTaskCreated={async (updated) => {
-              setTask((prev: any) => ({ ...prev, ...updated }));
-              setIsEditTaskOpen(false);
-              toast.success('Task updated');
-            }}
-            initialData={{
-              projectId: task.project_id ?? task.projectId,
-              name: task.name,
-              description: task.description,
-              status: task.status,
-              priority: task.priority,
-              owner: task.owner,
-              startDate: task.startDate ?? task.createdDate,
-              targetDate: task.targetDate,
-              tags: task.tags ?? [],
-            }}
-          />
-        )}
+        {
+          task && (
+            <NewTaskModal
+              open={isEditTaskOpen}
+              onOpenChange={setIsEditTaskOpen}
+              onTaskCreated={async (updated) => {
+                setTask((prev: any) => ({ ...prev, ...updated }));
+                setIsEditTaskOpen(false);
+                toast({
+                  title: "Success",
+                  description: "Task updated!",
+                  variant: "default"
+                });
+              }}
+              initialData={{
+                projectId: task.project_id ?? task.projectId,
+                name: task.name,
+                description: task.description,
+                status: task.status,
+                priority: task.priority,
+                owner: task.owner,
+                startDate: task.startDate ?? task.createdDate,
+                targetDate: task.targetDate,
+                tags: task.tags ?? [],
+              }}
+            />
+          )
+        }
 
         {/* Delete confirm dialog for Task */}
-        {task && isDeleteTaskOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-white rounded-lg p-6 w-[90%] max-w-md shadow-xl">
-              <div className="mb-3">
-                <div className="text-lg font-semibold">Delete Task</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  This action cannot be undone. Type the task ID
-                  <span className="mx-1 inline-block align-middle">
-                    <CopyableIdBadge id={task.id} />
-                  </span>
-                  to confirm deletion.
+        {
+          task && isDeleteTaskOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="bg-white rounded-lg p-6 w-[90%] max-w-md shadow-xl">
+                <div className="mb-3">
+                  <div className="text-lg font-semibold">Delete Task</div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    This action cannot be undone. Type the task ID
+                    <span className="mx-1 inline-block align-middle">
+                      <CopyableIdBadge id={task.id} />
+                    </span>
+                    to confirm deletion.
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 mb-1">Enter Task ID</div>
+                <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder="Enter the task ID to confirm" />
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="outline" onClick={() => { setIsDeleteTaskOpen(false); setDeleteConfirmText(''); }}>Cancel</Button>
+                  <Button
+                    className="bg-red-600 text-white"
+                    disabled={deleteConfirmText !== task.id}
+                    onClick={async () => {
+                      try {
+                        await api.del(`${API_ENDPOINTS.TASKS}/${task.id}`, {});
+                        toast({
+                          title: "Success",
+                          description: "Task deleted!",
+                          variant: "default"
+                        });
+                        navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`);
+                      } catch (e: any) {
+                        toast({
+                          title: "Failed to delete task",
+                          description: e?.message,
+                          variant: "destructive"
+                        });
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
                 </div>
               </div>
-              <div className="text-xs text-gray-500 mb-1">Enter Task ID</div>
-              <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder="Enter the task ID to confirm" />
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => { setIsDeleteTaskOpen(false); setDeleteConfirmText(''); }}>Cancel</Button>
-                <Button
-                  className="bg-red-600 text-white"
-                  disabled={deleteConfirmText !== task.id}
-                  onClick={async () => {
-                    try {
-                      await api.del(`${API_ENDPOINTS.TASKS}/${task.id}`, {});
-                      toast.success('Task deleted');
-                      navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`);
-                    } catch (e: any) {
-                      toast.error(e?.message || 'Failed to delete task');
-                    }
-                  }}
-                >
-                  Delete
-                </Button>
-              </div>
             </div>
-          </div>
-        )}
+          )
+        }
         {/* Delete Comment Confirm Dialog */}
-        <Dialog open={!!deleteCommentId} onOpenChange={(open)=>{if(!open) setDeleteCommentId(null);}}>
+        <Dialog open={!!deleteCommentId} onOpenChange={(open) => { if (!open) setDeleteCommentId(null); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Delete Comment</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-gray-600">Are you sure you want to delete this comment? This action cannot be undone.</p>
             <DialogFooter className="justify-end gap-2">
-              <Button variant="outline" onClick={()=>setDeleteCommentId(null)}>Cancel</Button>
-              <Button className="bg-red-600 text-white" onClick={()=>{ if(deleteCommentId) handleDeleteComment(deleteCommentId); setDeleteCommentId(null);}}>Delete</Button>
+              <Button variant="outline" onClick={() => setDeleteCommentId(null)}>Cancel</Button>
+              <Button className="bg-red-600 text-white" onClick={() => { if (deleteCommentId) handleDeleteComment(deleteCommentId); setDeleteCommentId(null); }}>Delete</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </div >
 
-    </div>
+    </div >
   );
 };
 

@@ -1,37 +1,27 @@
-import { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { API_ENDPOINTS } from "@/../config";
+import MainNavigation from "@/components/navigation/MainNavigation";
+import NewTaskModal from "@/components/tasks/NewTaskModal";
+import TaskListView from "@/components/tasks/TaskListView";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Card, CardContent } from "@/components/ui/card";
 import CopyableIdBadge from "@/components/ui/copyable-id-badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from "@/components/ui/input";
 import {
-  Check,
-  Search,
-  Plus,
-  MoreVertical,
-  MessageSquare,
-  LogOut,
-  Grid3X3,
-  List,
-  SortDesc,
-  SortAsc,
-  CalendarRange,
-  Trash2,
-  X,
-  ChevronRight,
-  Calendar
-} from "lucide-react";
-import { Link } from "react-router-dom";
-import { useOrganizations } from "@/hooks/useOrganizations";
-import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
-import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
-import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
-import { api } from "@/services/apiService";
-import { toast } from "sonner";
-import { API_ENDPOINTS } from "@/../config";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -40,39 +30,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-  DropdownMenuCheckboxItem,
-} from '@/components/ui/dropdown-menu';
-import {
   Tabs,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import TaskListView from "@/components/tasks/TaskListView";
-import NewTaskModal from "@/components/tasks/NewTaskModal";
-import MainNavigation from "@/components/navigation/MainNavigation";
+import { useAuth } from "@/hooks/useAuth";
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
+import { api } from "@/services/apiService";
 import { taskService } from "@/services/taskService";
 import { BackendTask, Task } from "@/types/tasks";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import {
+  Calendar,
+  CalendarRange,
+  Check,
+  Grid3X3,
+  List,
+  Plus,
+  Search,
+  SortAsc,
+  SortDesc
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 
 type ViewMode = 'grid' | 'list';

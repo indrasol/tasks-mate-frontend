@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface AddProjectModalProps {
   open: boolean;
@@ -20,7 +20,6 @@ interface AddProjectModalProps {
 }
 
 const AddProjectModal = ({ open, onOpenChange, onAddProject }: AddProjectModalProps) => {
-  const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: '',
     description: '',

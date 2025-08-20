@@ -1,8 +1,8 @@
-import { useState, type ReactNode, MouseEvent } from "react";
-import { Badge } from "./badge";
-import { Check } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { Check } from "lucide-react";
+import { MouseEvent, useState, type ReactNode } from "react";
+import { Badge } from "./badge";
 
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
@@ -21,10 +21,18 @@ const CopyableBadge = ({ copyText, children, className, variant = "outline" }: C
     try {
       await navigator.clipboard.writeText(copyText);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast({
+        title: "Success",
+        description: "Copied to clipboard",
+        variant: "default"
+      });
       setTimeout(() => setCopied(false), 900);
-    } catch (_) {
-      // ignore
+    } catch (err: any) {
+      toast({
+        title: "Failed to copy to clipboard",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 

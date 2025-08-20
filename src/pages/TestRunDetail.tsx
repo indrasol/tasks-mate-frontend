@@ -16,11 +16,10 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import BugBoardTab from '@/components/tester/BugBoardTab';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 const TestRunDetail = () => {
   const { id } = useParams();
-  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('bug-board');
 
   // Mock data - replace with actual data fetching

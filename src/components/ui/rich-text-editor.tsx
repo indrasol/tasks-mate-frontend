@@ -81,14 +81,22 @@ export function RichTextEditor({
     ],
     content,
     onUpdate: ({ editor }) => {
+      if (hideToolbar) {
+        return;
+      }
       onChange(editor.getHTML());
     },
     editorProps: {
       handlePaste: (view, event) => handlePaste(view, event),
-    },
+    },      
   });
 
-  
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!hideToolbar);
+    }
+  }, [editor, hideToolbar]);
+
   const handlePaste = useCallback(async (view: any, event: ClipboardEvent) => {
     const items = event.clipboardData?.items;
     if (!items) return false;
@@ -102,7 +110,7 @@ export function RichTextEditor({
         if (file) {
           event.preventDefault();
           hasHandled = true;
-          
+
           try {
             const url = await onImageUpload(file);
             if (url) {
@@ -120,17 +128,17 @@ export function RichTextEditor({
     if (!hasHandled && editor && event.clipboardData) {
       const html = event.clipboardData.getData('text/html');
       const text = event.clipboardData.getData('text/plain');
-      
+
       if (html) {
         // Handle HTML content
         event.preventDefault();
         const pastedHTML = new DOMParser().parseFromString(html, 'text/html');
-        
+
         // Clean up the pasted HTML (optional, you can customize this)
         const cleanHTML = pastedHTML.body.innerHTML
           .replace(/<\/?span[^>]*>/g, '') // Remove spans
           .replace(/style="[^"]*"/g, ''); // Remove inline styles
-          
+
         editor.commands.insertContent(cleanHTML);
         return true;
       } else if (text) {
@@ -167,22 +175,22 @@ export function RichTextEditor({
     } else {
       editor.chain().focus().unsetLink().run();
     }
-    
+
     setIsLinkModalOpen(false);
     setLinkUrl('');
   }, [editor, linkUrl]);
 
   const handleImageUpload = async () => {
     if (!selectedFile || !onImageUpload) return;
-    
+
     try {
       setIsUploading(true);
       const url = await onImageUpload(selectedFile);
-      
+
       if (editor && url) {
         editor.chain().focus().setImage({ src: url }).run();
       }
-      
+
       setSelectedFile(null);
       setImageUrl('');
       setIsImageModalOpen(false);
@@ -295,11 +303,13 @@ export function RichTextEditor({
           </Button>
         )}
       </div>}
-      
+
       <div className="p-4 min-h-[150px] max-h-[300px] overflow-y-auto">
-        <EditorContent 
-          editor={editor} 
-          className="prose max-w-none focus:outline-none rich-text-content" 
+        <EditorContent
+          editor={editor}
+          className="prose max-w-none focus:outline-none rich-text-content"
+          disabled={hideToolbar}
+          readOnly={hideToolbar}
         />
       </div>
 
@@ -473,7 +483,7 @@ export function RichTextEditor({
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleImageUpload}
                   disabled={!selectedFile || isUploading}
                 >

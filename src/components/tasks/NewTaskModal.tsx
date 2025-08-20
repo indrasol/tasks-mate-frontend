@@ -1,14 +1,9 @@
-import { useState, useEffect } from "react";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { API_ENDPOINTS } from "@/../config";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -16,23 +11,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle
+} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Plus, Sparkles } from "lucide-react";
-import { toast } from "sonner";
-import { taskService } from "@/services/taskService";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useOrganizations } from "@/hooks/useOrganizations";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { deriveDisplayFromEmail, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 import { api } from "@/services/apiService";
-import { API_ENDPOINTS } from "@/../config";
-import { Project } from "@/types/projects";
+import { taskService } from "@/services/taskService";
 import type { BackendOrgMember } from "@/types/organization";
-import { deriveDisplayFromEmail, getPriorityColor } from "@/lib/projectUtils";
+import { Project } from "@/types/projects";
 import { Task } from "@/types/tasks";
-import { getStatusMeta } from "@/lib/projectUtils";
+import { Plus, Sparkles, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface NewTaskModalProps {
   open: boolean;
@@ -53,9 +51,10 @@ interface NewTaskModalProps {
     is_subtask?: boolean;
     parentTaskId?: string; // For subtasks, if applicable
   }>;
+  projectName?: string;
 }
 
-const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false, initialData }: NewTaskModalProps) => {
+const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false, initialData, projectName }: NewTaskModalProps) => {
   const [formData, setFormData] = useState({
     projectId: "",
     name: "",
@@ -194,7 +193,11 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     e.preventDefault();
 
     if (!formData.name.trim() || !formData.projectId.trim() || !formData.owner.trim()) {
-      toast.error("Please fill in all required fields");
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -239,12 +242,20 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         parentTaskId: created.parent_task_id || formData.parentTaskId, // For subtasks, if applicable
       };
       onTaskCreated(newTask);
-      toast.success("Task created successfully!");
+      toast({
+        title: "Success",
+        description: "Task created successfully!",
+        variant: "default"
+      });
       setFormData({ projectId: "", name: "", description: "", status: "not_started", priority: "low", owner: "", startDate: "", targetDate: "", tags: [], is_subtask: false, parentTaskId: "" });
       setTagInput("");
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.message || "Failed to create task");
+      toast({
+        title: "Failed to create task",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
