@@ -1,7 +1,4 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -9,21 +6,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface SignUpModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSwitch: () => void;
 }
 
-export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
+export function SignUpModal({ open, onOpenChange, onSwitch }: SignUpModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { signUp } = useAuth();
 
@@ -133,6 +133,22 @@ export function SignUpModal({ open, onOpenChange }: SignUpModalProps) {
           >
             {loading ? "Creating account..." : "Sign Up"}
           </Button>
+
+          <p className="text-center text-xs mt-4">
+            Already have an account?{" "}
+            <button
+              type="button"
+              className="text-green-600 hover:underline font-medium"
+              onClick={() => {
+                onOpenChange(false);
+                onSwitch?.();
+              }}
+            >
+              Sign in instead
+            </button>
+          </p>
+
+
         </form>
       </DialogContent>
     </Dialog>

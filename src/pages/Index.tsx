@@ -1,23 +1,24 @@
-import { useEffect, useState } from "react";
+import { SignInModal } from "@/components/auth/SignInModal";
+import { SignUpModal } from "@/components/auth/SignUpModal";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Check, MessageCircle, Zap, Users, ArrowRight, Github, FileText } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { SignUpModal } from "@/components/auth/SignUpModal";
-import { SignInModal } from "@/components/auth/SignInModal";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { ArrowRight, Check, FileText, Github, MessageCircle, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const Index = () => {
   const [signUpOpen, setSignUpOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+
   const { user } = useAuth();
 
   const navigate = useNavigate();
 
-  const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -318,8 +319,14 @@ const Index = () => {
       </footer>
 
       {/* Modals */}
-      <SignUpModal open={signUpOpen} onOpenChange={setSignUpOpen} />
-      <SignInModal open={signInOpen} onOpenChange={setSignInOpen} />
+      <SignUpModal open={signUpOpen} onOpenChange={setSignUpOpen} onSwitch={() => {
+        setSignUpOpen(false);
+        setSignInOpen(true);
+      }} />
+      <SignInModal open={signInOpen} onOpenChange={setSignInOpen} onSwitch={() => {
+        setSignInOpen(false);
+        setSignUpOpen(true);
+      }} />
     </div>
   );
 };

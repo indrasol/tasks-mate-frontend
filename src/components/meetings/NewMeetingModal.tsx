@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface NewMeetingModalProps {
   open: boolean;
@@ -29,7 +29,7 @@ interface NewMeetingModalProps {
 }
 
 const NewMeetingModal = ({ open, onOpenChange, onCreateMeeting, defaultDate }: NewMeetingModalProps) => {
-  const { toast } = useToast();
+ 
   const [formData, setFormData] = useState({
     title: '',
     date: '',

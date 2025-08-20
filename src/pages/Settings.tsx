@@ -1,38 +1,32 @@
 
-import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { 
-  User, 
-  CreditCard,
-  Upload, 
-  ChevronDown,
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from '@/hooks/use-toast';
+import {
+  AlertTriangle,
   Calendar,
+  CreditCard,
   Download,
-  AlertTriangle 
+  User
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import React, { useEffect, useState } from 'react';
+// import { supabase } from '@/integrations/supabase/client';
 import MainNavigation from '@/components/navigation/MainNavigation';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Profile {
   id: string;
   username: string;
+  email: string;
+  created_at?: string;
+  updated_at?: string;
   display_name?: string;
   avatar_url?: string;
 }
-
 
 
 const Settings = () => {
@@ -40,25 +34,40 @@ const Settings = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
-  const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, changePassword } = useAuth();
+
+
+  // Add state
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
 
   useEffect(() => {
     if (user) {
-      fetchProfile();
+      fetchUserDetails();
     }
   }, [user]);
 
-  const fetchProfile = async () => {
+  const fetchUserDetails = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user?.id)
-        .single();
+      // const { data, error } = await supabase
+      //   .from('users')
+      //   .select('*')
+      //   .eq('id', user?.id)
+      //   .single();
 
-      if (error) throw error;
-      setProfile(data);
+      // if (error) throw error;
+
+      const profileDetails: Profile = {
+        id: user?.id,
+        username: user?.user_metadata?.username,
+        email: user?.email,
+        created_at: user?.created_at,
+        updated_at: user?.updated_at,
+        display_name: user?.email,
+        avatar_url: ""
+      }
+
+      setProfile(profileDetails);
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
@@ -68,36 +77,49 @@ const Settings = () => {
 
 
 
-  const handleProfileUpdate = async (e: React.FormEvent) => {
+  // const handleProfileUpdate = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (!profile) return;
+
+  //   try {
+  //     // const { error } = await supabase
+  //     //   .from('users')
+  //     //   .update({
+  //     //     display_name: profile.display_name,
+  //     //     username: profile.username
+  //     //   })
+  //     //   .eq('id', user?.id);
+
+  //     // if (error) throw error;
+
+  //     toast({
+  //       title: "Success",
+  //       description: "Profile updated successfully"
+  //     });
+  //   } catch (error) {
+  //     console.error('Error updating profile:', error);
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to update profile",
+  //       variant: "destructive"
+  //     });
+  //   }
+  // };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
+    if (!user?.email) return;
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          display_name: profile.display_name,
-          username: profile.username
-        })
-        .eq('id', user?.id);
+      await changePassword(currentPwd, newPwd);
 
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Profile updated successfully"
-      });
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update profile",
-        variant: "destructive"
-      });
+      toast({ title: "Success", description: "Password updated" });
+      setCurrentPwd(""); setNewPwd("");
+      setPasswordChangeOpen(false);
+    } catch (error: any) {
+      toast({ title: "Failed to update password", description: error.message, variant: "destructive" });
     }
   };
-
-
 
   if (loading) {
     return (
@@ -113,19 +135,19 @@ const Settings = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <MainNavigation />
-      
+
       <div className="flex-1 ml-64">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-600 mt-2">Manage your account and organization settings</p>
+            <p className="text-gray-600 mt-2">Manage your organization settings</p>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="profile" className="flex items-center space-x-2">
                 <User className="w-4 h-4" />
-                <span>Profile</span>
+                <span>Security</span>
               </TabsTrigger>
               <TabsTrigger value="billing" className="flex items-center space-x-2">
                 <CreditCard className="w-4 h-4" />
@@ -137,11 +159,11 @@ const Settings = () => {
             <TabsContent value="profile" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Profile Information</CardTitle>
+                  <CardTitle>Security</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleProfileUpdate} className="space-y-6">
-                    <div className="flex items-center space-x-6">
+                  <form className="space-y-6">
+                    {/* <div className="flex items-center space-x-6">
                       <Avatar className="w-20 h-20">
                         <AvatarImage src={profile?.avatar_url} />
                         <AvatarFallback>
@@ -152,9 +174,9 @@ const Settings = () => {
                         <Upload className="w-4 h-4" />
                         <span>Upload Avatar</span>
                       </Button>
-                    </div>
+                    </div> */}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="displayName">Display Name</Label>
                         <Input
@@ -171,9 +193,9 @@ const Settings = () => {
                           onChange={(e) => setProfile(prev => prev ? { ...prev, username: e.target.value } : null)}
                         />
                       </div>
-                    </div>
+                    </div> */}
 
-                    <Collapsible open={passwordChangeOpen} onOpenChange={setPasswordChangeOpen}>
+                    {/* <Collapsible open={passwordChangeOpen} onOpenChange={setPasswordChangeOpen}>
                       <CollapsibleTrigger asChild>
                         <Button variant="outline" className="flex items-center space-x-2">
                           <span>Change Password</span>
@@ -184,23 +206,32 @@ const Settings = () => {
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="currentPassword">Current Password</Label>
-                            <Input id="currentPassword" type="password" />
+
+                            <Input id="currentPassword" type="password" value={currentPwd}
+                              onChange={(e) => setCurrentPwd(e.target.value)} required />
+
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="newPassword">New Password</Label>
-                            <Input id="newPassword" type="password" />
+                            <Input id="newPassword" type="password" value={newPwd}
+                              onChange={(e) => setNewPwd(e.target.value)} required />
                           </div>
                         </div>
+                        <div className="flex justify-between items-center pt-6 border-t">
+                          <Button onClick={handlePasswordChange} type="submit" className="bg-green-500 hover:bg-green-600">
+                            Save new password
+                          </Button>
+                        </div>
                       </CollapsibleContent>
-                    </Collapsible>
+                    </Collapsible> */}
 
                     <div className="flex justify-between items-center pt-6 border-t">
-                      <Button type="submit" className="bg-green-500 hover:bg-green-600">
+                      {/* <Button type="submit" className="bg-green-500 hover:bg-green-600">
                         Save Changes
-                      </Button>
+                      </Button> */}
                       <Button variant="destructive" className="flex items-center space-x-2">
                         <AlertTriangle className="w-4 h-4" />
-                        <span>Delete Account</span>
+                        <span>Delete Org</span>
                       </Button>
                     </div>
                   </form>
@@ -223,7 +254,7 @@ const Settings = () => {
                       </div>
                       <Badge variant="secondary">Current Plan</Badge>
                     </div>
-                    
+
                     <div className="space-y-3">
                       <div>
                         <div className="flex justify-between text-sm mb-1">

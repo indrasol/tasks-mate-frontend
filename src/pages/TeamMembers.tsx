@@ -1,29 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import {
-  Users,
-  Search,
-  Plus,
-  X
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { API_ENDPOINTS } from '../../config';
-import { api } from '@/services/apiService';
-import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import MainNavigation from '@/components/navigation/MainNavigation';
-import { useSearchParams } from 'react-router-dom';
-import { BackendOrg, BackendOrgMember, BackendOrgMemberInvite, OrgMember, OrgMemberInvite } from '@/types/organization';
-import { format } from 'path';
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization';
 import { capitalizeFirstLetter } from '@/lib/projectUtils';
+import { api } from '@/services/apiService';
+import { BackendOrgMember, BackendOrgMemberInvite, OrgMember, OrgMemberInvite } from '@/types/organization';
+import {
+  Plus,
+  Search,
+  Users,
+  X
+} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { API_ENDPOINTS } from '../../config';
 
 interface TeamMember {
   id: string;
@@ -55,6 +52,8 @@ const TeamMembers = () => {
 
   const [currentUserOrgRole, setCurrentUserOrgRole] = useState('');
 
+  const [hasMoreOwners,setHasMoreOwners] = useState(false);
+
 
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -62,7 +61,6 @@ const TeamMembers = () => {
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
 
-  const { toast } = useToast();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const orgId = searchParams.get('org_id');
@@ -134,6 +132,16 @@ const TeamMembers = () => {
 
         return formattedOrg;
       });
+
+      const ownersList = formattedOrgs?.filter((m)=> m.role === 'owner');
+
+      if(ownersList && ownersList.length > 1)
+      {
+        setHasMoreOwners(true)
+      }
+      else{
+        setHasMoreOwners(false)
+      }
 
       setTeamMembers(formattedOrgs);
 
@@ -217,8 +225,8 @@ const TeamMembers = () => {
     } catch (error) {
       console.error('Error sending invitation:', error);
       toast({
-        title: "Error",
-        description: "Failed to send invitation",
+        title: "Failed to send invitation",
+        description: error.message,
         variant: "destructive"
       });
     } finally {
@@ -239,8 +247,8 @@ const TeamMembers = () => {
       } catch (error) {
         console.error('Error updating designation:', error);
         toast({
-          title: "Error",
-          description: "Failed to update designation",
+          title: "Failed to update designation",
+          description: error.message,
           variant: "destructive"
         });
         return;
@@ -255,8 +263,8 @@ const TeamMembers = () => {
       } catch (error) {
         console.error('Error updating designation:', error);
         toast({
-          title: "Error",
-          description: "Failed to update designation",
+          title: "Failed to update designation",
+          description: error.message,
           variant: "destructive"
         });
         return;
@@ -321,8 +329,8 @@ const TeamMembers = () => {
     } catch (error) {
       console.error('Error updating role:', error);
       toast({
-        title: "Error",
-        description: "Failed to update role",
+        title: "Failed to update role",
+        description: error.message,
         variant: "destructive"
       });
       
@@ -377,8 +385,8 @@ const TeamMembers = () => {
     } catch (error) {
       console.error('Error removing member:', error);
       toast({
-        title: "Error",
-        description: "Failed to remove member",
+        title: "Failed to remove member",
+        description: error.message,
         variant: "destructive"
       });
       
@@ -588,7 +596,7 @@ const TeamMembers = () => {
                               <SelectItem 
                                 key={role} 
                                 value={role}
-                                disabled={(currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
+                                disabled={(!hasMoreOwners && currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
                               >
                                 {capitalizeFirstLetter(role)}
                               </SelectItem>
@@ -610,9 +618,9 @@ const TeamMembers = () => {
                       </TableCell>
                       <TableCell>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>
-                        {((currentUserOrgRole === 'owner') || (currentUserOrgRole === 'admin' && member.role !== 'owner')) && (
+                        {((currentUserOrgRole === 'owner' && hasMoreOwners && member.role === 'owner') || ((currentUserOrgRole === 'admin' || currentUserOrgRole === 'owner') && member.role !== 'owner')) && (
                           <div className="flex w-10 items-center gap-2">
-                            <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => handleRemoveTeamMember(member.org_id, member.user_id)} />
+                            <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => !updating && handleRemoveTeamMember(member.org_id, member.user_id)} />
                           </div>
                         )}
                       </TableCell>

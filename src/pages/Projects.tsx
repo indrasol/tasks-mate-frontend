@@ -1,48 +1,24 @@
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
-import { useSearchParams } from "react-router-dom";
-import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
-import MainNavigation from "@/components/navigation/MainNavigation";
-import { api } from "@/services/apiService";
 import { API_ENDPOINTS } from "@/../config";
-import { useOrganizations } from "@/hooks/useOrganizations";
+import MainNavigation from "@/components/navigation/MainNavigation";
+import NewProjectModal from '@/components/projects/NewProjectModal';
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import CopyableBadge from "@/components/ui/copyable-badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
-import {
-  Plus,
-  Search,
-  Calendar,
-  Users,
-  Target,
-  MoreVertical,
-  FolderOpen,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Grid3X3,
-  List,
-  Filter,
-  SortDesc,
-  SortAsc,
-  CalendarRange,
-  Check,
-  Trash2
-} from 'lucide-react';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
   DropdownMenuLabel,
-  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -50,14 +26,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
-import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
-import NewProjectModal from '@/components/projects/NewProjectModal';
-import { getStatusMeta, getPriorityColor, formatDate, deriveDisplayFromEmail } from "@/lib/projectUtils";
+import { toast } from '@/hooks/use-toast';
+import { useAuth } from "@/hooks/useAuth";
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
+import { api } from "@/services/apiService";
 import type { BackendOrgMember } from "@/types/organization";
 import { Project } from '@/types/projects';
-import { toast } from 'sonner';
+import {
+  AlertCircle,
+  CalendarRange,
+  Check,
+  CheckCircle2,
+  Clock,
+  Filter,
+  FolderOpen,
+  Grid3X3,
+  List,
+  Plus,
+  Search,
+  SortAsc,
+  SortDesc,
+  Target,
+  Users
+} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 
 type ViewMode = 'grid' | 'list';
@@ -382,11 +378,19 @@ const Projects = () => {
         setIsNewProjectModalOpen(false);
         fetchProjects();
 
-        toast.success("Project has been successfully created.");
+        toast({
+          title: "Success",
+          description: "Project has been successfully created.",
+          variant: "default"
+        });
 
       } catch (err) {
         console.error("Failed to create project", err);
-        toast.error("Failed to create project.", err?.message || "Failed to create project.");
+        toast({
+          title: "Failed to create project",
+          description: err.message,
+          variant: "destructive"
+        });
       }
     }
 

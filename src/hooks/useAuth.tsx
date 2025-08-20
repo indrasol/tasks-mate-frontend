@@ -1,10 +1,10 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Session } from "@supabase/supabase-js";
 import { api } from "@/services/apiService";
-import { API_ENDPOINTS } from "../../config";
-import { setToken, removeToken } from "@/services/tokenService";
+import { removeToken, setToken } from "@/services/tokenService";
+import { Session, User } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_ENDPOINTS } from "../../config";
 
 // -------------------------
 // Types
@@ -29,6 +29,12 @@ interface AuthContextType {
   signUp: (dto: SignUpDto) => Promise<string>;
   signIn: (identifier: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+
+  /* NEW */
+  forgotPassword: (identifier: string) => Promise<void>;
+  resetPassword: (params: { email: string; newPassword: string; otp?: string }) => Promise<void>;
+  changePassword: (currentPwd: string, newPwd: string) => Promise<void>;
+  onPasswordRecovery: (cb: (email: string) => void) => () => void;
 }
 
 const AuthContext = createContext<AuthContextType>(null as unknown as AuthContextType);
@@ -181,8 +187,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     navigate("/");
   };
 
+  //---------------------------------------------------
+  // Actions exposed to UI
+  //---------------------------------------------------
+
+  /* -------- helpers -------- */
+  const resolveIdentifierToEmail = async (identifier: string) => {
+    if (identifier.includes("@")) return identifier;
+    const apiKey = import.meta.env.VITE_SUPABASE_API_KEY as string;
+    const { email } = await api.post<{ email: string }>(API_ENDPOINTS.GET_EMAIL, { username: identifier }, {
+      headers: { "X-API-Key": apiKey },
+    });
+    return email;
+  };
+
+  /* -------- auth API -------- */
+  const forgotPassword = async (identifier: string) => {
+    const email = await resolveIdentifierToEmail(identifier);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) throw error;
+  };
+
+  const resetPassword: AuthContextType["resetPassword"] = async ({ email, newPassword, otp }) => {
+    if (otp) {
+      const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
+      if (error) throw error;
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+  };
+
+  const changePassword: AuthContextType["changePassword"] = async (currentPwd, newPwd) => {
+    if (!user?.email) throw new Error("No active user");
+    const { error: reAuthErr } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPwd,
+    });
+    if (reAuthErr) throw new Error("Wrong current password");
+    const { error } = await supabase.auth.updateUser({ password: newPwd });
+    if (error) throw error;
+  };
+
+  const onPasswordRecovery: AuthContextType["onPasswordRecovery"] = (cb) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((ev, session) => {
+      if (ev === "PASSWORD_RECOVERY") cb(session?.user.email ?? "");
+    });
+    return () => subscription.unsubscribe();
+  };
+
+  /* -------- original signUp / signIn / signOut stay unchanged -------- */
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, forgotPassword, resetPassword, changePassword, onPasswordRecovery }}>
       {children}
     </AuthContext.Provider>
   );

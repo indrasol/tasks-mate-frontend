@@ -1,14 +1,10 @@
 
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import CopyableIdBadge from "@/components/ui/copyable-id-badge";
-import { Check } from "lucide-react";
-import { Task } from "@/types/tasks";
 import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
-import { useState, useEffect } from "react";
-import { api } from "@/services/apiService";
-import { toast } from "sonner";
-import { API_ENDPOINTS } from "@/../config";
+import { Task } from "@/types/tasks";
+import { Check } from "lucide-react";
 
 interface TaskListViewProps {
   tasks: Task[];

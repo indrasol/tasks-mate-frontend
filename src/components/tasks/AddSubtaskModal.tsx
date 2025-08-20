@@ -300,7 +300,7 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [], 
         initialData={{
           projectId: projectId,
           parentTaskId: taskId, // Pass current task ID as parent
-          is_subtask: true, // Indicate this is a subtask
+          // is_subtask: true, // Indicate this is a subtask
           owner: owner, // Default to current user or leave empty
         }}
       />

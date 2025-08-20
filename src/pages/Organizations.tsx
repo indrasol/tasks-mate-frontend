@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Building2, Layers, Search, Plus, Users, UserCheck, Info, User, LayoutGrid, List, Check, X, Mail, ChevronsUpDown, ChevronDown, Pencil, Trash2 } from 'lucide-react';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import OrganizationsHeader from '@/components/navigation/OrganizationsHeader';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import CopyableBadge from '@/components/ui/copyable-badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useToast } from '@/hooks/use-toast';
-import { api } from '@/services/apiService';
-import { API_ENDPOINTS } from '../../config';
+import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/services/apiService';
 import { BackendOrg, Organization, OrganizationInvitation } from '@/types/organization';
-import CopyableBadge from '@/components/ui/copyable-badge';
+import { Building2, Check, ChevronDown, ChevronsUpDown, Info, Layers, LayoutGrid, List, Mail, Pencil, Plus, Search, Trash2, User, UserCheck, Users, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { API_ENDPOINTS } from '../../config';
 const CopyOrgId = ({ id, children }: { id: string, children: React.ReactNode }) => (
-  <span onClick={(e)=>e.stopPropagation()}>
+  <span onClick={(e) => e.stopPropagation()}>
     <CopyableBadge copyText={id} variant="outline">
       {children}
     </CopyableBadge>
@@ -96,7 +96,6 @@ const Organizations = () => {
   const [selectedDesignation, setSelectedDesignation] = useState<string | null>('director');
   const [newDesignationInput, setNewDesignationInput] = useState('');
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user, signOut } = useAuth();
 
   useEffect(() => {
@@ -106,6 +105,7 @@ const Organizations = () => {
       fetchInvitations();
     }
   }, [user]);
+
 
   // Fetch global designations once on mount
   useEffect(() => {
@@ -377,7 +377,7 @@ const Organizations = () => {
 
   const handleAcceptInvite = async (invitationId: string) => {
     try {
-      await api.put(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}/accept`,{});
+      await api.put(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}/accept`, {});
       toast({
         title: 'Invitation Accepted',
         description: 'You have joined the organization.',
@@ -446,6 +446,8 @@ const Organizations = () => {
       }
     });
 
+
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -511,41 +513,9 @@ const Organizations = () => {
         </div>
       )} */}
 
+
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 w-full">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-7 h-7 rounded-full bg-tasksmate-gradient flex items-center justify-center">
-                  <Check className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex items-baseline space-x-2">
-                  <span className="font-sora font-bold text-2xl">TasksMate</span>
-                  <a
-                    href="https://indrasol.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                  >
-                    by Indrasol
-                  </a>
-                </div>
-              </div>
-              <div className="h-6 w-px bg-gray-300 mx-2"></div>
-              <h1 className="text-2xl font-bold text-gray-900">Your Organizations</h1>
-            </div>
-            <div>
-              <button
-                onClick={signOut}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md font-medium transition-colors"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <OrganizationsHeader />
 
       {/* Organization Invitations Banner */}
       <div className="w-full px-4 sm:px-6 lg:px-8 mt-4">
@@ -872,7 +842,7 @@ const Organizations = () => {
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span onClick={(e)=>e.stopPropagation()}>
+                                  <span onClick={(e) => e.stopPropagation()}>
                                     <CopyableBadge copyText={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
                                       <Info className="w-3 h-3 mr-1" /> {org.org_id}
                                     </CopyableBadge>
@@ -1005,7 +975,7 @@ const Organizations = () => {
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100">{org.name}</h3>
                         <div className="flex items-center flex-wrap gap-2">
                           {org.org_id && (
-                            <span onClick={(e)=>e.stopPropagation()}>
+                            <span onClick={(e) => e.stopPropagation()}>
                               <CopyableBadge copyText={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
                                 <Info className="w-3 h-3 mr-1" /> {org.org_id}
                               </CopyableBadge>
