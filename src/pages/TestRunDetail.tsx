@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { ChevronRight, Users, Calendar, Plus, UserPlus } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { toast } from '@/hooks/use-toast';
 
 const TestRunDetail = () => {
   const { id } = useParams();
+  const currentOrgId = useCurrentOrgId();
   const [activeTab, setActiveTab] = useState('bug-board');
 
   // Mock data - replace with actual data fetching
@@ -82,7 +84,9 @@ const TestRunDetail = () => {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/tester-zone">Bug Tracker</Link>
+                <Link to={currentOrgId ? `/tester-zone?org_id=${currentOrgId}` : '/tester-zone'}>
+                  Bug Tracker
+                </Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator>

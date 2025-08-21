@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,23 +7,41 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
+import { useProjects } from '@/hooks/useProjects';
 
 interface NewBugModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   runId: string;
-  projectName: string;
+  projectName?: string; // Made optional
 }
 
 const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProps) => {
+  const { projects, loading: loadingProjects } = useProjects();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     severity: '',
+    projectId: '',
+    projectName: projectName || '',
     tags: [] as string[]
   });
   const [newTag, setNewTag] = useState('');
+  
+  // Set default project if provided
+  useEffect(() => {
+    if (projectName && projects.length > 0) {
+      const foundProject = projects.find(p => p.name === projectName);
+      if (foundProject) {
+        setFormData(prev => ({
+          ...prev,
+          projectId: foundProject.id,
+          projectName: foundProject.name
+        }));
+      }
+    }
+  }, [projectName, projects]);
 
   const handleAddTag = () => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
@@ -51,10 +69,16 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.projectName) {
+      alert("Please select a project");
+      return;
+    }
+    
     // Auto-add project name as the first tag
     const bugData = {
       ...formData,
-      tags: [projectName, ...formData.tags],
+      tags: [formData.projectName, ...formData.tags],
       runId
     };
     console.log('Creating new bug:', bugData);
@@ -63,8 +87,21 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
       title: '',
       description: '',
       severity: '',
+      projectId: '',
+      projectName: '',
       tags: []
     });
+  };
+  
+  const handleProjectChange = (projectId: string) => {
+    const selectedProject = projects.find(p => p.id === projectId);
+    if (selectedProject) {
+      setFormData({
+        ...formData,
+        projectId: projectId,
+        projectName: selectedProject.name
+      });
+    }
   };
 
   return (
@@ -111,12 +148,42 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
               </SelectContent>
             </Select>
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="project">Project</Label>
+            <Select value={formData.projectId} onValueChange={handleProjectChange}>
+              <SelectTrigger>
+                {loadingProjects ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Loading projects...</span>
+                  </div>
+                ) : (
+                  <SelectValue placeholder="Select project" />
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {projects.length === 0 && !loadingProjects && (
+                  <SelectItem value="no-projects" disabled>No projects available</SelectItem>
+                )}
+                {projects.map(project => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="tags">Tags</Label>
             <p className="text-xs text-gray-500">
-              <Badge className="bg-teal-100 text-teal-800 text-xs mr-1">{projectName}</Badge>
-              will be automatically added to this bug
+              {formData.projectName ? (
+                <Badge className="bg-teal-100 text-teal-800 text-xs mr-1">{formData.projectName}</Badge>
+              ) : (
+                <span>Select a project above</span>
+              )}
+              {formData.projectName && " will be automatically added to this bug"}
             </p>
             <div className="flex gap-2">
               <Input
@@ -157,7 +224,7 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
             <Button
               type="submit"
               className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-              disabled={!formData.title || !formData.description || !formData.severity}
+              disabled={!formData.title || !formData.description || !formData.severity || !formData.projectId}
             >
               Create Bug
             </Button>

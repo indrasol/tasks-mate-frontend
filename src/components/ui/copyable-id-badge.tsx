@@ -8,9 +8,10 @@ interface CopyableIdBadgeProps {
   id: string;
   className?: string;
   isCompleted?: boolean;
+  copyLabel?: string; // Label used in toast e.g., "Task" or "Tracker"
 }
 
-const CopyableIdBadge = ({ id, className, isCompleted = false }: CopyableIdBadgeProps) => {
+const CopyableIdBadge = ({ id, className, isCompleted = false, copyLabel = "Task" }: CopyableIdBadgeProps) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -20,7 +21,7 @@ const CopyableIdBadge = ({ id, className, isCompleted = false }: CopyableIdBadge
       setCopied(true);
       toast({
         title: "Success",
-        description: "Task ID copied",
+        description: `${copyLabel} ID copied`,
         variant: "default"
       });
       setTimeout(() => setCopied(false), 900);
@@ -36,7 +37,7 @@ const CopyableIdBadge = ({ id, className, isCompleted = false }: CopyableIdBadge
   return (
     <Badge
       className={cn(
-        "text-xs font-mono bg-green-600 cursor-pointer select-none relative overflow-hidden",
+        "text-xs font-mono cursor-pointer select-none relative overflow-hidden",
         isCompleted ? "line-through text-black" : "text-white",
         className
       )}

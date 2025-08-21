@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import CopyableIdBadge from "@/components/ui/copyable-id-badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -34,11 +35,13 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { useOrganizations } from "@/hooks/useOrganizations";
-import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
+import { deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 import { api } from "@/services/apiService";
 import { taskService } from "@/services/taskService";
 import { BackendTask, Task } from "@/types/tasks";
@@ -48,6 +51,7 @@ import {
   Check,
   Grid3X3,
   List,
+  Maximize2,
   Plus,
   Search,
   SortAsc,
@@ -57,7 +61,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 
-type ViewMode = 'grid' | 'list';
+type ViewMode = 'table';
 type SortOption = 'name' | 'status' | 'targetDate' | 'createdDate' | 'progress' | 'owner';
 type SortDirection = 'asc' | 'desc';
 
@@ -90,8 +94,13 @@ const TasksCatalog = () => {
 
 // Separate component to handle all the main logic
 const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user: any, signOut: () => void }) => {
+  // State for task detail dialog
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [isTruncated, setIsTruncated] = useState<Record<string, boolean>>({});
+  
   // State management - enhanced with new filter and sort options
-  const [view, setView] = useState<ViewMode>("grid");
+  const [view, setView] = useState<ViewMode>("table");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]); // empty array -> all
   const [filterOwner, setFilterOwner] = useState<string>("all");
@@ -870,25 +879,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* View Toggle */}
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant={view === 'grid' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setView('grid')}
-                    className="p-2"
-                  >
-                    <Grid3X3 className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant={view === 'list' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setView('list')}
-                    className="p-2"
-                  >
-                    <List className="w-4 h-4" />
-                  </Button>
-                </div>
+                {/* View Toggle removed as we only have table view now */}
               </div>
             </div>
           </div>
@@ -906,132 +897,247 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         {/* Tasks Display */}
         <div className="px-6 py-6">
           <div className="w-full">
-            {view === "grid" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredTasks.map((task) => (
-                  <Card
-                    key={task.id}
-                    className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200"
-                    onClick={() => handleTaskClick(task.id)}
-                  >
-                    <CardContent className="p-6">
-                      {/* Header with checkbox and task ID */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-2">
-                          {/* Checkbox styled like TasksMate logo */}
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${task.status === 'completed'
-                              ? 'bg-tasksmate-gradient border-transparent'
-                              : 'border-gray-300 hover:border-gray-400'
-                              }`}
+            <div className="rounded-md border shadow-tasksmate">
+              <Table className="table-fixed">
+                <TableHeader className="bg-gray-50">
+                  <TableRow>
+                    <TableHead className="w-12 text-center"></TableHead>
+                    <TableHead className="w-28 text-center font-bold">ID</TableHead>
+                    <TableHead className="w-80 font-bold">Title</TableHead>
+                    <TableHead className="w-32 text-center font-bold">Status</TableHead>
+                    <TableHead className="w-24 text-center font-bold">Priority</TableHead>
+                    <TableHead className="w-40 text-center font-bold">Assignee</TableHead>
+                    <TableHead className="w-36 text-center font-bold">Start Date</TableHead>
+                    <TableHead className="w-36 text-center font-bold">Due Date</TableHead>
+                    <TableHead className="w-36 text-center font-bold">Project</TableHead>
+                    <TableHead className="w-40 text-center font-bold">Tags</TableHead>
+                    <TableHead className="w-24 text-center font-bold">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTasks.map((task) => (
+                    <TableRow 
+                      key={task.id}
+                      className={`hover:bg-slate-50/60 transition-colors ${task.status === 'completed' ? 'bg-gray-50/60' : ''}`}
+                    >
+                      <TableCell className="p-2 text-center">
+                        <div
+                          className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${task.status === 'completed'
+                            ? 'bg-tasksmate-gradient border-transparent'
+                            : 'border-gray-300 hover:border-gray-400'
+                            }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTaskStatusToggle(task.id);
+                          }}
+                        >
+                          {task.status === 'completed' && (
+                            <Check className="h-3 w-3 text-white" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
+                          <CopyableIdBadge id={task.id} isCompleted={task.status === 'completed'} />
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium w-80">
+                        <div className="flex items-center">
+                          <div 
+                            className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
+                            ref={(el) => {
+                              if (el) {
+                                // Check if text is truncated
+                                const isTrunc = el.scrollWidth > el.clientWidth;
+                                if (isTruncated[task.id] !== isTrunc) {
+                                  setIsTruncated(prev => ({...prev, [task.id]: isTrunc}));
+                                }
+                              }
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleTaskStatusToggle(task.id);
+                              handleTaskClick(task.id);
                             }}
                           >
-                            {task.status === 'completed' && (
-                              <Check className="h-3 w-3 text-white" />
-                            )}
+                            {task.name}
                           </div>
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <CopyableIdBadge id={task.id} isCompleted={task.status === 'completed'} />
-                          </div>
-                          {/* Owner badge moved below title */}
+                          {isTruncated[task.id] && (
+                            <Button 
+                              variant="ghost" 
+                              className="ml-1 p-0 h-6 w-6 shrink-0" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTask(task);
+                                setIsDialogOpen(true);
+                              }}
+                            >
+                              <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
+                            </Button>
+                          )}
                         </div>
-
-                        {/* Status + Priority badges */}
-                        <div className="flex items-center gap-1">
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                                task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
-                              }`}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <Select 
+                            value={task.status} 
+                            onValueChange={(value) => {
+                              // Optimistic update
+                              setTasks(prev => 
+                                prev.map(t => t.id === task.id ? {...t, status: value} : t)
+                              );
+                              // API update
+                              taskService.updateTask(task.id, {
+                                status: value,
+                                project_id: task.projectId,
+                                title: task.name
+                              })
+                                .catch(error => {
+                                  console.error('Failed to update status:', error);
+                                  // Revert on error
+                                  setTasks(prev => 
+                                    prev.map(t => t.id === task.id ? {...t, status: task.status} : t)
+                                  );
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to update status",
+                                    variant: "destructive"
+                                  });
+                                });
+                            }}
                           >
-                            {getStatusText(task.status)}
+                            <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${
+                              task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                              task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                              task.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
+                              task.status === 'archived' ? 'bg-black text-white' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              <SelectValue>{getStatusText(task.status)}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[
+                                { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
+                                { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
+                                { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
+                                { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
+                                { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
+                                { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
+                              ].map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <Select 
+                            value={task.priority ?? 'none'} 
+                            onValueChange={(value) => {
+                              // Optimistic update
+                              setTasks(prev => 
+                                prev.map(t => t.id === task.id ? {...t, priority: value} : t)
+                              );
+                              // API update
+                              taskService.updateTask(task.id, {
+                                priority: value,
+                                project_id: task.projectId,
+                                title: task.name
+                              })
+                                .catch(error => {
+                                  console.error('Failed to update priority:', error);
+                                  // Revert on error
+                                  setTasks(prev => 
+                                    prev.map(t => t.id === task.id ? {...t, priority: task.priority} : t)
+                                  );
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to update priority",
+                                    variant: "destructive"
+                                  });
+                                });
+                            }}
+                          >
+                            <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(task.priority ?? 'none')}`}>
+                              <SelectValue>{(task.priority ?? 'NONE').toUpperCase()}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {['critical', 'high', 'medium', 'low', 'none'].map(p => (
+                                <SelectItem key={p} value={p}>
+                                  <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                            {(() => {
+                              const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                              return `👤 ${displayName}`;
+                            })()}
                           </Badge>
-                          <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority ?? 'none')}`}>
-                            {task.priority?.toUpperCase()}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                            {task.startDate ? formatDate(task.startDate) : formatDate(task.createdDate)}
                           </Badge>
-                          {/* Delete icon removed as requested */}
                         </div>
-                      </div>
-
-                      {/* Task Info - Fixed height to ensure consistent margin line alignment */}
-                      <div className="space-y-3 mb-4" style={{ minHeight: '100px' }}>
-                        <div>
-                          <h3 className={`font-semibold mb-1 transition-colors ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900 hover:text-blue-600'}`}>{task.name}</h3>
-                          {/* Owner badge moved to metadata section */}
-                          {/* <p className={`text-sm line-clamp-2 ${task.status==='completed' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
-                            {task.description}
-                          </p> */}
-                          {/* <RichTextEditor
-                            content={task.description}
-                            className="max-h-[120px]"
-                            hideToolbar
-                          /> */}
-                          {/* Project badge removed from here */}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                            {task.targetDate ? formatDate(task.targetDate) : '—'}
+                          </Badge>
                         </div>
-
-                        {/* Tags removed for cleaner layout */}
-
-
-                      </div>
-
-                      <div className="pb-2">
-                        {/* Start Date + Due */}
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-1 whitespace-nowrap">
-                            <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                              {(() => {
-                                const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
-                                return `👤 ${displayName}`;
-                              })()}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-1 whitespace-nowrap">
-                            <span className="text-gray-600 text-xs font-semibold">Due date:</span>
-                            <Badge variant="secondary" className="bg-rose-100 text-rose-800 text-xs whitespace-nowrap">
-                              {task.targetDate ? formatDate(task.targetDate) : '—'}
-                            </Badge>
-                          </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
+                            {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
+                          </Badge>
                         </div>
-                      </div>
-
-
-                      {/* Footer with metadata */}
-                      <div className="pt-4 border-t border-gray-200">
-                        {/* Metadata row */}
-                        <div className="flex items-center gap-4 flex-wrap">
-                          <div className="flex items-center gap-1 whitespace-nowrap">
-                            <span className="text-gray-600 text-xs font-semibold">Project:</span>
-                            <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
-                              {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-wrap justify-center gap-1">
+                          {task.tags && task.tags.length > 0 ? (
+                            task.tags.slice(0, 3).map((tag, index) => (
+                              <Badge key={index} variant="outline" className="text-xs bg-purple-100 text-purple-800">
+                                {tag}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                          {task.tags && task.tags.length > 3 && (
+                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                              +{task.tags.length - 3}
                             </Badge>
-                          </div>
-                          <div className="flex items-center gap-1 whitespace-nowrap">
-                            <span className="text-gray-600 text-xs font-semibold">Created:</span>
-                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
-                              {formatDate(task.createdDate)}
-                            </Badge>
-                          </div>
+                          )}
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <TaskListView
-                tasks={filteredTasks}
-                onTaskClick={handleTaskClick}
-                onTaskStatusToggle={handleTaskStatusToggle}
-                projectMap={Object.fromEntries(projects.map(p => [p.id, p.name]))}
-                canDeleteTask={canDeleteTask}
-                onDeleteTask={handleDeleteTask}
-              />
-            )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleTaskClick(task.id)}
+                          className="text-xs"
+                        >
+                          Detail
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
             {filteredTasks.length === 0 && (
               <div className="text-center py-12">
@@ -1044,12 +1150,6 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   }
                 </p>
                 <div className="flex items-center justify-center gap-3">
-                  {/* <Button 
-                    variant="outline"
-                    onClick={clearFilters}
-                  >
-                    Clear Filters
-                  </Button> */}
                   <Button
                     className="bg-tasksmate-gradient hover:scale-105 transition-transform"
                     onClick={handleNewTask}
@@ -1069,6 +1169,28 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           onOpenChange={setIsNewTaskModalOpen}
           onTaskCreated={handleTaskCreated}
         />
+        
+        {/* Task Detail Dialog - Simplified */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[725px]">
+            <DialogHeader>
+              <DialogTitle className="text-lg">{selectedTask?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="mt-4">
+              <div className="pt-4 text-center">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    if (selectedTask) handleTaskClick(selectedTask.id);
+                  }}
+                >
+                  View Full Details
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
