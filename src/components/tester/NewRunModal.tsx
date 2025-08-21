@@ -1,16 +1,21 @@
-
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { API_ENDPOINTS } from '@/../config';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useProjects } from '@/hooks/useProjects';
-import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
-import { Loader2 } from 'lucide-react';
-import { api } from '@/services/apiService';
-import { API_ENDPOINTS } from '@/../config';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { toast } from '@/hooks/use-toast';
+import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
+import { useProjects } from '@/hooks/useProjects';
+import { api } from '@/services/apiService';
+import { Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
 
 interface NewRunModalProps {
   open: boolean;
@@ -104,11 +109,14 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create New Tracker</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+        <SheetHeader className="mb-6">
+          <SheetTitle>Create New Test Run</SheetTitle>
+          <SheetDescription>
+            Set up a new test run for your project.
+          </SheetDescription>
+        </SheetHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -148,8 +156,6 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
             </Select>
           </div>
 
-
-          
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
@@ -231,8 +237,8 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 };
 

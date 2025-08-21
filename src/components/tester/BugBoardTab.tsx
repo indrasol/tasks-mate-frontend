@@ -1,35 +1,35 @@
-import React from 'react';
-import { Bug, AlertTriangle, CheckCircle, Clock, TrendingUp, ClipboardList, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { BugSummary } from '@/types/tracker';
+import { AlertTriangle, Bug, CheckCircle, ClipboardList, Clock, TrendingUp } from 'lucide-react';
 
 interface BugBoardTabProps {
   runId: string;
+  bugSummary: BugSummary;
 }
 
-const BugBoardTab = ({ runId }: BugBoardTabProps) => {
+const BugBoardTab = ({ runId, bugSummary }: BugBoardTabProps) => {
   // Mock data - replace with actual data fetching
-  const bugSummary = {
-    total: 10,
-    high: 2,
-    medium: 3,
-    low: 5,
-    closed: 3, // Updated to reflect closed bugs
-    totalTasks: 15,
-    recentActivity: [
-      { id: 'BUG-001', title: 'Login button not responsive', severity: 'medium', action: 'created', time: '2 hours ago', createdAt: '2024-12-25T10:00:00Z' },
-      { id: 'BUG-002', title: 'Task deletion confirmation', severity: 'high', action: 'confirmed', time: '8 hours ago', createdAt: '2024-12-25T04:00:00Z' },
-      { id: 'BUG-003', title: 'Profile image upload fails', severity: 'low', action: 'closed', time: '1 day ago', createdAt: '2024-12-24T12:00:00Z' },
-      { id: 'BUG-004', title: 'Navigation menu collapse issue', severity: 'medium', action: 'created', time: '1 day ago', createdAt: '2024-12-24T14:00:00Z' },
-      { id: 'BUG-005', title: 'Data export functionality broken', severity: 'high', action: 'confirmed', time: '3 days ago', createdAt: '2024-12-22T10:00:00Z' },
-    ]
-  };
+  // const bugSummary = {
+  //   total: 10,
+  //   high: 2,
+  //   medium: 3,
+  //   low: 5,
+  //   closed: 3, // Updated to reflect closed bugs
+  //   totalTasks: 15,
+  //   recentActivity: [
+  //     { id: 'BUG-001', title: 'Login button not responsive', severity: 'medium', action: 'created', time: '2 hours ago', createdAt: '2024-12-25T10:00:00Z' },
+  //     { id: 'BUG-002', title: 'Task deletion confirmation', severity: 'high', action: 'confirmed', time: '8 hours ago', createdAt: '2024-12-25T04:00:00Z' },
+  //     { id: 'BUG-003', title: 'Profile image upload fails', severity: 'low', action: 'closed', time: '1 day ago', createdAt: '2024-12-24T12:00:00Z' },
+  //     { id: 'BUG-004', title: 'Navigation menu collapse issue', severity: 'medium', action: 'created', time: '1 day ago', createdAt: '2024-12-24T14:00:00Z' },
+  //     { id: 'BUG-005', title: 'Data export functionality broken', severity: 'high', action: 'confirmed', time: '3 days ago', createdAt: '2024-12-22T10:00:00Z' },
+  //   ]
+  // };
 
   // Filter activity to show only past 2 days
   const twoDaysAgo = new Date();
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
   
-  const filteredActivity = bugSummary.recentActivity.filter(activity => {
+  const filteredActivity = bugSummary?.recentActivity?.filter(activity => {
     const activityDate = new Date(activity.createdAt);
     return activityDate >= twoDaysAgo;
   });
@@ -53,84 +53,69 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <Card className="border-l-4 border-l-gray-500">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Bugs</CardTitle>
-              <Bug className="w-4 h-4 text-gray-500" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-gray-900">{bugSummary.total}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-red-500">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">High</CardTitle>
-              <AlertTriangle className="w-4 h-4 text-red-500" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-red-600">{bugSummary.high}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-orange-500">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">Medium</CardTitle>
-              <TrendingUp className="w-4 h-4 text-orange-500" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-orange-600">{bugSummary.medium}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">Low</CardTitle>
-              <CheckCircle className="w-4 h-4 text-blue-500" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-blue-600">{bugSummary.low}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">Closed Bugs</CardTitle>
-              <CheckCircle className="w-4 h-4 text-green-500" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-green-600">{bugSummary.closed}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Tasks</CardTitle>
-              <ClipboardList className="w-4 h-4 text-purple-500" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-purple-600">{bugSummary.totalTasks}</div>
-          </CardContent>
-        </Card>
+        {[
+          {
+            title: 'Total Bugs',
+            value: bugSummary?.total || 0,
+            icon: <Bug className="w-4 h-4 text-gray-500" />,
+            borderColor: 'border-l-gray-500',
+            textColor: 'text-gray-900'
+          },
+          {
+            title: 'High',
+            value: bugSummary?.high || 0,
+            icon: <AlertTriangle className="w-4 h-4 text-red-500" />,
+            borderColor: 'border-l-red-500',
+            textColor: 'text-red-600'
+          },
+          {
+            title: 'Medium',
+            value: bugSummary?.medium || 0,
+            icon: <TrendingUp className="w-4 h-4 text-orange-500" />,
+            borderColor: 'border-l-orange-500',
+            textColor: 'text-orange-600'
+          },
+          {
+            title: 'Low',
+            value: bugSummary?.low || 0,
+            icon: <TrendingUp className="w-4 h-4 text-blue-500" />,
+            borderColor: 'border-l-blue-500',
+            textColor: 'text-blue-600'
+          },
+          {
+            title: 'Closed',
+            value: bugSummary?.closed || 0,
+            icon: <CheckCircle className="w-4 h-4 text-green-500" />,
+            borderColor: 'border-l-green-500',
+            textColor: 'text-green-600'
+          },
+          {
+            title: 'Total Tasks',
+            value: bugSummary?.totalTasks || 0,
+            icon: <ClipboardList className="w-4 h-4 text-purple-500" />,
+            borderColor: 'border-l-purple-500',
+            textColor: 'text-purple-600'
+          }
+        ].map((card, index) => (
+          <Card key={index} className={`border-l-4 ${card.borderColor}`}>
+            <CardHeader className="py-1 px-4 mt-1">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">{card.title}</CardTitle>
+                {card.icon}
+              </div>
+            </CardHeader>
+            <CardContent className="py-1 px-4 mt-1">
+              <div className={`text-2xl font-bold ${card.textColor}`}>{card.value}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Recent Activity - Full Width */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Recent Activity (Past 2 Days)</CardTitle>
         </CardHeader>
@@ -164,7 +149,7 @@ const BugBoardTab = ({ runId }: BugBoardTabProps) => {
             )}
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 };

@@ -30,4 +30,5 @@ export const API_ENDPOINTS = {
   GET_EMAIL: `${API_BASE_URL}/get-email`,
   DASHBOARD: `${API_BASE_URL}/dashboard`,
   TRACKERS: `${API_BASE_URL}/trackers`,
+  BUGS: `${API_BASE_URL}/bugs`,
 };

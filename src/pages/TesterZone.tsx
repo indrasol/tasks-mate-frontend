@@ -1,19 +1,22 @@
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useProjects } from '@/hooks/useProjects';
-import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
-import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
-import { deriveDisplayFromEmail } from '@/lib/projectUtils';
-import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Filter, Bug, Beaker, Search, Calendar, ChevronUp, ChevronDown, Check, SortDesc, SortAsc, CalendarRange, Eye, Loader2, Copy } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { API_ENDPOINTS } from '@/../config';
 import MainNavigation from '@/components/navigation/MainNavigation';
-import { Button } from '@/components/ui/button';
+import NewRunModal from '@/components/tester/NewRunModal';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import CopyableIdBadge from '@/components/ui/copyable-id-badge';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -22,15 +25,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-  DropdownMenuCheckboxItem,
-} from '@/components/ui/dropdown-menu';
-import {
   Table,
   TableBody,
   TableCell,
@@ -38,23 +32,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import NewRunModal from '@/components/tester/NewRunModal';
-import { api } from '@/services/apiService';
-import { API_ENDPOINTS } from '@/../config';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import CopyableIdBadge from '@/components/ui/copyable-id-badge';
-
-interface TestRun {
-  id: string;
-  name: string;
-  project: string;
-  creator: string;
-  status: 'not_started' | 'in_progress' | 'blocked' | 'completed' | 'archived' | 'on_hold';
-  priority: 'low' | 'medium' | 'high' | 'critical' | 'none';
-  totalBugs: number;
-  totalTasks: number;
-  date: string;
-}
+import { useAuth } from '@/hooks/useAuth';
+import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
+import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
+import { useProjects } from '@/hooks/useProjects';
+import { deriveDisplayFromEmail } from '@/lib/projectUtils';
+import { api } from '@/services/apiService';
+import { TestRun } from '@/types/tracker';
+import { Beaker, Calendar, Check, ChevronDown, ChevronUp, Filter, Loader2, Maximize2, Plus, Search, SortAsc, SortDesc } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 type SortField = 'id' | 'name' | 'project' | 'creator' | 'status' | 'priority' | 'totalBugs' | 'totalTasks' | 'date';
 type SortOrder = 'asc' | 'desc';
@@ -67,10 +56,10 @@ const TesterZone = () => {
   const { data: orgMembers, isLoading: loadingMembers } = useOrganizationMembers(currentOrgId);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   useEffect(() => {
-    const handler = (e:any)=>setSidebarCollapsed(e.detail.collapsed);
+    const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
     window.addEventListener('sidebar-toggle', handler);
-    setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim()==='4rem');
-    return ()=>window.removeEventListener('sidebar-toggle', handler);
+    setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem');
+    return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
   const [showNewRunModal, setShowNewRunModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -79,7 +68,8 @@ const TesterZone = () => {
   const [filterProject, setFilterProject] = useState('all');
   const [filterCreator, setFilterCreator] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
-  
+  const [isTruncated, setIsTruncated] = useState<Record<string, boolean>>({});
+
   // Date range picker state
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
@@ -95,18 +85,18 @@ const TesterZone = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [activeTab, setActiveTab] = useState('all-trackers');
   const [loading, setLoading] = useState(false);
-  
+
   // State for trackers from the API
   const [testRuns, setTestRuns] = useState<TestRun[]>([]);
-  
+
   // Function to fetch trackers from API
   const fetchTrackers = async () => {
     if (!currentOrgId) return;
-    
+
     setLoading(true);
     try {
       const response = await api.get(`${API_ENDPOINTS.TRACKERS}/${currentOrgId}`);
-      
+
       // Transform API response to match TestRun interface
       const data = response as any[];
       const mappedTrackers: TestRun[] = data.map((tracker: any) => ({
@@ -120,7 +110,7 @@ const TesterZone = () => {
         totalTasks: tracker.total_tasks || 0,
         date: new Date(tracker.created_at).toISOString().split('T')[0]
       }));
-      
+
       setTestRuns(mappedTrackers);
     } catch (error) {
       console.error('Error fetching trackers:', error);
@@ -135,18 +125,18 @@ const TesterZone = () => {
       setLoading(false);
     }
   };
-  
+
   // Load trackers on initial render and when currentOrgId changes
   useEffect(() => {
     fetchTrackers();
   }, [currentOrgId]);
-  
+
   // Listen for tracker-created event to refresh the list
   useEffect(() => {
     const handleTrackerCreated = () => {
       fetchTrackers();
     };
-    
+
     window.addEventListener('tracker-created', handleTrackerCreated);
     return () => {
       window.removeEventListener('tracker-created', handleTrackerCreated);
@@ -162,7 +152,7 @@ const TesterZone = () => {
     { value: "on_hold", label: "On Hold", className: "bg-yellow-100 text-yellow-800" },
     { value: "archived", label: "Archived", className: "bg-black text-white" },
   ];
-  
+
   // Priority options with matching color coding from Tasks catalog
   const priorityOptions = [
     { value: "critical", className: "bg-red-600 text-white" },
@@ -171,7 +161,7 @@ const TesterZone = () => {
     { value: "low", className: "bg-green-100 text-green-800" },
     { value: "none", className: "bg-gray-100 text-gray-800" }
   ];
-  
+
   const getStatusColor = (status: string) => {
     const option = statusOptions.find(opt => opt.value === status);
     return option ? option.className : 'bg-gray-100 text-gray-800';
@@ -181,7 +171,7 @@ const TesterZone = () => {
     const option = statusOptions.find(opt => opt.value === status);
     return option ? option.label : 'Unknown';
   };
-  
+
   const getPriorityColor = (priority: string) => {
     const option = priorityOptions.find(opt => opt.value === priority);
     return option ? option.className : 'bg-gray-100 text-gray-800';
@@ -189,47 +179,75 @@ const TesterZone = () => {
 
   const handleStatusChange = async (runId: string, newStatus: string) => {
     try {
+
+
+      toast({
+        title: "Updating tracker status...",
+        description: "Please wait...",
+        variant: "default"
+      })
+
+      // API call to update status
+      await api.put(`${API_ENDPOINTS.TRACKERS}/${runId}`, { status: newStatus });
+      toast({
+        title: "Success",
+        description: "Tracker status updated successfully",
+        variant: "default"
+      });
+
       // Optimistic update
-      setTestRuns(prev => prev.map(run => 
-        run.id === runId 
+      setTestRuns(prev => prev.map(run =>
+        run.id === runId
           ? { ...run, status: newStatus as TestRun['status'] }
           : run
       ));
-      
-      // API call to update status
-      await api.put(`${API_ENDPOINTS.TRACKERS}/${runId}`, { status: newStatus });
+
     } catch (error) {
       console.error('Error updating tracker status:', error);
       toast({
-        title: "Error",
-        description: "Failed to update tracker status",
+        title: "Failed to update tracker status",
+        description: error?.message,
         variant: "destructive"
       });
-      
+
       // Revert optimistic update on failure
       fetchTrackers();
     }
   };
-  
+
   const handlePriorityChange = async (runId: string, newPriority: string) => {
     try {
+
+
+      toast({
+        title: "Updating tracker priority...",
+        description: "Please wait...",
+        variant: "default"
+      })
+
+      // API call to update priority
+      await api.put(`${API_ENDPOINTS.TRACKERS}/${runId}`, { priority: newPriority });
+      toast({
+        title: "Success",
+        description: "Tracker priority updated successfully",
+        variant: "default"
+      });
+
       // Optimistic update
-      setTestRuns(prev => prev.map(run => 
-        run.id === runId 
+      setTestRuns(prev => prev.map(run =>
+        run.id === runId
           ? { ...run, priority: newPriority as TestRun['priority'] }
           : run
       ));
-      
-      // API call to update priority
-      await api.put(`${API_ENDPOINTS.TRACKERS}/${runId}`, { priority: newPriority });
+
     } catch (error) {
       console.error('Error updating tracker priority:', error);
       toast({
-        title: "Error",
-        description: "Failed to update tracker priority",
+        title: "Failed to update tracker priority",
+        description: error?.message,
         variant: "destructive"
       });
-      
+
       // Revert optimistic update on failure
       fetchTrackers();
     }
@@ -240,27 +258,41 @@ const TesterZone = () => {
       // Get current status from state
       const tracker = testRuns.find(run => run.id === runId);
       if (!tracker) return;
-      
+
       // Determine new status
       const newStatus = tracker.status === 'completed' ? 'in_progress' : 'completed';
-      
+
+
+
+      toast({
+        title: "Updating tracker status...",
+        description: "Please wait...",
+        variant: "default"
+      })
+
+      // API call to update status
+      await api.put(`${API_ENDPOINTS.TRACKERS}/${runId}`, { status: newStatus });
+      toast({
+        title: "Success",
+        description: "Tracker status updated successfully",
+        variant: "default"
+      });
+
       // Optimistic update
-      setTestRuns(prev => prev.map(run => 
-        run.id === runId 
+      setTestRuns(prev => prev.map(run =>
+        run.id === runId
           ? { ...run, status: newStatus as TestRun['status'] }
           : run
       ));
-      
-      // API call to update status
-      await api.put(`${API_ENDPOINTS.TRACKERS}/${runId}`, { status: newStatus });
+
     } catch (error) {
       console.error('Error toggling tracker status:', error);
       toast({
-        title: "Error",
-        description: "Failed to update tracker status",
+        title: "Failed to update tracker status",
+        description: error?.message,
         variant: "destructive"
       });
-      
+
       // Revert optimistic update on failure
       fetchTrackers();
     }
@@ -278,11 +310,11 @@ const TesterZone = () => {
     setSearchTerm('');
   };
 
-  const hasActiveFilters = searchTerm !== '' || 
-    filterStatuses.length > 0 || 
-    filterPriorities.length > 0 || 
-    filterProject !== 'all' || 
-    filterCreator !== 'all' || 
+  const hasActiveFilters = searchTerm !== '' ||
+    filterStatuses.length > 0 ||
+    filterPriorities.length > 0 ||
+    filterProject !== 'all' ||
+    filterCreator !== 'all' ||
     dateFilter !== 'all' ||
     isCustomDateRange;
 
@@ -302,8 +334,8 @@ const TesterZone = () => {
         <ChevronDown className="w-3 h-3" />
       </div>;
     }
-    return sortOrder === 'asc' ? 
-      <ChevronUp className="w-4 h-4 text-blue-600" /> : 
+    return sortOrder === 'asc' ?
+      <ChevronUp className="w-4 h-4 text-blue-600" /> :
       <ChevronDown className="w-4 h-4 text-blue-600" />;
   };
 
@@ -331,13 +363,13 @@ const TesterZone = () => {
 
   // Date filter logic with custom date range support
   const isDateInRange = (
-    dateStr: string, 
+    dateStr: string,
     filter: string,
     customRange?: { from: Date | undefined; to: Date | undefined }
   ) => {
     const itemDate = new Date(dateStr);
     const now = new Date();
-    
+
     // If we're in custom date range mode and have a valid range
     if (filter === 'custom' && customRange?.from) {
       // Normalize times to start of day for comparison
@@ -371,12 +403,12 @@ const TesterZone = () => {
         return true;
     }
   };
-  
+
   // Date range picker handlers
   const handleDateRangeSelect = (range: { from: Date | undefined; to: Date | undefined }) => {
     setTempDateRange(range);
   };
-  
+
   const handleApplyDateRange = () => {
     setDateRange(tempDateRange);
     if (tempDateRange.from) {
@@ -385,7 +417,7 @@ const TesterZone = () => {
     }
     setIsDatePopoverOpen(false);
   };
-  
+
   const resetDateRange = () => {
     setIsCustomDateRange(false);
     setDateRange({ from: undefined, to: undefined });
@@ -393,12 +425,12 @@ const TesterZone = () => {
     setDateFilter('all');
     setIsDatePopoverOpen(false);
   };
-  
+
   const formatDateStr = (date?: Date) => {
     if (!date) return '';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
-  
+
   const formatDateRange = (dateRange: { from?: Date, to?: Date }) => {
     if (!dateRange.from) return '';
     if (!dateRange.to) return `From ${formatDateStr(dateRange.from)}`;
@@ -407,96 +439,106 @@ const TesterZone = () => {
 
   const filteredAndSortedRuns = testRuns
     .filter(run => {
-      const matchesSearch = searchTerm === '' || 
+      const matchesSearch = searchTerm === '' ||
         run.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         run.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         run.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
         run.creator.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(run.status);
-      
+
       // Priority filter
       const matchesPriority = filterPriorities.length === 0 || filterPriorities.includes(run.priority);
-      
+
       // For projects, we need to handle both string and object formats
-      const matchesProject = filterProject === 'all' || 
+      const matchesProject = filterProject === 'all' ||
         // For string-based project names (fallback for mock data)
-        run.project === filterProject || 
-        // For project objects (real data from API)
-        (projects?.find(p => p.id === filterProject)?.name === run.project);
-      
+        run.project === filterProject
+      // ||
+      // // For project objects (real data from API)
+      // (projects?.find(p => p.id === filterProject)?.name === run.project);
+
       // For creators, we need to handle both string and object formats
-      const matchesCreator = filterCreator === 'all' || 
+      const matchesCreator = filterCreator === 'all' ||
         // For string-based creator names (fallback for mock data)
-        run.creator === filterCreator || 
-        // For creator objects (real data from API)
-        (orgMembers?.find(m => m.user_id === filterCreator)?.email === run.creator);
-      
-      const matchesDate = dateFilter === 'all' || 
+        run.creator.toLowerCase() === filterCreator.toLowerCase();
+      //  ||
+      // // For creator objects (real data from API)
+      // (orgMembers?.find(m => m.user_id === filterCreator)?.email === run.creator);
+
+      const matchesDate = dateFilter === 'all' ||
         (isCustomDateRange && dateRange?.from) ?
         isDateInRange(run.date, 'custom', dateRange) :
         isDateInRange(run.date, dateFilter);
-      
+
       // Filter based on active tab (all trackers vs my trackers)
-      const matchesTab = activeTab === 'all-trackers' || 
-        (activeTab === 'my-trackers' && user && run.creator.toLowerCase() === user.email.toLowerCase());
-      
-      return matchesSearch && matchesStatus && matchesPriority && matchesProject && 
+      const matchesTab = activeTab === 'all-trackers' ||
+        (activeTab === 'my-trackers' && user && (run.creator.toLowerCase() === user.email.toLowerCase() || run.creator.toLowerCase() === user.user_metadata?.username.toLowerCase()));
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesProject &&
         matchesCreator && matchesDate && matchesTab;
     })
     .sort((a, b) => {
       let aValue: any = a[sortField];
       let bValue: any = b[sortField];
-      
+
       if (sortField === 'date') {
         aValue = new Date(aValue);
         bValue = new Date(bValue);
       } else if (sortField === 'status') {
-        const statusOrder = { 
-          'not_started': 1, 
-          'in_progress': 2, 
+        const statusOrder = {
+          'not_started': 1,
+          'in_progress': 2,
           'on_hold': 3,
-          'blocked': 4, 
-          'completed': 5, 
-          'archived': 6 
+          'blocked': 4,
+          'completed': 5,
+          'archived': 6
         };
         aValue = statusOrder[a.status] || 0;
         bValue = statusOrder[b.status] || 0;
       } else if (sortField === 'priority') {
-        const priorityOrder = { 
+        const priorityOrder = {
           'none': 0,
-          'low': 1, 
-          'medium': 2, 
-          'high': 3, 
+          'low': 1,
+          'medium': 2,
+          'high': 3,
           'critical': 4
         };
         aValue = priorityOrder[a.priority] || 0;
         bValue = priorityOrder[b.priority] || 0;
       }
-      
+
       if (typeof aValue === 'string') {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
-      
+
       if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
 
+  const handleTrackerClick = (trackerId: string) => {
+    if (currentOrgId) {
+      navigate(`/tester-zone/runs/${trackerId}?org_id=${currentOrgId}`);
+    } else {
+      navigate(`/tester-zone/runs/${trackerId}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <MainNavigation />
-      
+
       <div className="transition-all duration-300 p-8" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Header */}
         <div className="flex items-center justify-between w-full mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 font-sora">Bugs Tracker</h1>
-            <p className="text-gray-600 mt-1">Manage and track your Issues</p>
+            <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Bug Tracker</h1>
+            <p className="text-gray-600">Manage and track your Issues</p>
           </div>
-          
-          <Button 
+
+          <Button
             onClick={() => setShowNewRunModal(true)}
             className="bg-green-500 hover:bg-green-600 text-white"
           >
@@ -506,7 +548,7 @@ const TesterZone = () => {
         </div>
 
         {/* Tabs for Trackers / My Trackers */}
-        <div className="px-6 pt-4 mb-2">
+        <div className="pt-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList>
@@ -517,17 +559,17 @@ const TesterZone = () => {
             {/* placeholder to keep flex spacing */}
           </div>
         </div>
-        
+
         {/* Enhanced Controls */}
-        <div className="px-6 py-4 mb-6">
+        <div className="py-4">
           <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between w-full">
               {/* Search Bar - Left side */}
               <div className="relative w-full max-w-md mr-auto">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input 
-                  placeholder="Search by Tracker ID, keywords..." 
+                <Input
+                  placeholder="Search by Tracker ID, keywords..."
                   className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -537,7 +579,7 @@ const TesterZone = () => {
               {/* Filters and Controls - Right side */}
               <div className="flex items-center space-x-4">
                 <Filter className="w-4 h-4 text-gray-500" />
-                
+
                 {/* Status Filter Multi-Select */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -560,7 +602,7 @@ const TesterZone = () => {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                
+
                 {/* Priority Filter Multi-Select */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -601,8 +643,8 @@ const TesterZone = () => {
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
                     </SelectItem>
                     {getUniqueProjects().map((project) => (
-                      <SelectItem key={typeof project === 'string' ? project : project.id} 
-                                 value={typeof project === 'string' ? project : project.id}>
+                      <SelectItem key={typeof project === 'string' ? project : project.id}
+                        value={typeof project === 'string' ? project : project.name}>
                         <span className="px-2 py-1 rounded-full text-xs bg-teal-100 text-teal-800">
                           {typeof project === 'string' ? project : project.name}
                         </span>
@@ -628,9 +670,9 @@ const TesterZone = () => {
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Creators</span>
                     </SelectItem>
                     {getUniqueCreators().map((creator) => (
-                      <SelectItem 
-                        key={typeof creator === 'string' ? creator : creator.id} 
-                        value={typeof creator === 'string' ? creator : creator.id}
+                      <SelectItem
+                        key={typeof creator === 'string' ? creator : creator.id}
+                        value={typeof creator === 'string' ? creator : creator.displayName}
                       >
                         <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
                           {typeof creator === 'string' ? creator : `${creator.displayName} (${creator.email})`}
@@ -649,10 +691,10 @@ const TesterZone = () => {
                     >
                       <Calendar className="w-4 h-4" />
                       <span className="text-xs">
-                        {isCustomDateRange && dateRange.from 
-                          ? formatDateRange(dateRange) 
-                          : dateFilter === 'all' 
-                            ? "Created" 
+                        {isCustomDateRange && dateRange.from
+                          ? formatDateRange(dateRange)
+                          : dateFilter === 'all'
+                            ? "Created"
                             : dateFilter.charAt(0).toUpperCase() + dateFilter.slice(1)}
                       </span>
                     </Button>
@@ -694,8 +736,8 @@ const TesterZone = () => {
                       <div className="border-t pt-4 mt-2">
                         <h4 className="font-medium text-sm mb-2">Quick Select</h4>
                         <div className="grid grid-cols-1 gap-2">
-                          <Button 
-                            variant={dateFilter === 'thisWeek' ? "default" : "outline"} 
+                          <Button
+                            variant={dateFilter === 'thisWeek' ? "default" : "outline"}
                             size="sm"
                             onClick={() => {
                               resetDateRange();
@@ -705,8 +747,8 @@ const TesterZone = () => {
                           >
                             This Week
                           </Button>
-                          <Button 
-                            variant={dateFilter === 'thisMonth' ? "default" : "outline"} 
+                          <Button
+                            variant={dateFilter === 'thisMonth' ? "default" : "outline"}
                             size="sm"
                             onClick={() => {
                               resetDateRange();
@@ -717,8 +759,8 @@ const TesterZone = () => {
                             This Month
                           </Button>
 
-                          <Button 
-                            variant={dateFilter === 'overdue' ? "default" : "outline"} 
+                          <Button
+                            variant={dateFilter === 'overdue' ? "default" : "outline"}
                             size="sm"
                             onClick={() => {
                               resetDateRange();
@@ -779,7 +821,7 @@ const TesterZone = () => {
         {/* KPI Cards removed as requested */}
 
         {/* Results count */}
-        <div className="px-6 py-2">
+        <div className="py-2">
           <p className="text-sm text-gray-600">
             Showing {filteredAndSortedRuns.length} of {testRuns.length} trackers
           </p>
@@ -800,21 +842,21 @@ const TesterZone = () => {
               {hasActiveFilters ? 'No trackers found with current filters' : 'No bug trackers found'}
             </h3>
             <p className="text-gray-500 mb-6">
-              {hasActiveFilters 
-                ? 'Try adjusting your search terms or filters, or create a new tracker.' 
+              {hasActiveFilters
+                ? 'Try adjusting your search terms or filters, or create a new tracker.'
                 : 'Create your first bug tracker to get started.'
               }
             </p>
             {hasActiveFilters && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={clearFilters}
                 className="mb-4"
               >
                 Clear Filters
               </Button>
             )}
-            <Button 
+            <Button
               onClick={() => setShowNewRunModal(true)}
               className="bg-green-500 hover:bg-green-600 text-white"
             >
@@ -827,16 +869,17 @@ const TesterZone = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead 
+                  <TableHead></TableHead>
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleSort('id')}
                   >
                     <div className="flex items-center gap-2">
-                      Tracker ID
+                      ID
                       {getSortIcon('id')}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleSort('name')}
                   >
@@ -845,7 +888,7 @@ const TesterZone = () => {
                       {getSortIcon('name')}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleSort('project')}
                   >
@@ -854,7 +897,7 @@ const TesterZone = () => {
                       {getSortIcon('project')}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleSort('creator')}
                   >
@@ -863,7 +906,7 @@ const TesterZone = () => {
                       {getSortIcon('creator')}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleSort('status')}
                   >
@@ -872,7 +915,7 @@ const TesterZone = () => {
                       {getSortIcon('status')}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleSort('priority')}
                   >
@@ -881,7 +924,7 @@ const TesterZone = () => {
                       {getSortIcon('priority')}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleSort('totalBugs')}
                   >
@@ -890,7 +933,7 @@ const TesterZone = () => {
                       {getSortIcon('totalBugs')}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleSort('totalTasks')}
                   >
@@ -899,7 +942,7 @@ const TesterZone = () => {
                       {getSortIcon('totalTasks')}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleSort('date')}
                   >
@@ -913,19 +956,44 @@ const TesterZone = () => {
               </TableHeader>
               <TableBody>
                 {filteredAndSortedRuns.map((run) => (
-                  <TableRow 
-                    key={run.id} 
+                  <TableRow
+                    key={run.id}
                     className="cursor-auto hover:bg-transparent"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                            run.status === 'completed' 
-                              ? 'bg-tasksmate-gradient border-transparent' 
-                              : 'border-gray-300 hover:border-gray-400'
+                    <TableCell className="p-2 text-center">
+                      <div
+                        className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${run.status === 'completed'
+                          ? 'bg-tasksmate-gradient border-transparent'
+                          : 'border-gray-300 hover:border-gray-400'
                           }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTrackerToggle(run.id);
+                        }}
+                      >
+                        {run.status === 'completed' && (
+                          <Check className="h-3 w-3 text-white" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
+                        <CopyableIdBadge
+                          id={run.id}
+                          className="bg-orange-600 hover:bg-orange-700 text-white cursor-pointer"
+                          copyLabel="Tracker"
+                          isCompleted={run.status === 'completed'}
+                        />
+                      </div>
+                    </TableCell>
+                    {/* <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${run.status === 'completed'
+                            ? 'bg-tasksmate-gradient border-transparent'
+                            : 'border-gray-300 hover:border-gray-400'
+                            }`}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleTrackerToggle(run.id);
@@ -935,15 +1003,45 @@ const TesterZone = () => {
                             <Check className="h-3 w-3 text-white" />
                           )}
                         </div>
-                        <CopyableIdBadge 
-                          id={run.id} 
-                          className="bg-orange-600 hover:bg-orange-700 text-white cursor-pointer" 
-                          copyLabel="Tracker"
-                          isCompleted={run.status === 'completed'}
-                        />
+
                       </div>
+                    </TableCell> */}
+                    <TableCell className="font-medium">
+                      <div className="flex items-center">
+                        <div
+                          className={`truncate max-w-[260px] ${run.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
+                          ref={(el) => {
+                            if (el) {
+                              // Check if text is truncated
+                              const isTrunc = el.scrollWidth > el.clientWidth;
+                              if (isTruncated[run.id] !== isTrunc) {
+                                setIsTruncated(prev => ({ ...prev, [run.id]: isTrunc }));
+                              }
+                            }
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTrackerClick(run.id);
+                          }}
+                        >
+                          {run.name}
+                        </div>
+                        {isTruncated[run.id] && (
+                          <Button
+                            variant="ghost"
+                            className="ml-1 p-0 h-6 w-6 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // setSelectedTracker(run);
+                              // setIsDialogOpen(true);
+                            }}
+                          >
+                            <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
+                          </Button>
+                        )}
+                      </div>
+
                     </TableCell>
-                    <TableCell className="font-medium">{run.name}</TableCell>
                     <TableCell>
                       <Badge className="bg-teal-100 text-teal-800 text-xs hover:bg-teal-100">
                         {run.project}
@@ -955,13 +1053,13 @@ const TesterZone = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Select 
-                        value={run.status} 
+                      <Select
+                        value={run.status}
                         onValueChange={(value) => handleStatusChange(run.id, value)}
                       >
                         <SelectTrigger className="w-36 border-none bg-transparent p-0 h-auto">
-                          <Badge 
-                            variant="secondary" 
+                          <Badge
+                            variant="secondary"
                             className={`text-xs ${getStatusColor(run.status)}`}
                           >
                             {getStatusText(run.status)}
@@ -1002,13 +1100,13 @@ const TesterZone = () => {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Select 
-                        value={run.priority} 
+                      <Select
+                        value={run.priority}
                         onValueChange={(value) => handlePriorityChange(run.id, value)}
                       >
                         <SelectTrigger className="w-28 border-none bg-transparent p-0 h-auto">
-                          <Badge 
-                            variant="secondary" 
+                          <Badge
+                            variant="secondary"
                             className={`text-xs ${getPriorityColor(run.priority)}`}
                           >
                             {run.priority.charAt(0).toUpperCase() + run.priority.slice(1)}
@@ -1076,7 +1174,7 @@ const TesterZone = () => {
         )}
 
         {/* New Run Modal */}
-        <NewRunModal 
+        <NewRunModal
           open={showNewRunModal}
           onOpenChange={setShowNewRunModal}
         />
