@@ -1240,7 +1240,7 @@ const TaskDetail = () => {
                 </CardContent>
               </Card>
 
-              {/* Subtasks */}
+              {/* Subtasks - Commented out as requested
               <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -1261,15 +1261,15 @@ const TaskDetail = () => {
                     const subtaskId = subtask.task_id ?? subtask.id;
                     return (
                       <div key={subtaskId} className="flex flex-wrap items-start gap-2 p-3 rounded-lg bg-white/50 micro-lift group">
-                        {/* Toggle */}
+                        
                         <Button variant="ghost" size="sm" className="p-0 h-auto" onClick={() => handleSubtaskToggle(subtaskId)}>
                           {subtask.status === 'completed' ? <CheckCircle className="h-5 w-5 text-tasksmate-green-end" /> : <Circle className="h-5 w-5 text-gray-400" />}
                         </Button>
 
-                        {/* Task ID beside status toggle */}
+                        
                         <CopyableIdBadge id={String(subtaskId)} isCompleted={subtask.status === 'completed'} />
 
-                        {/* Owner, Status, Priority badges inline with Task ID */}
+                        
                         <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                           {(() => {
                             const { displayName } = deriveDisplayFromEmail((subtask.assignee ?? '') as string);
@@ -1281,9 +1281,7 @@ const TaskDetail = () => {
                         </Badge>
                         <Badge variant="outline" className={`text-xs ${getPriorityColor(subtask.priority ?? 'none')}`}>{(subtask.priority ?? 'none').toUpperCase()}</Badge>
 
-                        {/* Project and Start date removed as requested */}
-
-                        {/* Due date */}
+                        
                         <div className="inline-flex items-center gap-1">
                           <span className="text-gray-600 text-xs">Due date:</span>
                           <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
@@ -1291,11 +1289,7 @@ const TaskDetail = () => {
                           </Badge>
                         </div>
 
-                        {/* Created date removed as requested */}
-
-                        {/* Tags removed as requested */}
-
-                        {/* Actions to the far right */}
+                        
                         <div className="ml-auto flex items-center gap-1">
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
                             const url = `/tasks/${subtaskId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
@@ -1308,33 +1302,26 @@ const TaskDetail = () => {
                           </Button>
                         </div>
 
-                        {/* Content Column (second line under toggle + task id) */}
+                        
                         <div className="flex flex-col min-w-0 basis-full w-full mt-1">
-                          {/* Title (second line) */}
+                          
                           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 min-w-0">
-                            {/* <span className="font-bold">Title :</span> */}
+                            
                             <span className={`font-bold truncate max-w-[14rem] ${subtask.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
                               {subtask.title ?? subtask.name}
                             </span>
                           </div>
 
-                          {/* Description below */}
-                          {/* {subtask.description && (
-                            <div className="flex flex-wrap items-center gap-1 text-sm text-gray-700 mt-2 min-w-0">
-                              <span className="font-bold">Description :</span>
-                              <span className={`truncate max-w-[20rem] ${subtask.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
-                                {subtask.description}
-                              </span>
-                            </div>
-                          )} */}
+                          
                         </div>
 
-                        {/* Actions removed here as they are placed at far right of first row */}
+                        
                       </div>
                     );
                   })}
                 </CardContent>
               </Card>
+              */}
 
               {/* Documents Section - Enhanced */}
               {/* Dependencies */}

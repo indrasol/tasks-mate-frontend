@@ -606,7 +606,6 @@ const BugBoard = () => {
         open={isNewBugModalOpen} 
         onOpenChange={setIsNewBugModalOpen}
         runId={testRun.id}
-        projectName={testRun.project}
       />
     </div>
   );
