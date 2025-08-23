@@ -1,14 +1,23 @@
-
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { API_ENDPOINTS } from '@/../config';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { X, Loader2 } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/hooks/use-toast';
+import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { useProjects } from '@/hooks/useProjects';
+import { api } from '@/services/apiService';
+import { Loader2, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 
 interface NewBugModalProps {
   open: boolean;
@@ -19,10 +28,12 @@ interface NewBugModalProps {
 
 const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProps) => {
   const { projects, loading: loadingProjects } = useProjects();
+  const currentOrgId = useCurrentOrgId();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    severity: '',
+    severity: 'medium', // Default to medium severity
     projectId: '',
     projectName: projectName || '',
     tags: [] as string[]
@@ -67,32 +78,77 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.projectName) {
-      alert("Please select a project");
+    if (!formData.projectId || !formData.title || !formData.description || !formData.severity) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
       return;
     }
     
-    // Auto-add project name as the first tag
-    const bugData = {
-      ...formData,
-      tags: [formData.projectName, ...formData.tags],
-      runId
-    };
-    console.log('Creating new bug:', bugData);
-    onOpenChange(false);
-    setFormData({
-      title: '',
-      description: '',
-      severity: '',
-      projectId: '',
-      projectName: '',
-      tags: []
-    });
+    try {
+      setIsSubmitting(true);
+      
+      // Prepare bug data
+      const bugData = {
+        org_id: currentOrgId,
+        project_id: formData.projectId,
+        title: formData.title,
+        description: formData.description,
+        severity: formData.severity,
+        status: 'open', // Default status for new bugs
+        tags: [formData.projectName, ...formData.tags],
+        run_id: runId,
+        // Add any additional fields required by your API
+      };
+
+      // Show loading toast
+      const loadingToast = toast({
+        title: "Creating Bug",
+        description: "Please wait while we create your bug report...",
+      });
+
+      // Call API to create bug
+      await api.post(API_ENDPOINTS.BUGS, bugData);
+      
+      // Close the modal and reset form
+      onOpenChange(false);
+      setFormData({
+        title: '',
+        description: '',
+        severity: 'medium',
+        projectId: '',
+        projectName: projectName || '',
+        tags: []
+      });
+      
+      // Show success toast
+      toast({
+        title: "Success",
+        description: "Bug reported successfully!",
+        variant: "default"
+      });
+      
+      // Refresh any parent components if needed
+      const event = new CustomEvent('bug-created');
+      window.dispatchEvent(event);
+      
+    } catch (error) {
+      console.error('Error creating bug:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to report bug. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  
+
   const handleProjectChange = (projectId: string) => {
     const selectedProject = projects.find(p => p.id === projectId);
     if (selectedProject) {
@@ -105,11 +161,14 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Report New Bug</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+        <SheetHeader className="mb-6">
+          <SheetTitle>Report New Bug</SheetTitle>
+          <SheetDescription>
+            Fill in the details below to report a new bug.
+          </SheetDescription>
+        </SheetHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -212,26 +271,27 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
             )}
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
+          <div className="flex justify-end gap-2 pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
               onClick={() => onOpenChange(false)}
-              className="flex-1"
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-              disabled={!formData.title || !formData.description || !formData.severity || !formData.projectId}
-            >
-              Create Bug
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : 'Report Bug'}
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 };
 

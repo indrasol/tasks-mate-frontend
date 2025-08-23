@@ -33,6 +33,8 @@ interface AuthContextType {
   /* NEW */
   forgotPassword: (identifier: string) => Promise<void>;
   resetPassword: (params: { email: string; newPassword: string; otp?: string }) => Promise<void>;
+  resetPasswordWithToken: (params: { newPassword: string; accessToken: string }) => Promise<void>;
+  exchangeCodeForSession: (accessToken: string) => Promise<{user: User, session: Session}>;
   changePassword: (currentPwd: string, newPwd: string) => Promise<void>;
   onPasswordRecovery: (cb: (email: string) => void) => () => void;
 }
@@ -219,6 +221,105 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
+  // const resetPasswordWithTokenOld: AuthContextType["resetPasswordWithToken"] = async ({ newPassword, accessToken }: { newPassword: string; accessToken: string }) => {
+  //   const response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+  //     method: "POST",
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //       apikey: SUPABASE_ANON_KEY,
+  //     },
+  //     body: JSON.stringify({
+  //       type: "recovery",
+  //       token: accessToken,
+  //       password: newPassword,
+  //     }),
+  //   });
+
+  //   if (!response.ok) {
+  //     const errorData = await response.json();
+  //     throw new Error(errorData?.msg || "Failed to reset password");
+  //   }
+
+  //   return response.json();
+  // }
+
+  const exchangeCodeForSession: AuthContextType["exchangeCodeForSession"] = async (accessToken: string) : Promise<{user: User, session: Session}> => {
+    const { data: session, error: exchangeError } = await supabase.auth.exchangeCodeForSession(accessToken);
+    if (exchangeError){
+      console.error("Failed to exchange code for session:", exchangeError);
+      throw exchangeError;
+    }
+    console.log("Session set successfully", session);
+    // refreshToken();
+    return session;
+  }
+
+  // const refreshToken: AuthContextType["refreshToken"] = async () => {
+  //   const { data: session, error: refreshError } = await supabase.auth.refreshSession();
+  //   if (refreshError){
+  //     console.error("Failed to refresh session:", refreshError);
+  //     throw refreshError;
+  //   }
+  //   console.log("Session refreshed successfully", session);
+  //   return session;
+  // }
+
+  const resetPasswordWithToken: AuthContextType["resetPasswordWithToken"] = async ({ newPassword, accessToken }: { newPassword: string; accessToken: string }) => {
+    if (!accessToken) {
+      throw new Error("Missing reset token");
+    }
+
+    console.log("Reset token received:", accessToken);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session) {
+      console.log("Session already exists", session);
+    }
+    
+    if (!session && accessToken) {
+      console.log("Exchanging code for session...");
+      // Exchange the code for a session
+      const {user, session} = await exchangeCodeForSession(accessToken);
+      console.log("Session set successfully", session, user); 
+    }
+
+      
+
+   
+
+    // // Set the session with the access token from reset link
+    // const { error: sessionError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
+    // if (sessionError) {
+    //   console.error("Failed to set session:", sessionError);
+    //   throw sessionError;
+    // }
+
+   
+
+    // Add slight delay to let Supabase sync session
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const { data: sessionPostExchange } = await supabase.auth.getSession();
+
+    console.log("Session synced successfully", sessionPostExchange);
+
+    console.log("Updating password...");
+
+    // Now update password as authenticated user
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      console.error("Failed to update password:", error);
+      throw error;
+    }
+
+    signOut();
+
+    console.log("Password updated successfully");
+  };
+
   const changePassword: AuthContextType["changePassword"] = async (currentPwd, newPwd) => {
     if (!user?.email) throw new Error("No active user");
     const { error: reAuthErr } = await supabase.auth.signInWithPassword({
@@ -240,7 +341,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* -------- original signUp / signIn / signOut stay unchanged -------- */
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, forgotPassword, resetPassword, changePassword, onPasswordRecovery }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, forgotPassword, resetPassword, resetPasswordWithToken, exchangeCodeForSession, changePassword, onPasswordRecovery }}>
       {children}
     </AuthContext.Provider>
   );

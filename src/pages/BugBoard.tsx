@@ -1,23 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Plus, Search, Grid3X3, List, Filter, SortDesc, SortAsc, CalendarRange, Check } from 'lucide-react';
 import MainNavigation from '@/components/navigation/MainNavigation';
-import { Button } from '@/components/ui/button';
+import NewBugModal from '@/components/tester/NewBugModal';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
-import NewBugModal from '@/components/tester/NewBugModal';
+import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
+import { CalendarRange, Check, Filter, Plus, Search, SortAsc, SortDesc } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import TestRunDetail from './TestRunDetail';
 
 type Bug = {
   id: string;
@@ -33,7 +27,7 @@ const BugBoard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
-    const handler = (e:any) => setSidebarCollapsed(e.detail.collapsed);
+    const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
     window.addEventListener('sidebar-toggle', handler);
     setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem');
     return () => window.removeEventListener('sidebar-toggle', handler);
@@ -42,13 +36,13 @@ const BugBoard = () => {
   const navigate = useNavigate();
   const [isNewBugModalOpen, setIsNewBugModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [sortBy, setSortBy] = useState<'title' | 'severity' | 'id' | 'date'>('id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-
+  const currentOrgId = useCurrentOrgId();
   // Mock data - replace with actual data fetching
   const testRun = {
     id: id || 'TB-001',
@@ -162,14 +156,14 @@ const BugBoard = () => {
   const filteredBugs = useMemo(() => {
     let filtered = bugs.filter(bug => {
       // Search filter
-      const matchesSearch = searchTerm === '' || 
+      const matchesSearch = searchTerm === '' ||
         bug.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         bug.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         bug.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         bug.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // Status filter
-      const matchesStatus = filterStatus === 'all' || 
+      const matchesStatus = filterStatus === 'all' ||
         (filterStatus === 'open' && !bug.closed) ||
         (filterStatus === 'closed' && bug.closed);
 
@@ -186,11 +180,15 @@ const BugBoard = () => {
   }, [bugs, searchTerm, filterStatus, filterPriority, dateFilter, sortBy, sortDirection]);
 
   const handleBugClick = (bugId: string) => {
-    navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}`);
+    if (currentOrgId) {
+      navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}?org_id=${currentOrgId}`);
+    } else {
+      navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}`);
+    }
   };
 
   const handleBugToggle = (bugId: string, checked: boolean) => {
-    setBugs(bugs.map(bug => 
+    setBugs(bugs.map(bug =>
       bug.id === bugId ? { ...bug, closed: checked } : bug
     ));
   };
@@ -199,8 +197,8 @@ const BugBoard = () => {
   const BugGridView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {filteredBugs.map((bug) => (
-        <Card 
-          key={bug.id} 
+        <Card
+          key={bug.id}
           className="cursor-pointer hover:shadow-md transition-shadow"
           onClick={() => handleBugClick(bug.id)}
         >
@@ -208,11 +206,10 @@ const BugBoard = () => {
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                    bug.closed
-                      ? 'bg-tasksmate-gradient border-transparent'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${bug.closed
+                    ? 'bg-tasksmate-gradient border-transparent'
+                    : 'border-gray-300 hover:border-gray-400'
+                    }`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleBugToggle(bug.id, !bug.closed);
@@ -238,7 +235,7 @@ const BugBoard = () => {
             <p className={`text-sm ${bug.closed ? 'text-gray-400' : 'text-gray-600'} mb-4 line-clamp-3`}>
               {bug.description}
             </p>
-            
+
             {/* Tags */}
             <div className="flex flex-wrap gap-1 mb-2">
               {bug.tags.map((tag, index) => (
@@ -265,7 +262,7 @@ const BugBoard = () => {
         <TableHeader>
           <TableRow>
             <TableHead className="w-12"></TableHead>
-            <TableHead 
+            <TableHead
               className="cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => toggleSort('id')}
             >
@@ -274,7 +271,7 @@ const BugBoard = () => {
                 {sortBy === 'id' && (sortDirection === 'asc' ? '↑' : '↓')}
               </div>
             </TableHead>
-            <TableHead 
+            <TableHead
               className="cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => toggleSort('title')}
             >
@@ -283,7 +280,7 @@ const BugBoard = () => {
                 {sortBy === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
               </div>
             </TableHead>
-            <TableHead 
+            <TableHead
               className="cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => toggleSort('severity')}
             >
@@ -293,7 +290,7 @@ const BugBoard = () => {
               </div>
             </TableHead>
             <TableHead>Tags</TableHead>
-            <TableHead 
+            <TableHead
               className="cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => toggleSort('date')}
             >
@@ -307,18 +304,17 @@ const BugBoard = () => {
         </TableHeader>
         <TableBody>
           {filteredBugs.map((bug) => (
-            <TableRow 
-              key={bug.id} 
+            <TableRow
+              key={bug.id}
               className="hover:bg-gray-50 cursor-pointer"
               onClick={() => handleBugClick(bug.id)}
             >
               <TableCell>
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
-                    bug.closed
-                      ? 'bg-tasksmate-gradient border-transparent'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${bug.closed
+                    ? 'bg-tasksmate-gradient border-transparent'
+                    : 'border-gray-300 hover:border-gray-400'
+                    }`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleBugToggle(bug.id, !bug.closed);
@@ -374,10 +370,12 @@ const BugBoard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <MainNavigation />
-      
+
+      <TestRunDetail />
+
       <div className="transition-all duration-300 p-8" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Breadcrumb */}
-        <Breadcrumb className="mb-6">
+        {/* <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
@@ -399,10 +397,10 @@ const BugBoard = () => {
               <BreadcrumbPage>Bug Board</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
-        </Breadcrumb>
+        </Breadcrumb> */}
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        {/* <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
               Bug Board - {testRun.name}
@@ -417,10 +415,10 @@ const BugBoard = () => {
             <Plus className="w-4 h-4 mr-2" />
             New Bug
           </Button>
-        </div>
+        </div> */}
 
         {/* Enhanced Controls */}
-        <div className="px-6 py-4 mb-6">
+        <div className="py-2 mb-2">
           <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
@@ -438,7 +436,7 @@ const BugBoard = () => {
               {/* Filters and Controls - Right side */}
               <div className="flex items-center space-x-4">
                 <Filter className="w-4 h-4 text-gray-500" />
-                
+
                 {/* Status Filter Dropdown */}
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
                   <SelectTrigger className="w-32">
@@ -534,7 +532,7 @@ const BugBoard = () => {
                 </DropdownMenu>
 
                 {/* View Toggle */}
-                <div className="flex items-center space-x-2 ml-2">
+                {/* <div className="flex items-center space-x-2 ml-2">
                   <Button
                     variant={viewMode === 'grid' ? 'default' : 'outline'}
                     size="sm"
@@ -548,6 +546,16 @@ const BugBoard = () => {
                     onClick={() => setViewMode('list')}
                   >
                     <List className="w-4 h-4" />
+                  </Button>
+                </div> */}
+
+                <div className="ml-4 flex items-center gap-2">
+                  <Button
+                    onClick={() => setIsNewBugModalOpen(true)} 
+                    className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>New Bug</span>
                   </Button>
                 </div>
               </div>
@@ -578,8 +586,8 @@ const BugBoard = () => {
               }
             </p>
             {(searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all') && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setSearchTerm('');
                   setFilterStatus('all');
@@ -591,7 +599,7 @@ const BugBoard = () => {
                 Clear Filters
               </Button>
             )}
-            <Button 
+            <Button
               onClick={() => setIsNewBugModalOpen(true)}
               className="bg-green-500 hover:bg-green-600 text-white"
             >
@@ -602,8 +610,8 @@ const BugBoard = () => {
         )}
       </div>
 
-      <NewBugModal 
-        open={isNewBugModalOpen} 
+      <NewBugModal
+        open={isNewBugModalOpen}
         onOpenChange={setIsNewBugModalOpen}
         runId={testRun.id}
       />
