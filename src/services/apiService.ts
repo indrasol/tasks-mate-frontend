@@ -1,6 +1,6 @@
 import { getToken, removeToken } from "./tokenService";
 
-const DEFAULT_TIMEOUT = 10000; // 10 s
+const DEFAULT_TIMEOUT = 30000; // 30 s
 
 
 function toHttpsIfNeeded(url: string) {

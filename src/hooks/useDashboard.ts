@@ -60,16 +60,23 @@ export const useDashboard = () => {
       setError(null);
 
       try {
+        console.log('Fetching dashboard data for org:', currentOrgId);
         const response = await api.get<any>(`${API_ENDPOINTS.DASHBOARD}/${currentOrgId}`);
         
         if (response && response.data) {
+          console.log('Dashboard data received:', response.data);
           setDashboardData(response.data);
         } else {
+          console.warn('No dashboard data received');
           setError('No dashboard data available');
+          // Use fallback data even when response is empty
+          setDashboardData(null); // Reset to trigger fallbacks in Dashboard component
         }
       } catch (err: any) {
         console.error('Failed to fetch dashboard data:', err);
         setError(err.message || 'Failed to fetch dashboard data');
+        // Ensure we reset any stale data on error
+        setDashboardData(null);
       } finally {
         setLoading(false);
       }
