@@ -179,9 +179,8 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', in
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if(!open) onClose(); }}>
       <SheetContent className="w-[400px] sm:w-[540px] bg-white flex flex-col p-0 max-h-screen">
-        <div className="relative bg-tasksmate-gradient p-6 flex-shrink-0">
-          <div className="absolute inset-0 bg-black/5"></div>
-          <div className="relative">
+        <div className="bg-tasksmate-gradient p-6 flex-shrink-0">
+
             <div className="flex items-center space-x-3 mb-2">
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                 <Target className="h-5 w-5 text-white" />
@@ -193,7 +192,6 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', in
             <p className="text-white/90 text-sm leading-relaxed">
               {mode === 'edit' ? 'Update your project details.' : 'Turn your ideas into reality. Fill in the details to kickstart a new project.'}
             </p>
-          </div>
         </div>
 
         <ScrollArea className="flex-1 px-6">
@@ -374,9 +372,9 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit, orgId, mode = 'create', in
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button 
+                          <Button 
               type="submit" 
-              className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+              className="bg-tasksmate-gradient font-medium text-white hover:scale-105 transition-transform"
               disabled={mode === 'create' ? (!formData.name || !formData.description || !formData.owner) : false}
             >
               {mode === 'edit' ? 'Save' : 'Create Project'}

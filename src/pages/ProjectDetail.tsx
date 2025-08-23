@@ -1251,9 +1251,9 @@ const ProjectDetail = () => {
               </TabsList>
 
               <TabsContent value="overview" className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   {/* Project Timeline */}
-                  <Card className="lg:col-span-2 glass border-0 shadow-tasksmate">
+                  <Card className="lg:col-span-6 glass border-0 shadow-tasksmate">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Calendar className="w-5 h-5" />
@@ -1461,7 +1461,7 @@ const ProjectDetail = () => {
                   </Card>
 
                   {/* Team Members */}
-                  <Card className="glass border-0 shadow-tasksmate">
+                  <Card className="lg:col-span-6 glass border-0 shadow-tasksmate">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-2">
