@@ -648,7 +648,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               {/* Search bar moved above */}
 
               {/* Search + Filters and Controls */}
-              <div className="flex items-center space-x-4 flex-wrap">
+              <div className="flex items-center space-x-4 flex-1 overflow-x-auto scrollbar-hide py-2">
                 {/* Search Bar */}
                 <div className="relative w-80">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -843,12 +843,13 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 </Popover>
 
                 {/* Sort Options + View Toggle */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="p-2">
-                      {sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
-                    </Button>
-                  </DropdownMenuTrigger>
+                <div className="shrink-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="p-2">
+                        {sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
+                      </Button>
+                    </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Sort by</DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -877,7 +878,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       {sortBy === 'owner' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
-                </DropdownMenu>
+                  </DropdownMenu>
+                </div>
 
                 {/* View Toggle removed as we only have table view now */}
               </div>
@@ -905,7 +907,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     <TableHead className="w-28 text-center font-bold">ID</TableHead>
                     <TableHead className="w-80 font-bold">Title</TableHead>
                     <TableHead className="w-32 text-center font-bold">Status</TableHead>
-                    <TableHead className="w-24 text-center font-bold">Priority</TableHead>
+                    <TableHead className="w-28 text-center font-bold">Priority</TableHead>
                     <TableHead className="w-40 text-center font-bold">Assignee</TableHead>
                     <TableHead className="w-36 text-center font-bold">Start Date</TableHead>
                     <TableHead className="w-36 text-center font-bold">Due Date</TableHead>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowRight, Check, FileText, Github, MessageCircle, Zap } from "lucide-react";
+import { ArrowRight, Check, FileText, MessageCircle, Zap, KanbanSquare, LayoutDashboard, Rocket, Sparkles, Lightbulb } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -28,10 +28,10 @@ const Index = () => {
 
   const features = [
     {
-      icon: <Zap className="h-6 w-6 text-tasksmate-green-end" />,
-      title: "Chat-powered summaries",
-      description: "AI helps you understand project status at a glance",
-      badge: "AI"
+      icon: <LayoutDashboard className="h-6 w-6 text-tasksmate-green-end" />,
+      title: "Unified metrics dashboard",
+      description: "All your project, task & bug metrics in one powerful view — plus a scratchpad for quick notes.",
+      badge: "Insights"
     },
     {
       icon: <MessageCircle className="h-6 w-6 text-tasksmate-green-end" />,
@@ -40,10 +40,11 @@ const Index = () => {
       avatars: true
     },
     {
-      icon: <Check className="h-6 w-6 text-tasksmate-green-end" />,
-      title: "Slack / Teams in one click",
-      description: "Seamless integration with your favorite tools",
-      integrations: true
+      icon: <KanbanSquare className="h-6 w-6 text-tasksmate-green-end" />,
+      title: "Projects, tasks & bugs united",
+      description: "Seamlessly manage your projects, tasks, and bug tracker in a single workspace",
+      badge: "Suite",
+      integrations: false
     }
   ];
 
@@ -66,7 +67,7 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-slate-100">
       {/* Navigation */}
       <nav className="px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -87,41 +88,14 @@ const Index = () => {
             </div>
           </div>
           <div className="hidden md:flex items-center space-x-6">
-            {user ? (
+            {user && (
               <Link to="/tasks_catalog" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Dashboard
               </Link>
-            ) : (
-              <>
-                <button
-                  onClick={() => setSignInOpen(true)}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Sign In
-                </button>
-              </>
             )}
-            <button
-              type="button"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-              onClick={() => toast({ title: 'Working on it', description: 'This feature is coming soon!' })}
-            >
-              Features
-            </button>
-            <button
-              type="button"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-              onClick={() => toast({ title: 'Working on it', description: 'This feature is coming soon!' })}
-            >
+            <Link to="/docs" className="text-gray-600 hover:text-gray-900 transition-colors">
               Docs
-            </button>
-            <button
-              type="button"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-              onClick={() => toast({ title: 'Working on it', description: 'This feature is coming soon!' })}
-            >
-              Pricing
-            </button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -200,7 +174,10 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      <section className="px-6 py-20 bg-white/30">
+      <section className="relative px-6 py-24 overflow-hidden">
+        {/* decorative blurred blob */}
+        <div className="absolute -top-20 -left-20 w-96 h-96 bg-tasksmate-gradient opacity-5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-tasksmate-gradient opacity-5 rounded-full blur-3xl pointer-events-none" />
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="font-sora font-bold text-3xl mb-4">
@@ -255,27 +232,61 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="px-6 py-20">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="font-sora font-bold text-3xl mb-4">
-              Loved by teams everywhere
+      {/* Why TasksMate Section */}
+      <section className="relative px-6 py-24 bg-gradient-to-br from-white via-slate-50 to-slate-100 overflow-hidden">
+        {/* Decorative blurred blobs */}
+        <div className="absolute -top-20 -left-20 w-96 h-96 bg-tasksmate-gradient opacity-5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-tasksmate-gradient opacity-5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-5xl mx-auto text-center space-y-14">
+          <div className="space-y-6">
+            <h2 className="font-sora font-bold text-4xl md:text-5xl leading-tight">
+              Why <span className="bg-tasksmate-gradient bg-clip-text text-transparent">TasksMate?</span>
             </h2>
+            <p className="text-gray-700 text-lg max-w-3xl mx-auto">
+              Turn chaos into clarity. Empower your team with a unified workspace that keeps projects moving, ideas flowing, and bugs squashed — all in record time.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <Card key={index} className="glass border-0 shadow-tasksmate micro-lift">
-                <CardContent className="p-6 space-y-4">
-                  <div className="text-2xl">{testimonial.emoji}</div>
-                  <p className="text-gray-700 italic">"{testimonial.quote}"</p>
-                  <p className="font-semibold text-tasksmate-green-end">
-                    — {testimonial.author}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid sm:grid-cols-3 gap-8 text-left">
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Rocket className="h-6 w-6 text-tasksmate-green-end" />
+                <h3 className="font-semibold">Launch faster</h3>
+              </div>
+              <p className="text-gray-600 text-sm">
+                Streamlined workflows help you deliver features and fixes quicker.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Sparkles className="h-6 w-6 text-tasksmate-green-end" />
+                <h3 className="font-semibold">Stay laser-focused</h3>
+              </div>
+              <p className="text-gray-600 text-sm">
+                Smart filters spotlight your top priorities, ensuring nothing slips through the cracks.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Lightbulb className="h-6 w-6 text-tasksmate-green-end" />
+                <h3 className="font-semibold">Ideate anywhere</h3>
+              </div>
+              <p className="text-gray-600 text-sm">
+                Built-in scratchpad captures rough thoughts and turns them into actionable tasks.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <Button
+              size="lg"
+              className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate"
+              onClick={() => setSignUpOpen(true)}
+            >
+              Start for free
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
         </div>
       </section>
@@ -302,15 +313,11 @@ const Index = () => {
               <span className="text-gray-500 text-sm">Your Sidekick for Every Tick</span>
             </div>
             <div className="flex items-center space-x-6">
-              <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-1">
+              <Link to="/docs" className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-1">
                 <FileText className="h-4 w-4" />
                 <span>Docs</span>
-              </a>
-              <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-1">
-                <Github className="h-4 w-4" />
-                <span>GitHub</span>
-              </a>
-              <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+              </Link>
+              <a href="/privacy" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Privacy
               </a>
             </div>

@@ -69,15 +69,16 @@ export default {
 				},
 				// TasksMate brand colors
 				'tasksmate': {
-					'green-start': '#65D66A',
-					'green-end': '#34C479',
+					// Dark brand greens (matching logo)
+					'green-start': '#44BE4B',
+					'green-end': '#309C67',
 					'glass': 'rgba(255, 255, 255, 0.3)',
 					'glass-dark': 'rgba(255, 255, 255, 0.1)',
 				}
 			},
 			backgroundImage: {
-				'tasksmate-gradient': 'linear-gradient(135deg, #65D66A 0%, #34C479 100%)',
-				'tasksmate-gradient-soft': 'linear-gradient(135deg, #65D66A20 0%, #34C47920 100%)',
+				'tasksmate-gradient': 'linear-gradient(135deg, #44BE4B 0%, #309C67 100%)',
+				'tasksmate-gradient-soft': 'linear-gradient(135deg, #44BE4B20 0%, #309C6720 100%)',
 			},
 			backdropBlur: {
 				'tasksmate': '12px',

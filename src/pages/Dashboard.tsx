@@ -103,40 +103,35 @@ const Dashboard = () => {
     { name: "API Integration", progress: 10, tasks: 8, team: 2, status: "Planning" },
   ];
 
-  if (authLoading || dataLoading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center">
-          <Loader2 className="animate-spin h-16 w-16 text-green-600 mb-4" />
+          <Loader2 className="animate-spin h-16 w-16 text-tasksmate-green-end mb-4" />
+          <p className="text-gray-600 font-medium">Loading user session...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Only show loading for initial data fetch, not for API errors that could be handled with fallbacks
+  const isInitialLoading = dataLoading && !dashboardData;
+  
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <Loader2 className="animate-spin h-16 w-16 text-tasksmate-green-end mb-4" />
           <p className="text-gray-600 font-medium">Loading dashboard data...</p>
         </div>
       </div>
     );
   }
+  
+  // Show error in-page instead of full page takeover
+  // This allows users to still see the dashboard even if one API call fails
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Dashboard</h2>
-          <p className="text-red-600">{error}</p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="mt-4 bg-tasksmate-gradient"
-          >
-            Try Again
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  // Get KPI data from API or use fallbacks
+  // Extract KPI data
   const kpis = dashboardData?.kpis || {
     total_tasks: 247,
     active_projects: 12,
@@ -176,13 +171,10 @@ const Dashboard = () => {
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
               <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
-                <CardContent className="p-6">
+                <CardContent className="p-6 space-y-3">
+                  <p className="text-sm text-gray-600 font-medium whitespace-nowrap">Total Tasks</p>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Total Tasks</p>
-                      <p className="text-2xl font-bold text-gray-900">{kpis.total_tasks}</p>
-
-                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.total_tasks}</p>
                     <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-blue-600" />
                     </div>
@@ -191,13 +183,10 @@ const Dashboard = () => {
               </Card>
 
               <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=in_progress,planning`)}>
-                <CardContent className="p-6">
+                <CardContent className="p-6 space-y-3">
+                  <p className="text-sm text-gray-600 flex items-center gap-1 font-medium whitespace-nowrap">Active Projects <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400" /></span></p>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 flex items-center gap-1">Active Projects <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400" /></span></p>
-                      <p className="text-2xl font-bold text-gray-900">{kpis.active_projects}</p>
-
-                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.active_projects}</p>
                     <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                       <FolderOpen className="w-6 h-6 text-green-600" />
                     </div>
@@ -207,13 +196,10 @@ const Dashboard = () => {
 
               {/* Completed Projects KPI */}
               <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=completed`)}>
-                <CardContent className="p-6">
+                <CardContent className="p-6 space-y-3">
+                  <p className="text-sm text-gray-600 font-medium whitespace-nowrap">Completed Projects</p>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Completed Projects</p>
-                      <p className="text-2xl font-bold text-gray-900">{kpis.completed_projects}</p>
-
-                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.completed_projects}</p>
                     <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                     </div>
@@ -223,13 +209,10 @@ const Dashboard = () => {
 
               {/* Blocked Projects KPI */}
               <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=blocked`)}>
-                <CardContent className="p-6">
+                <CardContent className="p-6 space-y-3">
+                  <p className="text-sm text-gray-600 font-medium whitespace-nowrap">Blocked Projects</p>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Blocked Projects</p>
-                      <p className="text-2xl font-bold text-gray-900">{kpis.blocked_projects}</p>
-
-                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.blocked_projects}</p>
                     <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                       <AlertCircle className="w-6 h-6 text-red-600" />
                     </div>
@@ -238,16 +221,10 @@ const Dashboard = () => {
               </Card>
 
               <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/team-members${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
-                <CardContent className="p-6">
+                <CardContent className="p-6 space-y-3">
+                  <p className="text-sm text-gray-600 font-medium whitespace-nowrap">Team Members</p>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Team Members</p>
-                      <p className="text-2xl font-bold text-gray-900">{kpis.team_members}</p>
-                      {/* <div className="flex items-center mt-1">
-                        <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-600 ml-1">89% avg efficiency</span>
-                      </div> */}
-                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.team_members}</p>
                     <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                       <Users className="w-6 h-6 text-purple-600" />
                     </div>
@@ -274,8 +251,8 @@ const Dashboard = () => {
               </Card> */}
             </div>
 
-            {/* Charts Row 1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Charts Section */}
+            <div className="space-y-6">
               {/* Task Completion Trends */}
               <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
@@ -287,52 +264,95 @@ const Dashboard = () => {
                 <CardContent>
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={taskCompletionData}>
+                      <LineChart data={taskCompletionData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="month" />
                         <YAxis />
                         <Tooltip />
-                        <Bar dataKey="completed" stackId="a" fill="#10B981" name="Completed" />
-                        <Bar dataKey="pending" stackId="a" fill="#F59E0B" name="Active" />
-                        <Bar dataKey="blocked" stackId="a" fill="#EF4444" name="Blocked" />
-                      </BarChart>
+                        <Line type="monotone" dataKey="completed" stroke="#10B981" name="Completed" strokeWidth={2} />
+                        <Line type="monotone" dataKey="pending" stroke="#F59E0B" name="Active" strokeWidth={2} />
+                        <Line type="monotone" dataKey="blocked" stroke="#EF4444" name="Blocked" strokeWidth={2} />
+                      </LineChart>
                     </ResponsiveContainer>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Project Status Distribution */}
-              <Card className="glass border-0 shadow-tasksmate">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChartIcon className="w-5 h-5" />
-                    Project Status Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={projectStatusData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, value }) => `${name}: ${value}`}
-                        >
-                          {projectStatusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+              {/* Grid: Pie + Productivity */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                {/* Project Status Distribution */}
+                <Card className="glass border-0 shadow-tasksmate">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <PieChartIcon className="w-5 h-5" />
+                      Project Status Distribution
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={projectStatusData}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            label={({ name, value }) => `${name}: ${value}`}
+                          >
+                            {projectStatusData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Team Productivity */}
+                <Card className="glass border-0 shadow-tasksmate">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="w-5 h-5" />
+                      Team Productivity
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                      {teamProductivityData.map((member, idx) => (
+                        <div key={idx} className="bg-white/60 p-3 rounded-lg hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center text-white text-xs font-bold">
+                                {member.name.split(' ').map(n => n[0]).join('')}
+                              </div>
+                              <span className="font-medium">{member.name}</span>
+                            </div>
+                            <span className="text-sm font-semibold px-2 py-1 rounded-full bg-tasksmate-green-start/20 text-tasksmate-green-end">
+                              {member.efficiency}%
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+                            <span>{member.tasksCompleted}/{member.tasksTotal} tasks completed</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="h-2 rounded-full bg-tasksmate-gradient"
+                              style={{ width: `${member.efficiency}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+              </div> {/* end grid */}
+            </div> {/* end space-y-6 charts section */}
 
             {/* Charts Row 2 */}
             <div className="grid grid-cols-1 gap-6">
@@ -362,107 +382,74 @@ const Dashboard = () => {
                 </CardContent>
               </Card> */}
 
-              {/* Team Productivity */}
+              {/* Project Progress Overview card removed */}
+
+              {/* Top Projects Table */}
               <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Team Productivity
+                    <Target className="w-5 h-5" />
+                    Project Performance Summary
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {teamProductivityData.map((member, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium">{member.name}</span>
-                            <span className="text-sm text-gray-600">{member.tasksCompleted} / {member.tasksTotal} tasks</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-tasksmate-gradient h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${(member.tasksCompleted / member.tasksTotal) * 100}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                        <Badge variant="secondary" className="ml-3">
-                          {member.efficiency}%
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Project Name</TableHead>
+                        <TableHead>Progress</TableHead>
+                        <TableHead>Tasks</TableHead>
+                        <TableHead>Team Size</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {topProjects.map((project, index) => (
+                        <TableRow key={index}
+                          onClick={() => handleProjectClick(project?.project_id)}
+                          className="cursor-pointer hover:bg-gray-50"
+                        >
+                          <TableCell className="font-medium">{project.name}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-full bg-gray-200 rounded-full h-2 max-w-[100px]">
+                                <div
+                                  className="bg-tasksmate-gradient h-2 rounded-full"
+                                  style={{ width: `${project.progress}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm text-gray-600">{project.progress}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{project.tasks} total</TableCell>
+                          <TableCell>{project.team} members</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="secondary"
+                              className={`text-xs ${getStatusMeta(project?.status)?.color}`}
+                            >
+                              {getStatusMeta(project?.status)?.label}
+                            </Badge>
+                            {/* <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
+                              {project.priority.toUpperCase()}
+                            </Badge> */}
+                            {/* <Badge
+                              className={
+                                project.status === "Completed" ? "bg-green-100 text-green-800" :
+                                  project.status === "Active" ? "bg-blue-100 text-blue-800" :
+                                    "bg-gray-100 text-gray-800"
+                              }
+                            >
+                              {project.status}
+                            </Badge> */}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             </div>
-
-            {/* Project Progress Overview card removed */}
-
-            {/* Top Projects Table */}
-            <Card className="glass border-0 shadow-tasksmate">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5" />
-                  Project Performance Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Project Name</TableHead>
-                      <TableHead>Progress</TableHead>
-                      <TableHead>Tasks</TableHead>
-                      <TableHead>Team Size</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {topProjects.map((project, index) => (
-                      <TableRow key={index}
-                        onClick={() => handleProjectClick(project?.project_id)}
-                        className="cursor-pointer hover:bg-gray-50"
-                      >
-                        <TableCell className="font-medium">{project.name}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-full bg-gray-200 rounded-full h-2 max-w-[100px]">
-                              <div
-                                className="bg-tasksmate-gradient h-2 rounded-full"
-                                style={{ width: `${project.progress}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-sm text-gray-600">{project.progress}%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{project.tasks} total</TableCell>
-                        <TableCell>{project.team} members</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${getStatusMeta(project?.status)?.color}`}
-                          >
-                            {getStatusMeta(project?.status)?.label}
-                          </Badge>
-                          {/* <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
-                            {project.priority.toUpperCase()}
-                          </Badge> */}
-                          {/* <Badge
-                            className={
-                              project.status === "Completed" ? "bg-green-100 text-green-800" :
-                                project.status === "Active" ? "bg-blue-100 text-blue-800" :
-                                  "bg-gray-100 text-gray-800"
-                            }
-                          >
-                            {project.status}
-                          </Badge> */}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
