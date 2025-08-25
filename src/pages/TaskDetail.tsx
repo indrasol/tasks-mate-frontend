@@ -50,6 +50,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/hooks/useAuth";
 import { deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
+import imageCompression from "browser-image-compression";
 
 
 const TaskDetail = () => {
@@ -886,10 +887,25 @@ const TaskDetail = () => {
   const handleImageUpload = async (file: File) => {
     if (!file || !task?.project_id || !taskId) return;
     try {
-      const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
-      if (data?.url) {
-        return data?.url;
+      if (file.type.startsWith("image/")) {
+        // compress images
+        const compressed = await imageCompression(file, {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+        });
+        const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, compressed, file.name, true);
+        if (data?.url) {
+          return data?.url;
+        }
+      } else {
+        // other files - add as is
+        const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+        if (data?.url) {
+          return data?.url;
+        }
       }
+
     } catch (err: any) {
       toast({
         title: "Failed to upload image",
@@ -905,7 +921,18 @@ const TaskDetail = () => {
     if (!files || !task?.project_id || !taskId) return;
     try {
       for (const file of Array.from(files)) {
-        await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name);
+        if (file.type.startsWith("image/")) {
+          // compress images
+          const compressed = await imageCompression(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+          });
+          await taskService.uploadTaskAttachmentForm(task.project_id, taskId, compressed, file.name, true);
+        } else {
+          // other files - add as is
+          await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+        }
       }
       const data: any[] = await taskService.getTaskAttachments(taskId);
       setAttachments(Array.isArray(data) ? data : []);

@@ -12,6 +12,8 @@ import { CalendarRange, Check, Filter, Plus, Search, SortAsc, SortDesc } from 'l
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TestRunDetail from './TestRunDetail';
+import { api } from '@/services/apiService';
+import { API_ENDPOINTS } from '@/../config';
 
 type Bug = {
   id: string;
@@ -49,6 +51,43 @@ const BugBoard = () => {
     name: 'Sprint 12 Testing',
     project: 'TasksMate Web'
   };
+
+  const fetchBugs = async () => {
+    try {
+      const response = await api.get(`${API_ENDPOINTS.BUGS}/search/${id}`);
+      const bugs = response as any
+      if (bugs) {
+        const bugsData: Bug[] = bugs?.data?.map((bug: any) => {
+          return {
+            id: bug.id,
+            title: bug.title,
+            description: bug.description,
+            severity: bug.severity,
+            tags: bug.tags,
+            closed: bug.closed,
+            date: bug.date
+          }
+        })
+        setBugs(bugsData);
+      }
+    } catch (error) {
+      console.error('Error fetching bugs:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchBugs();
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e.detail.id === id) {
+        fetchBugs();  
+      }
+    };
+    window.addEventListener('bug-created', handler);
+    return () => window.removeEventListener('bug-created', handler);
+  }, []);
 
   const [bugs, setBugs] = useState<Bug[]>([
     {
@@ -220,7 +259,7 @@ const BugBoard = () => {
                   )}
                 </div>
                 <Badge className={`${getSeverityColor(bug.severity)} text-xs font-medium`}>
-                  {bug.severity.toUpperCase()}
+                  {bug.severity?.toUpperCase()}
                 </Badge>
               </div>
               <Badge className="text-xs font-mono bg-red-600 text-white">
@@ -305,9 +344,9 @@ const BugBoard = () => {
         <TableBody>
           {filteredBugs.map((bug) => (
             <TableRow
-              key={bug.id}
+              key={bug?.id}
               className="hover:bg-gray-50 cursor-pointer"
-              onClick={() => handleBugClick(bug.id)}
+              onClick={() => handleBugClick(bug?.id)}
             >
               <TableCell>
                 <div
@@ -317,47 +356,47 @@ const BugBoard = () => {
                     }`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleBugToggle(bug.id, !bug.closed);
+                    handleBugToggle(bug?.id, !bug?.closed);
                   }}
                 >
-                  {bug.closed && (
+                  {bug?.closed && (
                     <Check className="h-3 w-3 text-white" />
                   )}
                 </div>
               </TableCell>
               <TableCell className="font-medium">
                 <Badge className="text-xs font-mono bg-red-600 text-white">
-                  {bug.id}
+                  {bug?.id}
                 </Badge>
               </TableCell>
-              <TableCell className={`${bug.closed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                {bug.title}
+              <TableCell className={`${bug?.closed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                {bug?.title}
               </TableCell>
               <TableCell>
-                <Badge className={`${getSeverityColor(bug.severity)} text-xs`}>
-                  {bug.severity.toUpperCase()}
+                <Badge className={`${getSeverityColor(bug?.severity)} text-xs`}>
+                  {bug?.severity?.toUpperCase()}
                 </Badge>
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
-                  {bug.tags.slice(0, 2).map((tag, index) => (
+                  {bug?.tags?.slice(0, 2).map((tag, index) => (
                     <Badge key={index} variant="outline" className={`${getTagColor(tag)} text-xs`}>
                       {tag}
                     </Badge>
                   ))}
-                  {bug.tags.length > 2 && (
+                  {bug?.tags?.length > 2 && (
                     <Badge variant="outline" className="text-xs">
-                      +{bug.tags.length - 2}
+                      +{bug?.tags?.length - 2}
                     </Badge>
                   )}
                 </div>
               </TableCell>
               <TableCell className="text-sm text-gray-600">
-                {new Date(bug.date).toLocaleDateString()}
+                {new Date(bug?.date).toLocaleDateString()}
               </TableCell>
               <TableCell>
-                <Badge className={`${bug.closed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-xs`}>
-                  {bug.closed ? 'Closed' : 'Open'}
+                <Badge className={`${bug?.closed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-xs`}>
+                  {bug?.closed ? 'Closed' : 'Open'}
                 </Badge>
               </TableCell>
             </TableRow>

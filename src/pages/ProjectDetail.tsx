@@ -63,6 +63,7 @@ import { useProjectStats } from "@/hooks/useProjectStats";
 import { capitalizeFirstLetter, deriveDisplayFromEmail, getPriorityColor, getStatusMeta, type ProjectStatus } from "@/lib/projectUtils";
 import { api } from "@/services/apiService";
 import { taskService } from '@/services/taskService';
+import imageCompression from "browser-image-compression";
 
 interface Project {
   id: string;
@@ -428,6 +429,18 @@ const ProjectDetail = () => {
     setUploading(true);
     try {
       for (const { file } of selectedFiles) {
+        if (file.type.startsWith("image/")) {
+          // compress images
+          const compressed = await imageCompression(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+          });
+          await taskService.uploadProjectResourceForm(project.id, project.name, compressed, file.name);
+        } else {
+          // other files - add as is
+          await taskService.uploadProjectResourceForm(project.id, project.name, file, file.name);
+        }
 
         await taskService.uploadProjectResourceForm(project.id, project.name, file, file.name);
 
