@@ -97,12 +97,13 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
       const bugData = {
         org_id: currentOrgId,
         project_id: formData.projectId,
+        project_name: formData.projectName,
         title: formData.title,
         description: formData.description,
         severity: formData.severity,
         status: 'open', // Default status for new bugs
         tags: [formData.projectName, ...formData.tags],
-        run_id: runId,
+        tracker_id: runId,
         // Add any additional fields required by your API
       };
 

@@ -23,6 +23,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronRight, Clock, Edit3, Loader2, Plus, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import imageCompression from "browser-image-compression";
 
 interface BugComment {
   id: string;
@@ -71,8 +72,23 @@ const BugDetail = () => {
     queryKey: ['bug', bugId],
     queryFn: async () => {
       try {
-        const response: any = await api.get(`${API_ENDPOINTS.BUGS}/${bugId}`);
-        return response?.data;
+        // const response: any = await api.get<any>(`${API_ENDPOINTS.BUGS}/${bugId}`);
+        // return {
+        //   id: response?.id,
+        //   title: response?.title,
+        //   description: response?.description,
+        //   severity: response?.severity,
+        //   status: response?.status,
+        //   tags: response?.tags,
+        //   createdAt: response?.created_at,
+        //   updatedAt: response?.updated_at,
+        //   recreate_guide: response?.recreate_guide,
+        //   run_id: response?.run_id,
+        //   project_id: response?.project_id,
+        //   project_name: response?.project_name,
+        // };
+        return await api.get<any>(`${API_ENDPOINTS.BUGS}/${bugId}`);
+        
       } catch (error) {
         console.error('Error fetching bug details:', error);
         toast({
@@ -299,8 +315,20 @@ const BugDetail = () => {
     try {
       setIsSubmitting(true);
       const formData = new FormData();
-      Array.from(files).forEach((file: any) => {
-        formData.append('files', file);
+      Array.from(files).forEach(async (file: any) => {
+        if (file.type.startsWith("image/")) {
+          // compress images
+          const compressed = await imageCompression(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+          });
+          formData.append('files', compressed);
+        } else {
+          // other files - add as is
+          formData.append('files', file);
+        }
+        
       });
 
       await api.put(`${API_ENDPOINTS.BUGS}/${bugId}/evidence`, formData, {
@@ -414,7 +442,7 @@ const BugDetail = () => {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
                 <Badge className={`${getSeverityColor(bug?.severity)} border text-sm font-medium`}>
-                  {bug?.severity.toUpperCase()}
+                  {bug?.severity?.toUpperCase()}
                 </Badge>
                 <Badge className="text-sm font-mono bg-red-600 text-white">
                   {bug?.id}
