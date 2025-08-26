@@ -379,7 +379,8 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
   return (
     <Card className="glass border-0 shadow-tasksmate">
       <CardHeader>
-        <CardTitle className="font-sora"><span>History</span>
+        <CardTitle className="font-sora">
+          <span className="mr-2">History</span>
           <Badge variant="outline" className="ml-auto">
             {history.length} {history.length === 1 ? 'event' : 'events'}
           </Badge>

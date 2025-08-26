@@ -88,7 +88,7 @@ const BugDetail = () => {
         //   project_name: response?.project_name,
         // };
         return await api.get<any>(`${API_ENDPOINTS.BUGS}/${bugId}`);
-        
+
       } catch (error) {
         console.error('Error fetching bug details:', error);
         toast({
@@ -316,19 +316,30 @@ const BugDetail = () => {
       setIsSubmitting(true);
       const formData = new FormData();
       Array.from(files).forEach(async (file: any) => {
+
         if (file.type.startsWith("image/")) {
-          // compress images
-          const compressed = await imageCompression(file, {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-          });
-          formData.append('files', compressed);
+          try {
+            // compress images
+            const compressed = await imageCompression(file, {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 1920,
+              useWebWorker: true,
+            });
+            formData.append('files', compressed);
+          } catch (err: any) {
+            toast({
+              title: "Failed to compress image, uploading original file",
+              description: err.message,
+              variant: "destructive"
+            });
+            // other files - add as is
+            formData.append('files', file);
+          }
         } else {
           // other files - add as is
           formData.append('files', file);
         }
-        
+
       });
 
       await api.put(`${API_ENDPOINTS.BUGS}/${bugId}/evidence`, formData, {
