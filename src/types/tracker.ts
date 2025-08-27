@@ -36,6 +36,7 @@ interface TestRun {
   id: string;
   name: string;
   project: string;
+  project_id?: string;
   creator: string;
   status: 'not_started' | 'in_progress' | 'blocked' | 'completed' | 'archived' | 'on_hold';
   priority: 'low' | 'medium' | 'high' | 'critical' | 'none';

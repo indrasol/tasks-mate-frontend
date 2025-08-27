@@ -430,6 +430,14 @@ const Projects = () => {
     }
   };
 
+  const handleNavigation = (tab: string, projectId: string) => {
+    if (currentOrgId) {
+      navigate(`/${tab}/${projectId}?org_id=${currentOrgId}`);
+    } else {
+      navigate(`/${tab}/${projectId}`);
+    }
+  };
+
   const ProjectGridView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {filteredProjects.map((project) => (
@@ -444,8 +452,8 @@ const Projects = () => {
                 {/* Tick Circle - Similar to Tasks */}
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
-                      ? 'bg-tasksmate-gradient border-transparent'
-                      : 'border-gray-300 hover:border-gray-400'
+                    ? 'bg-tasksmate-gradient border-transparent'
+                    : 'border-gray-300 hover:border-gray-400'
                     }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -501,7 +509,7 @@ const Projects = () => {
             {/* Dates removed as per request */}
 
             {/* Progress */}
-            <div className="space-y-2">
+            <div className="space-y-2 cursor-pointer" onClick={() => handleNavigation('tasks_catalog', project.id)}>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Progress</span>
                 <span className="font-medium">{project.progress}%</span>
@@ -595,8 +603,8 @@ const Projects = () => {
                 <div className="flex items-center space-x-2">
                   <div
                     className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
-                        ? 'bg-tasksmate-gradient border-transparent'
-                        : 'border-gray-300 hover:border-gray-400'
+                      ? 'bg-tasksmate-gradient border-transparent'
+                      : 'border-gray-300 hover:border-gray-400'
                       }`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -631,7 +639,7 @@ const Projects = () => {
                   {/* Dates removed */}
 
                   {/* Progress and Tasks - Horizontal layout with better spacing */}
-                  <div className="md:col-span-4 flex items-center gap-6 pl-2">
+                  <div className="md:col-span-4 flex items-center gap-6 pl-2 cursor-pointer" onClick={() => handleNavigation('tasks_catalog', project.id)}>
                     {/* Progress */}
                     <div className="flex-1 space-y-1 max-w-48">
                       <div className="flex justify-between text-sm">
@@ -911,13 +919,13 @@ const Projects = () => {
                     <TableHead className="w-36 text-center font-bold">Start Date</TableHead>
                     <TableHead className="w-36 text-center font-bold">Due Date</TableHead>
                     <TableHead className="w-36 text-center font-bold">Members</TableHead>
-                    <TableHead className="w-40 text-center font-bold">Tags</TableHead>
+                    {/* <TableHead className="w-40 text-center font-bold">Tags</TableHead> */}
                     <TableHead className="w-24 text-center font-bold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredProjects.map((project) => (
-                    <TableRow 
+                    <TableRow
                       key={project.id}
                       className={`hover:bg-slate-50/60 transition-colors ${project.status === 'completed' ? 'bg-gray-50/60' : ''}`}
                     >
@@ -946,14 +954,14 @@ const Projects = () => {
                       </TableCell>
                       <TableCell className="font-medium w-80">
                         <div className="flex items-center">
-                          <div 
+                          <div
                             className={`truncate max-w-[260px] ${project.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
                             ref={(el) => {
                               if (el) {
                                 // Check if text is truncated
                                 const isTrunc = el.scrollWidth > el.clientWidth;
                                 if (isTruncated[project.id] !== isTrunc) {
-                                  setIsTruncated(prev => ({...prev, [project.id]: isTrunc}));
+                                  setIsTruncated(prev => ({ ...prev, [project.id]: isTrunc }));
                                 }
                               }
                             }}
@@ -965,9 +973,9 @@ const Projects = () => {
                             {project.name}
                           </div>
                           {isTruncated[project.id] && (
-                            <Button 
-                              variant="ghost" 
-                              className="ml-1 p-0 h-6 w-6 shrink-0" 
+                            <Button
+                              variant="ghost"
+                              className="ml-1 p-0 h-6 w-6 shrink-0"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedProject(project);
@@ -981,7 +989,7 @@ const Projects = () => {
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex flex-col items-center">
-                          <div className="w-full bg-gray-200 rounded-full h-3 max-w-[180px]">
+                          <div className="w-full bg-gray-200 rounded-full h-3 max-w-[180px] cursor-pointer" onClick={() => handleNavigation('tasks_catalog', project.id)}>
                             <div
                               className="bg-tasksmate-gradient h-3 rounded-full transition-all duration-300"
                               style={{ width: `${project.progress}%` }}
@@ -995,20 +1003,20 @@ const Projects = () => {
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center">
-                          <Select 
-                            value={project.status} 
+                          <Select
+                            value={project.status}
                             onValueChange={(value) => {
                               // Optimistic update
-                              setProjects(prev => 
-                                prev.map(p => p.id === project.id ? {...p, status: value} : p)
+                              setProjects(prev =>
+                                prev.map(p => p.id === project.id ? { ...p, status: value } : p)
                               );
                               // API update
                               api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { status: value })
                                 .catch(error => {
                                   console.error('Failed to update status:', error);
                                   // Revert on error
-                                  setProjects(prev => 
-                                    prev.map(p => p.id === project.id ? {...p, status: project.status} : p)
+                                  setProjects(prev =>
+                                    prev.map(p => p.id === project.id ? { ...p, status: project.status } : p)
                                   );
                                   toast({
                                     title: "Error",
@@ -1042,20 +1050,20 @@ const Projects = () => {
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center">
-                          <Select 
-                            value={project.priority} 
+                          <Select
+                            value={project.priority}
                             onValueChange={(value) => {
                               // Optimistic update
-                              setProjects(prev => 
-                                prev.map(p => p.id === project.id ? {...p, priority: value} : p)
+                              setProjects(prev =>
+                                prev.map(p => p.id === project.id ? { ...p, priority: value } : p)
                               );
                               // API update
                               api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { priority: value })
                                 .catch(error => {
                                   console.error('Failed to update priority:', error);
                                   // Revert on error
-                                  setProjects(prev => 
-                                    prev.map(p => p.id === project.id ? {...p, priority: project.priority} : p)
+                                  setProjects(prev =>
+                                    prev.map(p => p.id === project.id ? { ...p, priority: project.priority } : p)
                                   );
                                   toast({
                                     title: "Error",
@@ -1135,7 +1143,7 @@ const Projects = () => {
                         </div>
                       </TableCell>
 
-                      <TableCell className="text-center">
+                      {/* <TableCell className="text-center">
                         <div className="flex flex-wrap justify-center gap-1">
                           {project.hasOwnProperty('tags') && Array.isArray((project as any).tags) && (project as any).tags.length > 0 ? (
                             (project as any).tags.slice(0, 3).map((tag: string, index: number) => (
@@ -1152,7 +1160,7 @@ const Projects = () => {
                             </Badge>
                           )}
                         </div>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell className="text-center">
                         <Button
                           variant="outline"
@@ -1198,7 +1206,7 @@ const Projects = () => {
         onSubmit={handleNewProject}
         orgId={currentOrgId}
       />
-      
+
       {/* Project Detail Dialog - Simplified */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[725px]">
@@ -1207,8 +1215,8 @@ const Projects = () => {
           </DialogHeader>
           <div className="mt-4">
             <div className="pt-4 text-center">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setIsDialogOpen(false);
                   if (selectedProject) handleProjectClick(selectedProject.id);

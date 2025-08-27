@@ -32,7 +32,10 @@ import {
   Trash2,
   Upload,
   X,
-  Zap
+  Zap,
+  File,
+  Link2,
+  
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -50,6 +53,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/hooks/useAuth";
 import { deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
+import imageCompression from "browser-image-compression";
 
 
 const TaskDetail = () => {
@@ -60,7 +64,13 @@ const TaskDetail = () => {
   const [task, setTask] = useState<any>(null);
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
-  const isInitialMount = useRef({ status: status, priority: priority });
+  const [assignee, setAssignee] = useState('');
+  const [project_id, setProjectId] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [targetDate, setTargetDate] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+
+  // const isInitialMount = useRef({ status: status, priority: priority });
   const [taskName, setTaskName] = useState('');
   const [description, setDescription] = useState('');
   const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
@@ -185,9 +195,9 @@ const TaskDetail = () => {
 
   // Note: Changes in details are saved via the "Save Changes" button to create a single, consolidated history event
 
-  useEffect(() => {
+  const fetchTaskDetails = (showLoading = true) => {
     if (!taskId) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     setError(null);
     taskService.getTaskById(taskId)
       .then((data: any) => {
@@ -218,6 +228,11 @@ const TaskDetail = () => {
         setDescription(data.description);
         setStatus(data.status);
         setPriority(data.priority);
+        setAssignee(data.assignee);
+        setProjectId(data.project_id);
+        setStartDate(data.start_date);
+        setTargetDate(data.due_date);
+        setTags(data.tags);
         setSubtasks(data.sub_tasks || []);
         setLoading(false);
         fetchHistory();
@@ -226,6 +241,10 @@ const TaskDetail = () => {
         setError(err.message || "Failed to load task");
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchTaskDetails(true);
   }, [taskId]);
 
   // Fetch project name list for current org and map id
@@ -327,7 +346,7 @@ const TaskDetail = () => {
   //   tags: ['UI/UX', 'Frontend', 'Dashboard']
   // };
 
-  const handleSaveChanges = async (isPriorityChange?: string, isStatusChange?: string) => {
+  const handleSaveChanges = async (isPriorityChange?: string, isStatusChange?: string, isAssigneeChange?: string, isProjectChange?: string, isStartDateChange?: string, isTargetDateChange?: string, isTagsChange?: string[]) => {
     if (!taskId) return;
     try {
       const payload: any = {
@@ -335,12 +354,17 @@ const TaskDetail = () => {
         description,
         status: isStatusChange ?? status,
         priority: isPriorityChange ?? priority,
+        assignee: isAssigneeChange ?? assignee,
       };
-      if (task?.project_id) payload.project_id = task.project_id;
-      if (task?.startDate) payload.start_date = toYMDLocal(fromYMDLocal(task.startDate) || new Date());
-      if (task?.targetDate) payload.due_date = toYMDLocal(fromYMDLocal(task.targetDate) || new Date());
-      if (Array.isArray(task?.tags)) payload.tags = task.tags;
-      console.log(payload, status, priority);
+      if (isProjectChange || task?.project_id) payload.project_id = isProjectChange ?? task?.project_id;
+      if (isStartDateChange || task?.startDate) payload.start_date = toYMDLocal(fromYMDLocal(isStartDateChange ?? task.startDate) || new Date());
+      if (isTargetDateChange || task?.targetDate) payload.due_date = toYMDLocal(fromYMDLocal(isTargetDateChange ?? task.targetDate) || new Date());
+      if (isTagsChange || Array.isArray(task?.tags)) payload.tags = isTagsChange ?? task?.tags;
+      toast({
+        title: "Saving changes...",
+        description: "Please wait while we save your changes.",
+        variant: "default"
+      });
       await taskService.updateTask(taskId, payload);
       toast({
         title: "Success",
@@ -350,6 +374,7 @@ const TaskDetail = () => {
       setIsTitleEditing(false);
       setIsDescriptionEditing(false);
       fetchHistory();
+
     } catch (err: any) {
       const msg = err?.message || (err?.detail ? String(err.detail) : 'Failed to save changes');
       toast({
@@ -357,19 +382,62 @@ const TaskDetail = () => {
         description: msg,
         variant: "destructive"
       });
+      fetchTaskDetails(false);
     }
   };
 
 
   const handleStatusChange = async (v: string) => {
     setStatus(v);
+    setTask((prev: any) => ({ ...prev, status: v }));
     handleSaveChanges(null, v);
   };
 
   const handlePriorityChange = async (v: string) => {
     setPriority(v);
+    setTask((prev: any) => ({ ...prev, priority: v }));
     handleSaveChanges(v, null);
   };
+
+  const handleAssigneeChange = async (v: string) => {
+    setAssignee(v);
+    setTask((prev: any) => ({ ...prev, assignee: v }));
+    handleSaveChanges(null, null, v);
+  };
+
+  const handleProjectChange = async (v: string) => {
+    setProjectId(v);
+    setTask((prev: any) => ({ ...prev, project_id: v }));
+    handleSaveChanges(null, null, null, v);
+  };
+
+  const handleStartDateChange = async (v: string) => {
+    setStartDate(v);
+    setTask((prev: any) => ({ ...prev, startDate: v }));
+    handleSaveChanges(null, null, null, null, v);
+  };
+
+  const handleTargetDateChange = async (v: string) => {
+    setTargetDate(v);
+    setTask((prev: any) => ({ ...prev, targetDate: v }));
+    handleSaveChanges(null, null, null, null, null, v);
+  };
+
+  const handleTagsChange = async (v: string, isAdd: boolean) => {
+    let tags = task.tags || [];
+    if (isAdd) {
+      if (tags.includes(v)) return;
+      tags.push(v);
+    } else {
+      tags = tags.filter((tag: string) => tag !== v);
+    }
+    setTags(tags);
+    setTagInput('');
+    setIsTagInputOpen(false);
+    handleSaveChanges(null, null, null, null, null, null, tags);
+  };
+
+
 
   // useEffect(() => {
   //   console.log(status,isInitialMount.current.status)
@@ -886,10 +954,41 @@ const TaskDetail = () => {
   const handleImageUpload = async (file: File) => {
     if (!file || !task?.project_id || !taskId) return;
     try {
-      const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
-      if (data?.url) {
-        return data?.url;
+      if (file.type.startsWith("image/")) {
+        try {
+          // compress images
+          const compressed = await imageCompression(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+            alwaysKeepResolution: true,
+            maxIteration: 2,
+          });
+
+          const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, compressed, file.name, true);
+          if (data?.url) {
+            return data?.url;
+          }
+        } catch (err: any) {
+          toast({
+            title: "Failed to compress image, uploading original file",
+            description: err.message,
+            variant: "destructive"
+          });
+          // other files - add as is
+          const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+          if (data?.url) {
+            return data?.url;
+          }
+        }
+      } else {
+        // other files - add as is
+        const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+        if (data?.url) {
+          return data?.url;
+        }
       }
+
     } catch (err: any) {
       toast({
         title: "Failed to upload image",
@@ -905,7 +1004,31 @@ const TaskDetail = () => {
     if (!files || !task?.project_id || !taskId) return;
     try {
       for (const file of Array.from(files)) {
-        await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name);
+        if (file.type.startsWith("image/")) {
+          try {
+            // compress images
+            const compressed = await imageCompression(file, {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 1920,
+              useWebWorker: true,
+              alwaysKeepResolution: true,
+              maxIteration: 2,
+            });
+
+            await taskService.uploadTaskAttachmentForm(task.project_id, taskId, compressed, file.name, false);
+          } catch (err: any) {
+            toast({
+              title: "Failed to compress image, uploading original file",
+              description: err.message,
+              variant: "destructive"
+            });
+            // other files - add as is
+            await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, false);
+          }
+        } else {
+          // other files - add as is
+          await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, false);
+        }
       }
       const data: any[] = await taskService.getTaskAttachments(taskId);
       setAttachments(Array.isArray(data) ? data : []);
@@ -923,8 +1046,6 @@ const TaskDetail = () => {
       });
     }
   };
-
-
 
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!task?.project_id) return;
@@ -1059,12 +1180,28 @@ const TaskDetail = () => {
 
                   <CopyableIdBadge id={task.id} isCompleted={status === 'completed'} />
 
-                  <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                  {/* <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                     {(() => {
                       const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
                       return `👤 ${displayName}`;
                     })()}
-                  </Badge>
+                  </Badge> */}
+                  <Select value={assignee} onValueChange={handleAssigneeChange}>
+                    <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
+                      <SelectValue placeholder="Assignee" />
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {orgMembers?.map((m) => {
+                        const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
+                        const { displayName } = deriveDisplayFromEmail(username);
+                        return (
+                          <SelectItem key={m.user_id} value={String(username)}>
+                            {displayName} {m.designation ? `(${m.designation})` : ""}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                   {/* Status selector (moved from Details card) */}
                   <Select value={status} onValueChange={handleStatusChange}>
                     <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
@@ -1223,13 +1360,13 @@ const TaskDetail = () => {
                       onChange={(content) => setDescription(content)}
                       placeholder="Add a detailed description..."
                       onImageUpload={handleImageUpload}
-                      className="min-h-[200px]"
+                      className="min-h-[175px]"
                     />
                   ) : (
                     <RichTextEditor
                       content={description}
                       hideToolbar
-                      className="min-h-[200px]"
+                      className="min-h-[175px]"
                     />
 
                     // <div
@@ -1328,7 +1465,10 @@ const TaskDetail = () => {
               <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="font-sora">Dependencies</CardTitle>
+                    <CardTitle className="font-sora flex items-center space-x-2">
+                      <Link2 className="h-4 w-4" />
+                      <span>Dependencies ({dependencyDetails?.length ?? 0})</span>
+                    </CardTitle>
                     <Button
                       size="sm"
                       variant="outline"
@@ -1416,7 +1556,10 @@ const TaskDetail = () => {
               {/* Documents Section - Enhanced */}
               <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
-                  <CardTitle className="font-sora">Documents</CardTitle>
+                  <CardTitle className="font-sora flex items-center space-x-2">
+                    <File className="h-4 w-4" />
+                    <span>Attachments ({attachments?.length ?? 0})</span>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div
@@ -1666,7 +1809,7 @@ const TaskDetail = () => {
             {/* Right Column - Sidebar */}
             <div className="space-y-6">
               {/* AI Summary - Chat input removed */}
-              <Card className="glass border-0 shadow-tasksmate">
+              {/* <Card className="glass border-0 shadow-tasksmate">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="font-sora flex items-center space-x-2">
@@ -1680,11 +1823,11 @@ const TaskDetail = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="text-sm text-gray-700 leading-relaxed">
-                    {/* {task.description} */}
+                   
                     Generating the summary...
                   </div>
                 </CardContent>
-              </Card>
+              </Card> */}
 
               {/* Metadata */}
               <Card className="glass border-0 shadow-tasksmate">
@@ -1697,7 +1840,7 @@ const TaskDetail = () => {
                       <Label className="text-sm text-gray-600">Project</Label>
                       <Select
                         value={task.project_id}
-                        onValueChange={(id) => { setTask((prev: any) => ({ ...prev, project_id: id })); }}
+                        onValueChange={handleProjectChange}
                       >
                         <SelectTrigger className="text-xs bg-cyan-100 text-cyan-800 rounded-full px-2 py-1 h-6 border-0 w-fit min-w-0 inline-flex hover:bg-cyan-100">
                           <SelectValue placeholder={projectName ?? task.project_name ?? '—'} />
@@ -1723,7 +1866,7 @@ const TaskDetail = () => {
                           <CalendarPicker
                             mode="single"
                             selected={fromYMDLocal(task.startDate) || (task.createdDate ? new Date(task.createdDate) : undefined)}
-                            onSelect={(d: any) => { if (!d) return; setTask((prev: any) => ({ ...prev, startDate: toYMDLocal(d) })); }}
+                            onSelect={(v: Date) => handleStartDateChange(toYMDLocal(v))}
                           />
                         </PopoverContent>
                       </Popover>
@@ -1742,7 +1885,7 @@ const TaskDetail = () => {
                           <CalendarPicker
                             mode="single"
                             selected={fromYMDLocal(task.targetDate)}
-                            onSelect={(d: any) => { if (!d) return; setTask((prev: any) => ({ ...prev, targetDate: toYMDLocal(d) })); }}
+                            onSelect={(v: Date) => handleTargetDateChange(toYMDLocal(v))}
                           />
                         </PopoverContent>
                       </Popover>
@@ -1760,8 +1903,21 @@ const TaskDetail = () => {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm text-gray-600">Tags</Label>
                       <div className="flex items-center gap-1 flex-wrap">
-                        {(task.tags ?? []).slice(0, 3).map((tag: string, idx: number) => (
-                          <Badge key={idx} variant="secondary" className="text-xs bg-purple-100 text-purple-800">{tag}</Badge>
+                        {(task.tags ?? []).map((tag: string, idx: number) => (
+                          <Badge key={idx} variant="secondary" className="text-xs bg-purple-100 text-purple-800">{
+                            <>
+                              <span>{tag}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleTagsChange(tag, false)}
+                                title="Remove Tag"
+                              >
+                                <X className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </>
+                          }</Badge>
                         ))}
                         {(task.tags ?? []).length > 3 && (
                           <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task.tags ?? []).length - 3}</Badge>
@@ -1787,13 +1943,7 @@ const TaskDetail = () => {
                         />
                         <Button
                           size="sm"
-                          onClick={() => {
-                            const trimmed = tagInput.trim();
-                            if (!trimmed) return;
-                            setTask((prev: any) => ({ ...prev, tags: [...(prev.tags ?? []), trimmed] }));
-                            setTagInput("");
-                            setIsTagInputOpen(false);
-                          }}
+                          onClick={(e) => handleTagsChange(tagInput, true)}
                         >
                           Add
                         </Button>

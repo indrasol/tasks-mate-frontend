@@ -63,6 +63,7 @@ import { useProjectStats } from "@/hooks/useProjectStats";
 import { capitalizeFirstLetter, deriveDisplayFromEmail, getPriorityColor, getStatusMeta, type ProjectStatus } from "@/lib/projectUtils";
 import { api } from "@/services/apiService";
 import { taskService } from '@/services/taskService';
+import imageCompression from "browser-image-compression";
 
 interface Project {
   id: string;
@@ -289,12 +290,12 @@ const ProjectDetail = () => {
     );
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
-  
+
   // Update days left whenever project changes
   useEffect(() => {
     if (project?.endDate) {
       const daysLeftVal = Math.max(0, Math.ceil(
-        (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12,0,0,0)) / 
+        (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12, 0, 0, 0)) /
         (1000 * 60 * 60 * 24)
       ));
       setDaysLeft(daysLeftVal);
@@ -428,8 +429,32 @@ const ProjectDetail = () => {
     setUploading(true);
     try {
       for (const { file } of selectedFiles) {
+        if (file.type.startsWith("image/")) {
+          try {
+            // compress images
+            const compressed = await imageCompression(file, {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 1920,
+              useWebWorker: true,
+              alwaysKeepResolution: true,
+              maxIteration: 2,
+            });
+            await taskService.uploadProjectResourceForm(project.id, project.name, compressed, file.name);
+          } catch (err: any) {
+            toast({
+              title: "Failed to compress image, uploading original file",
+              description: err.message,
+              variant: "destructive"
+            });
+            // other files - add as is
+            await taskService.uploadProjectResourceForm(project.id, project.name, file, file.name);
+          }
+        } else {
+          // other files - add as is
+          await taskService.uploadProjectResourceForm(project.id, project.name, file, file.name);
+        }
 
-        await taskService.uploadProjectResourceForm(project.id, project.name, file, file.name);
+        // await taskService.uploadProjectResourceForm(project.id, project.name, file, file.name);
 
 
         // // 1. Upload to Supabase Storage
@@ -499,10 +524,10 @@ const ProjectDetail = () => {
     try {
       await api.put(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
-        { 
+        {
           role: newRole,
           // Ensure designation is preserved when changing role
-          designation: member.designation || "" 
+          designation: member.designation || ""
         }
       );
       await refetchMembers();
@@ -671,13 +696,13 @@ const ProjectDetail = () => {
     try {
       await api.post(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
-        { 
+        {
           role: member.role,
           // Include designation when adding a single member
-          designation: member.designation || "" 
+          designation: member.designation || ""
         }
       );
-      
+
       // Refresh data from the server to ensure designation is loaded
       await refetchMembers();
     } catch (err) {
@@ -715,18 +740,18 @@ const ProjectDetail = () => {
           const foundMember = orgMembers.find(m => m.user_id === uid);
           return api.post(
             `${API_ENDPOINTS.PROJECT_MEMBERS}`,
-            { 
-              project_id: project.id, 
-              user_id: uid, 
+            {
+              project_id: project.id,
+              user_id: uid,
               role: "member",
-              designation: foundMember?.designation || "" 
+              designation: foundMember?.designation || ""
             }
           );
         })
       );
       // Refresh the data from the server to get accurate designation information
       await refetchMembers();
-      
+
       // Also update the local state for immediate UI feedback
       setTeamMembers(prev => {
         const existing = new Set(prev.map(p => p.name));
@@ -736,13 +761,13 @@ const ProjectDetail = () => {
           const found = orgMembers.find(m => m.user_id === uid);
           const email = found?.email ?? uid;
           const display = deriveDisplayFromEmail(email).displayName;
-          additions.push({ 
-            initials: display.charAt(0).toUpperCase(), 
-            name: uid, 
-            role: "member", 
-            designation: found?.designation || "", 
-            displayName: display, 
-            email 
+          additions.push({
+            initials: display.charAt(0).toUpperCase(),
+            name: uid,
+            role: "member",
+            designation: found?.designation || "",
+            displayName: display,
+            email
           });
         });
         return [...prev, ...additions];
@@ -924,7 +949,15 @@ const ProjectDetail = () => {
     }
   };
 
-  
+  const handleNavigation = (tab: string) => {
+    if (currentOrgId) {
+      navigate(`/${tab}/${project?.id}?org_id=${currentOrgId}`);
+    } else {
+      navigate(`/${tab}/${project?.id}`);
+    }
+  };
+
+
 
   // // Check localStorage for banner visibility preference on component mount
   // useEffect(() => {
@@ -939,9 +972,29 @@ const ProjectDetail = () => {
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+        <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200" >
+          <div className="w-full flex items-center justify-between">
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-transparent p-0 m-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Projects
+              </Button>
+              {/* Removed TasksMate logo and divider */}
+            </div>
+
+
+
+            {/* Removed profile avatar */}
+          </div>
+        </nav>
+
         {/* Permission Banner */}
         {userRole !== "owner" && userRole !== "admin" && isBannerVisible && (
-          <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+          <div className="w-full bg-amber-50 border-b border-amber-200 px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-amber-600" />
@@ -961,11 +1014,13 @@ const ProjectDetail = () => {
             </div>
           </div>
         )}
-        
+
+
+
         {/* Header */}
-        <div className="px-6 pt-6 pb-11 bg-white/50 border-b border-gray-200">
+        <header className="px-6 py-6 bg-white/30 backdrop-blur-sm border-b border-gray-200">
           <div className="w-full">
-            <div className="flex items-center justify-between">
+            {/* <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
                 onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)}
@@ -974,9 +1029,7 @@ const ProjectDetail = () => {
                 <ArrowLeft className="w-4 h-4" />
                 Back to Projects
               </Button>
-
-
-            </div>
+            </div> */}
 
             <div className="flex items-start justify-between">
               <div className="flex flex-col items-center">
@@ -1054,10 +1107,10 @@ const ProjectDetail = () => {
                     </>
                   )}
                   {/* Edit icon removed as requested */}
-                  
+
                   {(userRole === "owner") ? (
                     <div className="cursor-pointer hover:scale-110 hover:text-red-600 transition" title="Delete project">
-                      <Trash2 
+                      <Trash2
                         className="w-4 h-4"
                         onClick={handleDelete}
                       />
@@ -1065,7 +1118,7 @@ const ProjectDetail = () => {
                   ) : (
                     <div className="relative group">
                       <div className="cursor-not-allowed">
-                        <Trash2 
+                        <Trash2
                           className="w-4 h-4 text-gray-400"
                         />
                       </div>
@@ -1118,7 +1171,7 @@ const ProjectDetail = () => {
               </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Description above Stats */}
         <div className="px-6 py-4">
@@ -1192,7 +1245,7 @@ const ProjectDetail = () => {
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate cursor-pointer" onClick={() => handleNavigation('tasks_catalog')}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1207,7 +1260,7 @@ const ProjectDetail = () => {
               </Card>
 
               {/* Bugs Reported stats card */}
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate cursor-pointer" onClick={() => handleNavigation('tester-zone')}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1229,9 +1282,9 @@ const ProjectDetail = () => {
                     <div>
                       <p className="text-sm text-gray-600">Days Left</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {daysLeft !== undefined ? daysLeft : 
-                          (project?.endDate ? 
-                            Math.max(0, Math.ceil((new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12,0,0,0)) / (1000 * 60 * 60 * 24))) : 
+                        {daysLeft !== undefined ? daysLeft :
+                          (project?.endDate ?
+                            Math.max(0, Math.ceil((new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12, 0, 0, 0)) / (1000 * 60 * 60 * 24))) :
                             (stats?.days_left ?? 0))}
                       </p>
                     </div>
@@ -1270,14 +1323,14 @@ const ProjectDetail = () => {
                           {(userRole === "owner" || userRole === "admin") ? (
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Badge 
-                                  variant="secondary" 
+                                <Badge
+                                  variant="secondary"
                                   className="text-xs bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200 transition-colors px-3 py-1.5"
                                 >
-                                  {project?.startDate ? 
-                                    (project.startDate.includes('T') ? 
-                                      new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
-                                      new Date(project.startDate + 'T12:00:00').toLocaleDateString()) : 
+                                  {project?.startDate ?
+                                    (project.startDate.includes('T') ?
+                                      new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                      new Date(project.startDate + 'T12:00:00').toLocaleDateString()) :
                                     'Set start date'}
                                   <Pencil className="w-3 h-3 inline ml-1" />
                                 </Badge>
@@ -1302,7 +1355,7 @@ const ProjectDetail = () => {
                                 </div>
                                 <DialogFooter>
                                   <DialogClose asChild>
-                                    <Button 
+                                    <Button
                                       type="submit"
                                       onClick={async () => {
                                         try {
@@ -1312,11 +1365,11 @@ const ProjectDetail = () => {
                                             description: "Start date updated successfully",
                                             variant: "default"
                                           });
-                                          
+
                                           // If end date exists, update days left calculation
                                           if (project?.endDate) {
                                             const daysLeftVal = Math.max(0, Math.ceil(
-                                              (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12,0,0,0)) / 
+                                              (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12, 0, 0, 0)) /
                                               (1000 * 60 * 60 * 24)
                                             ));
                                             setDaysLeft(daysLeftVal);
@@ -1339,10 +1392,10 @@ const ProjectDetail = () => {
                           ) : (
                             <div className="relative group">
                               <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                                {project?.startDate ? 
-                                  (project.startDate.includes('T') ? 
-                                    new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
-                                    new Date(project.startDate + 'T12:00:00').toLocaleDateString()) : 
+                                {project?.startDate ?
+                                  (project.startDate.includes('T') ?
+                                    new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                    new Date(project.startDate + 'T12:00:00').toLocaleDateString()) :
                                   'Not set'}
                               </Badge>
                               <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
@@ -1351,7 +1404,7 @@ const ProjectDetail = () => {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600 flex items-center">
                             <Calendar className="w-4 h-4 text-red-600 mr-1" />
@@ -1360,14 +1413,14 @@ const ProjectDetail = () => {
                           {(userRole === "owner" || userRole === "admin") ? (
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Badge 
-                                  variant="secondary" 
+                                <Badge
+                                  variant="secondary"
                                   className="text-xs bg-red-100 text-red-800 cursor-pointer hover:bg-red-200 transition-colors px-3 py-1.5"
                                 >
-                                  {project?.endDate ? 
-                                    (project.endDate.includes('T') ? 
-                                      new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
-                                      new Date(project.endDate + 'T12:00:00').toLocaleDateString()) : 
+                                  {project?.endDate ?
+                                    (project.endDate.includes('T') ?
+                                      new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                      new Date(project.endDate + 'T12:00:00').toLocaleDateString()) :
                                     'Set end date'}
                                   <Pencil className="w-3 h-3 inline ml-1" />
                                 </Badge>
@@ -1398,7 +1451,7 @@ const ProjectDetail = () => {
                                 </div>
                                 <DialogFooter>
                                   <DialogClose asChild>
-                                    <Button 
+                                    <Button
                                       type="submit"
                                       onClick={async () => {
                                         try {
@@ -1408,11 +1461,11 @@ const ProjectDetail = () => {
                                             description: "End date updated successfully",
                                             variant: "default"
                                           });
-                                          
+
                                           // Manually update days left to reflect new end date
                                           if (project?.endDate) {
                                             const daysLeftVal = Math.max(0, Math.ceil(
-                                              (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12,0,0,0)) / 
+                                              (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12, 0, 0, 0)) /
                                               (1000 * 60 * 60 * 24)
                                             ));
                                             setDaysLeft(daysLeftVal);
@@ -1435,10 +1488,10 @@ const ProjectDetail = () => {
                           ) : (
                             <div className="relative group">
                               <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
-                                {project?.endDate ? 
-                                  (project.endDate.includes('T') ? 
-                                    new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() : 
-                                    new Date(project.endDate + 'T12:00:00').toLocaleDateString()) : 
+                                {project?.endDate ?
+                                  (project.endDate.includes('T') ?
+                                    new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                    new Date(project.endDate + 'T12:00:00').toLocaleDateString()) :
                                   'Not set'}
                               </Badge>
                               <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
@@ -1447,13 +1500,13 @@ const ProjectDetail = () => {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">Duration</span>
                           <span className="font-medium">
-                            {project?.endDate && project?.startDate ? 
-                              Math.ceil((new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - 
-                                        new Date(project.startDate.split('T')[0] + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)) : 0} days
+                            {project?.endDate && project?.startDate ?
+                              Math.ceil((new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() -
+                                new Date(project.startDate.split('T')[0] + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)) : 0} days
                           </span>
                         </div>
                       </div>
@@ -1516,7 +1569,7 @@ const ProjectDetail = () => {
                                           <Label htmlFor="role" className="text-right">
                                             Role
                                           </Label>
-                                          <Select 
+                                          <Select
                                             defaultValue={member.role}
                                             onValueChange={(value) => handleChangeRole(member, value)}
                                           >
@@ -1875,7 +1928,7 @@ const ProjectDetail = () => {
                 description: e.message,
                 variant: "destructive"
               });
-            } 
+            }
           }}
           orgId={searchParams.get('org_id') ?? undefined}
           mode="edit"

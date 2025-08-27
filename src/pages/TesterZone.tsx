@@ -43,7 +43,7 @@ import { api } from '@/services/apiService';
 import { TestRun } from '@/types/tracker';
 import { Beaker, Calendar, Check, ChevronDown, ChevronUp, Filter, Loader2, Maximize2, Plus, Search, SortAsc, SortDesc } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 type SortField = 'id' | 'name' | 'project' | 'creator' | 'status' | 'priority' | 'totalBugs' | 'totalTasks' | 'date';
 type SortOrder = 'asc' | 'desc';
@@ -89,6 +89,14 @@ const TesterZone = () => {
   // State for trackers from the API
   const [testRuns, setTestRuns] = useState<TestRun[]>([]);
 
+  // check for project_id query param and filter the test runs
+  const { projectId } = useParams();
+  useEffect(() => {
+    if (projectId) {
+      setFilterProject(projectId);
+    }
+  }, [projectId]);
+
   // Function to fetch trackers from API
   const fetchTrackers = async () => {
     if (!currentOrgId) return;
@@ -103,6 +111,7 @@ const TesterZone = () => {
         id: tracker.tracker_id,
         name: tracker.name,
         project: tracker.project_name || tracker.project_id,
+        project_id: tracker.project_id,
         creator: tracker.creator_name,
         status: tracker.status,
         priority: tracker.priority,
@@ -453,7 +462,7 @@ const TesterZone = () => {
       // For projects, we need to handle both string and object formats
       const matchesProject = filterProject === 'all' ||
         // For string-based project names (fallback for mock data)
-        run.project === filterProject
+        run.project === filterProject || run.project_id === filterProject
       // ||
       // // For project objects (real data from API)
       // (projects?.find(p => p.id === filterProject)?.name === run.project);
@@ -644,7 +653,7 @@ const TesterZone = () => {
                     </SelectItem>
                     {getUniqueProjects().map((project) => (
                       <SelectItem key={typeof project === 'string' ? project : project.id}
-                        value={typeof project === 'string' ? project : project.name}>
+                        value={typeof project === 'string' ? project : project.id}>
                         <span className="px-2 py-1 rounded-full text-xs bg-teal-100 text-teal-800">
                           {typeof project === 'string' ? project : project.name}
                         </span>

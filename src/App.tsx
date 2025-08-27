@@ -56,6 +56,7 @@ const App = () => (
             <Route path="/team-members" element={<PrivateRoute checkOrg><TeamMembers /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute checkOrg><Settings /></PrivateRoute>} />            
             <Route path="/tasks_catalog" element={<PrivateRoute checkOrg><TasksCatalog /></PrivateRoute>} />
+            <Route path="/tasks_catalog/:projectId" element={<PrivateRoute checkOrg><TasksCatalog /></PrivateRoute>} />
             <Route path="/tasks/:taskId" element={<PrivateRoute checkOrg><TaskDetail /></PrivateRoute>} />
             <Route path="/meetings" element={<PrivateRoute checkOrg><Meetings /></PrivateRoute>} />
             <Route path="/meetings/:id" element={<PrivateRoute checkOrg><MeetingNotebook /></PrivateRoute>} />
@@ -68,7 +69,8 @@ const App = () => (
             <Route path="/projects/:id" element={<PrivateRoute checkOrg><ProjectDetail /></PrivateRoute>} />
             <Route path="/sales-marketing" element={<PrivateRoute checkOrg><SalesMarketing /></PrivateRoute>} />
             <Route path="/tester-zone" element={<PrivateRoute checkOrg><TesterZone /></PrivateRoute>} />
-            <Route path="/tester-zone/runs/:id" element={<PrivateRoute checkOrg><TestRunDetail /></PrivateRoute>} />
+            <Route path="/tester-zone/:projectId" element={<PrivateRoute checkOrg><TesterZone /></PrivateRoute>} />
+            <Route path="/tester-zone/runs/:id" element={<PrivateRoute checkOrg><BugBoard /></PrivateRoute>} />
             <Route path="/tester-zone/runs/:id/bugs" element={<PrivateRoute checkOrg><BugBoard /></PrivateRoute>} />
             <Route path="/tester-zone/runs/:id/bugs/:bugId" element={<PrivateRoute checkOrg><BugDetail /></PrivateRoute>} />
             <Route path="/scratchpad" element={<PrivateRoute checkOrg><Scratchpad /></PrivateRoute>} />

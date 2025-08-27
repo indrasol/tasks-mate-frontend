@@ -58,7 +58,7 @@ import {
   SortDesc
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 
 type ViewMode = 'table';
@@ -98,7 +98,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const [isTruncated, setIsTruncated] = useState<Record<string, boolean>>({});
-  
+
   // State management - enhanced with new filter and sort options
   const [view, setView] = useState<ViewMode>("table");
   const [searchQuery, setSearchQuery] = useState("");
@@ -137,6 +137,14 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   const [tempCreatedDateRange, setTempCreatedDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [tempDueDateRange, setTempDueDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+
+  // check for project_id query param and filter the test runs
+  const { projectId } = useParams();
+  useEffect(() => {    
+    if (projectId) {
+      setFilterProject(projectId);
+    }
+  }, [projectId]);
 
 
   // Build possible identifiers for current user (id, username, email, displayName)
@@ -850,34 +858,34 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         {sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
                       </Button>
                     </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => toggleSort('name')}>
-                      <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800 mr-2">Name</span>
-                      {sortBy === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toggleSort('status')}>
-                      <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800 mr-2">Status</span>
-                      {sortBy === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toggleSort('targetDate')}>
-                      <span className="px-2 py-1 rounded-full text-xs bg-emerald-100 text-emerald-800 mr-2">Target Date</span>
-                      {sortBy === 'targetDate' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toggleSort('createdDate')}>
-                      <span className="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800 mr-2">Created Date</span>
-                      {sortBy === 'createdDate' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toggleSort('progress')}>
-                      <span className="px-2 py-1 rounded-full text-xs bg-rose-100 text-rose-800 mr-2">Progress</span>
-                      {sortBy === 'progress' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toggleSort('owner')}>
-                      <span className="px-2 py-1 rounded-full text-xs bg-violet-100 text-violet-800 mr-2">Owner</span>
-                      {sortBy === 'owner' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => toggleSort('name')}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800 mr-2">Name</span>
+                        {sortBy === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleSort('status')}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800 mr-2">Status</span>
+                        {sortBy === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleSort('targetDate')}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-emerald-100 text-emerald-800 mr-2">Target Date</span>
+                        {sortBy === 'targetDate' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleSort('createdDate')}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800 mr-2">Created Date</span>
+                        {sortBy === 'createdDate' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleSort('progress')}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-rose-100 text-rose-800 mr-2">Progress</span>
+                        {sortBy === 'progress' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleSort('owner')}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-violet-100 text-violet-800 mr-2">Owner</span>
+                        {sortBy === 'owner' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
 
@@ -918,7 +926,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 </TableHeader>
                 <TableBody>
                   {filteredTasks.map((task) => (
-                    <TableRow 
+                    <TableRow
                       key={task.id}
                       className={`hover:bg-slate-50/60 transition-colors ${task.status === 'completed' ? 'bg-gray-50/60' : ''}`}
                     >
@@ -945,14 +953,14 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       </TableCell>
                       <TableCell className="font-medium w-80">
                         <div className="flex items-center">
-                          <div 
+                          <div
                             className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
                             ref={(el) => {
                               if (el) {
                                 // Check if text is truncated
                                 const isTrunc = el.scrollWidth > el.clientWidth;
                                 if (isTruncated[task.id] !== isTrunc) {
-                                  setIsTruncated(prev => ({...prev, [task.id]: isTrunc}));
+                                  setIsTruncated(prev => ({ ...prev, [task.id]: isTrunc }));
                                 }
                               }
                             }}
@@ -964,9 +972,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                             {task.name}
                           </div>
                           {isTruncated[task.id] && (
-                            <Button 
-                              variant="ghost" 
-                              className="ml-1 p-0 h-6 w-6 shrink-0" 
+                            <Button
+                              variant="ghost"
+                              className="ml-1 p-0 h-6 w-6 shrink-0"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedTask(task);
@@ -980,12 +988,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center">
-                          <Select 
-                            value={task.status} 
+                          <Select
+                            value={task.status}
                             onValueChange={(value) => {
                               // Optimistic update
-                              setTasks(prev => 
-                                prev.map(t => t.id === task.id ? {...t, status: value} : t)
+                              setTasks(prev =>
+                                prev.map(t => t.id === task.id ? { ...t, status: value } : t)
                               );
                               // API update
                               taskService.updateTask(task.id, {
@@ -996,8 +1004,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 .catch(error => {
                                   console.error('Failed to update status:', error);
                                   // Revert on error
-                                  setTasks(prev => 
-                                    prev.map(t => t.id === task.id ? {...t, status: task.status} : t)
+                                  setTasks(prev =>
+                                    prev.map(t => t.id === task.id ? { ...t, status: task.status } : t)
                                   );
                                   toast({
                                     title: "Error",
@@ -1007,14 +1015,13 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 });
                             }}
                           >
-                            <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${
-                              task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
                               task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                              task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                              task.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
-                              task.status === 'archived' ? 'bg-black text-white' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
+                                task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                                  task.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
+                                    task.status === 'archived' ? 'bg-black text-white' :
+                                      'bg-gray-100 text-gray-800'
+                              }`}>
                               <SelectValue>{getStatusText(task.status)}</SelectValue>
                             </SelectTrigger>
                             <SelectContent>
@@ -1036,12 +1043,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center">
-                          <Select 
-                            value={task.priority ?? 'none'} 
+                          <Select
+                            value={task.priority ?? 'none'}
                             onValueChange={(value) => {
                               // Optimistic update
-                              setTasks(prev => 
-                                prev.map(t => t.id === task.id ? {...t, priority: value} : t)
+                              setTasks(prev =>
+                                prev.map(t => t.id === task.id ? { ...t, priority: value } : t)
                               );
                               // API update
                               taskService.updateTask(task.id, {
@@ -1052,8 +1059,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 .catch(error => {
                                   console.error('Failed to update priority:', error);
                                   // Revert on error
-                                  setTasks(prev => 
-                                    prev.map(t => t.id === task.id ? {...t, priority: task.priority} : t)
+                                  setTasks(prev =>
+                                    prev.map(t => t.id === task.id ? { ...t, priority: task.priority } : t)
                                   );
                                   toast({
                                     title: "Error",
@@ -1078,12 +1085,61 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center">
-                          <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                            {(() => {
-                              const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
-                              return `👤 ${displayName}`;
-                            })()}
-                          </Badge>
+
+                          <Select value={task.owner} onValueChange={(value) => {
+                            // Optimistic update
+                            setTasks(prev =>
+                              prev.map(t => t.id === task.id ? { ...t, owner: value } : t)
+                            );
+                            // API update
+                            taskService.updateTask(task.id, {
+                              assignee: value,
+                              project_id: task.projectId,
+                              title: task.name
+                            })
+                              .then(() => {
+                                toast({
+                                  title: "Success",
+                                  description: "Task owner updated successfully",
+                                  variant: "default"
+                                });
+                              })
+                              .catch(error => {
+                                console.error('Failed to update owner:', error);
+                                // Revert on error
+                                setTasks(prev =>
+                                  prev.map(t => t.id === task.id ? { ...t, owner: task.owner } : t)
+                                );
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to update owner",
+                                  variant: "destructive"
+                                });
+                              });
+                          }}>
+                            <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 `}>
+                              <SelectValue placeholder="Select owner" >
+                                {(() => {
+                                  const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                                  return `👤 ${displayName}`;
+                                })()}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+
+                              {orgMembers?.map((m) => {
+                                const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
+                                const { displayName } = deriveDisplayFromEmail(username);
+                                return (
+                                  <SelectItem key={m.user_id} value={String(username)}>
+                                    {displayName} {m.designation ? `(${m.designation})` : ""}
+                                  </SelectItem>
+                                );
+                              })}
+
+                            </SelectContent>
+                          </Select>
+
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -1171,7 +1227,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           onOpenChange={setIsNewTaskModalOpen}
           onTaskCreated={handleTaskCreated}
         />
-        
+
         {/* Task Detail Dialog - Simplified */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-[725px]">
@@ -1180,8 +1236,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
             </DialogHeader>
             <div className="mt-4">
               <div className="pt-4 text-center">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setIsDialogOpen(false);
                     if (selectedTask) handleTaskClick(selectedTask.id);
