@@ -3,13 +3,15 @@ import NewBugModal from '@/components/tester/NewBugModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import CopyableIdBadge from '@/components/ui/copyable-id-badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
+import { toast } from '@/hooks/use-toast';
 import { CalendarRange, Check, Filter, Plus, Search, SortAsc, SortDesc } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TestRunDetail from './TestRunDetail';
 import { api } from '@/services/apiService';
@@ -19,10 +21,12 @@ type Bug = {
   id: string;
   title: string;
   description: string;
-  severity: 'high' | 'medium' | 'low';
+  severity: 'high' | 'medium' | 'low' | 'critical';
+  status: 'open' | 'in_progress' | 'in_review' | 'resolved' | 'reopened' | 'closed' | 'won_t_fix' | 'duplicate';
   tags: string[];
   closed: boolean;
-  date: string;
+  date: string;         // created date
+  closedDate?: string;  // date when bug was closed
 };
 
 const BugBoard = () => {
@@ -52,42 +56,76 @@ const BugBoard = () => {
     project: 'TasksMate Web'
   };
 
-  const fetchBugs = async () => {
+  const fetchBugs = useCallback(async () => {
+    if (!id) return;
+    
     try {
+      console.log(`Fetching bugs for run ID: ${id}`);
       const response = await api.get(`${API_ENDPOINTS.BUGS}/search/${id}`);
-      const bugs = response as any
-      if (bugs) {
-        const bugsData: Bug[] = bugs?.data?.map((bug: any) => {
-          return {
-            id: bug.id,
-            title: bug.title,
-            description: bug.description,
-            severity: bug.severity,
-            tags: bug.tags,
-            closed: bug.closed,
-            date: bug.date
+      console.log('Fetched bugs response:', response);
+      
+      if (response) {
+        // Ensure we're correctly accessing the data
+        const responseData = response as any;
+        const bugsData = Array.isArray(responseData.data) ? responseData.data : 
+          (responseData.data?.data || []);
+        const formattedBugs: Bug[] = bugsData.map((bug: any) => {
+          console.log('Processing bug data:', bug);
+          
+          // Handle different field formats from API and ensure it's properly formatted
+          let closedDate = bug.closed_at || bug.closedDate || bug.closedAt || undefined;
+          
+          // If closed_at exists and is a valid date, format it properly
+          if (closedDate) {
+            try {
+              // Make sure it's a proper date string
+              const dateObj = new Date(closedDate);
+              if (!isNaN(dateObj.getTime())) {
+                closedDate = dateObj.toISOString().split('T')[0];
+              }
+            } catch (e) {
+              console.error('Error formatting closed date:', e);
+            }
           }
-        })
-        setBugs(bugsData);
+          
+          return {
+            id: bug.id || '',
+            title: bug.title || '',
+            description: bug.description || '',
+            severity: bug.severity || 'medium',
+            status: bug.status || 'open',
+            tags: bug.tags || [],
+            closed: ['closed', 'won_t_fix', 'duplicate'].includes(bug.status),
+            date: bug.created_at || new Date().toISOString().split('T')[0],
+            closedDate: closedDate
+          };
+        });
+        
+        console.log('Formatted bugs with closed dates:', formattedBugs);
+        setBugs(formattedBugs.length > 0 ? formattedBugs : []);
+      } else {
+        console.log('No bugs data found in response');
+        setBugs([]);
       }
     } catch (error) {
       console.error('Error fetching bugs:', error);
+      // Don't reset bugs to empty array on error to maintain existing state
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchBugs();
-  }, []);
+  }, [fetchBugs]);
 
   useEffect(() => {
     const handler = (e: any) => {
-      if (e.detail.id === id) {
-        fetchBugs();  
-      }
+      console.log('Bug created event received:', e.detail);
+      // Always fetch bugs when the event is received, regardless of the ID
+      fetchBugs();
     };
     window.addEventListener('bug-created', handler);
     return () => window.removeEventListener('bug-created', handler);
-  }, []);
+  }, [fetchBugs]);
 
   const [bugs, setBugs] = useState<Bug[]>([
     {
@@ -95,6 +133,7 @@ const BugBoard = () => {
       title: 'Login button not responsive on mobile',
       description: 'The login button becomes unclickable on mobile devices under 768px width. This happens consistently across different browsers.',
       severity: 'high' as const,
+      status: 'open' as const,
       tags: [testRun.project, 'UI', 'Mobile', 'Authentication'],
       closed: false,
       date: '2024-12-25'
@@ -104,6 +143,7 @@ const BugBoard = () => {
       title: 'Task deletion confirmation dialog missing',
       description: 'When users try to delete a task, no confirmation dialog appears which can lead to accidental deletions.',
       severity: 'medium' as const,
+      status: 'in_progress' as const,
       tags: [testRun.project, 'UX', 'Tasks', 'Confirmation'],
       closed: false,
       date: '2024-12-24'
@@ -113,9 +153,11 @@ const BugBoard = () => {
       title: 'Profile image upload fails silently',
       description: 'Profile image upload appears to work but fails without any error message to the user.',
       severity: 'low' as const,
+      status: 'closed' as const,
       tags: [testRun.project, 'Profile', 'Upload', 'Error Handling'],
       closed: true,
-      date: '2024-12-20'
+      date: '2024-12-20',
+      closedDate: '2024-12-25'
     }
   ]);
 
@@ -133,21 +175,63 @@ const BugBoard = () => {
   const isDateInRange = (date: string, filter: string) => {
     const itemDate = new Date(date);
     const now = new Date();
+    
+    // Reset hours, minutes, seconds, and milliseconds for date comparisons
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    
+    // Yesterday
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // This week (starting from Sunday/Monday based on locale)
+    const thisWeekStart = new Date(today);
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const daysFromWeekStart = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Assuming week starts on Monday
+    thisWeekStart.setDate(thisWeekStart.getDate() - daysFromWeekStart);
+    
+    // Last week
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const lastWeekEnd = new Date(thisWeekStart);
+    lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
+    
+    // This month
+    const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    // Last month
+    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+    
+    // For comparison, set time to beginning of day
+    const compareDate = new Date(itemDate);
+    compareDate.setHours(0, 0, 0, 0);
 
     switch (filter) {
+      case 'today':
+        return compareDate.getTime() === today.getTime();
+        
+      case 'yesterday':
+        return compareDate.getTime() === yesterday.getTime();
+        
       case 'thisWeek':
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return itemDate >= weekAgo;
+        return compareDate >= thisWeekStart && compareDate <= today;
+        
+      case 'lastWeek':
+        return compareDate >= lastWeekStart && compareDate <= lastWeekEnd;
+        
       case 'thisMonth':
-        const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1);
-        return itemDate >= monthAgo;
-      case 'nextMonth':
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        return itemDate <= nextMonth;
-      case 'overdue':
-        return itemDate < now;
-      default:
+        return compareDate >= thisMonthStart && compareDate <= today;
+        
+      case 'lastMonth':
+        return compareDate >= lastMonthStart && compareDate <= lastMonthEnd;
+        
+      case 'custom':
+        // TODO: Implement custom date range picker
         return true;
+        
+      default:
+        return true; // 'all' or any other value
     }
   };
 
@@ -203,8 +287,12 @@ const BugBoard = () => {
 
       // Status filter
       const matchesStatus = filterStatus === 'all' ||
-        (filterStatus === 'open' && !bug.closed) ||
-        (filterStatus === 'closed' && bug.closed);
+        (filterStatus === 'open' && bug.status === 'open') ||
+        (filterStatus === 'closed' && bug.status === 'closed') ||
+        (filterStatus === 'in_progress' && bug.status === 'in_progress') ||
+        (filterStatus === 'in_review' && bug.status === 'in_review') ||
+        (filterStatus === 'resolved' && bug.status === 'resolved') ||
+        (filterStatus === 'reopened' && bug.status === 'reopened');
 
       // Priority filter
       const matchesPriority = filterPriority === 'all' || bug.severity === filterPriority;
@@ -226,10 +314,63 @@ const BugBoard = () => {
     }
   };
 
-  const handleBugToggle = (bugId: string, checked: boolean) => {
-    setBugs(bugs.map(bug =>
-      bug.id === bugId ? { ...bug, closed: checked } : bug
-    ));
+  const handleBugToggle = async (bugId: string, checked: boolean) => {
+    try {
+      const currentDate = new Date();
+      const formattedDate = currentDate.toISOString();
+      const displayDate = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      console.log(`Toggling bug ${bugId} to ${checked ? 'closed' : 'open'}`);
+      console.log(`Using closed date: ${checked ? displayDate : 'undefined'}`);
+      
+      // First, update the UI optimistically
+      setBugs(bugs.map(bug =>
+        bug.id === bugId ? { 
+          ...bug, 
+          closed: checked,
+          status: checked ? 'closed' : 'open',
+          closedDate: checked ? displayDate : undefined
+        } : bug
+      ));
+      
+      // Then update the server
+      const newStatus = checked ? 'closed' : 'open';
+      console.log(`Updating bug ${bugId} status to ${newStatus}`);
+      
+      const updateData = {
+        status: newStatus
+      };
+      
+      // Only include closed_at field if status is changing to closed
+      if (checked) {
+        updateData['closed_at'] = formattedDate;
+      } else {
+        updateData['closed_at'] = null; // Explicitly set to null when reopening
+      }
+      
+      console.log('Sending update to server:', updateData);
+      await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, updateData);
+      
+      // Display a success message
+      toast({
+        title: checked ? "Bug Closed" : "Bug Reopened",
+        description: checked ? "Bug has been marked as closed." : "Bug has been reopened.",
+        variant: "default"
+      });
+      
+      // Refresh the bugs list to get the updated data
+      fetchBugs();
+    } catch (error) {
+      console.error('Error updating bug status:', error);
+      // Revert the UI change if there was an error
+      toast({
+        title: "Error",
+        description: "Failed to update bug status. Please try again.",
+        variant: "destructive"
+      });
+      // Fetch fresh data to ensure UI is in sync with server
+      fetchBugs();
+    }
   };
 
   // Grid view component
@@ -246,8 +387,8 @@ const BugBoard = () => {
               <div className="flex items-center gap-2">
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${bug.closed
-                    ? 'bg-tasksmate-gradient border-transparent'
-                    : 'border-gray-300 hover:border-gray-400'
+                    ? 'bg-tasksmate-gradient border-transparent hover:scale-110'
+                    : 'border-gray-300 hover:border-gray-400 hover:scale-110'
                     }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -258,13 +399,32 @@ const BugBoard = () => {
                     <Check className="h-3 w-3 text-white" />
                   )}
                 </div>
-                <Badge className={`${getSeverityColor(bug.severity)} text-xs font-medium`}>
-                  {bug.severity?.toUpperCase()}
-                </Badge>
+                <div className="flex gap-2">
+                  <Badge className={`${getSeverityColor(bug.severity)} text-xs font-medium`}>
+                    {bug.severity?.toUpperCase()}
+                  </Badge>
+                  <Badge 
+                    className={`${
+                      bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
+                      bug?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                      bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
+                      bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
+                      bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
+                      bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
+                      bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
+                      'bg-red-100 text-red-700'
+                    } text-xs`}
+                  >
+                    {bug?.status?.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
               </div>
-              <Badge className="text-xs font-mono bg-red-600 text-white">
-                {bug.id}
-              </Badge>
+              <CopyableIdBadge
+                id={bug.id}
+                className="bg-red-600"
+                copyLabel="Bug"
+                isCompleted={bug.closed}
+              />
             </div>
             <CardTitle className={`text-lg font-semibold ${bug.closed ? 'text-gray-500 line-through' : 'text-gray-900'} line-clamp-2`}>
               {bug.title}
@@ -284,10 +444,17 @@ const BugBoard = () => {
               ))}
             </div>
 
-            {/* Date */}
-            <p className="text-xs text-gray-500">
-              {new Date(bug.date).toLocaleDateString()}
-            </p>
+            {/* Dates */}
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-gray-500">
+                <span className="font-medium">Created:</span> {new Date(bug.date).toLocaleDateString()}
+              </div>
+              {bug.closedDate && (
+                <div className="text-xs text-green-600">
+                  <span className="font-medium">Closed:</span> {new Date(bug.closedDate).toLocaleDateString()}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       ))}
@@ -334,10 +501,11 @@ const BugBoard = () => {
               onClick={() => toggleSort('date')}
             >
               <div className="flex items-center gap-2">
-                Date
+                Created Date
                 {sortBy === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
               </div>
             </TableHead>
+            <TableHead>Closed Date</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
@@ -351,8 +519,8 @@ const BugBoard = () => {
               <TableCell>
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${bug.closed
-                    ? 'bg-tasksmate-gradient border-transparent'
-                    : 'border-gray-300 hover:border-gray-400'
+                    ? 'bg-tasksmate-gradient border-transparent hover:scale-110'
+                    : 'border-gray-300 hover:border-gray-400 hover:scale-110'
                     }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -365,9 +533,12 @@ const BugBoard = () => {
                 </div>
               </TableCell>
               <TableCell className="font-medium">
-                <Badge className="text-xs font-mono bg-red-600 text-white">
-                  {bug?.id}
-                </Badge>
+                <CopyableIdBadge
+                  id={bug?.id}
+                  className="bg-red-600" 
+                  copyLabel="Bug"
+                  isCompleted={bug?.closed}
+                />
               </TableCell>
               <TableCell className={`${bug?.closed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                 {bug?.title}
@@ -394,9 +565,27 @@ const BugBoard = () => {
               <TableCell className="text-sm text-gray-600">
                 {new Date(bug?.date).toLocaleDateString()}
               </TableCell>
+              <TableCell className="text-sm text-gray-600">
+                {bug?.closedDate ? (
+                  <span className="text-green-600 font-medium">
+                    {new Date(bug.closedDate).toLocaleDateString()}
+                  </span>
+                ) : '-'}
+              </TableCell>
               <TableCell>
-                <Badge className={`${bug?.closed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-xs`}>
-                  {bug?.closed ? 'Closed' : 'Open'}
+                <Badge 
+                  className={`${
+                    bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
+                    bug?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                    bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
+                    bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
+                    bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
+                    bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
+                    bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
+                    'bg-red-100 text-red-700'
+                  } text-xs`}
+                >
+                  {bug?.status?.replace(/_/g, ' ')}
                 </Badge>
               </TableCell>
             </TableRow>
@@ -478,7 +667,7 @@ const BugBoard = () => {
 
                 {/* Status Filter Dropdown */}
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-40">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -487,6 +676,18 @@ const BugBoard = () => {
                     </SelectItem>
                     <SelectItem value="open">
                       <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Open</span>
+                    </SelectItem>
+                    <SelectItem value="in_progress">
+                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">In Progress</span>
+                    </SelectItem>
+                    <SelectItem value="in_review">
+                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">In Review</span>
+                    </SelectItem>
+                    <SelectItem value="resolved">
+                      <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">Resolved</span>
+                    </SelectItem>
+                    <SelectItem value="reopened">
+                      <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">Reopened</span>
                     </SelectItem>
                     <SelectItem value="closed">
                       <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Closed</span>
@@ -515,30 +716,42 @@ const BugBoard = () => {
                   </SelectContent>
                 </Select>
 
-                {/* Date Filter */}
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="w-36">
-                    <CalendarRange className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="Date Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Dates</span>
-                    </SelectItem>
-                    <SelectItem value="thisWeek">
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">This Week</span>
-                    </SelectItem>
-                    <SelectItem value="thisMonth">
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">This Month</span>
-                    </SelectItem>
-                    <SelectItem value="nextMonth">
-                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Next Month</span>
-                    </SelectItem>
-                    <SelectItem value="overdue">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Overdue</span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Created Date Filter */}
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">Created:</span>
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger className="w-36 bg-white">
+                      <CalendarRange className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Date Filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Any Time</span>
+                      </SelectItem>
+                      <SelectItem value="today">
+                        <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">Today</span>
+                      </SelectItem>
+                      <SelectItem value="yesterday">
+                        <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">Yesterday</span>
+                      </SelectItem>
+                      <SelectItem value="thisWeek">
+                        <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">This Week</span>
+                      </SelectItem>
+                      <SelectItem value="lastWeek">
+                        <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Last Week</span>
+                      </SelectItem>
+                      <SelectItem value="thisMonth">
+                        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">This Month</span>
+                      </SelectItem>
+                      <SelectItem value="lastMonth">
+                        <span className="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800">Last Month</span>
+                      </SelectItem>
+                      <SelectItem value="custom">
+                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">Custom Range</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* Sort Options */}
                 <DropdownMenu>
