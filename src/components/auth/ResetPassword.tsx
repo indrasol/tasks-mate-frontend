@@ -18,7 +18,7 @@ export default function ResetPassword() {
     const [email, setEmail] = useState("");       // keep it in memory
     const [username, setUsername] = useState("");
 
-    const { resetPasswordWithToken, exchangeCodeForSession } = useAuth();
+    const { resetPassword, resetPasswordWithToken, exchangeCodeForSession } = useAuth();
 
     const [token, setToken] = useState(null);
     const [error, setError] = useState(null);
@@ -26,22 +26,59 @@ export default function ResetPassword() {
     useEffect(() => {
         // Extract access_token from URL params
         const params = new URLSearchParams(window.location.search);
-        const accessToken = params.get("code");
+        const accessTokenVal = params.get("code");
+        const emailVal = params.get("email");
 
-        async function exchange(accessToken: string) {
-            const { user, session } = await exchangeCodeForSession(accessToken);
-            console.log("Session set successfully", session);
-            setEmail(user.email);
-            setUsername(user.user_metadata?.username ?? user.email?.split("@")[0]);
-        }
-        if (accessToken) {
-            setToken(accessToken);
-            exchange(accessToken);
+        // async function exchange(accessToken: string) {
+        //     const { user, session } = await exchangeCodeForSession(accessToken);
+        //     console.log("Session set successfully", session);
+        //     setEmail(user.email);
+        //     setUsername(user.user_metadata?.username ?? user.email?.split("@")[0]);
+        // }
+        if (accessTokenVal) {
+            setToken(accessTokenVal);
+            // exchange(accessToken);
         } else {
             toast({ title: "Invalid reset link", variant: "destructive" });
             // navigate("/");
         }
+
+        if(emailVal) {
+            setEmail(emailVal);
+        }
     }, []);
+
+    // useEffect(() => {
+    //     const params = new URLSearchParams(window.location.search);
+    //     const token = params.get("code");
+
+    //     async function handlePasswordRecovery(code: string) {
+    //         const { data, error } = await supabase.auth.verifyOtp({
+    //             type: "recovery",
+    //             token: code,
+    //         });
+
+    //         if (error) {
+    //             console.error("Password recovery verification failed:", error);
+    //             toast({ title: "Invalid or expired reset link", variant: "destructive" });
+    //             return;
+    //         }
+
+    //         const { user, session } = data;
+    //         console.log("Password reset session:", session);
+
+    //         setEmail(user.email);
+    //         setUsername(user.user_metadata?.username ?? user.email?.split("@")[0]);
+    //     }
+
+    //     if (token) {
+    //         setToken(token);
+    //         handlePasswordRecovery(token);
+    //     } else {
+    //         toast({ title: "Invalid reset link", variant: "destructive" });
+    //     }
+    // }, []);
+
 
 
     // useEffect(() => {
@@ -82,9 +119,9 @@ export default function ResetPassword() {
         }
         try {
             // OTP template – first verify code
-            // await resetPassword({ email, newPassword: newPwd, otp });
+            await resetPassword({ email, newPassword: newPwd, otp: token });
             // Magic link template – directly reset password
-            await resetPasswordWithToken({ newPassword: newPwd, accessToken: token });
+            // await resetPasswordWithToken({ newPassword: newPwd, accessToken: token });
             toast({ title: "Password updated! Please login with your new password", description: "You will be redirected to the login page" });
             navigate("/");
         } catch (err) {
@@ -211,21 +248,43 @@ export default function ResetPassword() {
                                 Your Sidekick for Every Tick ✓
                             </div>
                             <div className="flex flex-col sm:flex-row gap-4 mt-8 justify-center items-center">
-                                <form onSubmit={handleChange} className="space-y-6 bg-white p-8 rounded shadow-lg w-full max-w-md">
+                                <form autoComplete="off" autoCorrect="off" autoSave="off" autoFocus={true} onSubmit={handleChange} className="space-y-6 bg-white p-8 rounded shadow-lg w-full max-w-md">
                                     <h2 className="text-2xl font-semibold text-center mb-4">Reset Password</h2>
                                     {username ? <p className="text-md text-gray-500 mb-2">{username}</p> : <></>}
-                                    {email ? <p className="text-sm text-gray-500 mb-2">{email}</p> : <></>}
+                                    {/* {email ? <p className="text-sm text-gray-500 mb-2">{email}</p> : <></>} */}
 
-                                    <div className="text-sm text-gray-500 mb-2">
-                                        Please enter your new password.
+                                    <div className="flex flex-col items-start">
+
+                                        <div className="text-sm text-gray-500 mb-2">
+                                            Email
+                                        </div>
+                                        <Input
+                                            type="email"
+                                            placeholder=""
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            required
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            autoSave="off"
+                                            name="resetEmail"
+                                        />
+
+                                        <div className="text-sm text-gray-500 mb-2 mt-4">
+                                            Password
+                                        </div>
+                                        <Input
+                                            type="password"
+                                            placeholder=""
+                                            value={newPwd}
+                                            onChange={(e) => setNewPwd(e.target.value)}
+                                            required
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            autoSave="off"
+                                            name="resetPassword"
+                                        />
                                     </div>
-                                    <Input
-                                        type="password"
-                                        placeholder="New password"
-                                        value={newPwd}
-                                        onChange={(e) => setNewPwd(e.target.value)}
-                                        required
-                                    />
                                     <Button className="w-full">Update password</Button>
                                     {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
                                 </form>

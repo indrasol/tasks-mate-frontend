@@ -4,7 +4,7 @@ import { removeToken, setToken } from "@/services/tokenService";
 import { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_ENDPOINTS } from "../../config";
+import { API_ENDPOINTS, APP_URL } from "../../config";
 
 // -------------------------
 // Types
@@ -206,20 +206,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* -------- auth API -------- */
   const forgotPassword = async (identifier: string) => {
     const email = await resolveIdentifierToEmail(identifier);
+    console.log(APP_URL)
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${APP_URL}/reset-password?email=${email}`,
     });
     if (error) throw error;
   };
 
   const resetPassword: AuthContextType["resetPassword"] = async ({ email, newPassword, otp }) => {
     if (otp) {
-      const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
+      const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: "recovery" });
       if (error) throw error;
     }
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
   };
+
+  // const verifyOtp: AuthContextType["verifyOtp"] = async ({code }) => {
+  //   const { data, error } = await supabase.auth.verifyOtp({
+  //     type: "recovery",
+  //     token: code,
+  // });
+  //   if (error) throw error;
+  // };
 
   // const resetPasswordWithTokenOld: AuthContextType["resetPasswordWithToken"] = async ({ newPassword, accessToken }: { newPassword: string; accessToken: string }) => {
   //   const response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {

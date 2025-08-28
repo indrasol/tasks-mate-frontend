@@ -140,7 +140,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   // check for project_id query param and filter the test runs
   const { projectId } = useParams();
-  useEffect(() => {    
+  useEffect(() => {
     if (projectId) {
       setFilterProject(projectId);
     }
@@ -153,12 +153,29 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     const ids: string[] = [];
     if (user.id) ids.push(String(user.id));
     if ((user as any).username) ids.push(String((user as any).username));
+    if ((user as any)?.user_metadata?.username) ids.push(String((user as any).user_metadata.username));
     if (user.email) ids.push(String(user.email));
     if (user.email) {
       ids.push(deriveDisplayFromEmail(user.email).displayName);
     }
     return ids.map((x) => x.toLowerCase());
   }, [user]);
+
+  // Fetch projects for current org to map project names
+  const fetchProjects = async () => {
+    if (!currentOrgId) return;
+    try {
+      // Fetch *all* projects in the organization (not just those where the current user is a member)
+      const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}?show_all=true`);
+      const mapped = res.map((p: any) => ({ id: p.project_id, name: p.name }));
+      setProjects(mapped);
+    } catch (e) {
+      console.error("Failed to fetch projects", e);
+    }
+  };
+  useEffect(() => {
+    fetchProjects();
+  }, [currentOrgId]);
 
   useEffect(() => {
     if (!currentOrgId) return;
@@ -184,6 +201,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           projectId: t.project_id,
           createdBy: t.created_by,
           createdDate: t.created_at,
+          is_editable: userIdentifiers.includes(t.created_by) || userIdentifiers.includes(t.assignee)
         }));
         setTasks(mapped);
         setLoadingTasks(false);
@@ -194,21 +212,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       });
   }, [currentOrgId]);
 
-  // Fetch projects for current org to map project names
-  useEffect(() => {
-    const fetchProjects = async () => {
-      if (!currentOrgId) return;
-      try {
-        // Fetch *all* projects in the organization (not just those where the current user is a member)
-        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}?show_all=true`);
-        const mapped = res.map((p: any) => ({ id: p.project_id, name: p.name }));
-        setProjects(mapped);
-      } catch (e) {
-        console.error("Failed to fetch projects", e);
-      }
-    };
-    fetchProjects();
-  }, [currentOrgId]);
+
 
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -916,11 +920,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     <TableHead className="w-80 font-bold">Title</TableHead>
                     <TableHead className="w-32 text-center font-bold">Status</TableHead>
                     <TableHead className="w-28 text-center font-bold">Priority</TableHead>
-                    <TableHead className="w-40 text-center font-bold">Assignee</TableHead>
+                    <TableHead className="w-40 text-center font-bold">Assigned To</TableHead>
                     <TableHead className="w-36 text-center font-bold">Start Date</TableHead>
                     <TableHead className="w-36 text-center font-bold">Due Date</TableHead>
                     <TableHead className="w-36 text-center font-bold">Project</TableHead>
                     <TableHead className="w-40 text-center font-bold">Tags</TableHead>
+                    <TableHead className="w-24 text-center font-bold">Created By</TableHead>
                     <TableHead className="w-24 text-center font-bold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -938,6 +943,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                             }`}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (!task.is_editable) return;
                             handleTaskStatusToggle(task.id);
                           }}
                         >
@@ -1014,6 +1020,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                   });
                                 });
                             }}
+                            disabled={!task.is_editable}
                           >
                             <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
                               task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
@@ -1069,6 +1076,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                   });
                                 });
                             }}
+                            disabled={!task.is_editable}
                           >
                             <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(task.priority ?? 'none')}`}>
                               <SelectValue>{(task.priority ?? 'NONE').toUpperCase()}</SelectValue>
@@ -1117,7 +1125,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 });
                               });
                           }}>
-                            <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 `}>
+                            <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${task.is_editable ? '' : 'cursor-not-allowed opacity-50'}`}>
                               <SelectValue placeholder="Select owner" >
                                 {(() => {
                                   const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
@@ -1179,6 +1187,20 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               +{task.tags.length - 3}
                             </Badge>
                           )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          {orgMembers?.filter((m) => (((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id) === task.createdBy)?.map((m) => {
+                            const username = (((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id);
+                            const { displayName } = deriveDisplayFromEmail(username);
+                            return (
+                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                                {displayName} 
+                              </Badge>
+                            );
+                          })}
+
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
