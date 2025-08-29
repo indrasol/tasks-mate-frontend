@@ -1,7 +1,7 @@
 import { api } from "./apiService";
 import { supabase } from "@/integrations/supabase/client";
 
-import { API_ENDPOINTS } from "@/../config";
+import { API_ENDPOINTS } from "@/config";
 // Use a fallback for uuid if not installed
 function uuidv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {

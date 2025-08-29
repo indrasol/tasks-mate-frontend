@@ -4,7 +4,7 @@ import { removeToken, setToken } from "@/services/tokenService";
 import { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_ENDPOINTS } from "../../config";
+import { API_ENDPOINTS } from "@/config";
 
 // -------------------------
 // Types

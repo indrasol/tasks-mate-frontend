@@ -1,5 +1,5 @@
 
-import { API_ENDPOINTS } from '@/../config';
+import { API_ENDPOINTS } from '@/config';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import NewRunModal from '@/components/tester/NewRunModal';
 import { Badge } from '@/components/ui/badge';
