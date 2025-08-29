@@ -312,37 +312,45 @@ const ProjectDetail = () => {
 
   const [loadingProject, setLoadingProject] = useState(false);
 
+  const fetchProject = async () => {
+    if (!id) return;
+    setLoadingProject(true);
+    try {
+      const res = await api.get<any>(`${API_ENDPOINTS.PROJECTS}/detail/${id}`);
+      // Map API response to local Project shape
+      const mapped: Project = {
+        id: res.project_id,
+        name: res.name,
+        description: res.description,
+        status: res.status,
+        progress: Number(res.progress_percent ?? 0),
+        startDate: res.start_date ?? '',
+        endDate: res.end_date ?? '',
+        teamMembers: (res.team_members ?? []).map((m: any) => ({
+          initials: m.initials || m.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '',
+          name: m.name || '',
+          role: m.role || '',
+        })),
+        tasksCount: res.tasks_total ?? 0,
+        completedTasks: res.tasks_completed ?? 0,
+        priority: res.priority,
+        category: res.category || 'General'
+      };
+      setProject(mapped);
+    } catch (err) {
+      toast({
+        title: "Failed to fetch project",
+        description: err.message,
+        variant: "destructive"
+      });
+      setProject(null);
+    }
+    setLoadingProject(false);
+  };
+
   useEffect(() => {
     if (!id) return;
-    const fetchProject = async () => {
-      setLoadingProject(true);
-      try {
-        const res = await api.get<any>(`${API_ENDPOINTS.PROJECTS}/detail/${id}`);
-        // Map API response to local Project shape
-        const mapped: Project = {
-          id: res.project_id,
-          name: res.name,
-          description: res.description,
-          status: res.status,
-          progress: Number(res.progress_percent ?? 0),
-          startDate: res.start_date ?? '',
-          endDate: res.end_date ?? '',
-          teamMembers: (res.team_members ?? []).map((m: any) => ({
-            initials: m.initials || m.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '',
-            name: m.name || '',
-            role: m.role || '',
-          })),
-          tasksCount: res.tasks_total ?? 0,
-          completedTasks: res.tasks_completed ?? 0,
-          priority: res.priority,
-          category: res.category || 'General'
-        };
-        setProject(mapped);
-      } catch (err) {
-        setProject(null);
-      }
-      setLoadingProject(false);
-    };
+
     fetchProject();
   }, [id]);
 
@@ -884,10 +892,15 @@ const ProjectDetail = () => {
 
   if (loadingProject) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading Project...</p>
+      <div className="min-h-screen bg-gray-50">
+        <MainNavigation />
+        <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+          <div className="min-h-screen px-6 py-10 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading Project...</p>
+            </div>
+          </div>
         </div>
       </div>
     );

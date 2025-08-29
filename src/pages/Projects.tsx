@@ -937,8 +937,15 @@ const Projects = () => {
                             }`}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (
+                              // check for project membership or project creation
+                              !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
+                            ) {
+                              return;
+                            }
                             handleProjectStatusToggle(project.id);
                           }}
+                          
                         >
                           {project.status === 'completed' && (
                             <Check className="h-3 w-3 text-white" />
@@ -967,6 +974,12 @@ const Projects = () => {
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (
+                                // check for project membership or project creation
+                                !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
+                              ) {
+                                return;
+                              }
                               handleProjectClick(project.id);
                             }}
                           >
@@ -1025,6 +1038,11 @@ const Projects = () => {
                                   });
                                 });
                             }}
+
+                            disabled={
+                              // check for project membership or project creation
+                              !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username) && project.owner !== user?.user_metadata?.username
+                            }
                           >
                             <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${getStatusMeta(project.status).color}`}>
                               <SelectValue>{getStatusMeta(project.status).label}</SelectValue>
@@ -1072,6 +1090,10 @@ const Projects = () => {
                                   });
                                 });
                             }}
+                            disabled={
+                              // check for project membership or project creation
+                              !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username) && project.owner !== user?.user_metadata?.username
+                            }
                           >
                             <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(project.priority)}`}>
                               <SelectValue>{project.priority?.toUpperCase()}</SelectValue>
@@ -1167,6 +1189,10 @@ const Projects = () => {
                           size="sm"
                           onClick={() => handleProjectClick(project.id)}
                           className="text-xs"
+                          disabled={
+                            // check for project membership or project creation
+                            !project.teamMembers.some(member => member === user?.user_metadata?.username) && project.owner !== user?.user_metadata?.username
+                          }
                         >
                           Detail
                         </Button>
