@@ -1,4 +1,4 @@
-import { API_ENDPOINTS } from "@/../config";
+import { API_ENDPOINTS } from "@/config";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
 import TaskListView from "@/components/tasks/TaskListView";

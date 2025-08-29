@@ -41,7 +41,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 // import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
-import { API_ENDPOINTS } from "@/../config";
+import { API_ENDPOINTS } from "@/config";
 import AddDependencyModal from "@/components/tasks/AddDependencyModal";
 import AddSubtaskModal from "@/components/tasks/AddSubtaskModal";
 import NewTaskModal from "@/components/tasks/NewTaskModal";

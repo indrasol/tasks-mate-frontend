@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCurrentOrgId } from './useCurrentOrgId';
 import { api } from '@/services/apiService';
-import { API_ENDPOINTS } from '@/../config';
+import { API_ENDPOINTS } from '@/config';
 
 export type DashboardData = {
   kpis: {

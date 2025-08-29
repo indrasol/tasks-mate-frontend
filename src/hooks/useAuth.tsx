@@ -4,7 +4,7 @@ import { removeToken, setToken } from "@/services/tokenService";
 import { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_ENDPOINTS, APP_URL } from "../../config";
+import { API_ENDPOINTS } from "@/config";
 
 // -------------------------
 // Types
@@ -206,9 +206,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* -------- auth API -------- */
   const forgotPassword = async (identifier: string) => {
     const email = await resolveIdentifierToEmail(identifier);
-    console.log(APP_URL)
+//     console.log(APP_URL)
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${APP_URL}/reset-password?email=${email}`,
+      redirectTo: `/reset-password?email=${email}`,
     });
     if (error) throw error;
   };

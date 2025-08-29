@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/services/apiService';
-import { API_ENDPOINTS } from '@/../config';
+import { API_ENDPOINTS } from '@/config';
 import { Project } from '@/types/projects';
 import { useCurrentOrgId } from './useCurrentOrgId';
 import { useAuth } from './useAuth';
