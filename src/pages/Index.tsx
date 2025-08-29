@@ -114,7 +114,7 @@ const Index = () => {
                   </span>
                 </h1>
                 <p className="text-xl text-gray-600 leading-relaxed">
-                  A simple, intuitive companion that keeps every project ticking.
+                  A simple, intuitive companion that keeps every project ticking
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
