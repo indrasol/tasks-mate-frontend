@@ -114,7 +114,7 @@ const Index = () => {
                   </span>
                 </h1>
                 <p className="text-xl text-gray-600 leading-relaxed">
-                  A simple, intuitive companion that keeps every project ticking.
+                  A simple, intuitive companion that keeps every project ticking
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -244,7 +244,7 @@ const Index = () => {
               Why <span className="bg-tasksmate-gradient bg-clip-text text-transparent">TasksMate?</span>
             </h2>
             <p className="text-gray-700 text-lg max-w-3xl mx-auto">
-              Turn chaos into clarity. Empower your team with a unified workspace that keeps projects moving, ideas flowing, and bugs squashed — all in record time.
+              Turn chaos into clarity. Empower your team with a unified workspace that keeps projects moving, ideas flowing, and bugs squashed — all in record time
             </p>
           </div>
 
