@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import MainNavigation from "@/components/navigation/MainNavigation";
 import { api } from '@/services/apiService';
-import { API_ENDPOINTS } from '@/../config';
+import { API_ENDPOINTS } from '@/config';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 
 const Scratchpad = () => {

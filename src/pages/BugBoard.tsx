@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TestRunDetail from './TestRunDetail';
 import { api } from '@/services/apiService';
-import { API_ENDPOINTS } from '@/../config';
+import { API_ENDPOINTS } from '@/config';
 
 type Bug = {
   id: string;

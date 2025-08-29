@@ -1,13 +1,6 @@
 #!/bin/bash
 
-# This script passes system environment variables to Vite
-source ~/.zshrc
+# This script runs the development server with the correct environment
 
-# Pass the environment variables to the Vite dev server
-VITE_SUPABASE_URL=$SUPABASE_URL_TM \
-VITE_SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY_TM \
-VITE_SUPABASE_API_KEY=$SUPABASE_API_KEY_TM \
-VITE_SUPABASE_SECRET_KEY=$SUPABASE_SECRET_KEY_TM \
-VITE_BASE_API_URL=$BASE_API_URL \
-VITE_DEV_BASE_API_URL=$BASE_API_DEV_URL \
-npm run dev
+# Run the dev server with development environment
+npm run dev -- --mode development

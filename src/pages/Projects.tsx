@@ -1,5 +1,5 @@
 
-import { API_ENDPOINTS } from "@/../config";
+import { API_ENDPOINTS } from "@/config";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import NewProjectModal from '@/components/projects/NewProjectModal';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

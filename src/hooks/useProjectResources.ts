@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/apiService";
-import { API_ENDPOINTS } from "@/../config";
+import { API_ENDPOINTS } from "@/config";
 import { useAuth } from "@/hooks/useAuth";
 
 export interface BackendProjectResource {

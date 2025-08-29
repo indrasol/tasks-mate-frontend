@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { API_ENDPOINTS } from '../../config';
+import { API_ENDPOINTS } from '@/config';
 
 interface TeamMember {
   id: string;
