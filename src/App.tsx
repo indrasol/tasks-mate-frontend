@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ResetPassword from "./components/auth/ResetPassword";
+import Login from "./pages/Login";
 import AdHocMeeting from "./pages/AdHocMeeting";
 import BugBoard from "./pages/BugBoard";
 import BugDetail from "./pages/BugDetail";
@@ -49,6 +50,7 @@ const App = () => (
               <Navigate to={"/index"} replace />
             } />
             <Route path="/index" element={<Index />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/org" element={<PrivateRoute><Organizations /></PrivateRoute>} />
             <Route path="/user-profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
