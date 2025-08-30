@@ -26,6 +26,7 @@ export const API_ENDPOINTS = {
   AUTHENTICATE: `${API_BASE_URL}/authenticate`,
   LOGIN: `${API_BASE_URL}/login`,
   REGISTER: `${API_BASE_URL}/register`,
+  REGISTER_CONFIRM: `${API_BASE_URL}/register_confirm`,
   DESIGNATIONS: `${API_BASE_URL}/designations`,
   USER_ROLES: `${API_BASE_URL}/user-roles`,
   GET_EMAIL: `${API_BASE_URL}/get-email`,
