@@ -23,8 +23,8 @@ export const env: EnvConfig = {
   SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || '',
   SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
   SUPABASE_SERVICE_KEY: import.meta.env.VITE_SUPABASE_SERVICE_KEY || '',
-  BASE_API_URL: import.meta.env.VITE_BASE_API_URL || 'http://localhost:8000',
-  DEV_BASE_API_URL: import.meta.env.VITE_DEV_BASE_API_URL || 'http://localhost:8000',
+  BASE_API_URL: import.meta.env.VITE_BASE_API_URL || 'http://localhost:8000/v1',
+  DEV_BASE_API_URL: import.meta.env.VITE_DEV_BASE_API_URL || 'http://localhost:8000/v1',
   ENABLE_ANALYTICS: stringToBoolean(import.meta.env.VITE_ENABLE_ANALYTICS),
   ENABLE_DEBUGGER: stringToBoolean(import.meta.env.VITE_ENABLE_DEBUGGER),
 };
