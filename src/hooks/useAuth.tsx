@@ -1,10 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
-import { api } from "@/services/apiService";
+// Removed backend API dependency – sign-up/sign-in handled fully via Supabase client SDK
 import { removeToken, setToken } from "@/services/tokenService";
 import { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_ENDPOINTS, env } from "@/config";
 
 // -------------------------
 // Types
@@ -28,8 +27,8 @@ interface AuthContextType {
   loading: boolean;
   signUp: (dto: SignUpDto) => Promise<string>;
   signIn: (identifier: string, password: string) => Promise<void>;
-  signInWithOtp: (identifier: string) => Promise<void>;
-  verifyOtp: (identifier: string, otp: string) => Promise<void>;
+  signInWithOtp: (identifier: string, username?: string) => Promise<void>;
+  verifyOtp: (identifier: string, otp: string, username?: string) => Promise<void>;
   signOut: () => Promise<void>;
 
   /* NEW */
@@ -47,33 +46,12 @@ export const useAuth = () => useContext(AuthContext);
 // -------------------------
 // Helpers
 // -------------------------
+// All server calls removed – backend profile creation no longer needed
+// Keeping identifiers purely client-side
 
-// async function ensureBackendProfile(user: User) {
-//   // 1️⃣  Try to fetch existing profile
-//   try {
-//     return await api.post<BackendProfile>(API_ENDPOINTS.LOGIN, { identifier: user.email });
-//   } catch (err: any) {
-//     // If not found, create and retry once
-//     if (err.message?.includes("not found")) {
-//       await ensureBackendProfileCreation(user);
-//       return api.post<BackendProfile>(API_ENDPOINTS.LOGIN, { identifier: user.email });
-//     }
-//     throw err;
-//   }
-// }
-
-
-async function ensureBackendProfileCreation(user: User) {
-  // 1️⃣  Try to fetch existing profile
-  try {
-    return await api.post(API_ENDPOINTS.REGISTER_CONFIRM, {
-      user_id: user.id,
-      email: user.email,
-      username: user.user_metadata?.username ?? user.email?.split("@")[0],
-    });
-  } catch (err: any) {    
-    throw err;
-  }
+// Placeholder no-op while backend profile creation is deprecated
+async function ensureBackendProfileCreation(_user: User) {
+  return;
 }
 
 // -------------------------
@@ -141,12 +119,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // ✅ Session and user returned = sign-up and login successful
     if (authUser && session) {
       setToken(session.access_token);
-      ensureBackendProfileCreation(authUser).catch(console.error);
+      // ensureBackendProfileCreation(authUser).catch(console.error); // Removed backend call
       return "User registered successfully";
     }
 
     if(authUser){
-      ensureBackendProfileCreation(authUser).catch(console.error);
+      // ensureBackendProfileCreation(authUser).catch(console.error); // Removed backend call
     }
 
     // ✅ No user = hard failure
@@ -181,22 +159,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
   const getEmailFromIdentifier = async (identifier: string) => {
-    let email = identifier;
-
-    // If user entered username, resolve to email via backend (requires API key)
-    if (!identifier.includes("@")) {
-      try {
-        const apiKey = env.SUPABASE_ANON_KEY;
-        const resp = await api.post<{ email: string }>(API_ENDPOINTS.GET_EMAIL, { username: identifier }, {
-          headers: { "X-API-Key": apiKey },
-        });
-        email = resp.email;
-      } catch (err: any) {
-        throw new Error(err.message || "Unable to resolve username to email");
-      }
-    }
-
-    return email;
+    // Treat identifier directly as email (username logins removed)
+    return identifier;
   };
 
   const signIn: AuthContextType["signIn"] = async (identifier, password) => {
@@ -211,12 +175,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // onAuthStateChange will update local state next
   };
 
-  const signInWithOtp: AuthContextType["signInWithOtp"] = async (identifier) => {
+  const signInWithOtp: AuthContextType["signInWithOtp"] = async (identifier, username) => {
     let email = await getEmailFromIdentifier(identifier);
 
     const { data: signData, error } = await supabase.auth.signInWithOtp({
-      email, options: {
-        shouldCreateUser: false, // optional: auto-register new users
+      email,
+      options: {
+        shouldCreateUser: true, // allow auto sign-up if user doesn't exist
+        data: username ? { username } : undefined,
       },
     });
     if (error) throw error;
@@ -227,15 +193,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // onAuthStateChange will update local state next
   };
 
-  const verifyOtp: AuthContextType["verifyOtp"] = async (identifier, otp) => {
+  const verifyOtp: AuthContextType["verifyOtp"] = async (identifier, otp, username) => {
     let email = await getEmailFromIdentifier(identifier);
 
     const { data: signData, error } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
     if (error) throw error;
-    // Ensure backend profile exists (creates row only if missing)
-    // if (signData?.user) {
-    //   await ensureBackendProfile(signData.user).catch(console.error);
-    // }
+
+    // If this is a newly created user, ensure backend profile row exists
+    if (signData?.user) {
+      // Attach username metadata if provided (useful when user clicks magic link directly and bypasses metadata)
+      if (username && !signData.user.user_metadata?.username) {
+        await supabase.auth.updateUser({ data: { username } }).catch(console.error);
+      }
+      // ensureBackendProfileCreation(signData.user).catch(console.error); // Removed backend call
+    }
     // onAuthStateChange will update local state next
   };
 
@@ -250,19 +221,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   //---------------------------------------------------
 
   /* -------- helpers -------- */
-  const resolveIdentifierToEmail = async (identifier: string) => {
-    if (identifier.includes("@")) return identifier;
-    const apiKey = env.SUPABASE_ANON_KEY;
-    const { email } = await api.post<{ email: string }>(API_ENDPOINTS.GET_EMAIL, { username: identifier }, {
-      headers: { "X-API-Key": apiKey },
-    });
-    return email;
-  };
+  // resolveIdentifierToEmail obsolete
 
   /* -------- auth API -------- */
-  const forgotPassword = async (identifier: string) => {
-    const email = await resolveIdentifierToEmail(identifier);
-    //     console.log(APP_URL)
+  const forgotPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `/reset-password?email=${email}`,
     });
