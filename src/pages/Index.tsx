@@ -1,20 +1,13 @@
-import { SignInModal } from "@/components/auth/SignInModal";
-import { SignUpModal } from "@/components/auth/SignUpModal";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowRight, Check, FileText, MessageCircle, Zap, KanbanSquare, LayoutDashboard, Rocket, Sparkles, Lightbulb } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowRight, Check, FileText, MessageCircle, KanbanSquare, LayoutDashboard, Rocket, Sparkles, Lightbulb } from "lucide-react";
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 const Index = () => {
-  const [signUpOpen, setSignUpOpen] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
-  const [forgotOpen, setForgotOpen] = useState(false);
-
   const { user } = useAuth();
 
   const navigate = useNavigate();
@@ -121,19 +114,10 @@ const Index = () => {
                 <Button
                   size="lg"
                   className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate"
-                  onClick={() => setSignUpOpen(true)}
+                  onClick={() => navigate("/login")}
                 >
-                  Sign Up
+                  Start for free
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="micro-lift"
-                  onClick={() => setSignInOpen(true)}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Sign In
                 </Button>
               </div>
               <div className="text-sm text-gray-500">
@@ -282,7 +266,7 @@ const Index = () => {
             <Button
               size="lg"
               className="bg-tasksmate-gradient hover:scale-105 transition-transform duration-200 shadow-tasksmate"
-              onClick={() => setSignUpOpen(true)}
+              onClick={() => navigate("/login")}
             >
               Start for free
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -324,16 +308,6 @@ const Index = () => {
           </div>
         </div>
       </footer>
-
-      {/* Modals */}
-      <SignUpModal open={signUpOpen} onOpenChange={setSignUpOpen} onSwitch={() => {
-        setSignUpOpen(false);
-        setSignInOpen(true);
-      }} />
-      <SignInModal open={signInOpen} onOpenChange={setSignInOpen} onSwitch={() => {
-        setSignInOpen(false);
-        setSignUpOpen(true);
-      }} />
     </div>
   );
 };

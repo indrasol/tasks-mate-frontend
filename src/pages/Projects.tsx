@@ -1189,9 +1189,10 @@ const Projects = () => {
                           size="sm"
                           onClick={() => handleProjectClick(project.id)}
                           className="text-xs"
+                          // Disable only when the current user is neither a team member nor the project owner
                           disabled={
-                            // check for project membership or project creation
-                            !project.teamMembers.some(member => member === user?.user_metadata?.username) && project.owner !== user?.user_metadata?.username
+                            !project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) &&
+                            !userIdentifiers.includes(String(project.owner).toLowerCase())
                           }
                         >
                           Detail

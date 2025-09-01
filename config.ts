@@ -3,7 +3,7 @@
 import { getApiUrl, isDevelopment } from "./src/config/env";
 
 // Get the appropriate base URL from the environment configuration
-const API_BASE_URL = `${getApiUrl()}/v1`;
+const API_BASE_URL = `${getApiUrl()}`;
 // Log the API base URL being used
 if (isDevelopment) {
   console.log(`Using API base URL: ${API_BASE_URL}`);
