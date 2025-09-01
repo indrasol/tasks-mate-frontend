@@ -2,21 +2,18 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import {
-    AlertTriangle,
-    ChevronDown
+    AlertTriangle
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-// import { supabase } from '@/integrations/supabase/client';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import OrganizationsHeader from '@/components/navigation/OrganizationsHeader';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface Profile {
     id: string;
@@ -217,7 +214,7 @@ const UserProfile = () => {
                                     </div>
                                 </div>
 
-                                <Collapsible open={passwordChangeOpen} onOpenChange={setPasswordChangeOpen}>
+                                {/* <Collapsible open={passwordChangeOpen} onOpenChange={setPasswordChangeOpen}>
                                     <CollapsibleTrigger asChild>
                                         <Button variant="outline" className="flex items-center space-x-2">
                                             <span>Change Password</span>
@@ -245,7 +242,7 @@ const UserProfile = () => {
                                             </Button>
                                         </div>
                                     </CollapsibleContent>
-                                </Collapsible>
+                                </Collapsible> */}
 
                                 <div className="flex items-start pt-6 border-t">
                                     <Button variant="destructive" className="flex items-center space-x-2 mr-2"

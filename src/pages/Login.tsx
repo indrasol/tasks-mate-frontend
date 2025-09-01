@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Check, MessageCircle, KanbanSquare, LayoutDashboard } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { Check, KanbanSquare, LayoutDashboard, MessageCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -20,7 +20,7 @@ const Login = () => {
   const [isResendOtpDisabled, setIsResendOtpDisabled] = useState(false);
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
   // Determine whether we are signing up or logging in
-  const [mode, setMode] = useState<"signup" | "login">("signup");
+  const [mode, setMode] = useState<"signup" | "login">("login");
 
   // Helper to switch modes and reset form/flow state
   const handleModeChange = (newMode: "signup" | "login") => {
@@ -203,23 +203,22 @@ const Login = () => {
         <div className="relative space-y-6 w-full">
           <div className="absolute -top-20 -left-20 w-96 h-96 bg-tasksmate-gradient opacity-5 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-tasksmate-gradient opacity-5 rounded-full blur-3xl pointer-events-none" />
-          
+
           <div className="text-center space-y-2 mb-6">
             <h2 className="font-sora font-bold text-2xl">
               Everything you need to <span className="bg-tasksmate-gradient bg-clip-text text-transparent">stay organized</span>
             </h2>
             <p className="text-gray-600 text-sm">Powerful features that make task management effortless</p>
           </div>
-          
+
           <div className="space-y-5">
             {features.map((feature, index) => (
-              <Card 
-                key={index} 
-                className={`glass border-0 shadow-tasksmate transition-all duration-500 transform ${
-                  activeFeatureIndex === index 
-                    ? "opacity-100 translate-y-0 scale-100" 
-                    : "opacity-40 translate-y-2 scale-95"
-                }`}
+              <Card
+                key={index}
+                className={`glass border-0 shadow-tasksmate transition-all duration-500 transform ${activeFeatureIndex === index
+                  ? "opacity-100 translate-y-0 scale-100"
+                  : "opacity-40 translate-y-2 scale-95"
+                  }`}
               >
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-center justify-between">
@@ -249,14 +248,13 @@ const Login = () => {
               </Card>
             ))}
           </div>
-          
+
           <div className="flex justify-center space-x-2 mt-6">
             {features.map((_, index) => (
               <button
                 key={index}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  activeFeatureIndex === index ? "bg-tasksmate-green-end w-4" : "bg-gray-300"
-                }`}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${activeFeatureIndex === index ? "bg-tasksmate-green-end w-4" : "bg-gray-300"
+                  }`}
                 onClick={() => setActiveFeatureIndex(index)}
               />
             ))}
@@ -267,8 +265,8 @@ const Login = () => {
       {/* Right side - Login form and TasksMate branding */}
       <div className="w-full lg:w-1/2 flex flex-col p-6">
         <div className="mb-8">
-          <button 
-            onClick={() => navigate('/')} 
+          <button
+            onClick={() => navigate('/')}
             className="flex items-center text-gray-600 hover:text-tasksmate-green-end transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -279,121 +277,121 @@ const Login = () => {
         </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="w-full max-w-md space-y-8">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center">
-                <Check className="h-5 w-5 text-white" />
+            <div className="flex flex-col items-center space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center">
+                  <Check className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex items-baseline space-x-2">
+                  <span className="font-sora font-bold text-xl">TasksMate</span>
+                  <a
+                    href="https://indrasol.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    by Indrasol
+                  </a>
+                </div>
               </div>
-              <div className="flex items-baseline space-x-2">
-                <span className="font-sora font-bold text-xl">TasksMate</span>
-                <a
-                  href="https://indrasol.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  by Indrasol
-                </a>
-              </div>
-            </div>
-            
-            <div className="text-center mb-4">
-              <p className="text-gray-500 text-sm">
-                Enter your details to get started
-              </p>
-            </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
-            <div className="flex justify-center space-x-4">
-              <button
-                type="button"
-                className={`text-sm font-medium transition-colors ${mode === 'signup' ? 'text-tasksmate-green-end' : 'text-gray-500'}`}
-                onClick={() => handleModeChange('signup')}
-              >
-                Sign Up
-              </button>
-              <button
-                type="button"
-                className={`text-sm font-medium transition-colors ${mode === 'login' ? 'text-tasksmate-green-end' : 'text-gray-500'}`}
-                onClick={() => handleModeChange('login')}
-              >
-                Login
-              </button>
+              <div className="text-center mb-4">
+                <p className="text-gray-500 text-sm">
+                  Enter your details to get started
+                </p>
+              </div>
             </div>
-            {!isOtpSent ? (
-              <form onSubmit={handleSendOtp} className="space-y-4">
-                {mode === 'signup' && (
+
+            <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+              <div className="flex justify-center space-x-4">
+                <button
+                  type="button"
+                  className={`text-sm font-medium transition-colors ${mode === 'login' ? 'text-tasksmate-green-end' : 'text-gray-500'}`}
+                  onClick={() => handleModeChange('login')}
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  className={`text-sm font-medium transition-colors ${mode === 'signup' ? 'text-tasksmate-green-end' : 'text-gray-500'}`}
+                  onClick={() => handleModeChange('signup')}
+                >
+                  Sign Up
+                </button>
+              </div>
+              {!isOtpSent ? (
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  {mode === 'signup' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="username">Username</Label>
+                      <Input
+                        id="username"
+                        type="text"
+                        placeholder="johndoe"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
-                      id="username"
-                      type="text"
-                      placeholder="johndoe"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      id="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
                     />
                   </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full bg-tasksmate-gradient hover:bg-tasksmate-gradient"
-                  disabled={loading}
-                >
-                  {loading ? "Sending OTP..." : "Send OTP"}
-                </Button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor="otp">One-Time Password</Label>
-                    <button
-                      type="button"
-                      className="text-sm text-tasksmate-green-end font-medium disabled:opacity-50"
-                      onClick={handleSendOtp}
-                      disabled={isResendOtpDisabled || loading}
-                    >
-                      {resendOtpTimer > 0
-                        ? `Resend OTP (${resendOtpTimer}s)`
-                        : "Resend OTP"}
-                    </button>
+                  <Button
+                    type="submit"
+                    className="w-full bg-tasksmate-gradient hover:bg-tasksmate-gradient"
+                    disabled={loading}
+                  >
+                    {loading ? "Sending OTP..." : "Send OTP"}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label htmlFor="otp">One-Time Password</Label>
+                      <button
+                        type="button"
+                        className="text-sm text-tasksmate-green-end font-medium disabled:opacity-50"
+                        onClick={handleSendOtp}
+                        disabled={isResendOtpDisabled || loading}
+                      >
+                        {resendOtpTimer > 0
+                          ? `Resend OTP (${resendOtpTimer}s)`
+                          : "Resend OTP"}
+                      </button>
+                    </div>
+                    <Input
+                      id="otp"
+                      type="text"
+                      placeholder="Enter your OTP"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      required
+                    />
+                    <p className="text-xs text-gray-500">
+                      Check your email inbox for OTP
+                    </p>
                   </div>
-                  <Input
-                    id="otp"
-                    type="text"
-                    placeholder="Enter your OTP"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    required
-                  />
-                  <p className="text-xs text-gray-500">
-                    Check your email inbox for OTP
-                  </p>
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full bg-tasksmate-gradient hover:bg-tasksmate-gradient"
-                  disabled={loading}
-                >
-                  {loading ? "Verifying..." : "Verify OTP"}
-                </Button>
-              </form>
-            )}
+                  <Button
+                    type="submit"
+                    className="w-full bg-tasksmate-gradient hover:bg-tasksmate-gradient"
+                    disabled={loading}
+                  >
+                    {loading ? "Verifying..." : "Verify OTP"}
+                  </Button>
+                </form>
+              )}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </div>
   );
