@@ -19,6 +19,20 @@ const Login = () => {
   const [resendOtpTimer, setResendOtpTimer] = useState(0);
   const [isResendOtpDisabled, setIsResendOtpDisabled] = useState(false);
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
+  // Determine whether we are signing up or logging in
+  const [mode, setMode] = useState<"signup" | "login">("signup");
+
+  // Helper to switch modes and reset form/flow state
+  const handleModeChange = (newMode: "signup" | "login") => {
+    setMode(newMode);
+    // Reset form fields & OTP flow for clean UX
+    setUsername("");
+    setEmail("");
+    setOtp("");
+    setIsOtpSent(false);
+    setResendOtpTimer(0);
+    setIsResendOtpDisabled(false);
+  };
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,6 +71,22 @@ const Login = () => {
 
   const { signInWithOtp, verifyOtp } = useAuth();
 
+  // Utility: check if email already has an account
+  const checkIfRegistered = async (emailToCheck: string): Promise<boolean> => {
+    try {
+      // We attempt a dummy sign-in OTP request with shouldCreateUser=false.
+      // If Supabase returns error "User not found", we treat as unregistered.
+      await signInWithOtp(emailToCheck, undefined, false);
+      return true; // request succeeded, user exists
+    } catch (err: any) {
+      if (err?.message?.toLowerCase().includes("user not found") || err?.status === 400) {
+        return false;
+      }
+      // other errors propagate
+      throw err;
+    }
+  };
+
   const handleResendOtpCountdown = () => {
     let timer = 60;
     const interval = setInterval(() => {
@@ -81,9 +111,44 @@ const Login = () => {
       return;
     }
 
+    if (mode === "signup" && !username) {
+      toast({
+        title: "Username required",
+        description: "Please enter your username",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      await signInWithOtp(email, username);
+      // Logic differs slightly per mode
+
+      try {
+        await signInWithOtp(
+          email,
+          mode === "signup" ? username : undefined,
+          mode === "signup" // shouldCreateUser true only for signup mode
+        );
+      } catch (err: any) {
+        // In login mode, treat "Signups not allowed" / "User not found" as missing account
+        if (
+          mode === "login" &&
+          (err?.message?.toLowerCase().includes("user not found") ||
+            err?.message?.toLowerCase().includes("signup") ||
+            err?.status === 400)
+        ) {
+          toast({
+            title: "Account not found",
+            description: "Please sign up first.",
+            variant: "destructive",
+          });
+          handleModeChange("signup");
+          return;
+        }
+        // Unknown error – surface to user
+        throw err;
+      }
       toast({
         title: "OTP Sent",
         description: "Check your email for the one-time password",
@@ -114,7 +179,7 @@ const Login = () => {
 
     setLoading(true);
     try {
-      await verifyOtp(email, otp, username);
+      await verifyOtp(email, otp, mode === "signup" ? username : undefined);
       toast({
         title: "Welcome back!",
         description: "You've been signed in successfully.",
@@ -240,18 +305,36 @@ const Login = () => {
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+            <div className="flex justify-center space-x-4">
+              <button
+                type="button"
+                className={`text-sm font-medium transition-colors ${mode === 'signup' ? 'text-tasksmate-green-end' : 'text-gray-500'}`}
+                onClick={() => handleModeChange('signup')}
+              >
+                Sign Up
+              </button>
+              <button
+                type="button"
+                className={`text-sm font-medium transition-colors ${mode === 'login' ? 'text-tasksmate-green-end' : 'text-gray-500'}`}
+                onClick={() => handleModeChange('login')}
+              >
+                Login
+              </button>
+            </div>
             {!isOtpSent ? (
               <form onSubmit={handleSendOtp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    type="text"
-                    placeholder="johndoe"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
-                </div>
+                {mode === 'signup' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      type="text"
+                      placeholder="johndoe"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input

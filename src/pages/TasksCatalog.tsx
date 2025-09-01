@@ -1020,15 +1020,18 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                   });
                                 });
                             }}
-                            disabled={!task.is_editable}
                           >
-                            <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                                task.status === 'blocked' ? 'bg-red-100 text-red-800' :
-                                  task.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
-                                    task.status === 'archived' ? 'bg-black text-white' :
-                                      'bg-gray-100 text-gray-800'
-                              }`}>
+                            <SelectTrigger
+                              className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${(() => {
+                                const s = task.status.replace('in_progress', 'in-progress');
+                                if (s === 'completed') return 'bg-green-100 text-green-800';
+                                if (s === 'in-progress') return 'bg-blue-100 text-blue-800';
+                                if (s === 'blocked') return 'bg-red-100 text-red-800';
+                                if (s === 'on_hold') return 'bg-yellow-100 text-yellow-800';
+                                if (s === 'archived') return 'bg-black text-white';
+                                return 'bg-gray-100 text-gray-800';
+                              })()}`}
+                            >
                               <SelectValue>{getStatusText(task.status)}</SelectValue>
                             </SelectTrigger>
                             <SelectContent>
@@ -1076,7 +1079,6 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                   });
                                 });
                             }}
-                            disabled={!task.is_editable}
                           >
                             <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(task.priority ?? 'none')}`}>
                               <SelectValue>{(task.priority ?? 'NONE').toUpperCase()}</SelectValue>
@@ -1125,7 +1127,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 });
                               });
                           }}>
-                            <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${task.is_editable ? '' : 'cursor-not-allowed opacity-50'}`}>
+                            <SelectTrigger className="h-8 px-2 py-0 w-fit min-w-[5rem] border-0">
                               <SelectValue placeholder="Select owner" >
                                 {(() => {
                                   const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
