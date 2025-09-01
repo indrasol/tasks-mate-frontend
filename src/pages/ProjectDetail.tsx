@@ -1,4 +1,3 @@
-
 import MainNavigation from "@/components/navigation/MainNavigation";
 import NewProjectModal from '@/components/projects/NewProjectModal';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -30,7 +29,8 @@ import {
   Trash2,
   Upload,
   Users,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -1835,7 +1835,7 @@ const ProjectDetail = () => {
                                 title="Download"
                                 onClick={() => handleDownload(resource)}
                               >
-                                <FileText className="w-4 h-4" />
+                                <Download className="w-4 h-4" />
                               </Button>
                             )}
 

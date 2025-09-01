@@ -27,7 +27,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (dto: SignUpDto) => Promise<string>;
   signIn: (identifier: string, password: string) => Promise<void>;
-  signInWithOtp: (identifier: string, username?: string) => Promise<void>;
+  signInWithOtp: (identifier: string, username?: string, shouldCreateUser?: boolean) => Promise<void>;
   verifyOtp: (identifier: string, otp: string, username?: string) => Promise<void>;
   signOut: () => Promise<void>;
 
@@ -175,13 +175,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // onAuthStateChange will update local state next
   };
 
-  const signInWithOtp: AuthContextType["signInWithOtp"] = async (identifier, username) => {
+  const signInWithOtp: AuthContextType["signInWithOtp"] = async (identifier, username, shouldCreateUser = true) => {
     let email = await getEmailFromIdentifier(identifier);
 
     const { data: signData, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        shouldCreateUser: true, // allow auto sign-up if user doesn't exist
+        shouldCreateUser,
         data: username ? { username } : undefined,
       },
     });
