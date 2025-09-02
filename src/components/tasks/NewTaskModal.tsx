@@ -23,7 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { useOrganizations } from "@/hooks/useOrganizations";
-import { deriveDisplayFromEmail, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
+import { capitalizeFirstLetter, deriveDisplayFromEmail, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 import { api } from "@/services/apiService";
 import { taskService } from "@/services/taskService";
 import type { BackendOrgMember } from "@/types/organization";
@@ -494,7 +494,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                         const { displayName } = deriveDisplayFromEmail(username);
                         return (
                           <SelectItem key={m.user_id} value={String(username)}>
-                            {displayName} {m.designation ? `(${m.designation})` : ""}
+                            {displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
                           </SelectItem>
                         );
                       })}

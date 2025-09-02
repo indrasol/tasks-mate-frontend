@@ -53,7 +53,7 @@ import HistoryCard from "@/components/tasks/HistoryCard";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/hooks/useAuth";
-import { deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
+import { capitalizeFirstLetter, deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 import imageCompression from "browser-image-compression";
 
 
@@ -223,8 +223,10 @@ const TaskDetail = () => {
           createdBy: data.created_by,
           createdDate: data.created_at,
           dependencies: data.dependencies ?? [],
-          is_editable: (user?.id === data.assignee || user?.id === data.created_by)
-            || (user?.user_metadata?.username === data.assignee || user?.user_metadata?.username === data.created_by),
+          is_editable: true,
+
+          // is_editable: (user?.id === data.assignee || user?.id === data.created_by)
+          //   || (user?.user_metadata?.username === data.assignee || user?.user_metadata?.username === data.created_by),
         };
 
         setTask(mapped);
@@ -1211,7 +1213,7 @@ const TaskDetail = () => {
                         const { displayName } = deriveDisplayFromEmail(username);
                         return (
                           <SelectItem key={m.user_id} value={String(username)}>
-                            {displayName} {m.designation ? `(${m.designation})` : ""}
+                            {displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
                           </SelectItem>
                         );
                       })}
@@ -1511,21 +1513,21 @@ const TaskDetail = () => {
                         <CopyableIdBadge id={String(depId)} isCompleted={(dep.status ?? '') === 'completed'} />
 
                         {/* Owner, Status, Priority badges */}
-                        <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                        <Badge key='owner' variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                           {(() => {
                             const { displayName } = deriveDisplayFromEmail((dep.assignee ?? '') as string);
                             return `👤 ${displayName}`;
                           })()}
                         </Badge>
-                        <Badge variant="secondary" className={`text-xs ${getStatusMeta((dep.status || 'not_started') as any).color}`}>
+                        <Badge key='status' variant="secondary" className={`text-xs ${getStatusMeta((dep.status || 'not_started') as any).color}`}>
                           {getStatusMeta((dep.status || 'not_started') as any).label}
                         </Badge>
-                        <Badge variant="outline" className={`text-xs ${getPriorityColor(dep.priority ?? 'none')}`}>{(dep.priority ?? 'none').toUpperCase()}</Badge>
+                        <Badge key='priority' variant="outline" className={`text-xs ${getPriorityColor(dep.priority ?? 'none')}`}>{(dep.priority ?? 'none').toUpperCase()}</Badge>
 
                         {/* Project and Start date removed as requested */}
                         <div className="inline-flex items-center gap-1">
                           <span className="text-gray-600 text-xs">Due date:</span>
-                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                          <Badge key='due_date' variant="secondary" className="text-xs bg-rose-100 text-rose-800">
                             {dep.due_date ? formatDate(dep.due_date) : '—'}
                           </Badge>
                         </div>
@@ -1536,13 +1538,13 @@ const TaskDetail = () => {
 
                         {/* Actions to the far right */}
                         <div className="ml-auto flex items-center gap-1">
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
+                          <Button key='open_task' variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
                             const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
                             window.open(url, '_blank', 'noopener,noreferrer');
                           }}>
                             <ExternalLink className="h-3 w-3" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" disabled={!task.is_editable} onClick={() => handleDeleteDependency(depId)}>
+                          <Button key='delete_task' variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" disabled={!task.is_editable} onClick={() => handleDeleteDependency(depId)}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
@@ -1952,7 +1954,7 @@ const TaskDetail = () => {
                           }</Badge>
                         ))}
                         {(task.tags ?? []).length > 3 && (
-                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task.tags ?? []).length - 3}</Badge>
+                          <Badge key='tags_count' variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task.tags ?? []).length - 3}</Badge>
                         )}
                         <Button
                           variant="ghost"
