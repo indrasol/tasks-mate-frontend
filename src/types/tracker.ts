@@ -60,6 +60,7 @@ interface TestRunTrackDetail {
   assignedTo?: string[];
   progress?: number;
   summary?: BugSummary;
+  is_editable?: boolean;
 }
 
 export 
