@@ -16,7 +16,7 @@ import { BackendOrg, Organization, OrganizationInvitation } from '@/types/organi
 import { Building2, Check, ChevronDown, ChevronsUpDown, Info, Layers, LayoutGrid, List, Mail, Pencil, Plus, Search, Trash2, User, UserCheck, Users, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_ENDPOINTS } from '../../config';
+import { API_ENDPOINTS } from '@/config';
 const CopyOrgId = ({ id, children }: { id: string, children: React.ReactNode }) => (
   <span onClick={(e) => e.stopPropagation()}>
     <CopyableBadge copyText={id} variant="outline">

@@ -14,6 +14,7 @@ export interface Task {
   createdBy?: string;
   createdDate?: string;
   projectId?: string;
+  is_editable?: boolean;
 }
 
 export interface BackendTask {

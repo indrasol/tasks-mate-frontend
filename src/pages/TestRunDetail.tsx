@@ -1,5 +1,5 @@
 
-import { API_ENDPOINTS } from '@/../config';
+import { API_ENDPOINTS } from '@/config';
 import BugBoardTab from '@/components/tester/BugBoardTab';
 import { Badge } from '@/components/ui/badge';
 import {

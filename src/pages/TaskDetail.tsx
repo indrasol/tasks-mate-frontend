@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useProjectMembers } from "@/hooks/useProjectMembers";
 import {
   ArrowLeft,
   Check,
@@ -35,12 +36,12 @@ import {
   Zap,
   File,
   Link2,
-  
+
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 // import DuplicateTaskModal from "@/components/tasks/DuplicateTaskModal";
-import { API_ENDPOINTS } from "@/../config";
+import { API_ENDPOINTS } from "@/config";
 import AddDependencyModal from "@/components/tasks/AddDependencyModal";
 import AddSubtaskModal from "@/components/tasks/AddSubtaskModal";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
@@ -52,7 +53,7 @@ import HistoryCard from "@/components/tasks/HistoryCard";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/hooks/useAuth";
-import { deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
+import { capitalizeFirstLetter, deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 import imageCompression from "browser-image-compression";
 
 
@@ -164,6 +165,7 @@ const TaskDetail = () => {
 
   const currentOrgId = useCurrentOrgId();
   const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId || '');  // Use empty string if undefined
+  // const { data: membersData, refetch: refetchMembers } = useProjectMembers(id);
 
   // Sync with sidebar collapse/expand events
   useEffect(() => {
@@ -221,6 +223,10 @@ const TaskDetail = () => {
           createdBy: data.created_by,
           createdDate: data.created_at,
           dependencies: data.dependencies ?? [],
+          is_editable: true,
+
+          // is_editable: (user?.id === data.assignee || user?.id === data.created_by)
+          //   || (user?.user_metadata?.username === data.assignee || user?.user_metadata?.username === data.created_by),
         };
 
         setTask(mapped);
@@ -469,6 +475,15 @@ const TaskDetail = () => {
   // Toggle status via circle badge (completed ↔ not_started)
   const handleStatusToggle = async () => {
     if (!taskId) return;
+
+    if (!task.is_editable) {
+      // toast({
+      //   title: "Failed to update status",
+      //   description: "You do not have permission to update this task.",
+      //   variant: "destructive"
+      // });
+      return;
+    }
     // Determine new status
     const prevStatus = status;
     const newStatus = prevStatus === 'completed' ? 'not_started' : 'completed';
@@ -1164,17 +1179,19 @@ const TaskDetail = () => {
           <div className="w-full">
             <div className="flex items-start justify-between space-x-3">
               {/* Column with toggle + green bar */}
-              <div className="flex flex-col items-center">
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${status === 'completed'
-                    ? 'bg-tasksmate-gradient border-transparent' : 'border-gray-300 hover:border-gray-400'}`}
-                  onClick={handleStatusToggle}
-                >
-                  {status === 'completed' && <Check className="h-3 w-3 text-white" />}
-                </div>
-                <div className="w-1 h-10 rounded-full bg-green-500 mt-2"></div>
-              </div>
+              {task.is_editable && (
+                <div className="flex flex-col items-center">
 
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${status === 'completed'
+                      ? 'bg-tasksmate-gradient border-transparent' : 'border-gray-300 hover:border-gray-400'}`}
+                    onClick={handleStatusToggle}
+                  >
+                    {status === 'completed' && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                  <div className="w-1 h-10 rounded-full bg-green-500 mt-2"></div>
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3">
 
@@ -1186,7 +1203,7 @@ const TaskDetail = () => {
                       return `👤 ${displayName}`;
                     })()}
                   </Badge> */}
-                  <Select value={assignee} onValueChange={handleAssigneeChange}>
+                  <Select value={assignee} disabled={!task.is_editable} onValueChange={handleAssigneeChange}>
                     <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
                       <SelectValue placeholder="Assignee" />
                     </SelectTrigger>
@@ -1196,14 +1213,14 @@ const TaskDetail = () => {
                         const { displayName } = deriveDisplayFromEmail(username);
                         return (
                           <SelectItem key={m.user_id} value={String(username)}>
-                            {displayName} {m.designation ? `(${m.designation})` : ""}
+                            {displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
                           </SelectItem>
                         );
                       })}
                     </SelectContent>
                   </Select>
                   {/* Status selector (moved from Details card) */}
-                  <Select value={status} onValueChange={handleStatusChange}>
+                  <Select value={status} disabled={!task.is_editable} onValueChange={handleStatusChange}>
                     <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
@@ -1216,7 +1233,7 @@ const TaskDetail = () => {
                     </SelectContent>
                   </Select>
                   {/* Priority selector (moved from Details card) */}
-                  <Select value={priority} onValueChange={handlePriorityChange}>
+                  <Select value={priority} disabled={!task.is_editable} onValueChange={handlePriorityChange}>
                     <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
                       <SelectValue placeholder="Priority" />
                     </SelectTrigger>
@@ -1229,7 +1246,7 @@ const TaskDetail = () => {
                     </SelectContent>
                   </Select>
                   {/* Edit icon removed as requested */}
-                  {canDeleteTask && (
+                  {task.is_editable && canDeleteTask && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1279,7 +1296,7 @@ const TaskDetail = () => {
                   ) : (
                     <>
                       <span className={`text-2xl font-sora font-bold ${status === 'completed' ? 'line-through text-gray-400' : ''}`}>{taskName}</span>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsTitleEditing(true)}>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsTitleEditing(true)} disabled={!task.is_editable}>
                         <Pencil className="h-4 w-4 text-gray-500" />
                       </Button>
                     </>
@@ -1347,6 +1364,7 @@ const TaskDetail = () => {
                         size="sm"
                         className="h-6 w-6 p-0"
                         onClick={() => setIsDescriptionEditing(true)}
+                        disabled={!task.is_editable}
                       >
                         <Pencil className="h-4 w-4 text-gray-500" />
                       </Button>
@@ -1354,7 +1372,7 @@ const TaskDetail = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {isDescriptionEditing ? (
+                  {task.is_editable && isDescriptionEditing ? (
                     <RichTextEditor
                       content={description}
                       onChange={(content) => setDescription(content)}
@@ -1474,6 +1492,7 @@ const TaskDetail = () => {
                       variant="outline"
                       className="micro-lift"
                       onClick={() => setIsAddDependencyOpen(true)}
+                      disabled={!task.is_editable}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Add Dependency
@@ -1486,7 +1505,7 @@ const TaskDetail = () => {
                     return (
                       <div key={depId} className="flex flex-wrap items-start gap-2 p-3 rounded-lg bg-white/50 micro-lift group">
                         {/* Toggle */}
-                        <Button variant="ghost" size="sm" className="p-0 h-auto" onClick={() => handleDependencyToggle(depId)}>
+                        <Button variant="ghost" size="sm" className="p-0 h-auto" disabled={!task.is_editable} onClick={() => handleDependencyToggle(depId)}>
                           {(dep.status ?? '') === 'completed' ? <CheckCircle className="h-5 w-5 text-tasksmate-green-end" /> : <Circle className="h-5 w-5 text-gray-400" />}
                         </Button>
 
@@ -1494,21 +1513,21 @@ const TaskDetail = () => {
                         <CopyableIdBadge id={String(depId)} isCompleted={(dep.status ?? '') === 'completed'} />
 
                         {/* Owner, Status, Priority badges */}
-                        <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                        <Badge key='owner' variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                           {(() => {
                             const { displayName } = deriveDisplayFromEmail((dep.assignee ?? '') as string);
                             return `👤 ${displayName}`;
                           })()}
                         </Badge>
-                        <Badge variant="secondary" className={`text-xs ${getStatusMeta((dep.status || 'not_started') as any).color}`}>
+                        <Badge key='status' variant="secondary" className={`text-xs ${getStatusMeta((dep.status || 'not_started') as any).color}`}>
                           {getStatusMeta((dep.status || 'not_started') as any).label}
                         </Badge>
-                        <Badge variant="outline" className={`text-xs ${getPriorityColor(dep.priority ?? 'none')}`}>{(dep.priority ?? 'none').toUpperCase()}</Badge>
+                        <Badge key='priority' variant="outline" className={`text-xs ${getPriorityColor(dep.priority ?? 'none')}`}>{(dep.priority ?? 'none').toUpperCase()}</Badge>
 
                         {/* Project and Start date removed as requested */}
                         <div className="inline-flex items-center gap-1">
                           <span className="text-gray-600 text-xs">Due date:</span>
-                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                          <Badge key='due_date' variant="secondary" className="text-xs bg-rose-100 text-rose-800">
                             {dep.due_date ? formatDate(dep.due_date) : '—'}
                           </Badge>
                         </div>
@@ -1519,13 +1538,13 @@ const TaskDetail = () => {
 
                         {/* Actions to the far right */}
                         <div className="ml-auto flex items-center gap-1">
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
+                          <Button key='open_task' variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
                             const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
                             window.open(url, '_blank', 'noopener,noreferrer');
                           }}>
                             <ExternalLink className="h-3 w-3" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" onClick={() => handleDeleteDependency(depId)}>
+                          <Button key='delete_task' variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" disabled={!task.is_editable} onClick={() => handleDeleteDependency(depId)}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
@@ -1582,6 +1601,7 @@ const TaskDetail = () => {
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       onChange={(e) => handleAttachmentUpload(e.target.files)}
                       accept="*/*"
+                      disabled={!task.is_editable}
                     />
 
                     <Button
@@ -1589,6 +1609,7 @@ const TaskDetail = () => {
                       size="sm"
                       className="absolute top-4 right-4"
                       onClick={() => fileInputRef.current?.click()}
+                      disabled={!task.is_editable}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -1608,6 +1629,7 @@ const TaskDetail = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            disabled={!task.is_editable}
                             onClick={() => handleDeleteAttachment(file.attachment_id)}
                             className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                           >
@@ -1645,6 +1667,7 @@ const TaskDetail = () => {
                                 onKeyDown={handleTextareaKeyDown}
                                 ref={commentInputRef}
                                 value={newComment}
+                                disabled={!task.is_editable}
                                 onChange={handleCommentChange}
                                 onClick={() => setShowMentionPopover(false)}
                                 placeholder="Add a comment... (Type @ to mention someone)"
@@ -1700,7 +1723,7 @@ const TaskDetail = () => {
                                 onClick={handleAddComment}
                                 size="sm"
                                 className="bg-tasksmate-gradient"
-                                disabled={!newComment.trim()}
+                                disabled={!newComment.trim() || !task.is_editable}
                               >
                                 <Send className="h-4 w-4 mr-2" />
                                 Comment
@@ -1744,11 +1767,14 @@ const TaskDetail = () => {
                                         setEditCommentText(e.target.value);
                                         // You could implement @mention in edit mode too if needed
                                       }}
+                                      disabled={!task.is_editable}
                                       className="min-h-16 resize-none"
                                     />
                                   </div>
                                   <div className="flex items-center space-x-2">
-                                    <Button size="sm" onClick={handleSaveEdit}>
+                                    <Button size="sm" onClick={handleSaveEdit}
+                                      disabled={!task.is_editable}
+                                    >
                                       Save
                                     </Button>
                                     <Button size="sm" variant="outline" onClick={handleCancelEdit}>
@@ -1776,7 +1802,7 @@ const TaskDetail = () => {
                                           size="sm"
                                           className="h-6 w-6 p-0"
                                           onClick={() => handleEditComment(comment.comment_id)}
-                                          disabled={!canEdit}
+                                          disabled={!canEdit || !task.is_editable}
                                           title={canEdit ? "Edit" : "Only author can edit"}
                                         >
                                           <Edit className="h-3 w-3" />
@@ -1786,7 +1812,7 @@ const TaskDetail = () => {
                                           size="sm"
                                           className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                                           onClick={() => setDeleteCommentId(comment.comment_id)}
-                                          disabled={!canEdit}
+                                          disabled={!canEdit || !task.is_editable}
                                           title={canEdit ? "Delete" : "Only author can delete"}
                                         >
                                           <X className="h-3 w-3" />
@@ -1841,6 +1867,7 @@ const TaskDetail = () => {
                       <Select
                         value={task.project_id}
                         onValueChange={handleProjectChange}
+                        disabled={!task.is_editable}
                       >
                         <SelectTrigger className="text-xs bg-cyan-100 text-cyan-800 rounded-full px-2 py-1 h-6 border-0 w-fit min-w-0 inline-flex hover:bg-cyan-100">
                           <SelectValue placeholder={projectName ?? task.project_name ?? '—'} />
@@ -1857,7 +1884,9 @@ const TaskDetail = () => {
                       <Label className="text-sm text-gray-600">Start date</Label>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-1 h-6 inline-flex items-center gap-1">
+                          <button className="text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-1 h-6 inline-flex items-center gap-1"
+                            disabled={!task.is_editable}
+                          >
                             {formatDate(task.startDate ?? task.createdDate)}
                             <ChevronDown className="h-3 w-3" />
                           </button>
@@ -1867,6 +1896,7 @@ const TaskDetail = () => {
                             mode="single"
                             selected={fromYMDLocal(task.startDate) || (task.createdDate ? new Date(task.createdDate) : undefined)}
                             onSelect={(v: Date) => handleStartDateChange(toYMDLocal(v))}
+                            disabled={!task.is_editable}
                           />
                         </PopoverContent>
                       </Popover>
@@ -1876,7 +1906,9 @@ const TaskDetail = () => {
                       <Label className="text-sm text-gray-600">Due date</Label>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="text-xs bg-rose-100 text-rose-800 rounded-full px-2 py-1 h-6 inline-flex items-center gap-1">
+                          <button className="text-xs bg-rose-100 text-rose-800 rounded-full px-2 py-1 h-6 inline-flex items-center gap-1"
+                            disabled={!task.is_editable}
+                          >
                             {task.targetDate ? formatDate(task.targetDate) : '—'}
                             <ChevronDown className="h-3 w-3" />
                           </button>
@@ -1886,6 +1918,7 @@ const TaskDetail = () => {
                             mode="single"
                             selected={fromYMDLocal(task.targetDate)}
                             onSelect={(v: Date) => handleTargetDateChange(toYMDLocal(v))}
+                            disabled={!task.is_editable}
                           />
                         </PopoverContent>
                       </Popover>
@@ -1913,6 +1946,7 @@ const TaskDetail = () => {
                                 className="h-6 w-6 p-0"
                                 onClick={() => handleTagsChange(tag, false)}
                                 title="Remove Tag"
+                                disabled={!task.is_editable}
                               >
                                 <X className="h-4 w-4 text-red-600" />
                               </Button>
@@ -1920,7 +1954,7 @@ const TaskDetail = () => {
                           }</Badge>
                         ))}
                         {(task.tags ?? []).length > 3 && (
-                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task.tags ?? []).length - 3}</Badge>
+                          <Badge key='tags_count' variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task.tags ?? []).length - 3}</Badge>
                         )}
                         <Button
                           variant="ghost"
@@ -1928,6 +1962,7 @@ const TaskDetail = () => {
                           className="h-6 px-2 text-purple-700 hover:text-purple-900"
                           onClick={() => setIsTagInputOpen((v) => !v)}
                           title="Add tag"
+                          disabled={!task.is_editable}
                         >
                           <Plus className="h-3 w-3" />
                         </Button>
@@ -1944,6 +1979,7 @@ const TaskDetail = () => {
                         <Button
                           size="sm"
                           onClick={(e) => handleTagsChange(tagInput, true)}
+                          disabled={!task.is_editable}
                         >
                           Add
                         </Button>
@@ -2011,25 +2047,29 @@ const TaskDetail = () => {
             tags: task?.tags ?? [],
           }}
         />
-        <AddSubtaskModal
-          open={isAddSubtaskOpen}
-          onOpenChange={setIsAddSubtaskOpen}
-          onSubtaskAdded={handleAddSubtask}
-          excludeIds={[...(subtasks || []), ...(taskId ? [taskId] : [])]}
-          projectId={task?.project_id ?? task?.projectId}
-          taskId={taskId}
-          owner={task?.owner || user?.email || ''} // Default to current user if no owner set
-        />
+        {task.is_editable && (
+          <AddSubtaskModal
+            open={isAddSubtaskOpen}
+            onOpenChange={setIsAddSubtaskOpen}
+            onSubtaskAdded={handleAddSubtask}
+            excludeIds={[...(subtasks || []), ...(taskId ? [taskId] : [])]}
+            projectId={task?.project_id ?? task?.projectId}
+            taskId={taskId}
+            owner={task?.owner || user?.email || ''} // Default to current user if no owner set
+          />
+        )}
         {/* Dependencies modal */}
-        <AddDependencyModal
-          open={isAddDependencyOpen}
-          onOpenChange={setIsAddDependencyOpen}
-          onDependencyAdded={handleAddDependency}
-          excludeIds={[
-            ...(Array.isArray(task?.dependencies) ? task.dependencies : []),
-            ...(taskId ? [taskId] : []),
-          ]}
-        />
+        {task.is_editable && (
+          <AddDependencyModal
+            open={isAddDependencyOpen}
+            onOpenChange={setIsAddDependencyOpen}
+            onDependencyAdded={handleAddDependency}
+            excludeIds={[
+              ...(Array.isArray(task?.dependencies) ? task.dependencies : []),
+              ...(taskId ? [taskId] : []),
+            ]}
+          />
+        )}
         {/* Edit Task - reuse NewTaskModal in edit mode */}
         {
           task && (
@@ -2061,7 +2101,7 @@ const TaskDetail = () => {
         }
 
         {/* Delete confirm dialog for Task */}
-        {
+        {task.is_editable &&
           task && isDeleteTaskOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
               <div className="bg-white rounded-lg p-6 w-[90%] max-w-md shadow-xl">
@@ -2108,18 +2148,20 @@ const TaskDetail = () => {
           )
         }
         {/* Delete Comment Confirm Dialog */}
-        <Dialog open={!!deleteCommentId} onOpenChange={(open) => { if (!open) setDeleteCommentId(null); }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Comment</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-gray-600">Are you sure you want to delete this comment? This action cannot be undone.</p>
-            <DialogFooter className="justify-end gap-2">
-              <Button variant="outline" onClick={() => setDeleteCommentId(null)}>Cancel</Button>
-              <Button className="bg-red-600 text-white" onClick={() => { if (deleteCommentId) handleDeleteComment(deleteCommentId); setDeleteCommentId(null); }}>Delete</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {task.is_editable && (
+          <Dialog open={!!deleteCommentId} onOpenChange={(open) => { if (!open) setDeleteCommentId(null); }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Comment</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-gray-600">Are you sure you want to delete this comment? This action cannot be undone.</p>
+              <DialogFooter className="justify-end gap-2">
+                <Button variant="outline" onClick={() => setDeleteCommentId(null)}>Cancel</Button>
+                <Button className="bg-red-600 text-white" onClick={() => { if (deleteCommentId) handleDeleteComment(deleteCommentId); setDeleteCommentId(null); }}>Delete</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div >
 
     </div >

@@ -1,4 +1,3 @@
-
 import MainNavigation from "@/components/navigation/MainNavigation";
 import NewProjectModal from '@/components/projects/NewProjectModal';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -30,12 +29,15 @@ import {
   Trash2,
   Upload,
   Users,
-  X
+  X,
+  Download,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 // Dropdown removed for priority badge in header
-import { API_ENDPOINTS } from "@/../config";
+import { API_ENDPOINTS } from "@/config";
 import {
   Dialog,
   DialogClose,
@@ -118,6 +120,8 @@ const ProjectDetail = () => {
   const [teamMembers, setTeamMembers] = useState<Member[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoadingResources, setIsLoadingResources] = useState(false);
+  const [errorLoadingResources, setErrorLoadingResources] = useState<string | null>(null);
+
   const [newUrl, setNewUrl] = useState('');
   const [newUrlName, setNewUrlName] = useState('');
   const [isEditUrlOpen, setIsEditUrlOpen] = useState(false);
@@ -312,37 +316,45 @@ const ProjectDetail = () => {
 
   const [loadingProject, setLoadingProject] = useState(false);
 
+  const fetchProject = async () => {
+    if (!id) return;
+    setLoadingProject(true);
+    try {
+      const res = await api.get<any>(`${API_ENDPOINTS.PROJECTS}/detail/${id}`);
+      // Map API response to local Project shape
+      const mapped: Project = {
+        id: res.project_id,
+        name: res.name,
+        description: res.description,
+        status: res.status,
+        progress: Number(res.progress_percent ?? 0),
+        startDate: res.start_date ?? '',
+        endDate: res.end_date ?? '',
+        teamMembers: (res.team_members ?? []).map((m: any) => ({
+          initials: m.initials || m.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '',
+          name: m.name || '',
+          role: m.role || '',
+        })),
+        tasksCount: res.tasks_total ?? 0,
+        completedTasks: res.tasks_completed ?? 0,
+        priority: res.priority,
+        category: res.category || 'General'
+      };
+      setProject(mapped);
+    } catch (err) {
+      toast({
+        title: "Failed to fetch project",
+        description: err.message,
+        variant: "destructive"
+      });
+      setProject(null);
+    }
+    setLoadingProject(false);
+  };
+
   useEffect(() => {
     if (!id) return;
-    const fetchProject = async () => {
-      setLoadingProject(true);
-      try {
-        const res = await api.get<any>(`${API_ENDPOINTS.PROJECTS}/detail/${id}`);
-        // Map API response to local Project shape
-        const mapped: Project = {
-          id: res.project_id,
-          name: res.name,
-          description: res.description,
-          status: res.status,
-          progress: Number(res.progress_percent ?? 0),
-          startDate: res.start_date ?? '',
-          endDate: res.end_date ?? '',
-          teamMembers: (res.team_members ?? []).map((m: any) => ({
-            initials: m.initials || m.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '',
-            name: m.name || '',
-            role: m.role || '',
-          })),
-          tasksCount: res.tasks_total ?? 0,
-          completedTasks: res.tasks_completed ?? 0,
-          priority: res.priority,
-          category: res.category || 'General'
-        };
-        setProject(mapped);
-      } catch (err) {
-        setProject(null);
-      }
-      setLoadingProject(false);
-    };
+
     fetchProject();
   }, [id]);
 
@@ -351,6 +363,7 @@ const ProjectDetail = () => {
     if (!project) return;
 
     setIsLoadingResources(true);
+    setErrorLoadingResources(null);
     try {
       const response: BackendProjectResource[] = await api.get<BackendProjectResource[]>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`);
       const resArr: Resource[] = response.map((r) => ({
@@ -366,6 +379,7 @@ const ProjectDetail = () => {
     } catch (error) {
       console.error('Error fetching resources:', error);
       setResources([]);
+      setErrorLoadingResources(error.message);
     } finally {
       setIsLoadingResources(false);
     }
@@ -823,7 +837,7 @@ const ProjectDetail = () => {
                         {name} ({email})
                         {m.designation && (
                           <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0 ml-2">
-                            {m.designation}
+                            {capitalizeFirstLetter(m.designation)}
                           </Badge>
                         )}
                       </span>
@@ -884,10 +898,15 @@ const ProjectDetail = () => {
 
   if (loadingProject) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading Project...</p>
+      <div className="min-h-screen bg-gray-50">
+        <MainNavigation />
+        <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+          <div className="min-h-screen px-6 py-10 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading Project...</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1611,132 +1630,137 @@ const ProjectDetail = () => {
 
 
               <TabsContent value="resources" className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Upload File Section */}
-                  <Card className="glass border-0 shadow-tasksmate">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Upload className="w-5 h-5" />
-                        Upload File
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {/* File preview section */}
-                        {selectedFiles.length > 0 && (
-                          <div className="space-y-2">
-                            <h4 className="text-sm font-medium">Selected Files ({selectedFiles.length})</h4>
-                            <div className="space-y-2 max-h-40 overflow-y-auto p-2 border rounded-md">
-                              {selectedFiles.map((file, index) => (
-                                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                  <div className="flex items-center space-x-2">
-                                    {file.preview ? (
-                                      <img
-                                        src={file.preview}
-                                        alt={file.file.name}
-                                        className="w-8 h-8 object-cover rounded"
-                                      />
-                                    ) : (
-                                      <File className="w-5 h-5 text-gray-400" />
-                                    )}
-                                    <span className="text-sm truncate max-w-xs">{file.file.name}</span>
+
+                {(userRole === "owner" || userRole === "admin") && (
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Upload File Section */}
+                    <Card className="glass border-0 shadow-tasksmate">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Upload className="w-5 h-5" />
+                          Upload File
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {/* File preview section */}
+                          {selectedFiles.length > 0 && (
+                            <div className="space-y-2">
+                              <h4 className="text-sm font-medium">Selected Files ({selectedFiles.length})</h4>
+                              <div className="space-y-2 max-h-40 overflow-y-auto p-2 border rounded-md">
+                                {selectedFiles.map((file, index) => (
+                                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                    <div className="flex items-center space-x-2">
+                                      {file.preview ? (
+                                        <img
+                                          src={file.preview}
+                                          alt={file.file.name}
+                                          className="w-8 h-8 object-cover rounded"
+                                        />
+                                      ) : (
+                                        <File className="w-5 h-5 text-gray-400" />
+                                      )}
+                                      <span className="text-sm truncate max-w-xs">{file.file.name}</span>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() => handleRemoveFile(index)}
+                                    >
+                                      <X className="h-4 w-4 text-gray-500" />
+                                    </Button>
                                   </div>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() => handleRemoveFile(index)}
-                                  >
-                                    <X className="h-4 w-4 text-gray-500" />
-                                  </Button>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        {selectedFiles.length > 0 && (
-                          <div className="flex items-center justify-center gap-3">
-                            <Button
-                              type="button"
-                              onClick={handleFileUpload}
+                          )}
+                          {selectedFiles.length > 0 && (
+                            <div className="flex items-center justify-center gap-3">
+                              <Button
+                                type="button"
+                                onClick={handleFileUpload}
+                                disabled={uploading}
+                                className="w-full bg-tasksmate-gradient"
+                              >
+                                <Upload className="w-4 h-4 mr-2" />
+                                {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}`}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* File input area */}
+                          <div className={`border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors ${selectedFiles.length > 0 ? 'mt-4' : ''}`}>
+                            <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                            <p className="text-sm text-gray-600 mb-3">Drag and drop files here, or click to browse</p>
+                            <input
+                              type="file"
+                              multiple
+                              className="hidden"
+                              id="file-upload"
+                              onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+                              accept="*/*"
                               disabled={uploading}
-                              className="w-full bg-tasksmate-gradient"
-                            >
-                              <Upload className="w-4 h-4 mr-2" />
-                              {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}`}
-                            </Button>
+                            />
+                            <div className="flex items-center justify-center gap-3">
+                              <label
+                                htmlFor="file-upload"
+                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                              >
+                                Select Files
+                              </label>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">Support for PDF, DOC, XLS, PNG, JPG files (Max 10MB)</p>
                           </div>
-                        )}
-
-                        {/* File input area */}
-                        <div className={`border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors ${selectedFiles.length > 0 ? 'mt-4' : ''}`}>
-                          <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                          <p className="text-sm text-gray-600 mb-3">Drag and drop files here, or click to browse</p>
-                          <input
-                            type="file"
-                            multiple
-                            className="hidden"
-                            id="file-upload"
-                            onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
-                            accept="*/*"
-                            disabled={uploading}
-                          />
-                          <div className="flex items-center justify-center gap-3">
-                            <label
-                              htmlFor="file-upload"
-                              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
-                            >
-                              Select Files
-                            </label>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-2">Support for PDF, DOC, XLS, PNG, JPG files (Max 10MB)</p>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
 
-                  {/* Add URL Section */}
-                  <Card className="glass border-0 shadow-tasksmate">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Link className="w-5 h-5" />
-                        Add URL
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">URL Name</label>
-                          <Input
-                            type="text"
-                            value={newUrlName}
-                            onChange={(e) => setNewUrlName(e.target.value)}
-                            placeholder="e.g., Design Mockups, API Documentation"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">URL</label>
-                          <Input
-                            type="url"
-                            value={newUrl}
-                            onChange={(e) => setNewUrl(e.target.value)}
-                            placeholder="https://example.com"
-                          />
-                        </div>
-                        <Button
-                          className="w-full bg-tasksmate-gradient"
-                          onClick={handleAddUrl}
-                          disabled={!newUrl || !newUrlName}
-
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
+                    {/* Add URL Section */}
+                    <Card className="glass border-0 shadow-tasksmate">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Link className="w-5 h-5" />
                           Add URL
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">URL Name</label>
+                            <Input
+                              type="text"
+                              value={newUrlName}
+                              onChange={(e) => setNewUrlName(e.target.value)}
+                              placeholder="e.g., Design Mockups, API Documentation"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">URL</label>
+                            <Input
+                              type="url"
+                              value={newUrl}
+                              onChange={(e) => setNewUrl(e.target.value)}
+                              placeholder="https://example.com"
+                            />
+                          </div>
+                          <Button
+                            className="w-full bg-tasksmate-gradient"
+                            onClick={handleAddUrl}
+                            disabled={!newUrl || !newUrlName}
+
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add URL
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                )}
 
                 {/* Resources List */}
                 <Card className="glass border-0 shadow-tasksmate">
@@ -1748,115 +1772,151 @@ const ProjectDetail = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {resources.map((resource) => (
-                        <div key={resource.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center overflow-hidden">
-                              {resource.type === 'file' ? (
-                                resource.url?.match(/\.(jpg|jpeg|png|gif|webp|ico)$/i) ? (
-                                  <img
-                                    src={resource.url}
-                                    alt={resource.name}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      // Fallback to file icon if image fails to load
-                                      const target = e.target as HTMLImageElement;
-                                      target.onerror = null;
-                                      target.src = '';
-                                      target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center"><File class="w-5 h-5 text-blue-600" /></div>';
-                                    }}
-                                  />
-                                ) : (
-                                  <File className="w-5 h-5 text-blue-600" />
-                                )
-                              ) : (
-                                <ExternalLink className="w-5 h-5 text-blue-600" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{resource.name}</p>
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <span>Added by {resource.uploadedBy}</span>
-                                <span>•</span>
-                                <span>{new Date(resource.uploadedAt).toLocaleDateString()}</span>
-                                {resource.size && (
-                                  <>
-                                    <span>•</span>
-                                    <span>{resource.size}</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
+
+                      {
+                        errorLoadingResources ? (
+                          <div className="text-center py-16 bg-white rounded-lg border">
+                            {/* <AlertCircle className="w-12 h-12 text-green-600 mx-auto mb-4" /> */}
+                            <p className="text-gray-500">Failed to load resources <br></br> {errorLoadingResources}</p>
+                            <Button
+                              className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                              onClick={fetchResources}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Try again
+                            </Button>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {resource.type === 'url' ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Open"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  if (resource.url) {
-                                    // Ensure the URL has a protocol
-                                    let urlToOpen = resource.url;
-                                    if (!/^https?:\/\//i.test(urlToOpen)) {
-                                      urlToOpen = 'https://' + urlToOpen;
-                                    }
-                                    // Create a temporary anchor and trigger click
-                                    const a = document.createElement('a');
-                                    a.href = urlToOpen;
-                                    a.target = '_blank';
-                                    a.rel = 'noopener noreferrer';
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                  }
-                                }}
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Download"
-                                onClick={() => handleDownload(resource)}
-                              >
-                                <FileText className="w-4 h-4" />
-                              </Button>
-                            )}
+                        ) :
+                          (isLoadingResources ? (
+                            <div className="text-center py-16 bg-white rounded-lg border">
+                              <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
+                              <p className="text-gray-500">Loading resources...</p>
+                            </div>
+                            // <p className="text-gray-500">Loading resources...</p>
+                          ) : resources.length == 0 ? (
+                            <div className="text-center py-16 bg-white rounded-lg border">
+                              <FileText className="w-12 h-12 text-green-600 mx-auto mb-4" />
+                              <p className="text-gray-500">No resources found.</p>
+                            </div>
+                          ) :
+                            resources.map((resource) => (
+                              <div key={resource.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center overflow-hidden">
+                                    {resource.type === 'file' ? (
+                                      resource.url?.match(/\.(jpg|jpeg|png|gif|webp|ico)$/i) ? (
+                                        <img
+                                          src={resource.url}
+                                          alt={resource.name}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            // Fallback to file icon if image fails to load
+                                            const target = e.target as HTMLImageElement;
+                                            target.onerror = null;
+                                            target.src = '';
+                                            target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center"><File class="w-5 h-5 text-blue-600" /></div>';
+                                          }}
+                                        />
+                                      ) : (
+                                        <File className="w-5 h-5 text-blue-600" />
+                                      )
+                                    ) : (
+                                      <ExternalLink className="w-5 h-5 text-blue-600" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900">{resource.name}</p>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                      <span>Added by {resource.uploadedBy}</span>
+                                      <span>•</span>
+                                      <span>{new Date(resource.uploadedAt).toLocaleDateString()}</span>
+                                      {resource.size && (
+                                        <>
+                                          <span>•</span>
+                                          <span>{resource.size}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {resource.type === 'url' ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Open"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        if (resource.url) {
+                                          // Ensure the URL has a protocol
+                                          let urlToOpen = resource.url;
+                                          if (!/^https?:\/\//i.test(urlToOpen)) {
+                                            urlToOpen = 'https://' + urlToOpen;
+                                          }
+                                          // Create a temporary anchor and trigger click
+                                          const a = document.createElement('a');
+                                          a.href = urlToOpen;
+                                          a.target = '_blank';
+                                          a.rel = 'noopener noreferrer';
+                                          document.body.appendChild(a);
+                                          a.click();
+                                          document.body.removeChild(a);
+                                        }
+                                      }}
+                                    >
+                                      <ExternalLink className="w-4 h-4" />
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Download"
+                                      onClick={() => handleDownload(resource)}
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </Button>
+                                  )}
 
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Rename"
-                              onClick={() => {
-                                if (resource.type === 'url') {
-                                  setResourceToEdit(resource);
-                                  setEditUrlName(resource.name);
-                                  setEditUrlValue(resource.url || "");
-                                  setIsEditUrlOpen(true);
-                                } else {
-                                  const newName = window.prompt('Enter new name', resource.name);
-                                  if (newName && newName !== resource.name) {
-                                    handleRenameResource(resource, newName);
-                                  }
-                                }
-                              }}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
 
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Delete"
-                              onClick={() => { setResourceToDelete(resource); setIsDeleteResourceOpen(true); }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
 
-                            {/* <DropdownMenu>
+                                  {(userRole === "owner" || userRole === "admin") && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Rename"
+                                      onClick={() => {
+                                        if (resource.type === 'url') {
+                                          setResourceToEdit(resource);
+                                          setEditUrlName(resource.name);
+                                          setEditUrlValue(resource.url || "");
+                                          setIsEditUrlOpen(true);
+                                        } else {
+                                          const newName = window.prompt('Enter new name', resource.name);
+                                          if (newName && newName !== resource.name) {
+                                            handleRenameResource(resource, newName);
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                  )}
+
+                                  {(userRole === "owner" || userRole === "admin") && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Delete"
+                                      onClick={() => {
+                                        setResourceToDelete(resource);
+                                        setIsDeleteResourceOpen(true);
+                                      }}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  )}
+
+                                  {/* <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">
                                   <MoreVertical className="w-4 h-4" />
@@ -1872,9 +1932,10 @@ const ProjectDetail = () => {
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu> */}
-                          </div>
-                        </div>
-                      ))}
+                                </div>
+                              </div>
+                            ))
+                          )}
                     </div>
                   </CardContent>
                 </Card>

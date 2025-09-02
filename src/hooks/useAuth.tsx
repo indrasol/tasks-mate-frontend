@@ -1,10 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
-import { api } from "@/services/apiService";
+// Removed backend API dependency – sign-up/sign-in handled fully via Supabase client SDK
 import { removeToken, setToken } from "@/services/tokenService";
 import { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_ENDPOINTS } from "../../config";
 
 // -------------------------
 // Types
@@ -28,13 +27,15 @@ interface AuthContextType {
   loading: boolean;
   signUp: (dto: SignUpDto) => Promise<string>;
   signIn: (identifier: string, password: string) => Promise<void>;
+  signInWithOtp: (identifier: string, username?: string, shouldCreateUser?: boolean) => Promise<void>;
+  verifyOtp: (identifier: string, otp: string, username?: string) => Promise<void>;
   signOut: () => Promise<void>;
 
   /* NEW */
   forgotPassword: (identifier: string) => Promise<void>;
   resetPassword: (params: { email: string; newPassword: string; otp?: string }) => Promise<void>;
   resetPasswordWithToken: (params: { newPassword: string; accessToken: string }) => Promise<void>;
-  exchangeCodeForSession: (accessToken: string) => Promise<{user: User, session: Session}>;
+  exchangeCodeForSession: (accessToken: string) => Promise<{ user: User, session: Session }>;
   changePassword: (currentPwd: string, newPwd: string) => Promise<void>;
   onPasswordRecovery: (cb: (email: string) => void) => () => void;
 }
@@ -45,23 +46,12 @@ export const useAuth = () => useContext(AuthContext);
 // -------------------------
 // Helpers
 // -------------------------
+// All server calls removed – backend profile creation no longer needed
+// Keeping identifiers purely client-side
 
-async function ensureBackendProfile(user: User) {
-  // 1️⃣  Try to fetch existing profile
-  try {
-    return await api.post<BackendProfile>(API_ENDPOINTS.LOGIN, { identifier: user.email });
-  } catch (err: any) {
-    // If not found, create and retry once
-    if (err.message?.includes("not found")) {
-      await api.post(API_ENDPOINTS.REGISTER, {
-        user_id: user.id,
-        email: user.email,
-        username: user.user_metadata?.username ?? user.email?.split("@")[0],
-      });
-      return api.post<BackendProfile>(API_ENDPOINTS.LOGIN, { identifier: user.email });
-    }
-    throw err;
-  }
+// Placeholder no-op while backend profile creation is deprecated
+async function ensureBackendProfileCreation(_user: User) {
+  return;
 }
 
 // -------------------------
@@ -113,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Actions exposed to UI
   //---------------------------------------------------
   const signUp: AuthContextType["signUp"] = async ({ email, password, username }) => {
-    // 1️⃣  Create auth user (no email confirmation)
+    // 1️⃣ Create auth user
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -121,64 +111,101 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) throw error;
 
-    let session = data.session;
-    let authUser = data.user;
+    let session = data?.session;
+    let authUser = data?.user;
 
-    // 2️⃣  If no session returned (e.g., email confirmation disabled but SDK bug) – try direct sign-in once
+    // console.log(session, authUser)
+
+    // ✅ Session and user returned = sign-up and login successful
+    if (authUser && session) {
+      setToken(session.access_token);
+      // ensureBackendProfileCreation(authUser).catch(console.error); // Removed backend call
+      return "User registered successfully";
+    }
+
+    if(authUser){
+      // ensureBackendProfileCreation(authUser).catch(console.error); // Removed backend call
+    }
+
+    // ✅ No user = hard failure
+    if (!authUser) {
+      throw new Error("Sign-up failed – could not obtain an auth user.");
+    }
+
+    // ✅ Try fallback sign-in
+    // const { data: signinData, error: signinErr } = await supabase.auth.signInWithPassword({ email, password });
+    // if (signinErr) {
+    //   throw new Error(signinErr.message || "Sign-in after sign-up failed");
+    // }
+
+    // console.log(signinData)
+
+    // session = signinData.session;
+    // authUser = signinData.user;
+
+    // if(authUser){
+    //   ensureBackendProfileCreation(authUser).catch(console.error);
+    // }
+
+    // ✅ Still no session after sign-in means email confirmation is required
     if (!session) {
-      const { data: signinData, error: signinErr } = await supabase.auth.signInWithPassword({ email, password });
-      if (signinErr) {
-        throw new Error(signinErr.message || "Sign-in after sign-up failed");
-      }
-      session = signinData.session;
-      authUser = signinData.user;
+      return "User registered successfully. Please check your email for confirmation.";
     }
 
-    if (!session || !authUser) {
-      throw new Error("Sign-up failed – could not obtain an auth session.");
-    }
-
-    // 3️⃣  Persist JWT so next requests are authenticated automatically
+    // ✅ Success after fallback
     setToken(session.access_token);
+    return "User registered successfully";
+  };
 
-    // 4️⃣  Add row to backend users table (token verified server-side)
-    const { message } = await api.post<{ message: string }>(API_ENDPOINTS.REGISTER, {
-      user_id: authUser.id,
-      email,
-      username,
-    });
 
-    // If email confirmation is disabled, Supabase will return a valid session
-    if (data?.session && data?.user) {
-      // Persist token immediately so subsequent requests include it
-      setToken(data.session.access_token);
-      // await ensureBackendProfile(data.user).catch(console.error);
-    }
-
-    return message;
+  const getEmailFromIdentifier = async (identifier: string) => {
+    // Treat identifier directly as email (username logins removed)
+    return identifier;
   };
 
   const signIn: AuthContextType["signIn"] = async (identifier, password) => {
-    let email = identifier;
-
-    // If user entered username, resolve to email via backend (requires API key)
-    if (!identifier.includes("@")) {
-      try {
-        const apiKey = import.meta.env.VITE_SUPABASE_API_KEY as string;
-        const resp = await api.post<{ email: string }>(API_ENDPOINTS.GET_EMAIL, { username: identifier }, {
-          headers: { "X-API-Key": apiKey },
-        });
-        email = resp.email;
-      } catch (err: any) {
-        throw new Error(err.message || "Unable to resolve username to email");
-      }
-    }
+    let email = await getEmailFromIdentifier(identifier);
 
     const { data: signData, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     // Ensure backend profile exists (creates row only if missing)
+    // if (signData?.user) {
+    //   await ensureBackendProfileCreation(signData.user).catch(console.error);
+    // }
+    // onAuthStateChange will update local state next
+  };
+
+  const signInWithOtp: AuthContextType["signInWithOtp"] = async (identifier, username, shouldCreateUser = true) => {
+    let email = await getEmailFromIdentifier(identifier);
+
+    const { data: signData, error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser,
+        data: username ? { username } : undefined,
+      },
+    });
+    if (error) throw error;
+    // Ensure backend profile exists (creates row only if missing)
+    // if (signData?.user) {
+    //   await ensureBackendProfileCreation(signData.user).catch(console.error);
+    // }
+    // onAuthStateChange will update local state next
+  };
+
+  const verifyOtp: AuthContextType["verifyOtp"] = async (identifier, otp, username) => {
+    let email = await getEmailFromIdentifier(identifier);
+
+    const { data: signData, error } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
+    if (error) throw error;
+
+    // If this is a newly created user, ensure backend profile row exists
     if (signData?.user) {
-      await ensureBackendProfile(signData.user).catch(console.error);
+      // Attach username metadata if provided (useful when user clicks magic link directly and bypasses metadata)
+      if (username && !signData.user.user_metadata?.username) {
+        await supabase.auth.updateUser({ data: { username } }).catch(console.error);
+      }
+      // ensureBackendProfileCreation(signData.user).catch(console.error); // Removed backend call
     }
     // onAuthStateChange will update local state next
   };
@@ -194,32 +221,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   //---------------------------------------------------
 
   /* -------- helpers -------- */
-  const resolveIdentifierToEmail = async (identifier: string) => {
-    if (identifier.includes("@")) return identifier;
-    const apiKey = import.meta.env.VITE_SUPABASE_API_KEY as string;
-    const { email } = await api.post<{ email: string }>(API_ENDPOINTS.GET_EMAIL, { username: identifier }, {
-      headers: { "X-API-Key": apiKey },
-    });
-    return email;
-  };
+  // resolveIdentifierToEmail obsolete
 
   /* -------- auth API -------- */
-  const forgotPassword = async (identifier: string) => {
-    const email = await resolveIdentifierToEmail(identifier);
+  const forgotPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `/reset-password?email=${email}`,
     });
     if (error) throw error;
   };
 
   const resetPassword: AuthContextType["resetPassword"] = async ({ email, newPassword, otp }) => {
     if (otp) {
-      const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
+      const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: "recovery" });
       if (error) throw error;
     }
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
   };
+
+  // const verifyOtp: AuthContextType["verifyOtp"] = async ({code }) => {
+  //   const { data, error } = await supabase.auth.verifyOtp({
+  //     type: "recovery",
+  //     token: code,
+  // });
+  //   if (error) throw error;
+  // };
 
   // const resetPasswordWithTokenOld: AuthContextType["resetPasswordWithToken"] = async ({ newPassword, accessToken }: { newPassword: string; accessToken: string }) => {
   //   const response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
@@ -243,9 +270,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   //   return response.json();
   // }
 
-  const exchangeCodeForSession: AuthContextType["exchangeCodeForSession"] = async (accessToken: string) : Promise<{user: User, session: Session}> => {
+  const exchangeCodeForSession: AuthContextType["exchangeCodeForSession"] = async (accessToken: string): Promise<{ user: User, session: Session }> => {
     const { data: session, error: exchangeError } = await supabase.auth.exchangeCodeForSession(accessToken);
-    if (exchangeError){
+    if (exchangeError) {
       console.error("Failed to exchange code for session:", exchangeError);
       throw exchangeError;
     }
@@ -278,17 +305,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (session) {
       console.log("Session already exists", session);
     }
-    
+
     if (!session && accessToken) {
       console.log("Exchanging code for session...");
       // Exchange the code for a session
-      const {user, session} = await exchangeCodeForSession(accessToken);
-      console.log("Session set successfully", session, user); 
+      const { user, session } = await exchangeCodeForSession(accessToken);
+      console.log("Session set successfully", session, user);
     }
 
-      
 
-   
+
+
 
     // // Set the session with the access token from reset link
     // const { error: sessionError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
@@ -297,7 +324,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     //   throw sessionError;
     // }
 
-   
+
 
     // Add slight delay to let Supabase sync session
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -341,7 +368,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* -------- original signUp / signIn / signOut stay unchanged -------- */
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, forgotPassword, resetPassword, resetPasswordWithToken, exchangeCodeForSession, changePassword, onPasswordRecovery }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInWithOtp, verifyOtp, signOut, forgotPassword, resetPassword, resetPasswordWithToken, exchangeCodeForSession, changePassword, onPasswordRecovery }}>
       {children}
     </AuthContext.Provider>
   );

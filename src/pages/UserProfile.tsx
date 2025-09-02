@@ -2,18 +2,16 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import {
-    AlertTriangle,
-    ChevronDown
+    AlertTriangle
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-// import { supabase } from '@/integrations/supabase/client';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import OrganizationsHeader from '@/components/navigation/OrganizationsHeader';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
@@ -40,6 +38,10 @@ const UserProfile = () => {
     // Add state
     const [currentPwd, setCurrentPwd] = useState("");
     const [newPwd, setNewPwd] = useState("");
+
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleteReason, setDeleteReason] = useState('');
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -121,6 +123,35 @@ const UserProfile = () => {
         }
     };
 
+
+
+
+    const handleDeleteAccount = async () => {
+        if (!user?.email) return;
+        // open custom confirmation dialog 
+        setDeleteModalOpen(true);
+    };
+
+    const handleDeleteUserCall = async () => {
+        if (!user) return;
+        if (!deleteReason.trim()) {
+            toast({ title: 'Reason required', description: 'Please provide a reason for deletion.', variant: 'destructive' });
+            return;
+        }
+        setDeleting(true);
+        try {
+            // await api.del(`${API_ENDPOINTS.USER}`, { delete_reason: deleteReason });
+            toast({ title: 'Deleted', description: 'Account deleted successfully' });
+            // signOut();
+            // navigate('/org');
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            toast({ title: 'Error', description: (error as Error).message || 'Failed to delete account', variant: 'destructive' });
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     const handleBack = () => {
         navigate('/org');
     };
@@ -144,93 +175,135 @@ const UserProfile = () => {
 
 
             <div className="bg-transparent backdrop-blur-md rounded-lg p-3">
-                    <div className="flex flex-wrap justify-between items-center gap-3">
+                <div className="flex flex-wrap justify-between items-center gap-3">
                     <Card className="w-full">
-                                <CardHeader>
-                                    <CardTitle>Profile Information</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <form className="space-y-6">
-                                        <div className="flex items-center space-x-6">
-                                            <Avatar className="w-20 h-20">
-                                                {/* <AvatarImage src={profile?.avatar_url} /> */}
-                                                <AvatarFallback>
-                                                    {profile?.display_name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            {/* <Button variant="outline" className="flex items-center space-x-2">
+                        <CardHeader>
+                            <CardTitle>Profile Information</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <form className="space-y-6">
+                                <div className="flex items-center space-x-6">
+                                    <Avatar className="w-20 h-20">
+                                        {/* <AvatarImage src={profile?.avatar_url} /> */}
+                                        <AvatarFallback>
+                                            {profile?.display_name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    {/* <Button variant="outline" className="flex items-center space-x-2">
                         <Upload className="w-4 h-4" />
                         <span>Upload Avatar</span>
                       </Button> */}
-                                        </div>
+                                </div>
 
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="displayName">Display Name</Label>
+                                        <Input
+                                            id="displayName"
+                                            value={profile?.display_name || ''}
+                                            onChange={(e) => setProfile(prev => prev ? { ...prev, display_name: e.target.value } : null)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="username">Username</Label>
+                                        <Input
+                                            id="username"
+                                            value={profile?.username || ''}
+                                            onChange={(e) => setProfile(prev => prev ? { ...prev, username: e.target.value } : null)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* <Collapsible open={passwordChangeOpen} onOpenChange={setPasswordChangeOpen}>
+                                    <CollapsibleTrigger asChild>
+                                        <Button variant="outline" className="flex items-center space-x-2">
+                                            <span>Change Password</span>
+                                            <ChevronDown className="w-4 h-4" />
+                                        </Button>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="space-y-4 mt-4">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <Label htmlFor="displayName">Display Name</Label>
-                                                <Input
-                                                    id="displayName"
-                                                    value={profile?.display_name || ''}
-                                                    onChange={(e) => setProfile(prev => prev ? { ...prev, display_name: e.target.value } : null)}
-                                                />
+                                                <Label htmlFor="currentPassword">Current Password</Label>
+
+                                                <Input id="currentPassword" type="password" value={currentPwd}
+                                                    onChange={(e) => setCurrentPwd(e.target.value)} required />
+
                                             </div>
                                             <div className="space-y-2">
-                                                <Label htmlFor="username">Username</Label>
-                                                <Input
-                                                    id="username"
-                                                    value={profile?.username || ''}
-                                                    onChange={(e) => setProfile(prev => prev ? { ...prev, username: e.target.value } : null)}
-                                                />
+                                                <Label htmlFor="newPassword">New Password</Label>
+                                                <Input id="newPassword" type="password" value={newPwd}
+                                                    onChange={(e) => setNewPwd(e.target.value)} required />
                                             </div>
                                         </div>
-
-                                        <Collapsible open={passwordChangeOpen} onOpenChange={setPasswordChangeOpen}>
-                                            <CollapsibleTrigger asChild>
-                                                <Button variant="outline" className="flex items-center space-x-2">
-                                                    <span>Change Password</span>
-                                                    <ChevronDown className="w-4 h-4" />
-                                                </Button>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="space-y-4 mt-4">
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="currentPassword">Current Password</Label>
-
-                                                        <Input id="currentPassword" type="password" value={currentPwd}
-                                                            onChange={(e) => setCurrentPwd(e.target.value)} required />
-
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="newPassword">New Password</Label>
-                                                        <Input id="newPassword" type="password" value={newPwd}
-                                                            onChange={(e) => setNewPwd(e.target.value)} required />
-                                                    </div>
-                                                </div>
-                                                <div className="flex justify-between items-center pt-6 border-t">
-                                                    <Button onClick={handlePasswordChange} type="submit" className="bg-green-500 hover:bg-green-600">
-                                                        Save new password
-                                                    </Button>
-                                                </div>
-                                            </CollapsibleContent>
-                                        </Collapsible>
-
-                                        <div className="flex items-start pt-6 border-t">
-                                            <Button variant="destructive" className="flex items-center space-x-2 mr-2">
-                                                <AlertTriangle className="w-4 h-4" />
-                                                <span>Delete Account</span>
-                                            </Button>
-                                            <Button variant="secondary" className="flex items-center space-x-2"
-                                                onClick={handleBack}
-                                            >
-                                                <span>Back to Organizations</span>
+                                        <div className="flex justify-between items-center pt-6 border-t">
+                                            <Button onClick={handlePasswordChange} type="submit" className="bg-green-500 hover:bg-green-600">
+                                                Save new password
                                             </Button>
                                         </div>
-                                    </form>
-                                </CardContent>
-                            </Card>
-                    </div>
-                </div>
+                                    </CollapsibleContent>
+                                </Collapsible> */}
 
-            
+                                <div className="flex items-start pt-6 border-t">
+                                    <Button variant="destructive" className="flex items-center space-x-2 mr-2"
+                                        type='button' onClick={handleDeleteAccount}
+                                    >
+                                        <AlertTriangle className="w-4 h-4" />
+                                        <span>Delete Account</span>
+                                    </Button>
+                                    <Button variant="secondary" className="flex items-center space-x-2"
+                                        type="button" onClick={handleBack}
+                                    >
+                                        <span>Back to Organizations</span>
+                                    </Button>
+
+
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen} >
+                <DialogContent aria-describedby='Delete User' aria-description='Delete User'>
+                    <DialogHeader>
+                        <div className="flex items-center flex-wrap gap-2">
+                            <DialogTitle>Delete Account</DialogTitle>
+                        </div>
+                    </DialogHeader>
+                    <div>
+                        <p className="mb-4 text-gray-700">
+                            Are you sure you want to delete your account? This action cannot be undone.
+                        </p>
+                        <div className="space-y-2">
+                            <Label htmlFor="deleteReason">Reason for deletion <span className="text-red-500">*</span></Label>
+                            <Input
+                                id="deleteReason"
+                                value={deleteReason}
+                                onChange={e => setDeleteReason(e.target.value)}
+                                placeholder="Enter reason"
+                                required
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 mt-6">
+                            <Button variant="outline" onClick={() => setDeleteModalOpen(false)} disabled={deleting}>
+                                Cancel
+                            </Button>
+                            <Button
+                                className="bg-red-500 hover:bg-red-600 text-white"
+                                onClick={handleDeleteUserCall}
+                                disabled={deleting}
+                            >
+                                {deleting ? 'Deleting...' : 'Delete'}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+
+
         </div>
     );
 };

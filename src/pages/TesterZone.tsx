@@ -1,5 +1,5 @@
 
-import { API_ENDPOINTS } from '@/../config';
+import { API_ENDPOINTS } from '@/config';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import NewRunModal from '@/components/tester/NewRunModal';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +41,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
 import { TestRun } from '@/types/tracker';
-import { Beaker, Calendar, Check, ChevronDown, ChevronUp, Filter, Loader2, Maximize2, Plus, Search, SortAsc, SortDesc } from 'lucide-react';
+import { Beaker, Calendar, Check, ChevronDown, ChevronUp, Filter, Loader2, Maximize2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -85,6 +85,7 @@ const TesterZone = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [activeTab, setActiveTab] = useState('all-trackers');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // State for trackers from the API
   const [testRuns, setTestRuns] = useState<TestRun[]>([]);
@@ -102,6 +103,7 @@ const TesterZone = () => {
     if (!currentOrgId) return;
 
     setLoading(true);
+    setError(null);
     try {
       const response = await api.get(`${API_ENDPOINTS.TRACKERS}/${currentOrgId}`);
 
@@ -123,6 +125,7 @@ const TesterZone = () => {
       setTestRuns(mappedTrackers);
     } catch (error) {
       console.error('Error fetching trackers:', error);
+      setError(error instanceof Error ? error.message : "Failed to load trackers");
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to load trackers",
@@ -837,166 +840,182 @@ const TesterZone = () => {
         </div>
 
         {/* Table */}
-        {loading ? (
-          <div className="text-center py-16 bg-white rounded-lg border">
-            <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
-            <p className="text-gray-500">Loading trackers...</p>
-          </div>
-        ) : filteredAndSortedRuns.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-lg border">
-            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Beaker className="w-12 h-12 text-green-600" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {hasActiveFilters ? 'No trackers found with current filters' : 'No bug trackers found'}
-            </h3>
-            <p className="text-gray-500 mb-6">
-              {hasActiveFilters
-                ? 'Try adjusting your search terms or filters, or create a new tracker.'
-                : 'Create your first bug tracker to get started.'
-              }
-            </p>
-            {hasActiveFilters && (
-              <Button
-                variant="outline"
-                onClick={clearFilters}
-                className="mb-4"
-              >
-                Clear Filters
-              </Button>
-            )}
-            <Button
-              onClick={() => setShowNewRunModal(true)}
-              className="bg-green-500 hover:bg-green-600 text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Tracker
-            </Button>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg border shadow-sm">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead></TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSort('id')}
+        {
+          error ?
+            (
+              <div className="text-center py-16 bg-white rounded-lg border">
+                <p className="text-red-500">Error loading trackers <br></br> {error}</p>
+                <Button
+                  className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                  onClick={fetchTrackers}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try again
+                </Button>
+              </div>
+            )
+            :
+
+            (loading ? (
+              <div className="text-center py-16 bg-white rounded-lg border">
+                <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
+                <p className="text-gray-500">Loading trackers...</p>
+              </div>
+            ) : filteredAndSortedRuns.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-lg border">
+                <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Beaker className="w-12 h-12 text-green-600" />
+                </div>
+                <p className="text-lg font-medium text-gray-900 mb-2">
+                  {hasActiveFilters ? 'No trackers found with current filters' : 'No bug trackers found'}
+                </p>
+                <p className="text-gray-500 mb-6">
+                  {hasActiveFilters
+                    ? 'Try adjusting your search terms or filters, or create a new tracker.'
+                    : 'Create your first bug tracker to get started.'
+                  }
+                </p>
+                {hasActiveFilters && (
+                  <Button
+                    variant="outline"
+                    onClick={clearFilters}
+                    className="mb-4"
                   >
-                    <div className="flex items-center gap-2">
-                      ID
-                      {getSortIcon('id')}
-                    </div>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSort('name')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Name
-                      {getSortIcon('name')}
-                    </div>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSort('project')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Project
-                      {getSortIcon('project')}
-                    </div>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSort('creator')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Creator
-                      {getSortIcon('creator')}
-                    </div>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSort('status')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Status
-                      {getSortIcon('status')}
-                    </div>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSort('priority')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Priority
-                      {getSortIcon('priority')}
-                    </div>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSort('totalBugs')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Bugs
-                      {getSortIcon('totalBugs')}
-                    </div>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSort('totalTasks')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Tasks
-                      {getSortIcon('totalTasks')}
-                    </div>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSort('date')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Created Date
-                      {getSortIcon('date')}
-                    </div>
-                  </TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAndSortedRuns.map((run) => (
-                  <TableRow
-                    key={run.id}
-                    className="cursor-auto hover:bg-transparent"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <TableCell className="p-2 text-center">
-                      <div
-                        className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${run.status === 'completed'
-                          ? 'bg-tasksmate-gradient border-transparent'
-                          : 'border-gray-300 hover:border-gray-400'
-                          }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTrackerToggle(run.id);
-                        }}
+                    Clear Filters
+                  </Button>
+                )}
+                <Button
+                  onClick={() => setShowNewRunModal(true)}
+                  className="bg-green-500 hover:bg-green-600 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Tracker
+                </Button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border shadow-sm">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead></TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleSort('id')}
                       >
-                        {run.status === 'completed' && (
-                          <Check className="h-3 w-3 text-white" />
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
-                        <CopyableIdBadge
-                          id={run.id}
-                          className="bg-orange-600 hover:bg-orange-700 text-white cursor-pointer"
-                          copyLabel="Tracker"
-                          isCompleted={run.status === 'completed'}
-                        />
-                      </div>
-                    </TableCell>
-                    {/* <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          ID
+                          {getSortIcon('id')}
+                        </div>
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Name
+                          {getSortIcon('name')}
+                        </div>
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleSort('project')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Project
+                          {getSortIcon('project')}
+                        </div>
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleSort('creator')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Creator
+                          {getSortIcon('creator')}
+                        </div>
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleSort('status')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Status
+                          {getSortIcon('status')}
+                        </div>
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleSort('priority')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Priority
+                          {getSortIcon('priority')}
+                        </div>
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleSort('totalBugs')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Bugs
+                          {getSortIcon('totalBugs')}
+                        </div>
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleSort('totalTasks')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Tasks
+                          {getSortIcon('totalTasks')}
+                        </div>
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleSort('date')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Created Date
+                          {getSortIcon('date')}
+                        </div>
+                      </TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAndSortedRuns.map((run) => (
+                      <TableRow
+                        key={run.id}
+                        className="cursor-auto hover:bg-transparent"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <TableCell className="p-2 text-center">
+                          <div
+                            className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${run.status === 'completed'
+                              ? 'bg-tasksmate-gradient border-transparent'
+                              : 'border-gray-300 hover:border-gray-400'
+                              }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTrackerToggle(run.id);
+                            }}
+                          >
+                            {run.status === 'completed' && (
+                              <Check className="h-3 w-3 text-white" />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
+                            <CopyableIdBadge
+                              id={run.id}
+                              className="bg-orange-600 hover:bg-orange-700 text-white cursor-pointer"
+                              copyLabel="Tracker"
+                              isCompleted={run.status === 'completed'}
+                            />
+                          </div>
+                        </TableCell>
+                        {/* <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${run.status === 'completed'
@@ -1015,172 +1034,175 @@ const TesterZone = () => {
 
                       </div>
                     </TableCell> */}
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <div
-                          className={`truncate max-w-[260px] ${run.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
-                          ref={(el) => {
-                            if (el) {
-                              // Check if text is truncated
-                              const isTrunc = el.scrollWidth > el.clientWidth;
-                              if (isTruncated[run.id] !== isTrunc) {
-                                setIsTruncated(prev => ({ ...prev, [run.id]: isTrunc }));
-                              }
-                            }
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTrackerClick(run.id);
-                          }}
-                        >
-                          {run.name}
-                        </div>
-                        {isTruncated[run.id] && (
+                        <TableCell className="font-medium">
+                          <div className="flex items-center">
+                            <div
+                              className={`truncate max-w-[260px] ${run.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
+                              ref={(el) => {
+                                if (el) {
+                                  // Check if text is truncated
+                                  const isTrunc = el.scrollWidth > el.clientWidth;
+                                  if (isTruncated[run.id] !== isTrunc) {
+                                    setIsTruncated(prev => ({ ...prev, [run.id]: isTrunc }));
+                                  }
+                                }
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTrackerClick(run.id);
+                              }}
+                            >
+                              {run.name}
+                            </div>
+                            {isTruncated[run.id] && (
+                              <Button
+                                variant="ghost"
+                                className="ml-1 p-0 h-6 w-6 shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // setSelectedTracker(run);
+                                  // setIsDialogOpen(true);
+                                }}
+                              >
+                                <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
+                              </Button>
+                            )}
+                          </div>
+
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-teal-100 text-teal-800 text-xs hover:bg-teal-100">
+                            {run.project}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-purple-100 text-purple-800 text-xs hover:bg-purple-100">
+                            {run.creator}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={run.status}
+                            onValueChange={(value) => handleStatusChange(run.id, value)}
+                          >
+                            <SelectTrigger className="w-36 border-none bg-transparent p-0 h-auto">
+                              <Badge
+                                variant="secondary"
+                                className={`text-xs ${getStatusColor(run.status)}`}
+                              >
+                                {getStatusText(run.status)}
+                              </Badge>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="not_started">
+                                <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                                  Not Started
+                                </Badge>
+                              </SelectItem>
+                              <SelectItem value="in_progress">
+                                <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                                  In Progress
+                                </Badge>
+                              </SelectItem>
+                              <SelectItem value="blocked">
+                                <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
+                                  Blocked
+                                </Badge>
+                              </SelectItem>
+                              <SelectItem value="on_hold">
+                                <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                                  On Hold
+                                </Badge>
+                              </SelectItem>
+                              <SelectItem value="completed">
+                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                  Completed
+                                </Badge>
+                              </SelectItem>
+                              <SelectItem value="archived">
+                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                  Archived
+                                </Badge>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={run.priority}
+                            onValueChange={(value) => handlePriorityChange(run.id, value)}
+                          >
+                            <SelectTrigger className="w-28 border-none bg-transparent p-0 h-auto">
+                              <Badge
+                                variant="secondary"
+                                className={`text-xs ${getPriorityColor(run.priority)}`}
+                              >
+                                {run.priority.charAt(0).toUpperCase() + run.priority.slice(1)}
+                              </Badge>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">
+                                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                  Low
+                                </Badge>
+                              </SelectItem>
+                              <SelectItem value="medium">
+                                <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                                  Medium
+                                </Badge>
+                              </SelectItem>
+                              <SelectItem value="high">
+                                <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                                  High
+                                </Badge>
+                              </SelectItem>
+                              <SelectItem value="critical">
+                                <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
+                                  Critical
+                                </Badge>
+                              </SelectItem>
+                              <SelectItem value="none">
+                                <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                                  None
+                                </Badge>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-red-600">{run.totalBugs}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-blue-600">{run.totalTasks}</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {new Date(run.date).toLocaleDateString()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
                           <Button
-                            variant="ghost"
-                            className="ml-1 p-0 h-6 w-6 shrink-0"
+                            variant="outline"
+                            size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // setSelectedTracker(run);
-                              // setIsDialogOpen(true);
+                              navigate(`/tester-zone/runs/${run.id}?org_id=${currentOrgId}`);
                             }}
+                            className="text-xs"
                           >
-                            <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
+                            Detail
                           </Button>
-                        )}
-                      </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )
+            )}
 
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-teal-100 text-teal-800 text-xs hover:bg-teal-100">
-                        {run.project}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-purple-100 text-purple-800 text-xs hover:bg-purple-100">
-                        {run.creator}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={run.status}
-                        onValueChange={(value) => handleStatusChange(run.id, value)}
-                      >
-                        <SelectTrigger className="w-36 border-none bg-transparent p-0 h-auto">
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${getStatusColor(run.status)}`}
-                          >
-                            {getStatusText(run.status)}
-                          </Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="not_started">
-                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
-                              Not Started
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="in_progress">
-                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
-                              In Progress
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="blocked">
-                            <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
-                              Blocked
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="on_hold">
-                            <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
-                              On Hold
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="completed">
-                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                              Completed
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="archived">
-                            <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                              Archived
-                            </Badge>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={run.priority}
-                        onValueChange={(value) => handlePriorityChange(run.id, value)}
-                      >
-                        <SelectTrigger className="w-28 border-none bg-transparent p-0 h-auto">
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${getPriorityColor(run.priority)}`}
-                          >
-                            {run.priority.charAt(0).toUpperCase() + run.priority.slice(1)}
-                          </Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">
-                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                              Low
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="medium">
-                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
-                              Medium
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="high">
-                            <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
-                              High
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="critical">
-                            <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
-                              Critical
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="none">
-                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
-                              None
-                            </Badge>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-semibold text-red-600">{run.totalBugs}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-semibold text-blue-600">{run.totalTasks}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {new Date(run.date).toLocaleDateString()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/tester-zone/runs/${run.id}?org_id=${currentOrgId}`);
-                        }}
-                        className="text-xs"
-                      >
-                        Detail
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+
 
         {/* New Run Modal */}
         <NewRunModal

@@ -1,13 +1,14 @@
-// Replace with your actual backend API URL
-
 /// <reference types="vite/client" />
+// Import environment configuration
+import { getApiUrl, isDevelopment } from "./src/config/env";
 
-const API_BASE_URL_DEV = import.meta.env.VITE_DEV_BASE_API_URL || "http://localhost:800/v1";
-const API_BASE_URL_PROD = import.meta.env.VITE_BASE_API_URL;
+// Get the appropriate base URL from the environment configuration
+const API_BASE_URL = `${getApiUrl()}`;
+// Log the API base URL being used
+if (isDevelopment) {
+  console.log(`Using API base URL: ${API_BASE_URL}`);
+}
 
-
-// const API_BASE_URL = API_BASE_URL_DEV
-const API_BASE_URL = API_BASE_URL_PROD
 
 export const API_ENDPOINTS = {
   ORGANIZATIONS: `${API_BASE_URL}/organizations`,
@@ -25,6 +26,7 @@ export const API_ENDPOINTS = {
   AUTHENTICATE: `${API_BASE_URL}/authenticate`,
   LOGIN: `${API_BASE_URL}/login`,
   REGISTER: `${API_BASE_URL}/register`,
+  REGISTER_CONFIRM: `${API_BASE_URL}/register_confirm`,
   DESIGNATIONS: `${API_BASE_URL}/designations`,
   USER_ROLES: `${API_BASE_URL}/user-roles`,
   GET_EMAIL: `${API_BASE_URL}/get-email`,

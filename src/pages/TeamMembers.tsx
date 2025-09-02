@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { API_ENDPOINTS } from '../../config';
+import { API_ENDPOINTS } from '@/config';
 
 interface TeamMember {
   id: string;
@@ -584,7 +584,7 @@ const TeamMembers = () => {
                       <TableCell>
                         <Select 
                           defaultValue={member.role} 
-                          disabled={(currentUserOrgRole !== 'owner' && member.role === 'owner') || updating} 
+                          disabled={ (member.role === 'owner' && !hasMoreOwners) || (currentUserOrgRole !== 'owner' && member.role === 'owner') || updating} 
                           onValueChange={(val) => handleChangeRole(member.org_id, member.user_id, val)}
                         >
                           <SelectTrigger className={`w-24 ${updating ? 'opacity-50' : ''}`}>
