@@ -20,15 +20,16 @@ import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { formatDate } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronRight, Clock, Edit3, Loader2, Plus, Trash2, Upload } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, ChevronRight, Clock, Edit3, Loader2, Pencil, Plus, Save, Trash2, Upload, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import imageCompression from "browser-image-compression";
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 
 interface BugComment {
   id: string;
-  text: string;
-  author: string;
+  content: string;
+  user_id: string;
   created_at: string;
   updated_at?: string;
 }
@@ -45,7 +46,7 @@ interface BugDetails {
   id: string;
   title: string;
   description: string;
-  severity: 'high' | 'medium' | 'low';
+  priority: 'high' | 'medium' | 'low';
   status: 'new' | 'in_progress' | 'resolved' | 'closed';
   tags: string[];
   created_at: string;
@@ -54,6 +55,7 @@ interface BugDetails {
   run_id: string;
   project_id: string;
   project_name: string;
+  is_editable: boolean;
 }
 
 const BugDetail = () => {
@@ -65,10 +67,57 @@ const BugDetail = () => {
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // const [loading, setLoading] = useState(true);
+  // const [error, setError] = useState<string>('');
+  // const [bug, setBug] = useState<BugDetails | null>(null);
+
+  const [bugName, setBugName] = useState('');
+  const [description, setDescription] = useState('');
   const [recreateGuide, setRecreateGuide] = useState('');
+  const [priority, setPriority] = useState('');
+  const [status, setStatus] = useState('');
+  const [assignee, setAssignee] = useState('');
+  const [project_id, setProjectId] = useState('');
+
+  const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
+  const [isRecreateGuideEditing, setIsRecreateGuideEditing] = useState(false);
 
   // Fetch bug details
-  const { data: bug, isLoading, error } = useQuery<BugDetails>({
+
+  // useEffect(() => {
+  //   if (bugId) {
+  //     fetchBugDetails(false);
+  //   }
+  // }, [bugId]);
+
+  // const fetchBugDetails = async (isRefetch?: boolean) => {
+  //   setLoading(true);
+  //   setError('');
+  //   try {
+  //     const response: any = await api.get<any>(`${API_ENDPOINTS.BUGS}/${bugId}`);
+  //     if (response.data) {
+        
+  //       response.data.is_editable = true;
+  //       setBug(response.data);
+  //       setBugName(response.data.title);
+  //       setDescription(response.data.description);
+  //       setRecreateGuide(response.data.recreate_guide);
+  //       setPriority(response.data.priority);
+  //       setStatus(response.data.status);
+  //       setAssignee(response.data.assignee);
+  //       setProjectId(response.data.project_id);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error fetching bug details:', error);
+  //     setError('Failed to fetch bug details. Please try again.');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const { data: bug, isLoading: loading, error } = useQuery<BugDetails>({
     queryKey: ['bug', bugId],
     queryFn: async () => {
       try {
@@ -87,7 +136,19 @@ const BugDetail = () => {
         //   project_id: response?.project_id,
         //   project_name: response?.project_name,
         // };
-        return await api.get<any>(`${API_ENDPOINTS.BUGS}/${bugId}`);
+        const response = await api.get<any>(`${API_ENDPOINTS.BUGS}/${bugId}`);
+        
+        if (response) {
+          setBugName(response.title);
+          setDescription(response.description);
+          setRecreateGuide(response.steps_to_reproduce);
+          setPriority(response.priority);
+          setStatus(response.status);
+          setAssignee(response.assignee);
+          setProjectId(response.project_id);
+          response.is_editable = true;
+        }
+        return response;
 
       } catch (error) {
         console.error('Error fetching bug details:', error);
@@ -96,20 +157,20 @@ const BugDetail = () => {
           description: "Failed to fetch bug details. Please try again.",
           variant: "destructive"
         });
-        return {
-          id: bugId || 'BUG-001',
-          title: 'Login button not responsive on mobile',
-          description: 'The login button becomes unclickable on mobile devices under 768px width. This happens consistently across different browsers including Chrome, Safari, and Firefox on iOS devices.',
-          severity: 'medium' as 'high' | 'medium' | 'low',
-          status: 'new' as const,
-          tags: ['UI', 'Mobile', 'Authentication', 'Cross-browser'],
-          createdAt: '2024-12-20T10:30:00Z',
-          updatedAt: '2024-12-20T14:15:00Z',
-          recreate_guide: 'Recreate guide',
-          run_id: runId || 'RUN-001',
-          project_id: 'P0001',
-          project_name: 'Project 1',
-        };
+        // return {
+        //   id: bugId || 'BUG-001',
+        //   title: 'Login button not responsive on mobile',
+        //   description: 'The login button becomes unclickable on mobile devices under 768px width. This happens consistently across different browsers including Chrome, Safari, and Firefox on iOS devices.',
+        //   severity: 'medium' as 'high' | 'medium' | 'low',
+        //   status: 'new' as const,
+        //   tags: ['UI', 'Mobile', 'Authentication', 'Cross-browser'],
+        //   createdAt: '2024-12-20T10:30:00Z',
+        //   updatedAt: '2024-12-20T14:15:00Z',
+        //   recreate_guide: 'Recreate guide',
+        //   run_id: runId || 'RUN-001',
+        //   project_id: 'P0001',
+        //   project_name: 'Project 1',
+        // };
       }
     },
     enabled: !!bugId,
@@ -120,8 +181,7 @@ const BugDetail = () => {
     queryKey: ['bugComments', bugId],
     queryFn: async () => {
       try {
-        const response: any = await api.get(`${API_ENDPOINTS.BUGS}/${bugId}/comments`);
-        return response.data;
+        return await api.get(`${API_ENDPOINTS.BUGS}/${bugId}/comments`);
       } catch (error) {
         console.error('Error fetching bug comments:', error);
         toast({
@@ -129,16 +189,17 @@ const BugDetail = () => {
           description: "Failed to fetch bug comments. Please try again.",
           variant: "destructive"
         });
-        return [
-          {
-            id: 'C0001',
-            text: 'Comment 1',
-            author: 'John Doe',
-            created_at: '21-08-2025',
-            updated_at: '21-08-2025',
-          }
-        ];
+        // return [
+        //   {
+        //     id: 'C0001',
+        //     text: 'Comment 1',
+        //     author: 'John Doe',
+        //     created_at: '21-08-2025',
+        //     updated_at: '21-08-2025',
+        //   }
+        // ];
       }
+      return [];
     },
     enabled: !!bugId,
   });
@@ -148,8 +209,7 @@ const BugDetail = () => {
     queryKey: ['bugEvidence', bugId],
     queryFn: async () => {
       try {
-        const response: any = await api.get(`${API_ENDPOINTS.BUGS}/${bugId}/evidence`);
-        return response.data
+        return await api.get(`${API_ENDPOINTS.BUGS}/${bugId}/attachments`);
       } catch (error) {
         console.error('Error fetching bug evidence:', error);
         toast({
@@ -157,18 +217,67 @@ const BugDetail = () => {
           description: "Failed to fetch bug evidence. Please try again.",
           variant: "destructive"
         });
-        return [
-          {
-            id: 'E0001',
-            type: 'screenshot',
-            name: 'Screenshot 1',
-            url: 'https://example.com/screenshot1.png',
-            uploaded_at: '21-08-2025',
-          }
-        ];
+        // return [
+        //   {
+        //     id: 'E0001',
+        //     type: 'screenshot',
+        //     name: 'Screenshot 1',
+        //     url: 'https://example.com/screenshot1.png',
+        //     uploaded_at: '21-08-2025',
+        //   }
+        // ];
       }
+      return [];
     },
     enabled: !!bugId,
+  });
+
+  // Mutation for updating description
+  const updateBugDescription = useMutation({
+    mutationFn: async ({ description }: { description: string }) => {
+      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { description });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bug', bugId] });
+      toast({
+        title: "Success",
+        description: "Bug description updated successfully!",
+        variant: "default"
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating bug description:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update bug description. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Mutation for updating recreate guide
+  const updateBugRecreateGuide = useMutation({
+    mutationFn: async ({ recreate_guide }: { recreate_guide: string }) => {
+      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { steps_to_reproduce: recreate_guide });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bug', bugId] });
+      toast({
+        title: "Success",
+        description: "Bug recreate guide updated successfully!",
+        variant: "default"
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating bug recreate guide:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update bug recreate guide. Please try again.",
+        variant: "destructive"
+      });
+    }
   });
 
   // Mutation for updating bug status
@@ -195,11 +304,36 @@ const BugDetail = () => {
     }
   });
 
+  // Mutation for updating bug priority
+  const updateBugPriority = useMutation({
+    mutationFn: async ({ priority }: { priority: string }) => {
+      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { priority });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bug', bugId] });
+      toast({
+        title: "Success",
+        description: "Bug status updated successfully!",
+        variant: "default"
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating bug status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update bug status. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Mutation for adding a comment
   const addComment = useMutation({
     mutationFn: async (commentText: string) => {
       const response: any = await api.post(`${API_ENDPOINTS.BUGS}/${bugId}/comments`, {
-        text: commentText
+        bug_id: bugId,
+        content: commentText
       });
       return response.data;
     },
@@ -278,8 +412,12 @@ const BugDetail = () => {
     deleteComment.mutate(commentId);
   };
 
-  const handleSeverityChange = (newSeverity: string) => {
-    updateBugStatus.mutate({ status: newSeverity });
+  const handleStatusChange = (newStatus: string) => {
+    updateBugStatus.mutate({ status: newStatus });
+  };
+
+  const handlePriorityChange = (newPriority: string) => {
+    updateBugPriority.mutate({ priority: newPriority });
   };
 
   const handleSaveGuide = async () => {
@@ -342,7 +480,7 @@ const BugDetail = () => {
 
       });
 
-      await api.put(`${API_ENDPOINTS.BUGS}/${bugId}/evidence`, formData, {
+      await api.put(`${API_ENDPOINTS.BUGS}/${bugId}/attachments`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -375,8 +513,215 @@ const BugDetail = () => {
     }
   };
 
+  // Attachment upload
+  const handleImageUpload = async (file: File) => {
+    if (!file || !bug?.project_id || !bugId) return;
+    try {
+      if (file.type.startsWith("image/")) {
+        try {
+          // compress images
+          const compressed = await imageCompression(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+            alwaysKeepResolution: true,
+            maxIteration: 2,
+          });
+
+          // const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, compressed, file.name, true);
+          // if (data?.url) {
+          //   return data?.url;
+          // }
+        } catch (err: any) {
+          toast({
+            title: "Failed to compress image, uploading original file",
+            description: err.message,
+            variant: "destructive"
+          });
+          // other files - add as is
+          // const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+          // if (data?.url) {
+          //   return data?.url;
+          // }
+        }
+      } else {
+        // other files - add as is
+        // const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+        // if (data?.url) {
+        //   return data?.url;
+        // }
+      }
+
+    } catch (err: any) {
+      toast({
+        title: "Failed to upload image",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
+    return URL.createObjectURL(file);
+  };
+
+  // Attachment upload
+  const handleAttachmentUpload = async (files: FileList | null) => {
+    if (!files || !bug?.project_id || !bugId) return;
+    try {
+      for (const file of Array.from(files)) {
+        if (file.type.startsWith("image/")) {
+          try {
+            // compress images
+            const compressed = await imageCompression(file, {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 1920,
+              useWebWorker: true,
+              alwaysKeepResolution: true,
+              maxIteration: 2,
+            });
+
+            // await taskService.uploadTaskAttachmentForm(task.project_id, taskId, compressed, file.name, false);
+          } catch (err: any) {
+            toast({
+              title: "Failed to compress image, uploading original file",
+              description: err.message,
+              variant: "destructive"
+            });
+            // other files - add as is
+            // await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, false);
+          }
+        } else {
+          // other files - add as is
+          // await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, false);
+        }
+      }
+      // const data: any[] = await taskService.getTaskAttachments(taskId);
+      // setAttachments(Array.isArray(data) ? data : []);
+      toast({
+        title: "Success",
+        description: "Attachment(s) uploaded!",
+        variant: "default"
+      });
+    } catch (err: any) {
+      toast({
+        title: "Failed to upload attachment",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!bug?.project_id) return;
+    try {
+      // await taskService.deleteTaskAttachment(attachmentId, task.project_id);
+      // setAttachments(attachments.filter(a => a.attachment_id !== attachmentId));
+      toast({
+        title: "Success",
+        description: "Attachment deleted!",
+        variant: "default"
+      });
+    } catch (err: any) {
+      toast({
+        title: "Failed to delete attachment",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSaveChanges = async (isPriorityChange?: string, isStatusChange?: string, isAssigneeChange?: string, isProjectChange?: string, isStartDateChange?: string, isTargetDateChange?: string, isTagsChange?: string[]) => {
+    if (!bugId) return;
+    try {
+      const payload: any = {
+        title: bugName,
+        description,
+        status: isStatusChange ?? status,
+        priority: isPriorityChange ?? priority,
+        assignee: isAssigneeChange ?? assignee,
+      };
+      if (isProjectChange || bug?.project_id) payload.project_id = isProjectChange ?? bug?.project_id;
+      // if (isStartDateChange || bug?.startDate) payload.start_date = toYMDLocal(fromYMDLocal(isStartDateChange ?? bug.startDate) || new Date());
+      // if (isTargetDateChange || bug?.targetDate) payload.due_date = toYMDLocal(fromYMDLocal(isTargetDateChange ?? bug.targetDate) || new Date());
+      // if (isTagsChange || Array.isArray(bug?.tags)) payload.tags = isTagsChange ?? bug?.tags;
+      toast({
+        title: "Saving changes...",
+        description: "Please wait while we save your changes.",
+        variant: "default"
+      });
+      // await bugService.updateTask(bugId, payload);
+      toast({
+        title: "Success",
+        description: "Bug changes saved successfully!",
+        variant: "default"
+      });
+      setIsTitleEditing(false);
+      setIsDescriptionEditing(false);
+      // fetchHistory();
+
+    } catch (err: any) {
+      const msg = err?.message || (err?.detail ? String(err.detail) : 'Failed to save changes');
+      toast({
+        title: "Failed to save changes",
+        description: msg,
+        variant: "destructive"
+      });
+      // fetchBugDetails(false);
+      
+    }
+  };
+
+
+  // const handleStatusChange = async (v: string) => {
+  //   setStatus(v);
+  //   setTask((prev: any) => ({ ...prev, status: v }));
+  //   handleSaveChanges(null, v);
+  // };
+
+  // const handlePriorityChange = async (v: string) => {
+  //   setPriority(v);
+  //   setTask((prev: any) => ({ ...prev, priority: v }));
+  //   handleSaveChanges(v, null);
+  // };
+
+  // const handleAssigneeChange = async (v: string) => {
+  //   setAssignee(v);
+  //   setTask((prev: any) => ({ ...prev, assignee: v }));
+  //   handleSaveChanges(null, null, v);
+  // };
+
+  // const handleProjectChange = async (v: string) => {
+  //   setProjectId(v);
+  //   setTask((prev: any) => ({ ...prev, project_id: v }));
+  //   handleSaveChanges(null, null, null, v);
+  // };
+
+  // const handleStartDateChange = async (v: string) => {
+  //   setStartDate(v);
+  //   setTask((prev: any) => ({ ...prev, startDate: v }));
+  //   handleSaveChanges(null, null, null, null, v);
+  // };
+
+  // const handleTargetDateChange = async (v: string) => {
+  //   setTargetDate(v);
+  //   setTask((prev: any) => ({ ...prev, targetDate: v }));
+  //   handleSaveChanges(null, null, null, null, null, v);
+  // };
+
+  // const handleTagsChange = async (v: string, isAdd: boolean) => {
+  //   let tags = task.tags || [];
+  //   if (isAdd) {
+  //     if (tags.includes(v)) return;
+  //     tags.push(v);
+  //   } else {
+  //     tags = tags.filter((tag: string) => tag !== v);
+  //   }
+  //   setTags(tags);
+  //   setTagInput('');
+  //   setIsTagInputOpen(false);
+  //   handleSaveChanges(null, null, null, null, null, null, tags);
+  // };
+
   // Loading state
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -452,8 +797,8 @@ const BugDetail = () => {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
-                <Badge className={`${getSeverityColor(bug?.severity)} border text-sm font-medium`}>
-                  {bug?.severity?.toUpperCase()}
+                <Badge className={`${getSeverityColor(bug?.priority)} border text-sm font-medium`}>
+                  {bug?.priority?.toUpperCase()}
                 </Badge>
                 <Badge className="text-sm font-mono bg-red-600 text-white">
                   {bug?.id}
@@ -500,21 +845,141 @@ const BugDetail = () => {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Description */}
-            <Card>
+            <Card className="glass border-0 shadow-tasksmate">
               <CardHeader>
-                <CardTitle className="text-lg">Description</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="font-sora">Description</CardTitle>
+                  {isDescriptionEditing ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => {
+                          updateBugDescription.mutate({ description });
+                          setIsDescriptionEditing(false);
+                        }}
+                        title="Save description"
+                      >
+                        <Save className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => {
+                          setIsDescriptionEditing(false);
+                        }}
+                        title="Cancel"
+                      >
+                        <X className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => setIsDescriptionEditing(true)}
+                      disabled={!bug?.is_editable}
+                    >
+                      <Pencil className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                <Textarea
-                  value={bug?.description}
-                  className="min-h-[120px] resize-none border-0 p-0 text-base"
-                  readOnly
-                />
+                {bug?.is_editable && isDescriptionEditing ? (
+                  <RichTextEditor
+                    content={description}
+                    onChange={(content) => setDescription(content)}
+                    placeholder="Add a detailed description..."
+                    onImageUpload={handleImageUpload}
+                    className="min-h-[175px]"
+                  />
+                ) : (
+                  <RichTextEditor
+                    content={description}
+                    hideToolbar
+                    className="min-h-[175px]"
+                  />
+
+                  // <div
+                  //   className="prose max-w-none text-gray-700"
+                  //   dangerouslySetInnerHTML={{ __html: description || '<p>No description</p>' }}
+                  // />
+                )}
               </CardContent>
             </Card>
 
             {/* Recreate Guide */}
-            <Card>
+            <Card className="glass border-0 shadow-tasksmate">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="font-sora">Recreate Guide</CardTitle>
+                  {isRecreateGuideEditing ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => {
+                          updateBugRecreateGuide.mutate({ recreate_guide: recreateGuide });
+                          setIsRecreateGuideEditing(false);
+                        }}
+                        title="Save recreate guide"
+                      >
+                        <Save className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => {
+                          setIsRecreateGuideEditing(false);
+                        }}
+                        title="Cancel"
+                      >
+                        <X className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => setIsRecreateGuideEditing(true)}
+                      disabled={!bug?.is_editable}
+                    >
+                      <Pencil className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {bug?.is_editable && isRecreateGuideEditing ? (
+                  <RichTextEditor
+                    content={recreateGuide}
+                    onChange={(content) => setRecreateGuide(content)}
+                    placeholder="Add a detailed recreate guide..."
+                    onImageUpload={handleImageUpload}
+                    className="min-h-[175px]"
+                  />
+                ) : (
+                  <RichTextEditor
+                    content={recreateGuide}
+                    hideToolbar
+                    className="min-h-[175px]"
+                  />
+
+                  // <div
+                  //   className="prose max-w-none text-gray-700"
+                  //   dangerouslySetInnerHTML={{ __html: description || '<p>No description</p>' }}
+                  // />
+                )}
+              </CardContent>
+            </Card>
+            {/* <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Recreate Guide</CardTitle>
               </CardHeader>
@@ -529,7 +994,7 @@ const BugDetail = () => {
                   Save Guide
                 </Button>
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Evidence Gallery */}
             <Card>
@@ -596,11 +1061,11 @@ const BugDetail = () => {
 
                 {/* Comments List */}
                 <div className="space-y-4">
-                  {comments?.map((comment) => (
+                  {comments?.map((comment: BugComment) => (
                     <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <span className="font-medium text-sm text-gray-900">{comment.author}</span>
+                          <span className="font-medium text-sm text-gray-900">{comment.user_id}</span>
                           <span className="text-xs text-gray-500 ml-2">
                             {formatDate(comment?.created_at)}
                           </span>
@@ -648,7 +1113,7 @@ const BugDetail = () => {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-700">{comment.text}</p>
+                        <p className="text-sm text-gray-700">{comment.content}</p>
                       )}
                     </div>
                   ))}
@@ -666,8 +1131,22 @@ const BugDetail = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
+                <Label htmlFor="severity">Status</Label>
+                  <Select value={bug?.status} onValueChange={handleStatusChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label htmlFor="severity">Severity</Label>
-                  <Select value={bug?.severity} onValueChange={handleSeverityChange}>
+                  <Select value={bug?.priority} onValueChange={handlePriorityChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -679,9 +1158,9 @@ const BugDetail = () => {
                   </Select>
                 </div>
 
-                <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
+                {/* <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
                   Save Changes
-                </Button>
+                </Button> */}
               </CardContent>
             </Card>
           </div>
