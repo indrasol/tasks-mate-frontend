@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { toast } from '@/hooks/use-toast';
-import { CalendarRange, Check, Filter, Plus, Search, SortAsc, SortDesc } from 'lucide-react';
+import { AlertCircle, CalendarRange, Check, Filter, Loader2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TestRunDetail from './TestRunDetail';
 import { api } from '@/services/apiService';
 import { API_ENDPOINTS } from '@/config';
+import { capitalizeFirstLetter } from '@/lib/projectUtils';
 
 type Bug = {
   id: string;
@@ -56,25 +57,28 @@ const BugBoard = () => {
     project: 'TasksMate Web'
   };
 
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   const fetchBugs = useCallback(async () => {
     if (!id) return;
-    
+
+    setLoading(true);
+    setError('');
+
     try {
-      console.log(`Fetching bugs for run ID: ${id}`);
       const response = await api.get(`${API_ENDPOINTS.BUGS}/search/${id}`);
-      console.log('Fetched bugs response:', response);
-      
+
       if (response) {
         // Ensure we're correctly accessing the data
         const responseData = response as any;
-        const bugsData = Array.isArray(responseData.data) ? responseData.data : 
+        const bugsData = Array.isArray(responseData.data) ? responseData.data :
           (responseData.data?.data || []);
         const formattedBugs: Bug[] = bugsData.map((bug: any) => {
-          console.log('Processing bug data:', bug);
-          
+
           // Handle different field formats from API and ensure it's properly formatted
           let closedDate = bug.closed_at || bug.closedDate || bug.closedAt || undefined;
-          
+
           // If closed_at exists and is a valid date, format it properly
           if (closedDate) {
             try {
@@ -87,7 +91,7 @@ const BugBoard = () => {
               console.error('Error formatting closed date:', e);
             }
           }
-          
+
           return {
             id: bug.id || '',
             title: bug.title || '',
@@ -100,17 +104,22 @@ const BugBoard = () => {
             closedDate: closedDate
           };
         });
-        
-        console.log('Formatted bugs with closed dates:', formattedBugs);
+
         setBugs(formattedBugs.length > 0 ? formattedBugs : []);
       } else {
-        console.log('No bugs data found in response');
         setBugs([]);
       }
     } catch (error) {
       console.error('Error fetching bugs:', error);
+      setError(error instanceof Error ? error.message : "Failed to load bugs");
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load bugs",
+        variant: "destructive"
+      });
       // Don't reset bugs to empty array on error to maintain existing state
     }
+    setLoading(false);
   }, [id]);
 
   useEffect(() => {
@@ -128,37 +137,6 @@ const BugBoard = () => {
   }, [fetchBugs]);
 
   const [bugs, setBugs] = useState<Bug[]>([
-    {
-      id: 'BUG-001',
-      title: 'Login button not responsive on mobile',
-      description: 'The login button becomes unclickable on mobile devices under 768px width. This happens consistently across different browsers.',
-      severity: 'high' as const,
-      status: 'open' as const,
-      tags: [testRun.project, 'UI', 'Mobile', 'Authentication'],
-      closed: false,
-      date: '2024-12-25'
-    },
-    {
-      id: 'BUG-002',
-      title: 'Task deletion confirmation dialog missing',
-      description: 'When users try to delete a task, no confirmation dialog appears which can lead to accidental deletions.',
-      severity: 'medium' as const,
-      status: 'in_progress' as const,
-      tags: [testRun.project, 'UX', 'Tasks', 'Confirmation'],
-      closed: false,
-      date: '2024-12-24'
-    },
-    {
-      id: 'BUG-003',
-      title: 'Profile image upload fails silently',
-      description: 'Profile image upload appears to work but fails without any error message to the user.',
-      severity: 'low' as const,
-      status: 'closed' as const,
-      tags: [testRun.project, 'Profile', 'Upload', 'Error Handling'],
-      closed: true,
-      date: '2024-12-20',
-      closedDate: '2024-12-25'
-    }
   ]);
 
   const isProjectTag = (tag: string) => {
@@ -175,34 +153,34 @@ const BugBoard = () => {
   const isDateInRange = (date: string, filter: string) => {
     const itemDate = new Date(date);
     const now = new Date();
-    
+
     // Reset hours, minutes, seconds, and milliseconds for date comparisons
     const today = new Date(now);
     today.setHours(0, 0, 0, 0);
-    
+
     // Yesterday
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     // This week (starting from Sunday/Monday based on locale)
     const thisWeekStart = new Date(today);
     const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const daysFromWeekStart = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Assuming week starts on Monday
     thisWeekStart.setDate(thisWeekStart.getDate() - daysFromWeekStart);
-    
+
     // Last week
     const lastWeekStart = new Date(thisWeekStart);
     lastWeekStart.setDate(lastWeekStart.getDate() - 7);
     const lastWeekEnd = new Date(thisWeekStart);
     lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
-    
+
     // This month
     const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    
+
     // Last month
     const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-    
+
     // For comparison, set time to beginning of day
     const compareDate = new Date(itemDate);
     compareDate.setHours(0, 0, 0, 0);
@@ -210,26 +188,26 @@ const BugBoard = () => {
     switch (filter) {
       case 'today':
         return compareDate.getTime() === today.getTime();
-        
+
       case 'yesterday':
         return compareDate.getTime() === yesterday.getTime();
-        
+
       case 'thisWeek':
         return compareDate >= thisWeekStart && compareDate <= today;
-        
+
       case 'lastWeek':
         return compareDate >= lastWeekStart && compareDate <= lastWeekEnd;
-        
+
       case 'thisMonth':
         return compareDate >= thisMonthStart && compareDate <= today;
-        
+
       case 'lastMonth':
         return compareDate >= lastMonthStart && compareDate <= lastMonthEnd;
-        
+
       case 'custom':
         // TODO: Implement custom date range picker
         return true;
-        
+
       default:
         return true; // 'all' or any other value
     }
@@ -319,45 +297,45 @@ const BugBoard = () => {
       const currentDate = new Date();
       const formattedDate = currentDate.toISOString();
       const displayDate = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-      
+
       console.log(`Toggling bug ${bugId} to ${checked ? 'closed' : 'open'}`);
       console.log(`Using closed date: ${checked ? displayDate : 'undefined'}`);
-      
+
       // First, update the UI optimistically
       setBugs(bugs.map(bug =>
-        bug.id === bugId ? { 
-          ...bug, 
+        bug.id === bugId ? {
+          ...bug,
           closed: checked,
           status: checked ? 'closed' : 'open',
           closedDate: checked ? displayDate : undefined
         } : bug
       ));
-      
+
       // Then update the server
       const newStatus = checked ? 'closed' : 'open';
       console.log(`Updating bug ${bugId} status to ${newStatus}`);
-      
+
       const updateData = {
         status: newStatus
       };
-      
+
       // Only include closed_at field if status is changing to closed
       if (checked) {
         updateData['closed_at'] = formattedDate;
       } else {
         updateData['closed_at'] = null; // Explicitly set to null when reopening
       }
-      
+
       console.log('Sending update to server:', updateData);
       await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, updateData);
-      
+
       // Display a success message
       toast({
         title: checked ? "Bug Closed" : "Bug Reopened",
         description: checked ? "Bug has been marked as closed." : "Bug has been reopened.",
         variant: "default"
       });
-      
+
       // Refresh the bugs list to get the updated data
       fetchBugs();
     } catch (error) {
@@ -403,17 +381,16 @@ const BugBoard = () => {
                   <Badge className={`${getSeverityColor(bug.severity)} text-xs font-medium`}>
                     {bug.severity?.toUpperCase()}
                   </Badge>
-                  <Badge 
-                    className={`${
-                      bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
+                  <Badge
+                    className={`${bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
                       bug?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                      bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
-                      bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
-                      bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
-                      bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
-                      bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
-                      'bg-red-100 text-red-700'
-                    } text-xs`}
+                        bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
+                          bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
+                            bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
+                              bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
+                                bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-red-100 text-red-700'
+                      } text-xs`}
                   >
                     {bug?.status?.replace(/_/g, ' ')}
                   </Badge>
@@ -535,7 +512,7 @@ const BugBoard = () => {
               <TableCell className="font-medium">
                 <CopyableIdBadge
                   id={bug?.id}
-                  className="bg-red-600" 
+                  className="bg-red-600"
                   copyLabel="Bug"
                   isCompleted={bug?.closed}
                 />
@@ -573,19 +550,18 @@ const BugBoard = () => {
                 ) : '-'}
               </TableCell>
               <TableCell>
-                <Badge 
-                  className={`${
-                    bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
+                <Badge
+                  className={`${bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
                     bug?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                    bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
-                    bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
-                    bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
-                    bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
-                    bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
-                    'bg-red-100 text-red-700'
-                  } text-xs`}
+                      bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
+                        bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
+                          bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
+                            bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
+                              bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
+                                'bg-red-100 text-red-700'
+                    } text-xs`}
                 >
-                  {bug?.status?.replace(/_/g, ' ')}
+                  {capitalizeFirstLetter(bug?.status?.replace(/_/g, ' '))}
                 </Badge>
               </TableCell>
             </TableRow>
@@ -601,49 +577,7 @@ const BugBoard = () => {
 
       <TestRunDetail />
 
-      <div className="transition-all duration-300 p-8" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
-        {/* Breadcrumb */}
-        {/* <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link to="/tester-zone">Bug Tracker</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator>
-              <ChevronRight className="h-4 w-4" />
-            </BreadcrumbSeparator>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link to={`/tester-zone/runs/${testRun.id}`}>{testRun.name}</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator>
-              <ChevronRight className="h-4 w-4" />
-            </BreadcrumbSeparator>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Bug Board</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb> */}
-
-        {/* Header */}
-        {/* <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
-              Bug Board - {testRun.name}
-            </h1>
-            <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-200">{testRun.project}</Badge>
-          </div>
-          
-          <Button 
-            onClick={() => setIsNewBugModalOpen(true)}
-            className="bg-green-500 hover:bg-green-600 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Bug
-          </Button>
-        </div> */}
+      <div className="px-6 transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
 
         {/* Enhanced Controls */}
         <div className="py-2 mb-2">
@@ -803,7 +737,7 @@ const BugBoard = () => {
 
                 <div className="ml-4 flex items-center gap-2">
                   <Button
-                    onClick={() => setIsNewBugModalOpen(true)} 
+                    onClick={() => setIsNewBugModalOpen(true)}
                     className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
                   >
                     <Plus className="w-4 h-4" />
@@ -815,51 +749,77 @@ const BugBoard = () => {
           </div>
         </div>
 
-        {/* Bug Cards Grid */}
-        {viewMode === 'grid' ? BugGridView() : BugListView()}
 
-        {filteredBugs.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all'
-                ? 'No bugs found with current filters'
-                : 'No bugs found'
-              }
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all'
-                ? 'Try adjusting your search terms or filters, or create a new bug.'
-                : 'Get started by creating your first bug report.'
-              }
-            </p>
-            {(searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all') && (
+
+        {
+          error ? (
+            <div className="text-center py-16 bg-white rounded-lg border">
+              <p className="text-red-500">Error loading bugs <br></br> {error}</p>
               <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterStatus('all');
-                  setFilterPriority('all');
-                  setDateFilter('all');
-                }}
-                className="mb-4"
+                className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                onClick={fetchBugs}
               >
-                Clear Filters
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Try again
               </Button>
-            )}
-            <Button
-              onClick={() => setIsNewBugModalOpen(true)}
-              className="bg-green-500 hover:bg-green-600 text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Bug
-            </Button>
-          </div>
-        )}
+            </div>
+          ) :
+
+            (loading ? (
+              <div className="text-center py-16 bg-white rounded-lg border">
+                <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
+                <p className="text-gray-500">Loading bugs...</p>
+              </div>
+            ) :
+
+              (filteredBugs.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all'
+                      ? 'No bugs found with current filters'
+                      : 'No bugs found'
+                    }
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    {searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all'
+                      ? 'Try adjusting your search terms or filters, or create a new bug.'
+                      : 'Get started by creating your first bug report.'
+                    }
+                  </p>
+                  {(searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all') && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setFilterStatus('all');
+                        setFilterPriority('all');
+                        setDateFilter('all');
+                      }}
+                      className="mb-4"
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => setIsNewBugModalOpen(true)}
+                    className="bg-green-500 hover:bg-green-600 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Bug
+                  </Button>
+                </div>
+              )
+                :
+                (viewMode === 'grid' ? BugGridView() : BugListView())
+              )
+            )
+        }
+
       </div>
 
       <NewBugModal
