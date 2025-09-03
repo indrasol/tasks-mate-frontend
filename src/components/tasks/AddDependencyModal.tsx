@@ -213,7 +213,7 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
                   </div>
 
                   <h3 className="font-semibold text-gray-900 mb-1">{task.name}</h3>
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{task.description}</p>
+                  {/* <p className="text-sm text-gray-600 mb-3 line-clamp-2">{task.description}</p> */}
 
                   {/* Tags */}
                   {task.tags && task.tags.length > 0 && (
