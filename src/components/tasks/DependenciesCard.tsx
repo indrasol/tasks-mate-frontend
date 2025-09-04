@@ -104,9 +104,9 @@ export function DependenciesCard({
                           {dep.status?.replace('_', ' ') || 'not started'}
                         </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
+                      {/* <p className="text-xs text-muted-foreground truncate">
                         {dep.description || 'No description'}
-                      </p>
+                      </p> */}
                       <div className="flex items-center gap-2 mt-1">
                         {dep.due_date && (
                           <span className="text-xs text-muted-foreground">

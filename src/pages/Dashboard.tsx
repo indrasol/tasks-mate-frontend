@@ -1,43 +1,6 @@
-import React, { useState } from 'react';
-import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
 import MainNavigation from "@/components/navigation/MainNavigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Area,
-  AreaChart
-} from 'recharts';
-import {
-  TrendingUp,
-  TrendingDown,
-  Users,
-  CheckCircle2,
-  Clock,
-  Target,
-  Calendar,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Activity,
-  BookOpen,
-  FolderOpen,
-  AlertCircle,
-  Info,
-  Loader2
-} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -46,9 +9,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import useDashboard from '@/hooks/useDashboard';
+import { useAuth } from "@/hooks/useAuth";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
-import { getPriorityColor, getStatusMeta } from '@/lib/projectUtils';
+import useDashboard from '@/hooks/useDashboard';
+import { getStatusMeta } from '@/lib/projectUtils';
+import {
+  Activity,
+  AlertCircle,
+  BarChart3,
+  CheckCircle2,
+  FolderOpen,
+  Info,
+  Loader2,
+  PieChart as PieChartIcon,
+  Target,
+  Users
+} from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate } from "react-router-dom";
+import {
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts';
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
@@ -113,21 +103,28 @@ const Dashboard = () => {
       </div>
     );
   }
-  
+
   // Only show loading for initial data fetch, not for API errors that could be handled with fallbacks
   const isInitialLoading = dataLoading && !dashboardData;
-  
+
   if (isInitialLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <Loader2 className="animate-spin h-16 w-16 text-tasksmate-green-end mb-4" />
-          <p className="text-gray-600 font-medium">Loading dashboard data...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <MainNavigation />
+
+        <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+          {/* Page Header */}
+          <div className="px-6 py-8">
+            <div className="min-h-screen w-full flex justify-center items-center">
+              <Loader2 className="animate-spin h-16 w-16 text-tasksmate-green-end mb-4" />
+              <p className="text-gray-600 font-medium">Loading dashboard data...</p>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
-  
+
   // Show error in-page instead of full page takeover
   // This allows users to still see the dashboard even if one API call fails
 
@@ -340,7 +337,7 @@ const Dashboard = () => {
                             <span>{member.tasksCompleted}/{member.tasksTotal} tasks completed</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
+                            <div
                               className="h-2 rounded-full bg-tasksmate-gradient"
                               style={{ width: `${member.efficiency}%` }}
                             ></div>

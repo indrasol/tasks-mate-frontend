@@ -31,6 +31,7 @@ import { Project } from "@/types/projects";
 import { Task } from "@/types/tasks";
 import { Plus, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { RichTextEditor } from "../ui/rich-text-editor";
 
 interface NewTaskModalProps {
   open: boolean;
@@ -292,6 +293,55 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     }
   };
 
+  // Attachment upload
+  // const handleImageUpload = async (file: File) => {
+  //   if (!file || !task?.project_id || !taskId) return;
+  //   try {
+  //     if (file.type.startsWith("image/")) {
+  //       try {
+  //         // compress images
+  //         const compressed = await imageCompression(file, {
+  //           maxSizeMB: 1,
+  //           maxWidthOrHeight: 1920,
+  //           useWebWorker: true,
+  //           alwaysKeepResolution: true,
+  //           maxIteration: 2,
+  //         });
+
+  //         const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, compressed, file.name, true);
+  //         if (data?.url) {
+  //           return data?.url;
+  //         }
+  //       } catch (err: any) {
+  //         toast({
+  //           title: "Failed to compress image, uploading original file",
+  //           description: err.message,
+  //           variant: "destructive"
+  //         });
+  //         // other files - add as is
+  //         const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+  //         if (data?.url) {
+  //           return data?.url;
+  //         }
+  //       }
+  //     } else {
+  //       // other files - add as is
+  //       const data: any = await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, true);
+  //       if (data?.url) {
+  //         return data?.url;
+  //       }
+  //     }
+
+  //   } catch (err: any) {
+  //     toast({
+  //       title: "Failed to upload image",
+  //       description: err.message,
+  //       variant: "destructive"
+  //     });
+  //   }
+  //   return URL.createObjectURL(file);
+  // };
+
   // Bugs linking UI removed until backend endpoint is available.
 
   return (
@@ -347,14 +397,21 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                 <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
                   Description
                 </Label>
-                <Textarea
+                <RichTextEditor
+                  content={formData.description}
+                  onChange={(content) => handleInputChange("description", content)}
+                  placeholder="Provide detailed information about this task. You can also elaborate longer or update inside the task after creation"
+                  // onImageUpload={handleImageUpload}
+                  className="min-h-[175px]"
+                />
+                {/* <Textarea
                   id="description"
                   placeholder="Provide detailed information about this task. You can also elaborate longer or update inside the task after creation"
                   value={formData.description}
                   onChange={(e) => handleInputChange("description", e.target.value)}
                   rows={4}
                   className="text-base resize-none"
-                />
+                /> */}
               </div>
 
               {/* Project Dropdown */}

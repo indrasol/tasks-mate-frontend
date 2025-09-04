@@ -22,6 +22,7 @@ import { toast } from "@/hooks/use-toast";
 import { X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { RichTextEditor } from "../ui/rich-text-editor";
 
 interface Task {
   id: string;
@@ -205,14 +206,21 @@ const DuplicateTaskSidebar = ({ open, onOpenChange, sourceTask }: DuplicateTaskS
               <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
                 Description
               </Label>
-              <Textarea
+              <RichTextEditor
+                content={formData.description}
+                onChange={(content) => handleInputChange("description", content)}
+                placeholder="Provide detailed information about this task"
+                // onImageUpload={handleImageUpload}
+                className="min-h-[175px]"
+              />
+              {/* <Textarea
                 id="description"
                 placeholder="Provide detailed information about this task"
                 value={formData.description}
                 onChange={(e) => handleInputChange("description", e.target.value)}
                 rows={4}
                 className="text-base resize-none"
-              />
+              /> */}
             </div>
 
             <div className="space-y-3">

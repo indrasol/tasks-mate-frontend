@@ -213,7 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut: AuthContextType["signOut"] = async () => {
     await supabase.auth.signOut();
     removeToken();
-    navigate("/");
+    navigate("/login");
   };
 
   //---------------------------------------------------
