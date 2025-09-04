@@ -20,6 +20,15 @@ const Scratchpad = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const currentOrgId = useCurrentOrgId();
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
+    window.addEventListener('sidebar-toggle', handler);
+    setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem');
+    return () => window.removeEventListener('sidebar-toggle', handler);
+  }, []);
+
   useEffect(() => {
     if (!loading && !user) {
       navigate('/');
@@ -77,7 +86,7 @@ const Scratchpad = () => {
       console.error('Failed to clear scratchpad', err);
     }
   };
-  
+
   const handleSave = async () => {
     if (!currentOrgId || !content.trim()) return;
     try {
@@ -99,7 +108,7 @@ const Scratchpad = () => {
       // TODO: Implement slash menu for /task and /meeting
       console.log('Slash command triggered');
     }
-    
+
     // Handle Cmd+Enter for todo conversion
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       // TODO: Implement "Convert highlighted todos" modal
@@ -125,10 +134,10 @@ const Scratchpad = () => {
       <MainNavigation />
 
       {/* Main Content - adjusted for left sidebar */}
-      <div className="ml-64 transition-all duration-300">
+      <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Page Header */}
-        <div className="px-6 py-4 bg-white/50 border-b border-gray-200">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="px-8 py-4 bg-white/50 border-b border-gray-200">
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="font-sora font-bold text-2xl text-gray-900 mb-1">Scratchpad</h1>
               <p className="text-sm text-gray-500">{getCurrentDateTime()}</p>
@@ -151,8 +160,8 @@ const Scratchpad = () => {
         </div>
 
         {/* Scratchpad Content */}
-        <div className="px-6 py-6">
-          <div className="max-w-4xl mx-auto">
+        <div className="px-8 py-6">
+          <div className="">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <Textarea
                 ref={textareaRef}
@@ -166,7 +175,7 @@ const Scratchpad = () => {
                 }}
               />
             </div>
-            
+
             {lastSaved && (
               <div className="mt-4 text-center text-sm text-gray-500">
                 Last saved: {lastSaved.toLocaleString()}

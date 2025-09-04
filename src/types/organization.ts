@@ -34,6 +34,7 @@ export type BackendOrg = {
     org_id: string;
     name: string;
     plan?: string;
+    storage?: number;
     billing_email?: string;
     project_count?: number;
     member_count?: number;

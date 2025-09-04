@@ -20,5 +20,5 @@ export default function PrivateRoute({ children, checkOrg }: Props) {
   
   return (user ?
     (checkOrg ? (orgId ? children : <Navigate to="/org" replace />) : children) :
-    <Navigate to={orgId ? `/index?org_id=${orgId}` : "/index"} replace />);
+    <Navigate to={orgId ? `/login?org_id=${orgId}` : "/login"} replace />);
 }

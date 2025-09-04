@@ -36,9 +36,10 @@ interface AddDependencyModalProps {
   onOpenChange: (open: boolean) => void;
   onDependencyAdded: (task: Task) => void;
   excludeIds?: string[];
+  taskId?: string;
 }
 
-const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds = [] }: AddDependencyModalProps) => {
+const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds = [], taskId }: AddDependencyModalProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
@@ -67,8 +68,9 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
           tags: t.tags,
           createdBy: t.created_by,
           createdDate: t.created_at,
+          dependencies: t.dependencies,
         }));
-        const filtered = mapped.filter((t) => !excludeIds.includes(t.id));
+        const filtered = mapped.filter((t) => !(excludeIds.includes(t.id) || t.dependencies.includes(taskId)));
         setAvailableTasks(filtered);
         setLoading(false);
       })
@@ -76,7 +78,7 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
         setError(err.message || "Failed to load tasks");
         setLoading(false);
       });
-  }, [open, currentOrgId, excludeIds]);
+  }, [open, currentOrgId, excludeIds, taskId]);
 
   const filteredTasks = availableTasks.filter(task => {
     if (!searchQuery) return true;
