@@ -397,7 +397,7 @@ const Organizations = () => {
 
   const handleRejectInvite = async (invitationId: string) => {
     try {
-      await api.del(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}`, {});
+      await api.del(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}/reject`, {});
       toast({
         title: 'Invitation Rejected',
         description: 'The organization invitation has been declined.',
