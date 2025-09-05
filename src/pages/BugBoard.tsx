@@ -327,6 +327,11 @@ const BugBoard = () => {
       }
 
       console.log('Sending update to server:', updateData);
+      toast({
+        title: "Updating bug status...",
+        description: "Please wait...",
+        variant: "default"
+      })
       await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, updateData);
 
       // Display a success message

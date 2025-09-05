@@ -222,6 +222,10 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         parent_task_id: formData.parentTaskId || null, // For subtasks, if applicable
 
       };
+      toast({
+        title: "Creating task",
+        description: "Please wait...",
+      });
       const created: any = await taskService.createTask(payload);
       // Map backend response to Task type
       const newTask = {

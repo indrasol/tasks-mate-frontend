@@ -192,9 +192,23 @@ const ProjectDetail = () => {
     if (!project) return;
     setProject(prev => (prev ? { ...prev, ...payload } as any : prev)); // optimistic
     try {
+      toast({
+        title: "Updating project",
+        description: "Please wait...",
+      });
       await api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, payload);
+      toast({
+        title: "Success",
+        description: "Project updated successfully",
+        variant: "default"
+      });
     } catch (err) {
       console.error("Failed to update project", err);
+      toast({
+        title: "Failed to update project",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -431,6 +445,10 @@ const ProjectDetail = () => {
   const handleAddUrl = async () => {
     if (!newUrl || !newUrlName || !project) return;
     try {
+      toast({
+        title: "Adding resource",
+        description: "Please wait...",
+      });
       await api.post<any>(`${API_ENDPOINTS.PROJECT_RESOURCES}?project_id=${project.id}`, {
         project_id: project.id,
         project_name: project.name,
@@ -442,9 +460,19 @@ const ProjectDetail = () => {
       // setResources([...resources, res]);
       setNewUrl('');
       setNewUrlName('');
+      toast({
+        title: "Success",
+        description: "Resource added successfully",
+        variant: "default"
+      });
       fetchResources();
     } catch (err) {
       // handle error
+      toast({
+        title: "Failed to add resource",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -453,6 +481,10 @@ const ProjectDetail = () => {
     if (!project?.id || selectedFiles.length === 0) return;
 
     setUploading(true);
+    toast({
+      title: "Uploading files",
+      description: "Please wait...",
+    });
     try {
       for (const { file } of selectedFiles) {
         if (file.type.startsWith("image/")) {
@@ -525,10 +557,20 @@ const ProjectDetail = () => {
       // Optimistic UI update - remove the member immediately
       setTeamMembers(prev => prev.filter(m => m.name !== member.name));
 
+      toast({
+        title: "Removing project member",
+        description: "Please wait...",
+      });
       // Then make the API call
       await api.del(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`, {}
       );
+
+      toast({
+        title: "Success",
+        description: "Member removed successfully",
+        variant: "default"
+      });
 
       // No need to call fetchTeamMembers() since we've already updated the UI
       // and the optimistic update preserves the existing member data for remaining members
@@ -548,6 +590,10 @@ const ProjectDetail = () => {
   const handleChangeRole = async (member: Member, newRole: string) => {
     if (!project) return;
     try {
+      toast({
+        title: "Updating project member role",
+        description: "Please wait...",
+      });
       await api.put(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
         {
@@ -556,6 +602,11 @@ const ProjectDetail = () => {
           designation: member.designation || ""
         }
       );
+      toast({
+        title: "Success",
+        description: "Member role updated successfully",
+        variant: "default"
+      });
       await refetchMembers();
     } catch (err) {
       // handle error
@@ -571,11 +622,20 @@ const ProjectDetail = () => {
   const handleChangeDesignation = async (member: Member, newDesignation: string) => {
     if (!project) return;
     try {
+      toast({
+        title: "Updating project member designation",
+        description: "Please wait...",
+      });
       await api.put(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
         { designation: newDesignation }
       );
-      fetchTeamMembers();
+      toast({
+        title: "Success",
+        description: "Member designation updated successfully",
+        variant: "default"
+      });
+      await refetchMembers();
     } catch (err) {
       // handle error
       toast({
@@ -590,10 +650,19 @@ const ProjectDetail = () => {
   const handleDeleteResource = async (resource: Resource) => {
     if (!project) return;
     try {
+      toast({
+        title: "Deleting resource",
+        description: "Please wait...",
+      });
       await api.del(
         `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`, {}
       );
-      fetchResources();
+      toast({
+        title: "Success",
+        description: "Resource deleted successfully",
+        variant: "default"
+      });
+      await fetchResources();
     } catch (err) {
       // handle error
       toast({
@@ -608,11 +677,20 @@ const ProjectDetail = () => {
   const handleRenameResource = async (resource: Resource, newName: string) => {
     if (!project) return;
     try {
+      toast({
+        title: "Renaming resource",
+        description: "Please wait...",
+      });
       await api.put(
         `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`,
         { name: newName }
       );
-      fetchResources();
+      toast({
+        title: "Success",
+        description: "Resource renamed successfully",
+        variant: "default"
+      });
+      await fetchResources();
     } catch (err) {
       // handle error
       toast({
@@ -626,11 +704,20 @@ const ProjectDetail = () => {
   const handleUpdateUrlResource = async (resource: Resource, name: string, urlStr: string) => {
     if (!project) return;
     try {
+      toast({
+        title: "Updating resource",
+        description: "Please wait...",
+      });
       await api.put(
         `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`,
         { name, url: urlStr }
       );
-      fetchResources();
+      toast({
+        title: "Success",
+        description: "Resource updated successfully",
+        variant: "default"
+      });
+      await fetchResources();
     } catch (err) {
       // handle error
       toast({
@@ -720,6 +807,10 @@ const ProjectDetail = () => {
   const handleAddMember = async (member: Member) => {
     if (!project) return;
     try {
+      toast({
+        title: "Adding project member",
+        description: "Please wait...",
+      });
       await api.post(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
         {
@@ -728,6 +819,11 @@ const ProjectDetail = () => {
           designation: member.designation || ""
         }
       );
+      toast({
+        title: "Success",
+        description: "Member added successfully",
+        variant: "default"
+      });
 
       // Refresh data from the server to ensure designation is loaded
       await refetchMembers();
@@ -761,9 +857,14 @@ const ProjectDetail = () => {
     }
 
     try {
+      toast({
+        title: "Adding project members",
+        description: "Please wait...",
+      });
       await Promise.allSettled(
         filteredToAdd.map((uid) => {
           const foundMember = orgMembers.find(m => m.user_id === uid);
+
           return api.post(
             `${API_ENDPOINTS.PROJECT_MEMBERS}`,
             {
@@ -775,6 +876,11 @@ const ProjectDetail = () => {
           );
         })
       );
+      toast({
+        title: "Success",
+        description: "Members added successfully",
+        variant: "default"
+      });
       // Refresh the data from the server to get accurate designation information
       await refetchMembers();
 
@@ -888,11 +994,20 @@ const ProjectDetail = () => {
       // Optimistic UI update - remove the member immediately
       setTeamMembers(prev => prev.filter(m => m.name !== member.name));
 
+      toast({
+        title: "Removing project member",
+        description: "Please wait...",
+      });
       // Then make the API call
       await api.del(
         `${API_ENDPOINTS.PROJECT_MEMBERS}/${member.name}/${project.id}`,
         { role: member.role }
       );
+      toast({
+        title: "Success",
+        description: "Member removed successfully",
+        variant: "default"
+      });
 
       // Refresh the data to ensure our UI is in sync with the backend
       await refetchMembers();
@@ -952,9 +1067,8 @@ const ProjectDetail = () => {
                 <Button onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)} className="bg-green-500 hover:bg-green-600">
                   Back to Projects
                 </Button>
-                {/* try again button */}
                 <Button
-                  className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                  className="bg-green-500 hover:bg-green-600 ml-2"
                   onClick={fetchProject}
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
@@ -1328,7 +1442,7 @@ const ProjectDetail = () => {
                     <div>
                       <p className="text-sm text-gray-600">Bugs Reported</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {stats?.bugs_reported ?? 0}
+                        {stats?.bugs_total ?? 0}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
@@ -1996,6 +2110,10 @@ const ProjectDetail = () => {
           onClose={() => setIsEditSheetOpen(false)}
           onSubmit={async (data) => {
             try {
+              toast({
+                title: "Updating project",
+                description: "Please wait...",
+              });
               const updated: any = await api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, {
                 name: data.name,
                 description: data.description,
@@ -2081,9 +2199,24 @@ const ProjectDetail = () => {
               onClick={async () => {
                 if (!project) return;
                 try {
+                  toast({
+                    title: "Deleting project",
+                    description: "Please wait...",
+                  });
                   await api.del(`${API_ENDPOINTS.PROJECTS}/${project.id}`, {});
+                  toast({
+                    title: "Success",
+                    description: "Project deleted successfully",
+                    variant: "default"
+                  });
                   navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`);
-                } catch (e) { }
+                } catch (e) {
+                  toast({
+                    title: "Failed to delete project",
+                    description: e.message,
+                    variant: "destructive"
+                  });
+                }
               }}
             >
               Delete
@@ -2110,14 +2243,29 @@ const ProjectDetail = () => {
               onClick={async () => {
                 if (!resourceToDelete || !project) return;
                 try {
+                  toast({
+                    title: "Deleting resource",
+                    description: "Please wait...",
+                  });
                   await api.del(
                     `${API_ENDPOINTS.PROJECT_RESOURCES}/${resourceToDelete.id}?project_id=${project.id}`,
                     {}
                   );
+                  toast({
+                    title: "Success",
+                    description: "Resource deleted successfully",
+                    variant: "default"
+                  });
                   setIsDeleteResourceOpen(false);
                   setResourceToDelete(null);
                   fetchResources();
-                } catch (e) { }
+                } catch (e) {
+                  toast({
+                    title: "Failed to delete resource",
+                    description: e.message,
+                    variant: "destructive"
+                  });
+                }
               }}
             >
               Delete

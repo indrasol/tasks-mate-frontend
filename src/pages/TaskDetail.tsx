@@ -20,6 +20,7 @@ import {
   CheckCircle,
   ChevronDown,
   Circle,
+  Clock,
   Copy,
   Edit,
   ExternalLink,
@@ -57,6 +58,7 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/hooks/useAuth";
 import { capitalizeFirstLetter, deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 import imageCompression from "browser-image-compression";
+import { format } from "date-fns";
 
 
 const TaskDetail = () => {
@@ -497,10 +499,19 @@ const TaskDetail = () => {
     setTask((prev: any) => ({ ...prev, status: newStatus }));
 
     try {
+      toast({
+        title: "Updating status",
+        description: "Please wait...",
+      });
       await taskService.updateTask(taskId, {
         status: newStatus,
         project_id: task?.project_id,
         title: taskName || task?.name
+      });
+      toast({
+        title: "Success",
+        description: "Status updated!",
+        variant: "default"
       });
       // Refresh history to reflect the change immediately
       fetchHistory();
@@ -647,7 +658,7 @@ const TaskDetail = () => {
   }, []);
 
   // Filter organization members based on search text
-  const filteredMembers = mentionSearchText
+  const filteredMembers = (mentionSearchText
     ? orgMembers.filter(member => {
       // Check username, display name and email
       const searchLower = mentionSearchText.toLowerCase();
@@ -657,7 +668,7 @@ const TaskDetail = () => {
 
       return usernameMatch || displayNameMatch;
     })
-    : orgMembers;
+    : orgMembers).filter((member) => member.email !== user?.email);
 
   // Function to render comment text with @mentions highlighted
   const renderCommentWithMentions = (text: string) => {
@@ -721,6 +732,11 @@ const TaskDetail = () => {
         task_title: taskName || task?.name,
       };
 
+      toast({
+        title: "Adding comment",
+        description: "Please wait...",
+      });
+
       const created = await api.post(`${API_ENDPOINTS.TASK_COMMENTS}?project_id=${task?.project_id}`, payload);
 
       // Replace optimistic comment with real one
@@ -765,6 +781,11 @@ const TaskDetail = () => {
           : c
       ));
 
+      toast({
+        title: "Updating comment",
+        description: "Please wait...",
+      });
+
       const updated = await api.put(
         `${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`,
         { content: editCommentText, task_title: taskName || task?.name }
@@ -807,6 +828,11 @@ const TaskDetail = () => {
       // Optimistic removal
       setComments(prev => prev.filter(c => c.comment_id !== commentId));
 
+      toast({
+        title: "Deleting comment",
+        description: "Please wait...",
+      });
+
       await api.del(`${API_ENDPOINTS.TASK_COMMENTS}/${commentId}?project_id=${task?.project_id}`, {});
       toast({
         title: "Success",
@@ -830,6 +856,10 @@ const TaskDetail = () => {
   const handleAddSubtask = async (selectedTask: any) => {
     if (!taskId) return;
     try {
+      toast({
+        title: "Adding subtask",
+        description: "Please wait...",
+      });
       await taskService.addSubtask(taskId, selectedTask?.id);
       setSubtasks(prev => [...prev, selectedTask?.id]);
       toast({
@@ -862,10 +892,19 @@ const TaskDetail = () => {
     });
 
     try {
+      toast({
+        title: "Updating subtask",
+        description: "Please wait...",
+      });
       await taskService.updateTask(subtaskId, {
         status: newStatus,
         project_id: sub.project_id,
         title: sub.title ?? sub.name,
+      });
+      toast({
+        title: "Success",
+        description: `Subtask "${sub.title ?? sub.name}" updated successfully!`,
+        variant: "default"
       });
     } catch (e) {
       // revert on failure
@@ -874,11 +913,20 @@ const TaskDetail = () => {
         next[idx] = { ...sub, status: prevStatus };
         return next;
       });
+      toast({
+        title: "Failed to update subtask",
+        description: e.message,
+        variant: "destructive"
+      });
     }
   };
   const handleDeleteSubtask = async (subtaskId: string) => {
     if (!taskId) return;
     try {
+      toast({
+        title: "Deleting subtask",
+        description: "Please wait...",
+      });
       await taskService.removeSubtask(taskId, subtaskId);
       setSubtasks(prev => prev.filter(id => id !== subtaskId));
       toast({
@@ -900,6 +948,10 @@ const TaskDetail = () => {
   const handleAddDependency = async (selectedTask: any) => {
     if (!taskId) return;
     try {
+      toast({
+        title: "Adding dependency",
+        description: "Please wait...",
+      });
       await taskService.addDependency(taskId, selectedTask?.id);
       setTask((prev: any) => ({ ...prev, dependencies: [...(prev?.dependencies ?? []), selectedTask?.id] }));
       setDependencyDetails((prev: any[]) => [...prev, selectedTask]);
@@ -921,6 +973,10 @@ const TaskDetail = () => {
   const handleDeleteDependency = async (dependencyId: string) => {
     if (!taskId) return;
     try {
+      toast({
+        title: "Deleting dependency",
+        description: "Please wait...",
+      });
       await taskService.removeDependency(taskId, dependencyId);
       setTask((prev: any) => ({ ...prev, dependencies: (prev?.dependencies ?? []).filter((id: string) => id !== dependencyId) }));
       setDependencyDetails((prev: any[]) => prev.filter((d: any) => (d.task_id ?? d.id) !== dependencyId));
@@ -955,10 +1011,19 @@ const TaskDetail = () => {
     });
 
     try {
+      toast({
+        title: "Updating dependency",
+        description: "Please wait...",
+      });
       await taskService.updateTask(dependencyId, {
         status: newStatus,
         project_id: dep.project_id,
         title: dep.title ?? dep.name,
+      });
+      toast({
+        title: "Success",
+        description: `Dependency "${dep.title ?? dep.name}" updated successfully!`,
+        variant: "default"
       });
     } catch (e) {
       // revert on failure
@@ -966,6 +1031,11 @@ const TaskDetail = () => {
         const next = [...prev];
         next[idx] = { ...dep, status: prevStatus };
         return next;
+      });
+      toast({
+        title: "Failed to update dependency",
+        description: e.message,
+        variant: "destructive"
       });
     }
   };
@@ -1029,6 +1099,10 @@ const TaskDetail = () => {
     if (!files || !task?.project_id || !taskId) return;
     try {
       setFileUploadingTotal(files.length);
+      toast({
+        title: "Uploading attachments",
+        description: "Please wait...",
+      });
       for (const file of Array.from(files)) {
         setFileUploadingProgress((prev: number) => prev + 1);
         setFileUploadingName(file.name);
@@ -1102,6 +1176,10 @@ const TaskDetail = () => {
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!task?.project_id) return;
     try {
+      toast({
+        title: "Deleting attachment",
+        description: "Please wait...",
+      });
       await taskService.deleteTaskAttachment(attachmentId, task?.project_id);
       setAttachments(attachments.filter(a => a.attachment_id !== attachmentId));
       toast({
@@ -1885,7 +1963,17 @@ const TaskDetail = () => {
                                 ) : (
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="text-sm text-gray-700">
-                                      {renderCommentWithMentions(comment.content || comment.comment)}
+                                      <p className="whitespace-pre-wrap">
+                                        {renderCommentWithMentions(comment.content || comment.comment)}
+                                      </p>
+                                      {
+                                      (comment.updated_at || comment.created_at) &&
+                                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                          <Clock className="h-3 w-3" />
+                                          {format(new Date(comment.updated_at || comment.created_at), 'MMM d, yyyy h:mm a')}
+                                        </p>
+                                      }
+
                                     </div>
                                     {(() => {
                                       const creator = String(comment.created_by || "").toLowerCase();
@@ -2225,6 +2313,10 @@ const TaskDetail = () => {
                       disabled={deleteConfirmText !== task?.id}
                       onClick={async () => {
                         try {
+                          toast({
+                            title: "Deleting task",
+                            description: "Please wait...",
+                          });
                           await api.del(`${API_ENDPOINTS.TASKS}/${task?.id}`, {});
                           toast({
                             title: "Success",

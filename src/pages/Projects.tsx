@@ -334,13 +334,27 @@ const Projects = () => {
 
     // 2️⃣ Persist change to backend
     try {
+      toast({
+        title: "Updating project status",
+        description: "Please wait...",
+      });
       await api.put(`${API_ENDPOINTS.PROJECTS}/${projectId}`, { status: newStatus });
+      toast({
+        title: "Success",
+        description: "Project status updated successfully!",
+        variant: "default"
+      });
     } catch (err) {
       console.error('Failed to update project status', err);
       // 3️⃣ Revert UI if the backend rejects the change
       setProjects(prev => prev.map(project =>
         project.id === projectId ? { ...project, status: prevStatus ?? project.status } : project
       ));
+      toast({
+        title: "Error",
+        description: "Failed to update project status. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -365,6 +379,10 @@ const Projects = () => {
     const orgId = currentOrgId;
 
     if (orgId) {
+      toast({
+        title: "Creating project",
+        description: "Please wait...",
+      });
       try {
         const created = await api.post<any>(API_ENDPOINTS.PROJECTS, {
           org_id: orgId,
@@ -1104,8 +1122,19 @@ const Projects = () => {
                                       setProjects(prev =>
                                         prev.map(p => p.id === project.id ? { ...p, status: value } : p)
                                       );
+                                      toast({
+                                        title: "Updating project status",
+                                        description: "Please wait...",
+                                      });
                                       // API update
                                       api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { status: value })
+                                        .then(() => {
+                                          toast({
+                                            title: "Success",
+                                            description: "Project status updated successfully!",
+                                            variant: "default"
+                                          });
+                                        })
                                         .catch(error => {
                                           console.error('Failed to update status:', error);
                                           // Revert on error
@@ -1156,8 +1185,19 @@ const Projects = () => {
                                       setProjects(prev =>
                                         prev.map(p => p.id === project.id ? { ...p, priority: value } : p)
                                       );
+                                      toast({
+                                        title: "Updating project priority",
+                                        description: "Please wait...",
+                                      });
                                       // API update
                                       api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { priority: value })
+                                        .then(() => {
+                                          toast({
+                                            title: "Success",
+                                            description: "Project priority updated successfully!",
+                                            variant: "default"
+                                          });
+                                        })
                                         .catch(error => {
                                           console.error('Failed to update priority:', error);
                                           // Revert on error

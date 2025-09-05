@@ -391,7 +391,7 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
           <ScrollArea className="h-[400px] pr-4">
             <div className="space-y-6 pl-6 pr-2 py-2">
                {history.map((item) => (
-                <div key={item.history_id} className="relative pb-6">
+                <div key={item.history_id} className="relative pb-2">
                   {/* Timeline dot */}
                   <div className="absolute left-0 top-1.5 h-3 w-3 rounded-full bg-primary/20 flex items-center justify-center">
                     <div className="h-2 w-2 rounded-full bg-primary" />
