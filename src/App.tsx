@@ -7,24 +7,25 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ResetPassword from "./components/auth/ResetPassword";
-import Login from "./pages/Login";
 import AdHocMeeting from "./pages/AdHocMeeting";
 import BugBoard from "./pages/BugBoard";
 import BugDetail from "./pages/BugDetail";
 import Dashboard from "./pages/Dashboard";
+import Docs from "./pages/Docs";
+import FeedbackForm from "./pages/Feedbackform.tsx";
 import Index from "./pages/Index";
 import KnowshareMeeting from "./pages/KnowshareMeeting";
+import Login from "./pages/Login";
 import MeetingNotebook from "./pages/MeetingNotebook";
 import Meetings from "./pages/Meetings";
 import NotFound from "./pages/NotFound";
 import Organizations from "./pages/Organizations";
+import Privacy from "./pages/Privacy.tsx";
 import ProductCallMeeting from "./pages/ProductCallMeeting";
 import ProjectDetail from "./pages/ProjectDetail";
 import Projects from "./pages/Projects";
 import RetrospectiveMeeting from "./pages/RetrospectiveMeeting";
 import SalesMarketing from "./pages/SalesMarketing";
-import Privacy from "./pages/Privacy.tsx";
-import Docs from "./pages/Docs";
 import Scratchpad from "./pages/Scratchpad";
 import Settings from "./pages/Settings";
 import StatusCallMeeting from "./pages/StatusCallMeeting";
@@ -32,7 +33,6 @@ import TaskDetail from "./pages/TaskDetail";
 import TasksCatalog from "./pages/TasksCatalog";
 import TeamMembers from "./pages/TeamMembers";
 import TesterZone from "./pages/TesterZone";
-import TestRunDetail from "./pages/TestRunDetail";
 import UserProfile from "./pages/UserProfile";
 
 const queryClient = new QueryClient();
@@ -78,6 +78,7 @@ const App = () => (
             <Route path="/scratchpad" element={<PrivateRoute checkOrg><Scratchpad /></PrivateRoute>} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/docs" element={<Docs />} />
+            <Route path="/feedback" element={<PrivateRoute><FeedbackForm /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

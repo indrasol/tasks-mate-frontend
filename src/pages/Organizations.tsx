@@ -206,8 +206,14 @@ const Organizations = () => {
     // Clear any previous errors
     setNameError(null);
     setCreating(true);
+
+    toast({
+      title: "Creating organization",
+      description: "Please wait...",
+    });
+    
+    
     try {
-      console.log('Creating organization via API:', newOrgName);
 
       type BackendOrgResp = {
         org_id: string;
@@ -226,11 +232,9 @@ const Organizations = () => {
         description: newOrgDescription.trim() || undefined,
         designation: selectedDesignation ?? undefined,
       };
-      console.log('Payload:', payload);
       const data = await api.post<BackendOrgResp>(API_ENDPOINTS.ORGANIZATIONS, payload);
 
       // Log the received data from backend to verify
-      console.log('Created organization data from backend:', data);
 
       // Add the newly created organization directly to state to avoid a full refetch
       const newOrg: Organization = {
@@ -299,6 +303,10 @@ const Organizations = () => {
     if (!editOrgName.trim() || !editOrgDescription.trim()) return;
 
     setUpdating(true);
+    toast({
+      title: "Updating organization",
+      description: "Please wait...",
+    });
     try {
       const payload = {
         org_id: editOrg.org_id,
@@ -341,6 +349,10 @@ const Organizations = () => {
       return;
     }
     setDeleting(true);
+    toast({
+      title: "Deleting organization",
+      description: "Please wait...",
+    });
     try {
       await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${orgToDelete.org_id}`, { delete_reason: deleteReason });
       toast({ title: 'Deleted', description: 'Organization deleted successfully' });
@@ -377,6 +389,10 @@ const Organizations = () => {
 
   const handleAcceptInvite = async (invitationId: string) => {
     try {
+      toast({
+        title: "Accepting invitation",
+        description: "Please wait...",
+      });
       await api.put(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}/accept`, {});
       toast({
         title: 'Invitation Accepted',
@@ -397,6 +413,10 @@ const Organizations = () => {
 
   const handleRejectInvite = async (invitationId: string) => {
     try {
+      toast({
+        title: "Rejecting invitation",
+        description: "Please wait...",
+      });
       await api.del(`${API_ENDPOINTS.ORGANIZATION_INVITES}/${invitationId}/reject`, {});
       toast({
         title: 'Invitation Rejected',

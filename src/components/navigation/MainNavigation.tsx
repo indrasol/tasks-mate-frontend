@@ -26,8 +26,10 @@ import {
   MapPin,
   RefreshCw,
   Settings,
+  Star,
   User,
-  Users
+  Users,
+  MessageSquare 
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -148,6 +150,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       { name: 'Scratchpad', path: '/scratchpad', icon: Edit3 },
       { name: 'Members', path: '/team-members', icon: Users },
       { name: 'Settings', path: '/settings', icon: Settings },
+      { name: 'Feedback', path: '/feedback', icon: MessageSquare  },
     ];
 
 
@@ -171,6 +174,14 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       navigate(`/user-profile?org_id=${orgId}`);
     } else {
       navigate('/user-profile');
+    }
+  };
+
+  const handleFeedback = () => {
+    if (orgId) {
+      navigate(`/feedback?org_id=${orgId}`);
+    } else {
+      navigate('/feedback');
     }
   };
 
@@ -262,28 +273,95 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
         )}
 
         {/* Navigation Items */}
-        <div className="flex-1 py-4">
-          <div className="space-y-1 px-3">
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
+        <div className="flex flex-col h-full justify-between" >
+          <div className="flex-1 py-4">
+            <div className="space-y-1 px-3">
+              {navigationItems.map((item) => {
+                if (item.name === "Feedback") {
+                  return null;
+                }
+                const Icon = item.icon;
 
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${item.isActive
-                    ? 'bg-green-50 text-green-700 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
-                  title={isCollapsed ? item.name : undefined}
-                >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && <span>{item.name}</span>}
-                </Link>
-              );
-            })}
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${item.isActive
+                      ? 'bg-green-50 text-green-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    title={isCollapsed ? item.name : undefined}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    {!isCollapsed && <span>{item.name}</span>}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Send to last */}
+          <div className="flex-10 justify-end items-end py-4">
+            <div className="space-y-1 px-3">
+              {navigationItems.map((item) => {
+                if (item.name !== "Feedback") {
+                  return null;
+                }
+                if (isCollapsed) {
+                  return null;
+                }
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${item.isActive
+                      ? 'bg-green-50 text-green-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    title={isCollapsed ? item.name : undefined}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    {!isCollapsed && <span>{item.name}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
         </div>
+
+
+
+        {/* Include Signout button here when collaped */}
+        {
+          isCollapsed &&
+          <div className="flex flex-col items-center justify-between p-4 border-b border-gray-200">
+
+            {/* Feedback Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleFeedback}
+              className="w-8 h-8 hover:bg-gray-50 hover:text-gray-600 flex-shrink-0"
+              title="Feedback"
+            >
+              <MessageSquare  className="w-4 h-4" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSignOut}
+              className="w-8 h-8 hover:bg-red-50 hover:text-red-600 flex-shrink-0"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        }
+
 
         {/* Bottom Actions */}
         <div className="border-t border-gray-200 p-4 space-y-3">
@@ -324,7 +402,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
               isCollapsed ? (
                 <>
                   {/* Show only profile icon and also give drop down to select profile and logout options */}
-                  <DropdownMenu>
+                  {/* <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
@@ -361,7 +439,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                           }
                         </div>
                       </Button>
-                      {/* Sign Out Button */}
+                      
                       <Button
                         variant="ghost"
                         className="w-full flex items-center space-x-2 hover:bg-gray-50 justify-start"
@@ -373,7 +451,27 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                         </div>
                       </Button>
                     </DropdownMenuContent>
-                  </DropdownMenu>
+                  </DropdownMenu> */}
+                  <Button
+                    variant="ghost"
+                    className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
+                    onClick={handleUserProfileNavigation}
+                    title={profileLabel}
+                  >
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                    {!isCollapsed && (
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="text-sm font-medium text-gray-700 truncate">
+                          {
+                            // limit until 15 characters
+                            profileLabel.length > 15 ? profileLabel.substring(0, 15) + '...' : profileLabel
+                          }
+                        </p>
+                      </div>
+                    )}
+                  </Button>
                 </>
               ) :
                 (

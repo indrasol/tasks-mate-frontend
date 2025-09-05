@@ -235,6 +235,10 @@ const BugDetail = () => {
   // Mutation for updating description
   const updateBugDescription = useMutation({
     mutationFn: async ({ description }: { description: string }) => {
+      toast({
+        title: "Updating description",
+        description: "Please wait...",
+      });
       const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { description });
       return response.data;
     },
@@ -259,6 +263,10 @@ const BugDetail = () => {
   // Mutation for updating recreate guide
   const updateBugRecreateGuide = useMutation({
     mutationFn: async ({ recreate_guide }: { recreate_guide: string }) => {
+      toast({
+        title: "Updating recreate guide",
+        description: "Please wait...",
+      });
       const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { steps_to_reproduce: recreate_guide });
       return response.data;
     },
@@ -283,6 +291,10 @@ const BugDetail = () => {
   // Mutation for updating bug status
   const updateBugStatus = useMutation({
     mutationFn: async ({ status }: { status: string }) => {
+      toast({
+        title: "Updating status",
+        description: "Please wait...",
+      });
       const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { status });
       return response.data;
     },
@@ -307,6 +319,10 @@ const BugDetail = () => {
   // Mutation for updating bug priority
   const updateBugPriority = useMutation({
     mutationFn: async ({ priority }: { priority: string }) => {
+      toast({
+        title: "Updating priority",
+        description: "Please wait...",
+      });
       const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { priority });
       return response.data;
     },
@@ -331,6 +347,10 @@ const BugDetail = () => {
   // Mutation for adding a comment
   const addComment = useMutation({
     mutationFn: async (commentText: string) => {
+      toast({
+        title: "Adding comment",
+        description: "Please wait...",
+      });
       const response: any = await api.post(`${API_ENDPOINTS.BUGS}/${bugId}/comments`, {
         bug_id: bugId,
         content: commentText
@@ -338,6 +358,11 @@ const BugDetail = () => {
       return response.data;
     },
     onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Comment added successfully!",
+        variant: "default"
+      });
       setNewComment('');
       refetchComments();
     },
@@ -354,10 +379,19 @@ const BugDetail = () => {
   // Mutation for updating a comment
   const updateComment = useMutation({
     mutationFn: async ({ commentId, text }: { commentId: string, text: string }) => {
+      toast({
+        title: "Updating comment",
+        description: "Please wait...",
+      });
       const response: any = await api.put(`${API_ENDPOINTS.BUGS}/comments/${commentId}`, { text });
       return response.data;
     },
     onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Comment updated successfully!",
+        variant: "default"
+      });
       setEditingComment(null);
       setEditCommentText('');
       refetchComments();
@@ -375,6 +409,10 @@ const BugDetail = () => {
   // Mutation for deleting a comment
   const deleteComment = useMutation({
     mutationFn: async (commentId: string) => {
+      toast({
+        title: "Deleting comment",
+        description: "Please wait...",
+      });
       await api.del(`${API_ENDPOINTS.BUGS}/comments/${commentId}`);
     },
     onSuccess: () => {
@@ -425,6 +463,10 @@ const BugDetail = () => {
 
     try {
       setIsSubmitting(true);
+      toast({
+        title: "Saving guide",
+        description: "Please wait...",
+      });
       await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, {
         recreate_guide: recreateGuide
       });
@@ -452,6 +494,10 @@ const BugDetail = () => {
 
     try {
       setIsSubmitting(true);
+      toast({
+        title: "Uploading attachments",
+        description: "Please wait...",
+      });
       const formData = new FormData();
       Array.from(files).forEach(async (file: any) => {
 
