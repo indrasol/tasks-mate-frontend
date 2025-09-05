@@ -167,7 +167,11 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   }, [orgId, location.pathname]);
 
   const handleUserProfileNavigation = () => {
-    navigate('/user-profile', { state: { orgId } });
+    if (orgId) {
+      navigate(`/user-profile?org_id=${orgId}`);
+    } else {
+      navigate('/user-profile');
+    }
   };
 
   return (
@@ -284,7 +288,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
         {/* Bottom Actions */}
         <div className="border-t border-gray-200 p-4 space-y-3">
           {/* User Profile Section */}
-          <div className="flex items-center justify-between">
+          <div className={`flex items-center justify-between ${isCollapsed ? 'flex-col' : 'flex-1'}`}>
             {/* <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -316,33 +320,98 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
               </DropdownMenuContent>
             </DropdownMenu> */}
 
-            <Button
-              variant="ghost"
-              className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
-              onClick={handleUserProfileNavigation}
-            >
-              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <User className="w-4 h-4 text-white" />
-              </div>
-              {!isCollapsed && (
-                <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-medium text-gray-700 truncate">
-                    {profileLabel}
-                  </p>
-                </div>
-              )}
-            </Button>
+            {
+              isCollapsed ? (
+                <>
+                  {/* Show only profile icon and also give drop down to select profile and logout options */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
+                        onClick={handleUserProfileNavigation}
+                        title={profileLabel}
+                      >
+                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                        {!isCollapsed && (
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="text-sm font-medium text-gray-700 truncate">
+                              {
+                                // limit until 15 characters
+                                profileLabel.length > 15 ? profileLabel.substring(0, 15) + '...' : profileLabel
+                              }
+                            </p>
+                          </div>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56 bg-white border shadow-lg">
+                      <Button
+                        variant="ghost"
+                        className="w-full flex items-center space-x-2 hover:bg-gray-50 justify-start"
+                        onClick={handleUserProfileNavigation}
+                        title={profileLabel}
+                      >
+                        <div className="text-left min-w-0 text-sm font-medium text-gray-700 truncate">
+                          {
+                            // limit until 15 characters
+                            profileLabel.length > 15 ? profileLabel.substring(0, 15) + '...' : profileLabel
+                          }
+                        </div>
+                      </Button>
+                      {/* Sign Out Button */}
+                      <Button
+                        variant="ghost"
+                        className="w-full flex items-center space-x-2 hover:bg-gray-50 justify-start"
+                        onClick={handleSignOut}
+                        title="Sign Out"
+                      >
+                        <div className="text-left min-w-0 text-sm font-medium text-gray-700">
+                          Sign out
+                        </div>
+                      </Button>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) :
+                (
+                  <>
+                    <Button
+                      variant="ghost"
+                      className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
+                      onClick={handleUserProfileNavigation}
+                      title={profileLabel}
+                    >
+                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                      {!isCollapsed && (
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="text-sm font-medium text-gray-700 truncate">
+                            {
+                              // limit until 15 characters
+                              profileLabel.length > 15 ? profileLabel.substring(0, 15) + '...' : profileLabel
+                            }
+                          </p>
+                        </div>
+                      )}
+                    </Button>
 
-            {/* Sign Out Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSignOut}
-              className="w-8 h-8 hover:bg-red-50 hover:text-red-600 ml-2 flex-shrink-0"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
+                    {/* Sign Out Button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleSignOut}
+                      className="w-8 h-8 hover:bg-red-50 hover:text-red-600 ml-2 flex-shrink-0"
+                      title="Sign Out"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </Button>
+                  </>
+                )
+            }
           </div>
         </div>
       </div>

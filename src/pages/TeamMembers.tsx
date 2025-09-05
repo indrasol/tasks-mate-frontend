@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { API_ENDPOINTS } from '@/config';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization';
@@ -20,7 +21,6 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { API_ENDPOINTS } from '@/config';
 
 interface TeamMember {
   id: string;
@@ -52,7 +52,7 @@ const TeamMembers = () => {
 
   const [currentUserOrgRole, setCurrentUserOrgRole] = useState('');
 
-  const [hasMoreOwners,setHasMoreOwners] = useState(false);
+  const [hasMoreOwners, setHasMoreOwners] = useState(false);
 
 
   useEffect(() => {
@@ -79,7 +79,7 @@ const TeamMembers = () => {
   const [inviteDesignation, setInviteDesignation] = useState('');
   const [designationOptions, setDesignationOptions] = useState<string[]>([]);
   // Fetch designations
-  useEffect(() => {    
+  useEffect(() => {
     fetchDesignations();
   }, []);
 
@@ -111,7 +111,7 @@ const TeamMembers = () => {
     setLoading(true);
     setTeamMembersError('');
 
-    if(designationOptions.length === 0) {
+    if (designationOptions.length === 0) {
       fetchDesignations();
     }
 
@@ -133,13 +133,12 @@ const TeamMembers = () => {
         return formattedOrg;
       });
 
-      const ownersList = formattedOrgs?.filter((m)=> m.role === 'owner');
+      const ownersList = formattedOrgs?.filter((m) => m.role === 'owner');
 
-      if(ownersList && ownersList.length > 1)
-      {
+      if (ownersList && ownersList.length > 1) {
         setHasMoreOwners(true)
       }
-      else{
+      else {
         setHasMoreOwners(false)
       }
 
@@ -159,8 +158,8 @@ const TeamMembers = () => {
   const fetchInvitedTeamMembers = async () => {
     setLoadingInvited(true);
     setInvitedTeamMembersError('');
-    
-    if(designationOptions.length === 0) {
+
+    if (designationOptions.length === 0) {
       fetchDesignations();
     }
 
@@ -288,10 +287,10 @@ const TeamMembers = () => {
     } else if (!type && teamMembers.find(m => m.user_id === memberId)?.role === value) {
       return;
     }
-    
+
     // Set updating state to prevent multiple submissions
     setUpdating(true);
-    
+
     try {
       if (type === "invited") {
         await api.put(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
@@ -299,9 +298,9 @@ const TeamMembers = () => {
           org_id: orgId,
           role: value
         });
-        
+
         // Update local state
-        setInvitedTeamMembers(prev => prev.map(m => 
+        setInvitedTeamMembers(prev => prev.map(m =>
           m.id === memberId ? { ...m, role: value } : m
         ));
       } else {
@@ -310,18 +309,18 @@ const TeamMembers = () => {
           org_id: orgId,
           role: value
         });
-        
+
         // Update local state
-        setTeamMembers(prev => prev.map(m => 
+        setTeamMembers(prev => prev.map(m =>
           m.user_id === memberId ? { ...m, role: value } : m
         ));
-        
+
         // If we just changed our own role, update currentUserOrgRole
         if (memberId === user?.id) {
           setCurrentUserOrgRole(value);
         }
       }
-      
+
       toast({
         title: "Success",
         description: "Role updated successfully"
@@ -333,7 +332,7 @@ const TeamMembers = () => {
         description: error.message,
         variant: "destructive"
       });
-      
+
       // Refresh the lists to ensure UI is in sync with backend
       if (type === "invited") {
         fetchInvitedTeamMembers();
@@ -349,20 +348,20 @@ const TeamMembers = () => {
   const handleRemoveTeamMember = async (orgId: string, memberId: string, type?: string) => {
     // Set updating state to prevent multiple actions
     setUpdating(true);
-    
+
     try {
       if (type === "invited") {
         await api.del(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
           org_id: orgId
         });
-        
+
         // Update local state
         setInvitedTeamMembers(prev => prev.filter(m => m.id !== memberId));
       } else {
         // Prevent removing yourself if you're the last owner
         const isRemovingSelf = memberId === user?.id;
         const ownersCount = teamMembers.filter(m => m.role === 'owner').length;
-        
+
         if (isRemovingSelf && currentUserOrgRole === 'owner' && ownersCount <= 1) {
           toast({
             title: "Error",
@@ -371,13 +370,13 @@ const TeamMembers = () => {
           });
           return;
         }
-        
+
         await api.del(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`);
-        
+
         // Update local state
         setTeamMembers(prev => prev.filter(m => m.user_id !== memberId));
       }
-      
+
       toast({
         title: "Success",
         description: "Member removed successfully"
@@ -389,7 +388,7 @@ const TeamMembers = () => {
         description: error.message,
         variant: "destructive"
       });
-      
+
       // Refresh the lists to ensure UI is in sync with backend
       if (type === "invited") {
         fetchInvitedTeamMembers();
@@ -519,7 +518,7 @@ const TeamMembers = () => {
                             </SelectTrigger>
                             <SelectContent>
                               {roleOptions.map((role) => (
-                                <SelectItem key={role} value={role}>
+                                <SelectItem key={role} value={role} disabled={role === 'owner' && currentUserOrgRole !== 'owner'}>
                                   {capitalizeFirstLetter(role)}
                                 </SelectItem>
                               ))}
@@ -582,19 +581,19 @@ const TeamMembers = () => {
                         {member.email}
                       </TableCell>
                       <TableCell>
-                        <Select 
-                          defaultValue={member.role} 
-                          disabled={ (member.role === 'owner' && !hasMoreOwners) || (currentUserOrgRole !== 'owner' && member.role === 'owner') || updating} 
+                        <Select
+                          defaultValue={member.role}
+                          disabled={(member.role === 'owner' && !hasMoreOwners) || (currentUserOrgRole !== 'owner' && member.role === 'owner') || updating}
                           onValueChange={(val) => handleChangeRole(member.org_id, member.user_id, val)}
                         >
                           <SelectTrigger className={`w-24 ${updating ? 'opacity-50' : ''}`}>
                             <SelectValue />
-                            {updating && <span className="ml-2 animate-spin">⟳</span>}
+                            {/* {updating && <span className="ml-2 animate-spin">⟳</span>} */}
                           </SelectTrigger>
                           <SelectContent>
                             {roleOptions.map(role => (
-                              <SelectItem 
-                                key={role} 
+                              <SelectItem
+                                key={role}
                                 value={role}
                                 disabled={(!hasMoreOwners && currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
                               >
@@ -605,7 +604,9 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Select value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
+                        <Select
+                        disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
+                        value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
                           <SelectTrigger className="w-32">
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>
@@ -684,20 +685,20 @@ const TeamMembers = () => {
                         {member.email}
                       </TableCell>
                       <TableCell>
-                        <Select 
-                          defaultValue={member.role} 
+                        <Select
+                          defaultValue={member.role}
                           disabled={(currentUserOrgRole !== 'owner' && member.role === 'owner') || updating}
                           onValueChange={(val) => handleChangeRole(member.org_id, member.id, val, member.email, "invited")}
                         >
                           <SelectTrigger className={`w-24 ${updating ? 'opacity-50' : ''}`}>
                             <SelectValue />
-                            {updating && <span className="ml-2 animate-spin">⟳</span>}
+                            {/* {updating && <span className="ml-2 animate-spin">⟳</span>} */}
                           </SelectTrigger>
                           <SelectContent>
                             {roleOptions.map(role => (
-                              <SelectItem 
-                                key={role} 
-                                value={role} 
+                              <SelectItem
+                                key={role}
+                                value={role}
                                 disabled={(currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
                               >
                                 {capitalizeFirstLetter(role)}
@@ -707,7 +708,9 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Select value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
+                        <Select 
+                        disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
+                        value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
                           <SelectTrigger className="w-32">
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>

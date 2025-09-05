@@ -40,7 +40,7 @@ export function RichTextEditor({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-
+  
 
   const editor = useEditor({
     extensions: [
@@ -58,15 +58,18 @@ export function RichTextEditor({
             class: 'ordered-list',
           },
         },
+        // disable built-in link + underline so we can add our own
+        link: false,
+        underline: false,
       }),
       Image,
       Link.configure({
         openOnClick: false,
       }),
+      Underline,
       Placeholder.configure({
         placeholder,
       }),
-      Underline,
       TaskList.configure({
         HTMLAttributes: {
           class: 'task-list',
@@ -89,7 +92,7 @@ export function RichTextEditor({
     editorProps: {
       handlePaste: (view, event) => handlePaste(view, event),
     },      
-  });
+  });  
 
   useEffect(() => {
     if (editor) {

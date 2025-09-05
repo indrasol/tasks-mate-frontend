@@ -26,7 +26,9 @@ import {
   File,
   FileText,
   Link2,
+  Maximize,
   MessageCircle,
+  Minimize,
   Pencil,
   Plus,
   RefreshCw,
@@ -49,6 +51,7 @@ import { taskService } from "@/services/taskService";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import HistoryCard from "@/components/tasks/HistoryCard";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import FullscreenDiv from "@/components/ui/full-screen";
 import { Progress } from "@/components/ui/progress";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/hooks/useAuth";
@@ -165,6 +168,8 @@ const TaskDetail = () => {
   const currentOrgId = useCurrentOrgId();
   const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId || '');  // Use empty string if undefined
   // const { data: membersData, refetch: refetchMembers } = useProjectMembers(id);
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Sync with sidebar collapse/expand events
   useEffect(() => {
@@ -1396,72 +1401,93 @@ const TaskDetail = () => {
               {/* Left Column - Main Content */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Description */}
-                <Card className="glass border-0 shadow-tasksmate">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="font-sora">Description</CardTitle>
-                      {isDescriptionEditing ? (
-                        <>
+                <FullscreenDiv
+                  onEnter={() => setIsFullscreen(true)}
+                  onExit={() => setIsFullscreen(false)}
+                >
+                  <Card className="glass border-0 shadow-tasksmate">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="font-sora">Description</CardTitle>
+                          {isDescriptionEditing ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={async () => {
+                                  await handleSaveChanges();
+                                  setIsDescriptionEditing(false);
+                                }}
+                                title="Save description"
+                              >
+                                <Save className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={async () => {
+                                  setIsDescriptionEditing(false);
+                                }}
+                                title="Cancel"
+                              >
+                                <X className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => setIsDescriptionEditing(true)}
+                              disabled={!task?.is_editable}
+                            >
+                              <Pencil className="h-4 w-4 text-gray-500" />
+                            </Button>
+                          )}
+                        </div>
+                        <div className="flex items-center  gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-6 w-6 p-0"
-                            onClick={async () => {
-                              await handleSaveChanges();
-                              setIsDescriptionEditing(false);
-                            }}
-                            title="Save description"
+                            data-action="toggle"
                           >
-                            <Save className="h-4 w-4 text-green-600" />
+                            {isFullscreen ? (
+                              <Minimize className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <Maximize className="h-4 w-4 text-gray-500" />
+                            )}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={async () => {
-                              setIsDescriptionEditing(false);
-                            }}
-                            title="Cancel"
-                          >
-                            <X className="h-4 w-4 text-red-600" />
-                          </Button>
-                        </>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {task?.is_editable && isDescriptionEditing ? (
+                        <RichTextEditor
+                          content={description}
+                          onChange={(content) => setDescription(content)}
+                          placeholder="Add a detailed description..."
+                          onImageUpload={handleImageUpload}
+                          className="min-h-[175px] fullscreen-rte"
+                        />
                       ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => setIsDescriptionEditing(true)}
-                          disabled={!task?.is_editable}
-                        >
-                          <Pencil className="h-4 w-4 text-gray-500" />
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {task?.is_editable && isDescriptionEditing ? (
-                      <RichTextEditor
-                        content={description}
-                        onChange={(content) => setDescription(content)}
-                        placeholder="Add a detailed description..."
-                        onImageUpload={handleImageUpload}
-                        className="min-h-[175px]"
-                      />
-                    ) : (
-                      <RichTextEditor
-                        content={description}
-                        hideToolbar
-                        className="min-h-[175px]"
-                      />
+                        <RichTextEditor
+                          content={description}
+                          hideToolbar
+                          className="min-h-[175px] fullscreen-rte"
+                        />
 
-                      // <div
-                      //   className="prose max-w-none text-gray-700"
-                      //   dangerouslySetInnerHTML={{ __html: description || '<p>No description</p>' }}
-                      // />
-                    )}
-                  </CardContent>
-                </Card>
+                        // <div
+                        //   className="prose max-w-none text-gray-700"
+                        //   dangerouslySetInnerHTML={{ __html: description || '<p>No description</p>' }}
+                        // />
+                      )}
+                    </CardContent>
+                  </Card>
+                </FullscreenDiv>
 
                 {/* Subtasks - Commented out as requested
               <Card className="glass border-0 shadow-tasksmate">
@@ -2142,6 +2168,7 @@ const TaskDetail = () => {
                 ...(Array.isArray(task?.dependencies) ? task?.dependencies : []),
                 ...(taskId ? [taskId] : []),
               ]}
+              taskId={taskId}
             />
           )}
           {/* Edit Task - reuse NewTaskModal in edit mode */}
