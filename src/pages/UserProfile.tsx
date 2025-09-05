@@ -1,19 +1,19 @@
 
+import MainNavigation from '@/components/navigation/MainNavigation';
+import OrganizationsHeader from '@/components/navigation/OrganizationsHeader';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import {
     AlertTriangle
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
-import MainNavigation from '@/components/navigation/MainNavigation';
-import OrganizationsHeader from '@/components/navigation/OrganizationsHeader';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 interface Profile {
     id: string;
@@ -33,6 +33,9 @@ const UserProfile = () => {
     const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
     const { user, changePassword } = useAuth();
     const navigate = useNavigate();
+
+    const [searchParams] = useSearchParams();
+    const orgId = useMemo(() => searchParams.get('org_id'), [searchParams]);
 
 
     // Add state
@@ -153,7 +156,11 @@ const UserProfile = () => {
     };
 
     const handleBack = () => {
-        navigate('/org');
+        if (orgId) {
+            navigate(`/dashboard?org_id=${orgId}`);
+        } else {
+            navigate('/org');
+        }
     };
 
     if (loading) {

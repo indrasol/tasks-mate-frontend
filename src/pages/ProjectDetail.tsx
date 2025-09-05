@@ -234,6 +234,18 @@ const ProjectDetail = () => {
     }
   }, [editOpen, project]);
 
+  const [projectDuration, setProjectDuration] = useState('0 days');
+
+  useEffect(() => {
+    if (project?.startDate && project?.endDate) {
+      const startDate = new Date(project.startDate);
+      const endDate = new Date(project.endDate);
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      setProjectDuration(`${diffDays} days`);
+    }
+  }, [project?.startDate, project?.endDate]);
+
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -940,6 +952,14 @@ const ProjectDetail = () => {
                 <Button onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)} className="bg-green-500 hover:bg-green-600">
                   Back to Projects
                 </Button>
+                {/* try again button */}
+                <Button
+                  className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                  onClick={fetchProject}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try again
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -1168,6 +1188,16 @@ const ProjectDetail = () => {
                       >
                         <Save className="h-4 w-4 text-green-600" />
                       </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 ml-2"
+                        onClick={() => setIsTitleEditing(false)}
+                        title="Cancel"
+                      >
+                        <X className="h-4 w-4 text-red-600" />
+                      </Button>
                     </div>
                   ) : (
                     <>
@@ -1200,18 +1230,31 @@ const ProjectDetail = () => {
                 <div className="flex items-center gap-2">
                   <CardTitle className="font-sora">Description</CardTitle>
                   {isDescriptionEditing ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={async () => {
-                        await updateProject({ description: descriptionInput });
-                        setIsDescriptionEditing(false);
-                      }}
-                      title="Save description"
-                    >
-                      <Save className="h-4 w-4 text-green-600" />
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={async () => {
+                          await updateProject({ description: descriptionInput });
+                          setIsDescriptionEditing(false);
+                        }}
+                        title="Save description"
+                      >
+                        <Save className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={async () => {
+                          setIsDescriptionEditing(false);
+                        }}
+                        title="Cancel"
+                      >
+                        <X className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </>
                   ) : (
                     (userRole === 'owner' || userRole === 'admin') && (
                       <Button
@@ -1523,9 +1566,10 @@ const ProjectDetail = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">Duration</span>
                           <span className="font-medium">
-                            {project?.endDate && project?.startDate ?
+                            {projectDuration}
+                            {/* {project?.endDate && project?.startDate ?
                               Math.ceil((new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() -
-                                new Date(project.startDate.split('T')[0] + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)) : 0} days
+                                new Date(project.startDate.split('T')[0] + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)) : 0} days */}
                           </span>
                         </div>
                       </div>

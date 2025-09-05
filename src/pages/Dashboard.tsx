@@ -62,36 +62,211 @@ const Dashboard = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // If data is loading, use API data, otherwise use fallback data
-  const taskCompletionData = dashboardData?.task_completion_trends || [
-    { month: 'Jan', completed: 45, pending: 15, blocked: 5 },
-    { month: 'Feb', completed: 52, pending: 18, blocked: 3 },
-    { month: 'Mar', completed: 48, pending: 22, blocked: 7 },
-    { month: 'Apr', completed: 61, pending: 19, blocked: 4 },
-    { month: 'May', completed: 55, pending: 16, blocked: 6 },
-    { month: 'Jun', completed: 67, pending: 13, blocked: 2 },
-  ];
+  // If data is loading, show loading state, otherwise use API data or show empty state
+  const taskCompletionData = dataLoading 
+    ? null 
+    : dashboardData?.task_completion_trends || [];
 
-  const projectStatusData = dashboardData?.project_status_distribution || [
-    { name: 'Active', value: 12, color: '#3B82F6' },
-    { name: 'Completed', value: 8, color: '#10B981' },
-    { name: 'On Hold', value: 3, color: '#F59E0B' },
-    { name: 'Blocked', value: 5, color: '#EF4444' },
-  ];
+  const projectStatusData = dataLoading 
+    ? null 
+    : dashboardData?.project_status_distribution || [];
 
-  const teamProductivityData = dashboardData?.team_productivity || [
-    { name: 'John Doe', tasksCompleted: 24, tasksTotal: 30, efficiency: 92 },
-    { name: 'Sarah Kim', tasksCompleted: 31, tasksTotal: 35, efficiency: 88 },
-    { name: 'Mike Rodriguez', tasksCompleted: 19, tasksTotal: 25, efficiency: 85 },
-    { name: 'Anna Martinez', tasksCompleted: 27, tasksTotal: 32, efficiency: 90 },
-  ];
+  const teamProductivityData = dataLoading 
+    ? null 
+    : dashboardData?.team_productivity || [];
 
-  const topProjects = dashboardData?.project_performance_summary || [
-    { name: "TasksMate Mobile App", progress: 65, tasks: 24, team: 3, status: "Active" },
-    { name: "UI/UX Redesign", progress: 40, tasks: 18, team: 2, status: "Active" },
-    { name: "Security Audit", progress: 100, tasks: 12, team: 2, status: "Completed" },
-    { name: "API Integration", progress: 10, tasks: 8, team: 2, status: "Planning" },
-  ];
+  const topProjects = dataLoading 
+    ? null 
+    : dashboardData?.project_performance_summary || [];
+
+  const renderLoadingState = () => (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="animate-spin h-8 w-8 text-tasksmate-green-end mr-2" />
+      <span>Loading dashboard data...</span>
+    </div>
+  );
+
+  const renderEmptyState = (type: 'tasks' | 'projects' | 'team' | 'performance') => {
+    const emptyStates = {
+      tasks: {
+        title: 'No Task Data Available',
+        message: 'No task completion data found for the selected period.',
+        action: 'Create New Task',
+        icon: <Activity className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
+        path: `/tasks_catalog?org_id=${currentOrgId}`
+      },
+      projects: {
+        title: 'No Projects Found',
+        message: 'You don\'t have any projects yet. Create your first project to get started.',
+        action: 'Create Project',
+        icon: <FolderOpen className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
+        path: `/projects?org_id=${currentOrgId}`
+      },
+      team: {
+        title: 'No Team Members',
+        message: 'Add team members to track their productivity and progress.',
+        action: 'Invite Member',
+        icon: <Users className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
+        path: `/team-members?org_id=${currentOrgId}`
+      },
+      performance: {
+        title: 'No Performance Data',
+        message: 'Performance metrics will appear once you complete some tasks.',
+        action: 'View Tasks',
+        icon: <BarChart3 className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
+        path: `/tasks_catalog?org_id=${currentOrgId}`
+      }
+    };
+
+    const { title, message, action, icon, path } = emptyStates[type];
+
+    return (
+      <div className="flex flex-col items-center justify-center h-64 p-6 text-center">
+        <div className="p-4 rounded-full bg-tasksmate-green-start/10 mb-4">
+          {icon}
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-1">{title}</h3>
+        <p className="text-gray-500 mb-4 max-w-md">{message}</p>
+        <button
+          onClick={() => navigate(path)}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-tasksmate-green-end hover:bg-tasksmate-green-start focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tasksmate-green-end transition-colors"
+        >
+          {action}
+        </button>
+      </div>
+    );
+  };
+
+  const renderTaskCompletionChart = () => {
+    if (dataLoading) return renderLoadingState();
+    if (!taskCompletionData?.length) return renderEmptyState('tasks');
+    
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={taskCompletionData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="month" />
+          <YAxis />
+          <Tooltip />
+          <Line type="monotone" dataKey="completed" stroke="#10B981" />
+          <Line type="monotone" dataKey="pending" stroke="#F59E0B" />
+          <Line type="monotone" dataKey="blocked" stroke="#EF4444" />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const renderProjectStatusChart = () => {
+    if (dataLoading) return renderLoadingState();
+    if (!projectStatusData?.length) return renderEmptyState('projects');
+    
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart>
+          <Pie
+            data={projectStatusData}
+            cx="50%"
+            cy="50%"
+            labelLine={false}
+            outerRadius={80}
+            fill="#8884d8"
+            dataKey="value"
+            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+          >
+            {projectStatusData.map((entry: any, index: number) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const renderTeamProductivityTable = () => {
+    if (dataLoading) return renderLoadingState();
+    if (!teamProductivityData?.length) return renderEmptyState('team');
+    
+    return (
+      <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+        {teamProductivityData.map((member: any, idx: number) => (
+          <div key={idx} className="bg-white/60 p-3 rounded-lg hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center text-white text-xs font-bold">
+                  {member.name.split(' ').map((n: string) => n[0]).join('')}
+                </div>
+                <span className="font-medium">{member.name}</span>
+              </div>
+              <span className="text-sm font-semibold px-2 py-1 rounded-full bg-tasksmate-green-start/20 text-tasksmate-green-end">
+                {member.efficiency}%
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+              <span>{member.tasksCompleted}/{member.tasksTotal} tasks completed</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="h-2 rounded-full bg-tasksmate-gradient"
+                style={{ width: `${member.efficiency}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderTopProjects = () => {
+    if (dataLoading) return renderLoadingState();
+    if (!topProjects?.length) return renderEmptyState('performance');
+    
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Project Name</TableHead>
+            <TableHead>Progress</TableHead>
+            <TableHead>Tasks</TableHead>
+            <TableHead>Team Size</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {topProjects.map((project: any, index: number) => (
+            <TableRow 
+              key={index}
+              onClick={() => handleProjectClick(project?.project_id)}
+              className="cursor-pointer hover:bg-gray-50"
+            >
+              <TableCell className="font-medium">{project.name}</TableCell>
+              <TableCell>
+                <div className="flex items-center space-x-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2 max-w-[100px]">
+                    <div
+                      className="bg-tasksmate-gradient h-2 rounded-full"
+                      style={{ width: `${project.progress}%` }}
+                    />
+                  </div>
+                  <span className="text-sm text-gray-600">{project.progress}%</span>
+                </div>
+              </TableCell>
+              <TableCell>{project.tasks} total</TableCell>
+              <TableCell>{project.team} members</TableCell>
+              <TableCell>
+                <Badge
+                  variant="secondary"
+                  className={`text-xs ${getStatusMeta(project?.status)?.color}`}
+                >
+                  {getStatusMeta(project?.status)?.label}
+                </Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  };
 
   if (authLoading) {
     return (
@@ -130,11 +305,11 @@ const Dashboard = () => {
 
   // Extract KPI data
   const kpis = dashboardData?.kpis || {
-    total_tasks: 247,
-    active_projects: 12,
-    completed_projects: 8,
-    blocked_projects: 3,
-    team_members: 24
+    total_tasks: 0,
+    active_projects: 0,
+    completed_projects: 0,
+    blocked_projects: 0,
+    team_members: 0
   };
 
   const handleProjectClick = (projectId: string) => {
@@ -259,19 +434,7 @@ const Dashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={taskCompletionData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="completed" stroke="#10B981" name="Completed" strokeWidth={2} />
-                        <Line type="monotone" dataKey="pending" stroke="#F59E0B" name="Active" strokeWidth={2} />
-                        <Line type="monotone" dataKey="blocked" stroke="#EF4444" name="Blocked" strokeWidth={2} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {renderTaskCompletionChart()}
                 </CardContent>
               </Card>
 
@@ -287,26 +450,7 @@ const Dashboard = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={projectStatusData}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={80}
-                            fill="#8884d8"
-                            dataKey="value"
-                            label={({ name, value }) => `${name}: ${value}`}
-                          >
-                            {projectStatusData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
+                    {renderProjectStatusChart()}
                   </CardContent>
                 </Card>
 
@@ -319,32 +463,7 @@ const Dashboard = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                      {teamProductivityData.map((member, idx) => (
-                        <div key={idx} className="bg-white/60 p-3 rounded-lg hover:shadow-md transition-shadow">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center text-white text-xs font-bold">
-                                {member.name.split(' ').map(n => n[0]).join('')}
-                              </div>
-                              <span className="font-medium">{member.name}</span>
-                            </div>
-                            <span className="text-sm font-semibold px-2 py-1 rounded-full bg-tasksmate-green-start/20 text-tasksmate-green-end">
-                              {member.efficiency}%
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
-                            <span>{member.tasksCompleted}/{member.tasksTotal} tasks completed</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="h-2 rounded-full bg-tasksmate-gradient"
-                              style={{ width: `${member.efficiency}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    {renderTeamProductivityTable()}
                   </CardContent>
                 </Card>
 
@@ -390,60 +509,7 @@ const Dashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Project Name</TableHead>
-                        <TableHead>Progress</TableHead>
-                        <TableHead>Tasks</TableHead>
-                        <TableHead>Team Size</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {topProjects.map((project, index) => (
-                        <TableRow key={index}
-                          onClick={() => handleProjectClick(project?.project_id)}
-                          className="cursor-pointer hover:bg-gray-50"
-                        >
-                          <TableCell className="font-medium">{project.name}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-full bg-gray-200 rounded-full h-2 max-w-[100px]">
-                                <div
-                                  className="bg-tasksmate-gradient h-2 rounded-full"
-                                  style={{ width: `${project.progress}%` }}
-                                ></div>
-                              </div>
-                              <span className="text-sm text-gray-600">{project.progress}%</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{project.tasks} total</TableCell>
-                          <TableCell>{project.team} members</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="secondary"
-                              className={`text-xs ${getStatusMeta(project?.status)?.color}`}
-                            >
-                              {getStatusMeta(project?.status)?.label}
-                            </Badge>
-                            {/* <Badge className={`text-xs ${getPriorityColor(project.priority)} hover:bg-inherit hover:text-inherit`}>
-                              {project.priority.toUpperCase()}
-                            </Badge> */}
-                            {/* <Badge
-                              className={
-                                project.status === "Completed" ? "bg-green-100 text-green-800" :
-                                  project.status === "Active" ? "bg-blue-100 text-blue-800" :
-                                    "bg-gray-100 text-gray-800"
-                              }
-                            >
-                              {project.status}
-                            </Badge> */}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  {renderTopProjects()}
                 </CardContent>
               </Card>
             </div>
