@@ -33,4 +33,5 @@ export const API_ENDPOINTS = {
   DASHBOARD: `${API_BASE_URL}/dashboard`,
   TRACKERS: `${API_BASE_URL}/trackers`,
   BUGS: `${API_BASE_URL}/bugs`,
+  FEEDBACK: `${API_BASE_URL}/feedback`,
 };

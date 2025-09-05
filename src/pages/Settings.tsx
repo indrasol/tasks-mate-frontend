@@ -175,6 +175,10 @@ const Settings = () => {
     }
     setDeleting(true);
     try {
+      toast({
+        title: "Deleting organization",
+        description: "Please wait...",
+      });
       await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${orgToDelete.org_id}`, { delete_reason: deleteReason });
       toast({ title: 'Deleted', description: 'Organization deleted successfully' });
       setDeleteOrgModalOpen(false);

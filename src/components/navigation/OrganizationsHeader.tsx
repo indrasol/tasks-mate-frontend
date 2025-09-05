@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { Check, LogOut, User } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface OrganizationsHeaderProps {
   pageLabel?: string
@@ -15,6 +15,8 @@ export default function OrganizationsHeader({
 
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const [searchParams] = useSearchParams();
+  const orgId = useMemo(() => searchParams.get('org_id'), [searchParams]);
 
 
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -29,7 +31,11 @@ export default function OrganizationsHeader({
   }, [user]);
 
   const handleUserProfileNavigation = () => {
-    navigate('/user-profile');
+    if (orgId) {
+      navigate(`/user-profile?org_id=${orgId}`);
+    } else {
+      navigate('/user-profile');
+    }
   };
 
 

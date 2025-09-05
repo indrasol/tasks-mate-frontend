@@ -209,15 +209,21 @@ const TeamMembers = () => {
       };
 
       // console.log(payload);
+      toast({
+        title: "Sending invitation",
+        description: "Please wait...",
+      });
 
       const data = await api.post(API_ENDPOINTS.ORGANIZATION_INVITES, payload);
-
-      fetchInvitedTeamMembers(); // Refresh team members list
 
       toast({
         title: "Success",
         description: "Invitation sent successfully"
       });
+      
+      fetchInvitedTeamMembers(); // Refresh team members list
+
+      
       setIsInviteModalOpen(false);
       setInviteEmail('');
       setInviteRole('member');
@@ -238,10 +244,18 @@ const TeamMembers = () => {
     // TODO: call backend API to persist designation change
     if (type === "invited") {
       try {
+        toast({
+          title: "Updating designation",
+          description: "Please wait...",
+        });
         const data = await api.put(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
           email: email,
           org_id: orgId,
           designation: value
+        });
+        toast({
+          title: "Success",
+          description: "Designation updated successfully"
         });
       } catch (error) {
         console.error('Error updating designation:', error);
@@ -254,10 +268,18 @@ const TeamMembers = () => {
       }
     } else {
       try {
+        toast({
+          title: "Updating designation",
+          description: "Please wait...",
+        });
         const data = await api.put(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`, {
           user_id: memberId,
           org_id: orgId,
           designation: value
+        });
+        toast({
+          title: "Success",
+          description: "Designation updated successfully"
         });
       } catch (error) {
         console.error('Error updating designation:', error);
@@ -269,10 +291,6 @@ const TeamMembers = () => {
         return;
       }
     }
-    toast({
-      title: "Success",
-      description: "Designation updated successfully"
-    });
     if (type === "invited") {
       setInvitedTeamMembers(prev => prev.map(m => m.id === memberId ? { ...m, designation: value } : m));
     } else {
@@ -293,23 +311,37 @@ const TeamMembers = () => {
 
     try {
       if (type === "invited") {
+        toast({
+          title: "Updating role",
+          description: "Please wait...",
+        });
         await api.put(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
           email: email,
           org_id: orgId,
           role: value
         });
-
+        toast({
+          title: "Success",
+          description: "Role updated successfully"
+        });
         // Update local state
         setInvitedTeamMembers(prev => prev.map(m =>
           m.id === memberId ? { ...m, role: value } : m
         ));
       } else {
+        toast({
+          title: "Updating role",
+          description: "Please wait...",
+        });
         await api.put(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`, {
           user_id: memberId,
           org_id: orgId,
           role: value
         });
-
+        toast({
+          title: "Success",
+          description: "Role updated successfully"
+        });
         // Update local state
         setTeamMembers(prev => prev.map(m =>
           m.user_id === memberId ? { ...m, role: value } : m
@@ -320,11 +352,6 @@ const TeamMembers = () => {
           setCurrentUserOrgRole(value);
         }
       }
-
-      toast({
-        title: "Success",
-        description: "Role updated successfully"
-      });
     } catch (error) {
       console.error('Error updating role:', error);
       toast({
@@ -351,10 +378,17 @@ const TeamMembers = () => {
 
     try {
       if (type === "invited") {
+        toast({
+          title: "Removing member",
+          description: "Please wait...",
+        });
         await api.del(API_ENDPOINTS.ORGANIZATION_INVITES + `/${memberId}`, {
           org_id: orgId
         });
-
+        toast({
+          title: "Success",
+          description: "Member removed successfully"
+        });
         // Update local state
         setInvitedTeamMembers(prev => prev.filter(m => m.id !== memberId));
       } else {
@@ -370,17 +404,20 @@ const TeamMembers = () => {
           });
           return;
         }
+        toast({
+          title: "Removing member",
+          description: "Please wait...",
+        });
 
         await api.del(API_ENDPOINTS.ORGANIZATION_MEMBERS + `/${memberId}/${orgId}`);
-
+        toast({
+          title: "Success",
+          description: "Member removed successfully"
+        });
         // Update local state
         setTeamMembers(prev => prev.filter(m => m.user_id !== memberId));
       }
-
-      toast({
-        title: "Success",
-        description: "Member removed successfully"
-      });
+      
     } catch (error) {
       console.error('Error removing member:', error);
       toast({

@@ -39,6 +39,8 @@ const Login = () => {
   const searchParams = new URLSearchParams(location.search);
   const orgId = searchParams.get("org_id");
 
+
+
   // Features array for animated cards
   const features = [
     {
@@ -69,7 +71,20 @@ const Login = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const { signInWithOtp, verifyOtp } = useAuth();
+  const { signInWithOtp, verifyOtp, user } = useAuth();
+
+  // Get the redirectTo from state (if any)
+  const redirectTo = location.state?.redirectTo;
+
+  useEffect(() => {
+    if (user) {
+      if (redirectTo) {
+        navigate(redirectTo, { replace: true });
+      } else {
+        navigate(orgId ? `/dashboard?org_id=${orgId}` : "/org", { replace: true });
+      }
+    }
+  }, [user, navigate, redirectTo, orgId]);
 
   // Utility: check if email already has an account
   const checkIfRegistered = async (emailToCheck: string): Promise<boolean> => {
@@ -125,6 +140,10 @@ const Login = () => {
       // Logic differs slightly per mode
 
       try {
+        toast({
+          title: "Sending OTP",
+          description: "Please wait...",
+        });
         await signInWithOtp(
           email,
           mode === "signup" ? username : undefined,
@@ -179,12 +198,16 @@ const Login = () => {
 
     setLoading(true);
     try {
+      toast({
+        title: "Verifying OTP",
+        description: "Please wait...",
+      });
       await verifyOtp(email, otp, mode === "signup" ? username : undefined);
       toast({
         title: "Welcome back!",
         description: "You've been signed in successfully.",
       });
-      navigate(orgId ? `/dashboard?org_id=${orgId}` : "/org");
+
     } catch (error: any) {
       toast({
         title: "Verification failed",

@@ -383,10 +383,24 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const handleDeleteTask = async (taskId: string) => {
     if (!window.confirm('Delete this task? This action cannot be undone.')) return;
     try {
+      toast({
+        title: "Deleting task",
+        description: "Please wait...",
+      });
       await taskService.deleteTask(taskId);
+      toast({
+        title: "Success",
+        description: "Task deleted successfully",
+        variant: "default"
+      });
       setTasks(prev => prev.filter(t => t.id !== taskId));
     } catch (e) {
       console.error('Failed to delete task', e);
+      toast({
+        title: "Failed to delete task",
+        description: "Please try again later",
+        variant: "destructive"
+      });
     }
   };
 
@@ -514,14 +528,27 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     // 2️⃣ Persist change to backend
     try {
       const t = tasks.find(x => x.id === taskId);
+      toast({
+        title: "Updating task status",
+        description: "Please wait...",
+      });
       taskService.updateTask(taskId, { status: newStatus, project_id: (t as any)?.projectId, title: t?.name });
-
+      toast({
+        title: "Success",
+        description: "Task status updated successfully",
+        variant: "default"
+      });
     } catch (err) {
       console.error('Failed to update project status', err);
       // 3️⃣ Revert UI if the backend rejects the change
       setTasks(prev => prev.map(task =>
         task.id === taskId ? { ...task, status: prevStatus ?? task.status } : task
       ));
+      toast({
+        title: "Failed to update task status",
+        description: "Please try again later",
+        variant: "destructive"
+      });
     }
   };
 
@@ -1061,11 +1088,21 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                     setTasks(prev =>
                                       prev.map(t => t.id === task.id ? { ...t, status: value } : t)
                                     );
+                                    toast({
+                                      title: "Updating task status",
+                                      description: "Please wait...",
+                                    });
                                     // API update
                                     taskService.updateTask(task.id, {
                                       status: value,
                                       project_id: task.projectId,
                                       title: task.name
+                                    }).then(() => {
+                                      toast({
+                                        title: "Success",
+                                        description: "Task status updated successfully",
+                                        variant: "default"
+                                      });
                                     })
                                       .catch(error => {
                                         console.error('Failed to update status:', error);
@@ -1120,11 +1157,21 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                     setTasks(prev =>
                                       prev.map(t => t.id === task.id ? { ...t, priority: value } : t)
                                     );
+                                    toast({
+                                      title: "Updating task priority",
+                                      description: "Please wait...",
+                                    });
                                     // API update
                                     taskService.updateTask(task.id, {
                                       priority: value,
                                       project_id: task.projectId,
                                       title: task.name
+                                    }).then(() => {
+                                      toast({
+                                        title: "Success",
+                                        description: "Task priority updated successfully",
+                                        variant: "default"
+                                      });
                                     })
                                       .catch(error => {
                                         console.error('Failed to update priority:', error);
@@ -1161,6 +1208,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                   setTasks(prev =>
                                     prev.map(t => t.id === task.id ? { ...t, owner: value } : t)
                                   );
+                                  toast({
+                                    title: "Updating task owner",
+                                    description: "Please wait...",
+                                  });
                                   // API update
                                   taskService.updateTask(task.id, {
                                     assignee: value,
@@ -1195,7 +1246,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                       })()}
                                     </SelectValue>
                                   </SelectTrigger>
-                                  <SelectContent>
+                                  <SelectContent className="w-fit min-w-[5rem]">
 
                                     {orgMembers?.map((m) => {
                                       const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
