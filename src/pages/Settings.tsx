@@ -1,17 +1,19 @@
-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertTriangle,
   Building2,
   Calendar,
+  Camera,
   CreditCard,
   Download,
   Info,
+  Pencil,
+  Trash2,
+  Upload,
   User,
   UserCheck
 } from 'lucide-react';
@@ -20,14 +22,20 @@ import { useEffect, useState } from 'react';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import CopyableBadge from '@/components/ui/copyable-badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { API_ENDPOINTS } from '@/config';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization';
 import { api } from '@/services/apiService';
+import { useAvatar } from '@/services/AvatarContext';
 import { Organization } from '@/types/organization';
 import { useNavigate } from 'react-router-dom';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // interface Profile {
 //   id: string;
@@ -128,17 +136,35 @@ const orgLimits = (plan: string) => {
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('profile');
-  // const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
-  // const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
-  // const { user, changePassword } = useAuth();
   const { user } = useAuth();
-
-  // Add state
-  // const [currentPwd, setCurrentPwd] = useState("");
-  // const [newPwd, setNewPwd] = useState("");
-
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const navigate = useNavigate();
+  
+  // Access shared avatar context
+  const { avatarUrl, updateAvatar, isEnlarged, setIsEnlarged, isUploading } = useAvatar();
+  
+  // Organization edit state
+  const [isEditOrgModalOpen, setIsEditOrgModalOpen] = useState(false);
+  const [editOrgName, setEditOrgName] = useState('');
+  const [editOrgDescription, setEditOrgDescription] = useState('');
+  const [updating, setUpdating] = useState(false);
+  
+  // Organization delete state
+  const [isDeleteOrgModalOpen, setIsDeleteOrgModalOpen] = useState(false);
+  const [deleteReasonType, setDeleteReasonType] = useState('');
+  const [customReason, setCustomReason] = useState('');
+  const [deleteOrgIdConfirm, setDeleteOrgIdConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  
+  // Personal info edit state
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [editUsername, setEditUsername] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+  
+  // Avatar upload state
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -147,130 +173,225 @@ const Settings = () => {
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
 
-  // get org details similar to other screens
+  // Get org details similar to other screens
   const currentOrgId = useCurrentOrgId();
-  const { data: org, isLoading: currentOrgLoading } = useCurrentOrganization(currentOrgId);
+  const { data: org, isLoading: currentOrgLoading, refetch: refetchOrg } = useCurrentOrganization(currentOrgId);
+
+  // ---------------- Organization Edit ----------------
+  const openEditOrgModal = () => {
+    if (!org) return;
+    setEditOrgName(org.name || '');
+    setEditOrgDescription(org.description || '');
+    setIsEditOrgModalOpen(true);
+  };
+
+  const handleUpdateOrganization = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!org) return;
+    if (!editOrgName.trim()) return;
+
+    setUpdating(true);
+    toast({
+      title: "Updating organization",
+      description: "Please wait...",
+    });
+    
+    try {
+      const payload = {
+        org_id: org.org_id,
+        name: editOrgName.trim(),
+        description: editOrgDescription.trim() || undefined,
+      };
+      
+      await api.put(`${API_ENDPOINTS.ORGANIZATIONS}/${org.org_id}`, payload);
+      
+      toast({ 
+        title: 'Success', 
+        description: 'Organization updated successfully' 
+      });
+      
+      setIsEditOrgModalOpen(false);
+      refetchOrg(); // Reload the organization data
+    } catch (error) {
+      console.error('Error updating organization:', error);
+      toast({ 
+        title: 'Error', 
+        description: (error as Error).message || 'Failed to update organization', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   // ---------------- Delete Organization ----------------
-
-
-  const [deleteOrgModalOpen, setDeleteOrgModalOpen] = useState(false);
-  const [orgToDelete, setOrgToDelete] = useState<Organization | null>(null);
-  const [deleteReason, setDeleteReason] = useState('');
-  const [deleting, setDeleting] = useState(false);
-
-  const navigate = useNavigate();
-
-  const openDeleteModal = (org: Organization) => {
-    setOrgToDelete(org);
-    setDeleteReason('');
-    setDeleteOrgModalOpen(true);
+  const openDeleteOrgModal = () => {
+    if (!org) return;
+    setDeleteReasonType('');
+    setCustomReason('');
+    setDeleteOrgIdConfirm('');
+    setIsDeleteOrgModalOpen(true);
+  };
+  
+  // Handle change of reason type
+  const handleReasonTypeChange = (value: string) => {
+    setDeleteReasonType(value);
   };
 
   const handleDeleteOrganization = async () => {
-    if (!orgToDelete) return;
-    if (!deleteReason.trim()) {
-      toast({ title: 'Reason required', description: 'Please provide a reason for deletion.', variant: 'destructive' });
+    if (!org) return;
+    
+    // Check if a reason is provided
+    if (deleteReasonType === '') {
+      toast({ 
+        title: 'Reason required', 
+        description: 'Please select a reason for deletion.', 
+        variant: 'destructive' 
+      });
       return;
     }
+    
+    // If "Other" is selected, make sure custom reason is provided
+    if (deleteReasonType === 'other' && !customReason.trim()) {
+      toast({ 
+        title: 'Comment required', 
+        description: 'Please provide comments for "Other" reason.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
+    // Check if org ID confirmation matches
+    if (deleteOrgIdConfirm !== org.org_id) {
+      toast({ 
+        title: 'Invalid confirmation', 
+        description: 'The organization ID entered does not match.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
     setDeleting(true);
-    try {
       toast({
         title: "Deleting organization",
         description: "Please wait...",
       });
-      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${orgToDelete.org_id}`, { delete_reason: deleteReason });
-      toast({ title: 'Deleted', description: 'Organization deleted successfully' });
-      setDeleteOrgModalOpen(false);
-      setOrgToDelete(null);
-      navigate('/org');
+    
+    try {
+      // Use final reason - either selected value or "Other - custom reason"
+      const finalReason = deleteReasonType === 'other' ? `Other - ${customReason}` : deleteReasonType;
+      
+      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${org.org_id}`, { delete_reason: finalReason });
+      
+      toast({ 
+        title: 'Deleted', 
+        description: 'Organization deleted successfully' 
+      });
+      
+      setIsDeleteOrgModalOpen(false);
+      navigate('/org'); // Redirect to organizations page
     } catch (error) {
       console.error('Error deleting organization:', error);
-      toast({ title: 'Error', description: (error as Error).message || 'Failed to delete organization', variant: 'destructive' });
+      toast({ 
+        title: 'Error', 
+        description: (error as Error).message || 'Failed to delete organization', 
+        variant: 'destructive' 
+      });
     } finally {
       setDeleting(false);
     }
   };
 
-  // useEffect(() => {
-  //   if (user) {
-  //     fetchUserDetails();
-  //   }
-  // }, [user]);
-
-  // const fetchUserDetails = async () => {
-  //   try {
-  //     // const { data, error } = await supabase
-  //     //   .from('users')
-  //     //   .select('*')
-  //     //   .eq('id', user?.id)
-  //     //   .single();
-
-  //     // if (error) throw error;
-
-  //     const profileDetails: Profile = {
-  //       id: user?.id,
-  //       username: user?.user_metadata?.username,
-  //       email: user?.email,
-  //       created_at: user?.created_at,
-  //       updated_at: user?.updated_at,
-  //       display_name: user?.email,
-  //       avatar_url: ""
-  //     }
-
-  //     setProfile(profileDetails);
-  //   } catch (error) {
-  //     console.error('Error fetching profile:', error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-
-
-  // const handleProfileUpdate = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (!profile) return;
-
-  //   try {
-  //     // const { error } = await supabase
-  //     //   .from('users')
-  //     //   .update({
-  //     //     display_name: profile.display_name,
-  //     //     username: profile.username
-  //     //   })
-  //     //   .eq('id', user?.id);
-
-  //     // if (error) throw error;
-
-  //     toast({
-  //       title: "Success",
-  //       description: "Profile updated successfully"
-  //     });
-  //   } catch (error) {
-  //     console.error('Error updating profile:', error);
-  //     toast({
-  //       title: "Error",
-  //       description: "Failed to update profile",
-  //       variant: "destructive"
-  //     });
-  //   }
-  // };
-
-  // const handlePasswordChange = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (!user?.email) return;
-
-  //   try {
-  //     await changePassword(currentPwd, newPwd);
-
-  //     toast({ title: "Success", description: "Password updated" });
-  //     setCurrentPwd(""); setNewPwd("");
-  //     setPasswordChangeOpen(false);
-  //   } catch (error: any) {
-  //     toast({ title: "Failed to update password", description: error.message, variant: "destructive" });
-  //   }
-  // };
+  // ---------------- Profile Edit ----------------
+  const openEditProfileModal = () => {
+    if (!user) return;
+    
+    setEditUsername(user.user_metadata?.username || '');
+    setEditEmail(user.email || '');
+    setIsEditProfileModalOpen(true);
+  };
+  
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    setUpdatingProfile(true);
+    toast({
+      title: "Updating profile",
+      description: "Please wait...",
+    });
+    
+    try {
+      // Implement profile update logic here - would depend on your auth provider
+      // For example with Supabase:
+      // await supabase.auth.updateUser({
+      //   email: editEmail,
+      //   data: { username: editUsername }
+      // });
+      
+      toast({ 
+        title: 'Success', 
+        description: 'Profile updated successfully' 
+      });
+      
+      setIsEditProfileModalOpen(false);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({ 
+        title: 'Error', 
+        description: (error as Error).message || 'Failed to update profile', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setUpdatingProfile(false);
+    }
+  };
+  
+  // ---------------- Avatar Upload ----------------
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setAvatarFile(file);
+      
+      // Validate file
+      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validImageTypes.includes(file.type)) {
+        toast({ 
+          title: 'Invalid file type', 
+          description: 'Please select an image file (JPEG, PNG, GIF, WEBP)',
+          variant: 'destructive' 
+        });
+        setAvatarFile(null);
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ 
+          title: 'File too large', 
+          description: 'Please select an image smaller than 5MB',
+          variant: 'destructive' 
+        });
+        setAvatarFile(null);
+        return;
+      }
+      
+      try {
+        // Use the context's updateAvatar function
+        // This will handle both the Supabase upload and updating user metadata
+        await updateAvatar(file);
+      } catch (error) {
+        console.error('Error uploading avatar:', error);
+        // The updateAvatar function already displays error toasts
+      } finally {
+        setAvatarFile(null);
+        // Allow re-selecting the same file again in the future
+        if (e.target) {
+          e.target.value = '';
+        }
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -294,33 +415,124 @@ const Settings = () => {
             <p className="text-gray-600 mt-2">Manage your organization settings</p>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="profile" className="flex items-center space-x-2">
-                <User className="w-4 h-4" />
-                <span>Security</span>
-              </TabsTrigger>
-              <TabsTrigger value="billing" className="flex items-center space-x-2">
-                <CreditCard className="w-4 h-4" />
-                <span>Billing</span>
-              </TabsTrigger>
-            </TabsList>
+          <div className="space-y-6">
+            {/* Personal Information Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex flex-row items-center space-x-2">
+                  <CardTitle>Personal Information</CardTitle>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                    onClick={openEditProfileModal}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <label htmlFor="avatar-upload" className="cursor-pointer">
+                    <div className="h-7 w-7 rounded-md flex items-center justify-center text-green-600 hover:text-green-700 hover:bg-green-50">
+                      <Camera className="h-4 w-4" />
+                    </div>
+                    <input 
+                      type="file" 
+                      id="avatar-upload" 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                    />
+                  </label>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                  {/* Column 1 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Username</h4>
+                    <div className="flex items-center space-x-2">
+                      <Avatar 
+                        className="w-8 h-8 cursor-pointer"
+                        onClick={() => setIsEnlarged(true)}
+                      >
+                        <AvatarImage src={avatarUrl} />
+                        <AvatarFallback className="bg-gradient-to-br from-green-100 to-blue-100 text-green-600">
+                          {(user?.user_metadata?.username || user?.email || 'U').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <p className="text-base font-medium">{user?.user_metadata?.username || 'No username set'}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Column 2 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Role</h4>
+                    <Badge variant="default" className="bg-blue-500 hover:bg-blue-600">
+                      <UserCheck className="w-3 h-3 mr-1" /> User
+                    </Badge>
+                  </div>
+                  
+                  {/* Column 1 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Email</h4>
+                    <p className="text-base">{user?.email || 'No email available'}</p>
+                  </div>
+                  
+                  {/* Column 2 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Joined on</h4>
+                    <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
+                      <Calendar className="w-3 h-3 mr-1" /> {formatDate(user?.created_at)}
+                    </Badge>
+                  </div>
+                </div>
+                
+              </CardContent>
+            </Card>
 
-            {/* Profile Tab */}
-            <TabsContent value="profile" className="space-y-6">
+            {/* Organization Details Card */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Security</CardTitle>
+                <div className="flex flex-row items-center space-x-2">
+                  <CardTitle>Organization Details</CardTitle>
+                  {org?.role === 'owner' || org?.role === 'admin' ? (
+                    <>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                        onClick={openEditOrgModal}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      {org?.role === 'owner' && (
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={openDeleteOrgModal}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </>
+                  ) : null}
+                </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-300">
-                      <Building2 className="w-6 h-6 text-green-600 dark:text-green-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300" />
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                  {/* Column 1 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Organization name</h4>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-lg flex items-center justify-center shadow-sm">
+                        <Building2 className="w-3 h-3 text-green-600 dark:text-green-400" />
+                      </div>
+                      <p className="text-base font-medium">{org?.name || 'Unnamed Organization'}</p>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">{org?.name}</h3>
-                        <div className="flex items-center flex-wrap gap-2">
+                  </div>
+                  
+                  {/* Column 2 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Your role</h4>
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -336,239 +548,248 @@ const Settings = () => {
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+                  </div>
+                  
+                  {/* Column 1 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
+                    <p className="text-base">{org?.description || 'No description available'}</p>
+                  </div>
+                  
+                  {/* Column 2 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Organization ID</h4>
                           {org?.org_id && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span onClick={(e) => e.stopPropagation()}>
                                     <CopyableBadge copyText={org?.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
                                       <Info className="w-3 h-3 mr-1" /> {org?.org_id}
                                     </CopyableBadge>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Organization ID</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                          {org?.created_by && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="outline" className={`transition-colors duration-300 ${getCreatorBadgeColor()}`}>
-                                    <User className="w-3 h-3 mr-1" /> {org?.created_by}
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Created by</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                          {org?.created_at && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                                      <circle cx="12" cy="12" r="10" />
-                                      <polyline points="12 6 12 12 16 14" />
-                                    </svg> {formatDate(org?.created_at)}
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Created at</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
                           )}
                         </div>
-                      </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mt-1 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors duration-300">
-                        {org?.description}
-                      </p>
 
-                    </div>
+                  {/* Column 1 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Projects</h4>
+                    <p className="text-base font-medium">{org?.project_count || 0} projects</p>
+                      </div>
+
+                  {/* Column 2 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Team Members</h4>
+                    <p className="text-base font-medium">{org?.member_count || 0} members</p>
                   </div>
-                  <form className="space-y-6">
-                    {/* <div className="flex items-center space-x-6">
-                      <Avatar className="w-20 h-20">
-                        <AvatarImage src={profile?.avatar_url} />
-                        <AvatarFallback>
-                          {profile?.display_name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <Button variant="outline" className="flex items-center space-x-2">
-                        <Upload className="w-4 h-4" />
-                        <span>Upload Avatar</span>
-                      </Button>
-                    </div> */}
-
-                    {/* <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="displayName">Display Name</Label>
-                        <Input
-                          id="displayName"
-                          value={profile?.display_name || ''}
-                          onChange={(e) => setProfile(prev => prev ? { ...prev, display_name: e.target.value } : null)}
-                        />
-                      </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+      
+      {/* Profile Edit Modal */}
+      <Dialog open={isEditProfileModalOpen} onOpenChange={setIsEditProfileModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="username">Username</Label>
                         <Input
                           id="username"
-                          value={profile?.username || ''}
-                          onChange={(e) => setProfile(prev => prev ? { ...prev, username: e.target.value } : null)}
+                value={editUsername}
+                onChange={(e) => setEditUsername(e.target.value)}
+                placeholder="Enter your username"
                         />
                       </div>
-                    </div> */}
-
-                    {/* <Collapsible open={passwordChangeOpen} onOpenChange={setPasswordChangeOpen}>
-                      <CollapsibleTrigger asChild>
-                        <Button variant="outline" className="flex items-center space-x-2">
-                          <span>Change Password</span>
-                          <ChevronDown className="w-4 h-4" />
-                        </Button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="space-y-4 mt-4">
-                        <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="currentPassword">Current Password</Label>
-
-                            <Input id="currentPassword" type="password" value={currentPwd}
-                              onChange={(e) => setCurrentPwd(e.target.value)} required />
-
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                placeholder="Enter your email"
+              />
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="newPassword">New Password</Label>
-                            <Input id="newPassword" type="password" value={newPwd}
-                              onChange={(e) => setNewPwd(e.target.value)} required />
+            <div className="flex flex-col items-center space-y-2">
+                <div className="text-sm font-medium text-gray-500">Profile Picture</div>
+                <Avatar className="w-20 h-20">
+                  <AvatarImage src={avatarUrl} />
+                  <AvatarFallback className="bg-gradient-to-br from-green-100 to-blue-100 text-green-600 text-lg">
+                    {editUsername.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  disabled={isUploading}
+                  onClick={() => setIsEnlarged(true)}
+                >
+                  {isUploading ? 'Uploading...' : 'View Full Size'}
+                </Button>
                           </div>
-                        </div>
-                        <div className="flex justify-between items-center pt-6 border-t">
-                          <Button onClick={handlePasswordChange} type="submit" className="bg-green-500 hover:bg-green-600">
-                            Save new password
+            <div className="flex justify-end">
+              <Button 
+                type="submit" 
+                className="bg-green-500 hover:bg-green-600"
+                disabled={updatingProfile}
+              >
+                {updatingProfile ? 'Saving...' : 'Save Changes'}
                           </Button>
                         </div>
-                      </CollapsibleContent>
-                    </Collapsible> */}
-
-                    <div className="flex justify-between items-center pt-6 ">
-                      {/* <Button type="submit" className="bg-green-500 hover:bg-green-600">
-                        Save Changes
-                      </Button> */}
-                      <Button variant="destructive" className="flex items-center space-x-2"
-                        disabled={org?.role !== 'owner'}
-                      >
-                        <AlertTriangle className="w-4 h-4" />
-                        <span>Delete Org</span>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Organization Edit Modal */}
+      <Dialog open={isEditOrgModalOpen} onOpenChange={setIsEditOrgModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Organization</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateOrganization} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="orgName">Organization Name</Label>
+              <Input
+                id="orgName"
+                value={editOrgName}
+                onChange={(e) => setEditOrgName(e.target.value)}
+                placeholder="Enter organization name"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="orgDescription">Description</Label>
+              <Input
+                id="orgDescription"
+                value={editOrgDescription}
+                onChange={(e) => setEditOrgDescription(e.target.value)}
+                placeholder="Describe your organization"
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button 
+                type="submit" 
+                className="bg-green-500 hover:bg-green-600"
+                disabled={updating}
+              >
+                {updating ? 'Saving...' : 'Save Changes'}
                       </Button>
                     </div>
                   </form>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Billing Tab */}
-            <TabsContent value="billing" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Plan & Usage</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="border rounded-lg p-4">
-                    <div className="flex justify-between items-center mb-4">
+        </DialogContent>
+      </Dialog>
+      
+      {/* Organization Delete Modal */}
+      <Dialog open={isDeleteOrgModalOpen} onOpenChange={setIsDeleteOrgModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Organization</DialogTitle>
+          </DialogHeader>
                       <div>
-                        <h3 className="font-semibold">{org?.plan || 'Free'} Plan</h3>
-                        <p className="text-sm text-gray-600">Perfect for getting started</p>
-                      </div>
-                      <Badge variant="secondary">Current Plan</Badge>
+            <p className="mb-4 text-gray-700">
+              Are you sure you want to delete <b>{org?.name}</b>? This action cannot be undone.
+            </p>
+            
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-sm text-amber-800 flex items-center flex-wrap">
+                To confirm deletion, please enter the 
+                <span className="mx-1" onClick={(e) => e.stopPropagation()}>
+                  <CopyableBadge copyText={org?.org_id || ''} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
+                    {org?.org_id}
+                  </CopyableBadge>
+                </span>
+              </p>
                     </div>
 
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Projects</span>
-                          <span>{org?.project_count || 0} / {orgLimits(org?.plan || 'free').projects}</span>
-                        </div>
-                        <Progress value={org?.project_count ? (org?.project_count / orgLimits(org?.plan || 'free').projects) * 100 : 0} className="h-2" />
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Team Members</span>
-                          <span>{org?.member_count || 0} / {orgLimits(org?.plan || 'free').members}</span>
-                        </div>
-                        <Progress value={org?.member_count ? (org?.member_count / orgLimits(org?.plan || 'free').members) * 100 : 0} className="h-2" />
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Storage</span>
-                          <span>{org?.storage || 0} / {orgLimits(org?.plan || 'free').storage} GB</span>
-                        </div>
-                        <Progress value={org?.storage ? (org?.storage / orgLimits(org?.plan || 'free').storage) * 100 : 0} className="h-2" />
-                      </div>
-                    </div>
+            <div className="space-y-2 mb-4">
+              <Label htmlFor="deleteOrgIdConfirm">Enter organization ID to confirm <span className="text-red-500">*</span></Label>
+              <Input
+                id="deleteOrgIdConfirm"
+                value={deleteOrgIdConfirm}
+                onChange={e => setDeleteOrgIdConfirm(e.target.value)}
+                placeholder="Paste organization ID here"
+                required
+              />
                   </div>
 
-                  <div className="flex space-x-3">
-                    <Button className="bg-green-500 hover:bg-green-600">
-                      Upgrade Plan
+            <div className="space-y-2">
+              <Label htmlFor="deleteReason">Reason for deletion <span className="text-red-500">*</span></Label>
+              <Select value={deleteReasonType} onValueChange={handleReasonTypeChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="No longer needed">No longer needed</SelectItem>
+                  <SelectItem value="Created by mistake">Created by mistake</SelectItem>
+                  <SelectItem value="Moving to a different organization">Moving to a different organization</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {deleteReasonType === 'other' && (
+                <div className="mt-3 space-y-2">
+                  <Label htmlFor="customReason">Please specify comments <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="customReason"
+                    value={customReason}
+                    onChange={e => setCustomReason(e.target.value)}
+                    placeholder="Enter specific reason"
+                    required
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeleteOrgModalOpen(false)} 
+                disabled={deleting}
+              >
+                Cancel
                     </Button>
-                    <Button variant="outline">
-                      Add Payment Method
+              <Button
+                className="bg-red-500 hover:bg-red-600 text-white"
+                onClick={handleDeleteOrganization}
+                disabled={
+                  deleting || 
+                  deleteOrgIdConfirm !== org?.org_id || 
+                  !deleteReasonType ||
+                  (deleteReasonType === 'other' && !customReason.trim())
+                }
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Billing History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Plan</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Calendar className="w-4 h-4 text-gray-400" />
-                            <span>{formatDate(org?.created_at)}</span>
                           </div>
-                        </TableCell>
-                        <TableCell>$0.00</TableCell>
-                        <TableCell>
-                          <Badge variant="default">Paid</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {orgPlan(org?.plan || 'free')}
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="sm">
-                            <Download className="w-4 h-4 mr-1" />
-                            PDF
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-
-          </Tabs>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Enlarged Avatar Modal */}
+      <Dialog open={isEnlarged} onOpenChange={setIsEnlarged}>
+        <DialogContent className="sm:max-w-md flex flex-col items-center p-0 gap-0 overflow-hidden">
+          <div className="w-full h-full">
+            <img 
+              src={avatarUrl || undefined} 
+              alt={`${user?.user_metadata?.username || 'User'}'s avatar`}
+              className="w-full h-auto object-contain"
+              onError={(e) => {
+                // If image loading fails, show the initials fallback
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
+            {/* Fallback if the image fails to load */}
+            {!avatarUrl && (
+              <div className="flex items-center justify-center bg-gray-100 w-full h-64">
+                <div className="flex items-center justify-center w-32 h-32 text-3xl font-bold text-white bg-green-500 rounded-full">
+                  {(user?.user_metadata?.username || user?.email || 'U').charAt(0).toUpperCase()}
         </div>
       </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

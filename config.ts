@@ -34,4 +34,5 @@ export const API_ENDPOINTS = {
   TRACKERS: `${API_BASE_URL}/trackers`,
   BUGS: `${API_BASE_URL}/bugs`,
   FEEDBACK: `${API_BASE_URL}/feedback`,
+  USERS: `${API_BASE_URL}/users/avatar`,
 };
