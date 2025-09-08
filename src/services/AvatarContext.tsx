@@ -5,6 +5,7 @@ import { API_ENDPOINTS } from '@/config';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization';
+import { toast } from '@/hooks/use-toast';
 
 interface AvatarContextType {
   avatarUrl: string | null;
@@ -50,6 +51,11 @@ export const AvatarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setIsUploading(true);
 
+    toast({
+      title: "Uploading avatar",
+      description: "Please wait...",
+    });
+
     try {
       // (Optional) Generate optimistic preview while uploading
       const reader = new FileReader();
@@ -74,7 +80,13 @@ export const AvatarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const newUrl = response?.avatar_url;
       if (newUrl) {
+
         setAvatarUrl(newUrl);
+
+        toast({
+          title: "Success",
+          description: "Avatar uploaded successfully",
+        });
         
         // Refresh user session to get updated metadata
         try {
@@ -89,6 +101,11 @@ export const AvatarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return newUrl ?? null;
     } catch (error) {
       console.error('Error uploading avatar:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload avatar",
+        variant: "destructive"
+      });
       return null;
     } finally {
       setIsUploading(false);

@@ -403,6 +403,7 @@ const BugBoard = () => {
               </div>
               <CopyableIdBadge
                 id={bug.id}
+                org_id={currentOrgId}
                 className="bg-red-600"
                 copyLabel="Bug"
                 isCompleted={bug.closed}
@@ -517,6 +518,7 @@ const BugBoard = () => {
               <TableCell className="font-medium">
                 <CopyableIdBadge
                   id={bug?.id}
+                  org_id={currentOrgId}
                   className="bg-red-600"
                   copyLabel="Bug"
                   isCompleted={bug?.closed}

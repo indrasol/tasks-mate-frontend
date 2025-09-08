@@ -1,4 +1,3 @@
-import { API_ENDPOINTS } from '@/config';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import NewTaskModal from '@/components/tasks/NewTaskModal';
 import { Badge } from '@/components/ui/badge';
@@ -12,19 +11,25 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Label } from '@/components/ui/label';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { API_ENDPOINTS } from '@/config';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
-import { formatDate } from '@/lib/projectUtils';
+import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
+import { deriveDisplayFromEmail, formatDate } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronRight, Clock, Edit3, Loader2, Pencil, Plus, Save, Trash2, Upload, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
 import imageCompression from "browser-image-compression";
-import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { format } from 'date-fns';
+import { ArrowLeft, ChevronRight, Clock, Edit3, Loader2, Pencil, Save, Send, Trash2, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface BugComment {
   id: string;
@@ -84,6 +89,18 @@ const BugDetail = () => {
   const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
   const [isRecreateGuideEditing, setIsRecreateGuideEditing] = useState(false);
 
+
+  // @mention functionality
+  const [mentionSearchText, setMentionSearchText] = useState("");
+  const [showMentionPopover, setShowMentionPopover] = useState(false);
+  const [mentionAnchorPos, setMentionAnchorPos] = useState({ top: 0, left: 0 });
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
+  const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId);
+  const { user } = useAuth();
+
+
   // Fetch bug details
 
   // useEffect(() => {
@@ -98,7 +115,7 @@ const BugDetail = () => {
   //   try {
   //     const response: any = await api.get<any>(`${API_ENDPOINTS.BUGS}/${bugId}`);
   //     if (response.data) {
-        
+
   //       response.data.is_editable = true;
   //       setBug(response.data);
   //       setBugName(response.data.title);
@@ -137,7 +154,7 @@ const BugDetail = () => {
         //   project_name: response?.project_name,
         // };
         const response = await api.get<any>(`${API_ENDPOINTS.BUGS}/${bugId}`);
-        
+
         if (response) {
           setBugName(response.title);
           setDescription(response.description);
@@ -711,8 +728,289 @@ const BugDetail = () => {
         variant: "destructive"
       });
       // fetchBugDetails(false);
-      
+
     }
+  };
+
+
+  // @mention helpers
+  const getCursorPosition = (textarea: HTMLTextAreaElement): number => {
+    return textarea.selectionStart || 0;
+  };
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setNewComment(newText);
+
+    const curPos = getCursorPosition(e.target);
+    setCursorPosition(curPos);
+
+    // Get text before cursor
+    const textBeforeCursor = newText.substring(0, curPos);
+
+    // Show pop-over ONLY when the cursor is currently inside an @-mention that has no
+    // terminating regular space/punctuation yet (i.e. the mention is still being typed).
+    // NBSP (\u00A0) is treated as part of the mention so selecting a name will close it.
+    const inProgressMatch = textBeforeCursor.match(/(?:^|\s)@([^\s]*)$/);
+
+    if (inProgressMatch) {
+      // User is typing a mention → keep / open popover
+      setMentionSearchText(inProgressMatch[1] || "");
+      if (!showMentionPopover) setShowMentionPopover(true);
+      setMentionActiveIndex(0);
+    } else if (showMentionPopover) {
+      // Cursor is no longer within a mention → close popover
+      setShowMentionPopover(false);
+    }
+  };
+
+  const handleSelectMention = useCallback((username: string) => {
+
+    console.log(commentInputRef)
+    if (!commentInputRef.current) return;
+
+    const textarea = commentInputRef.current;
+    const text = textarea.value;
+    const curPos = getCursorPosition(textarea);
+
+    // Find the position of the @ character
+    const textBeforeCursor = text.substring(0, curPos);
+    const atIndex = textBeforeCursor.lastIndexOf('@');
+
+    // Insert the username (only if we found an @ symbol)
+    if (atIndex !== -1) {
+      // Find any text that was already typed after the @
+      const mentionRegex = /@([\w]+(?:[\s-][\w]+)*)(?=[\s.,!?]|$)/g;
+      const match = textBeforeCursor.match(mentionRegex);
+      const typedAfterAt = match ? match[0].length : 0;
+
+      // Replace regular spaces with non-breaking spaces so the mention is one contiguous token
+      const usernameSafe = username.replace(/ /g, '\u00A0');
+
+      // Create new text by replacing what was typed after @ with the selected username
+      const newText =
+        text.substring(0, atIndex + 1) + // Keep text up to and including @
+        usernameSafe + ' ' + // Add username (with NBSP) and trailing regular space
+        text.substring(curPos); // Keep text after cursor
+
+      console.log('Adding mention:', username);
+      console.log('New text:', newText);
+
+      // Update the comment text
+      setNewComment(newText);
+
+      // Close the popover
+      setShowMentionPopover(false);
+
+      // Set focus back to textarea and place cursor after inserted username and space
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = atIndex + username.length + 2; // +2 for @ and space
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 50); // Longer timeout to ensure focus works
+    }
+  }, []);
+
+  // Handle click outside to close mention popover
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (commentInputRef.current && !commentInputRef.current.contains(e.target as Node)) {
+        setShowMentionPopover(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Filter organization members based on search text
+  const filteredMembers = (mentionSearchText
+    ? orgMembers.filter(member => {
+      // Check username, display name and email
+      const searchLower = mentionSearchText.toLowerCase();
+      const usernameMatch = member.email?.toLowerCase().includes(searchLower);
+      const displayName = deriveDisplayFromEmail(member.email || '').displayName.toLowerCase();
+      const displayNameMatch = displayName.includes(searchLower);
+
+      return usernameMatch || displayNameMatch;
+    })
+    : orgMembers).filter((member) => member.email !== user?.email);
+
+
+  // Function to render comment text with @mentions highlighted
+  const renderCommentWithMentions = (text: string) => {
+    if (!text) return null;
+
+    // Regular expression to find @mentions. Names may contain non-breaking spaces (\u00A0) that we insert when the user selects from the popover.
+    // The match stops before the first regular whitespace, punctuation, or line end.
+    const mentionRegex = /@[\w\u00A0]+(?:[\u00A0-][\w\u00A0]+)*(?=[\s.,!?]|$)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    // Find all mentions and split the text
+    while ((match = mentionRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+
+      // Add the mention with highlighting
+      parts.push(
+        <span key={`mention-${match.index}`} className="bg-blue-100 text-blue-800 px-1 rounded">
+          {match[0]}
+        </span>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add any remaining text after the last match
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+
+    return parts;
+  };
+
+
+  // Keyboard navigation handler for the comment textarea when the mention popover is open
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!showMentionPopover || filteredMembers.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setMentionActiveIndex((prev) => (prev + 1) % filteredMembers.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setMentionActiveIndex((prev) => (prev - 1 + filteredMembers.length) % filteredMembers.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const member = filteredMembers[mentionActiveIndex];
+      if (member) {
+        const { displayName } = deriveDisplayFromEmail(member.email || '');
+        handleSelectMention(displayName);
+      }
+    } else if (e.key === 'Escape') {
+      setShowMentionPopover(false);
+    }
+  };
+
+  // Comment functions
+  // const handleAddComment = async () => {
+  //   if (!newComment.trim()) return;
+
+  //   try {
+  //     // Create optimistic comment with temp ID
+  //     const tempId = `temp-${Date.now()}`;
+  //     const optimisticComment = {
+  //       comment_id: tempId,
+  //       content: newComment,
+  //       created_by: user?.email || user?.id,
+  //       created_at: new Date().toISOString(),
+  //       task_id: taskId,
+  //       isOptimistic: true
+  //     };
+
+  //     // Apply optimistic update
+  //     setComments(prev => [optimisticComment, ...prev]);
+  //     setNewComment("");
+
+  //     const payload = {
+  //       task_id: taskId,
+  //       content: newComment,
+  //       task_title: taskName || task?.name,
+  //     };
+
+  //     toast({
+  //       title: "Adding comment",
+  //       description: "Please wait...",
+  //     });
+
+  //     const created = await api.post(`${API_ENDPOINTS.TASK_COMMENTS}?project_id=${task?.project_id}`, payload);
+
+  //     // Replace optimistic comment with real one
+  //     setComments(prev => prev.map(c =>
+  //       c.comment_id === tempId ? created : c
+  //     ));
+
+  //     toast({
+  //       title: "Success",
+  //       description: "Comment added",
+  //       variant: "default"
+  //     });
+  //   } catch (err: any) {
+  //     // Revert optimistic update on error
+  //     setComments(prev => prev.filter(c => !c.isOptimistic));
+  //     setNewComment(newComment); // Restore comment text
+  //     toast({
+  //       title: "Failed to add comment",
+  //       description: err.message,
+  //       variant: "destructive"
+  //     });
+  //   }
+  // };
+  // const handleEditComment = (commentId: string) => {
+  //   const comment = comments.find((c) => c.comment_id === commentId);
+  //   if (comment) {
+  //     setEditingComment(commentId);
+  //     setEditCommentText(comment.content);
+  //   }
+  // };
+  // const handleSaveEdit = async () => {
+  //   if (!editCommentText.trim() || !editingComment) return;
+
+  //   const originalComment = comments.find(c => c.comment_id === editingComment);
+  //   const originalContent = originalComment?.content || originalComment?.comment || '';
+
+  //   try {
+  //     // Apply optimistic update
+  //     setComments(prev => prev.map(c =>
+  //       c.comment_id === editingComment
+  //         ? { ...c, content: editCommentText, isEditing: true }
+  //         : c
+  //     ));
+
+  //     toast({
+  //       title: "Updating comment",
+  //       description: "Please wait...",
+  //     });
+
+  //     const updated = await api.put(
+  //       `${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`,
+  //       { content: editCommentText, task_title: taskName || task?.name }
+  //     );
+
+  //     setComments(prev => prev.map(c =>
+  //       c.comment_id === editingComment ? Object.assign({}, updated, { isEditing: false }) : c
+  //     ));
+
+  //     setEditingComment(null);
+  //     setEditCommentText("");
+  //     toast({
+  //       title: "Success",
+  //       description: "Comment updated",
+  //       variant: "default"
+  //     });
+  //   } catch (err: any) {
+  //     // Revert on error
+  //     setComments(prev => prev.map(c =>
+  //       c.comment_id === editingComment
+  //         ? { ...c, content: originalContent, isEditing: false }
+  //         : c
+  //     ));
+  //     toast({
+  //       title: "Failed to update comment",
+  //       description: err.message,
+  //       variant: "destructive"
+  //     });
+  //   }
+  // };
+  const handleCancelEdit = () => {
+    setEditingComment(null);
+    setEditCommentText('');
   };
 
 
@@ -1088,20 +1386,73 @@ const BugDetail = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Add New Comment */}
-                <div className="flex gap-3">
-                  <Textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Add a comment..."
-                    rows={3}
-                    className="flex-1"
-                  />
+                <div className="flex gap-3 relative">
+                  <div className="flex-1 relative">
+                    <Textarea
+                      ref={commentInputRef}
+                      value={newComment}
+                      onChange={handleCommentChange}
+                      onKeyDown={handleTextareaKeyDown}
+                      onClick={() => setShowMentionPopover(false)}
+                      // onClick={handleTextareaClick}
+                      placeholder="Add a comment... (Type @ to mention someone)"
+                      rows={3}
+                      className="min-h-20 resize-none"
+                    />
+
+                    {/* @mention popover */}
+                    {showMentionPopover && (
+                      <div
+                        className="absolute z-50 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-y-auto w-64"
+                        style={{
+                          top: '100%',
+                          left: 0,
+                          marginTop: '0.25rem',
+                        }}
+                      >
+                        <div className="p-1">
+                          <div className="px-2 py-1 text-sm font-semibold border-b border-gray-100 mb-1 bg-blue-50 text-blue-800 rounded-t">
+                            @Mention Team Member
+                          </div>
+                          {filteredMembers.length === 0 ? (
+                            <div className="px-2 py-1 text-sm text-gray-500">No members found</div>
+                          ) : (
+                            filteredMembers.map((member, idx) => {
+                              const { displayName } = deriveDisplayFromEmail(member.email || '');
+
+                              return (
+                                <button
+                                  key={member.id || member.user_id}
+                                  className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded transition-colors ${idx === mentionActiveIndex ? 'bg-blue-100' : 'hover:bg-gray-100 hover:bg-blue-50 active:bg-blue-100'}`}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    // Using onMouseDown instead of onClick to prevent focus issues
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSelectMention(displayName);
+                                  }}
+                                >
+                                  <Avatar className="h-5 w-5">
+                                    <AvatarFallback className="text-[10px] bg-blue-100 text-blue-800">
+                                      {displayName.substring(0, 2).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-sm font-medium">{displayName}</span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <Button
                     onClick={handleAddComment}
+                    disabled={!newComment.trim()}
                     className="bg-green-500 hover:bg-green-600 text-white self-start"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add
+                    <Send className="w-4 h-4 mr-2" />
+                    Comment
                   </Button>
                 </div>
 
@@ -1110,17 +1461,34 @@ const BugDetail = () => {
                   {comments?.map((comment: BugComment) => (
                     <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <span className="font-medium text-sm text-gray-900">{comment.user_id}</span>
-                          <span className="text-xs text-gray-500 ml-2">
-                            {formatDate(comment?.created_at)}
-                          </span>
-                        </div>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Avatar className="w-8 h-8 border border-white">
+                              <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                                {(() => {
+                                  const creator = (comment.user_id || "") as string;
+                                  const { initials } = deriveDisplayFromEmail(creator || "u");
+                                  return initials || "U";
+                                })()}
+                              </AvatarFallback>
+                            </Avatar>
+                          </HoverCardTrigger>
+                          <HoverCardContent className="text-xs p-2">
+                            {(() => {
+                              const creator = (comment.user_id || "") as string;
+                              const { displayName } = deriveDisplayFromEmail(creator || "user");
+                              return displayName;
+                            })()}
+                          </HoverCardContent>
+                        </HoverCard>
                         <div className="flex gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setEditingComment(comment.id)}
+                            onClick={() => {
+                              setEditingComment(comment.id);
+                              setEditCommentText(comment.content);
+                            }}
                           >
                             <Edit3 className="w-3 h-3" />
                           </Button>
@@ -1135,20 +1503,14 @@ const BugDetail = () => {
                       </div>
 
                       {editingComment === comment.id ? (
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2">
                           <Textarea
                             value={editCommentText}
                             onChange={(e) => setEditCommentText(e.target.value)}
-                            rows={2}
-                            className="flex-1"
+                            placeholder="Edit your comment..."
+                            className="min-h-20 resize-none"
                           />
-                          <div className="flex flex-col gap-1">
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveEdit(comment.id)}
-                            >
-                              Save
-                            </Button>
+                          <div className="flex justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1156,10 +1518,32 @@ const BugDetail = () => {
                             >
                               Cancel
                             </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveEdit(comment.id)}
+                              disabled={!editCommentText.trim()}
+                            >
+                              Save Changes
+                            </Button>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-700">{comment.content}</p>
+                        <div className="text-sm text-gray-700">
+                          <p className="whitespace-pre-wrap">
+                            {renderCommentWithMentions(comment.content)}
+                          </p>
+                          {
+                            (comment.updated_at || comment.created_at) &&
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                              <Clock className="h-3 w-3" />
+                              {format(new Date(comment.updated_at || comment.created_at), 'MMM d, yyyy h:mm a')}
+                              {comment.updated_at && comment.updated_at !== comment.created_at && (
+                                <span className="text-xs text-gray-400 ml-1">(edited)</span>
+                              )}
+                            </p>
+                          }
+
+                        </div>
                       )}
                     </div>
                   ))}
@@ -1177,7 +1561,7 @@ const BugDetail = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                <Label htmlFor="severity">Status</Label>
+                  <Label htmlFor="severity">Status</Label>
                   <Select value={bug?.status} onValueChange={handleStatusChange}>
                     <SelectTrigger>
                       <SelectValue />
