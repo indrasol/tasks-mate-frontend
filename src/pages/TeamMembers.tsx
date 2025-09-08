@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization';
 import { capitalizeFirstLetter } from '@/lib/projectUtils';
+import { processDesignations } from '@/lib/utils';
 import { api } from '@/services/apiService';
 import { BackendOrgMember, BackendOrgMemberInvite, OrgMember, OrgMemberInvite } from '@/types/organization';
 import {
@@ -86,7 +87,9 @@ const TeamMembers = () => {
   const fetchDesignations = async () => {
     try {
       const data = await api.get<{ name: string }[]>(API_ENDPOINTS.DESIGNATIONS);
-      setDesignationOptions(data.map(d => d.name));
+      const names = (data || []).map(d => d.name);
+      const processedDesignations = processDesignations(names);
+      setDesignationOptions(processedDesignations);
     } catch (err) {
       console.error('Error fetching designations', err);
     }
@@ -127,7 +130,10 @@ const TeamMembers = () => {
           email: org.email,
           role: org.role,
           joined_at: org.accepted_at || org.invited_at || org.updated_at || '',
-          designation: org.designation || undefined,
+          // Handle designation display logic
+          designation: org.role === 'owner' 
+            ? (org.designation || 'Organization Owner')  // Owners always show "Organization Owner"
+            : org.designation,  // Non-owners show actual designation or undefined for placeholder
         };
 
         return formattedOrg;
@@ -644,8 +650,8 @@ const TeamMembers = () => {
                         <Select
                         disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
                         value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Select" />
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Please set designation" />
                           </SelectTrigger>
                           <SelectContent>
                             {designationOptions.map(opt => (
@@ -748,8 +754,8 @@ const TeamMembers = () => {
                         <Select 
                         disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
                         value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Select" />
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Please set designation" />
                           </SelectTrigger>
                           <SelectContent>
                             {designationOptions.map(opt => (

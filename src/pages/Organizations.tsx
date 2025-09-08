@@ -18,6 +18,7 @@ import { Building2, Check, ChevronDown, ChevronsUpDown, Info, Layers, LayoutGrid
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '@/config';
+import { processDesignations } from '@/lib/utils';
 const CopyOrgId = ({ id, children }: { id: string, children: React.ReactNode }) => (
   <span onClick={(e) => e.stopPropagation()}>
     <CopyableBadge copyText={id} org_id={id} variant="outline">
@@ -94,7 +95,7 @@ const Organizations = () => {
   const [sortBy, setSortBy] = useState<'name' | 'newest' | 'oldest' | 'projects'>('name');
   // Designation related state
   const [designationOptions, setDesignationOptions] = useState<string[]>([]);
-  const [selectedDesignation, setSelectedDesignation] = useState<string | null>('director');
+  const [selectedDesignation, setSelectedDesignation] = useState<string | null>('Organization Owner');
   const [newDesignationInput, setNewDesignationInput] = useState('');
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -124,13 +125,12 @@ const Organizations = () => {
   const fetchDesignations = async () => {
     try {
       const data = await api.get<{ name: string }[]>(API_ENDPOINTS.DESIGNATIONS);
-      let names = (data || []).map((d) => d.name);
-      if (!names.includes('director')) {
-        names = [...names, 'director'];
-      }
-      setDesignationOptions(names);
+      const names = (data || []).map((d) => d.name);
+      const processedDesignations = processDesignations(names);
+      
+      setDesignationOptions(processedDesignations);
       if (!selectedDesignation) {
-        setSelectedDesignation('director');
+        setSelectedDesignation('Organization Owner');
       }
     } catch (err) {
       console.error('Error fetching designations', err);
@@ -231,7 +231,11 @@ const Organizations = () => {
       const payload = {
         name: newOrgName.trim(),
         description: newOrgDescription.trim() || undefined,
-        designation: selectedDesignation ?? undefined,
+        // Only send designation if it's explicitly selected and not the default "Organization Owner"
+        // The backend will handle setting "Organization Owner" for owners automatically
+        designation: (selectedDesignation && selectedDesignation !== 'Organization Owner') 
+          ? selectedDesignation 
+          : undefined,
       };
       const data = await api.post<BackendOrgResp>(API_ENDPOINTS.ORGANIZATIONS, payload);
 
@@ -260,7 +264,7 @@ const Organizations = () => {
       setIsCreateModalOpen(false);
       setNewOrgName('');
       setNewOrgDescription('');
-      setSelectedDesignation(null);
+      setSelectedDesignation('Organization Owner');
       // Optionally, navigate to the dashboard of the new org
       // navigate(`/dashboard?org_id=${data.org_id}`);
     } catch (error) {
