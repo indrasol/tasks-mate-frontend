@@ -8,12 +8,13 @@ import { env } from "@/config/env";
 interface CopyableIdBadgeProps {
   id: string;
   org_id: string;
+  tracker_id?: string;
   className?: string;
   isCompleted?: boolean;
   copyLabel?: string; // Label used in toast e.g., "Task" or "Tracker"
 }
 
-const CopyableIdBadge = ({ id, org_id, className, isCompleted = false, copyLabel = "Task" }: CopyableIdBadgeProps) => {
+const CopyableIdBadge = ({ id, org_id, tracker_id, className, isCompleted = false, copyLabel = "Task" }: CopyableIdBadgeProps) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -24,7 +25,7 @@ const CopyableIdBadge = ({ id, org_id, className, isCompleted = false, copyLabel
       if (id.startsWith("T")) {
         copyTextUrl = `${copyTextUrl}/tasks/${id}?org_id=${org_id}`;
       } else if (id.startsWith("B")) {
-        copyTextUrl = `${copyTextUrl}/tester-zone/runs/${id}/bugs/${id}?org_id=${org_id}`;
+        copyTextUrl = `${copyTextUrl}/tester-zone/runs/${tracker_id}/bugs/${id}?org_id=${org_id}`;
       } else if (id.startsWith("TR")) {
         copyTextUrl = `${copyTextUrl}/tester-zone/runs/${id}?org_id=${org_id}`;
       } else if (id.startsWith("P")) {
