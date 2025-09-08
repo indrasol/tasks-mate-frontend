@@ -1009,6 +1009,7 @@ const TesterZone = () => {
                           <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
                             <CopyableIdBadge
                               id={run.id}
+                              org_id={currentOrgId}
                               className="bg-orange-600 hover:bg-orange-700 text-white cursor-pointer"
                               copyLabel="Tracker"
                               isCompleted={run.status === 'completed'}

@@ -502,7 +502,7 @@ const Projects = () => {
                     <Check className="h-3 w-3 text-white" />
                   )}
                 </div>
-                <CopyableBadge copyText={project.id} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
+                <CopyableBadge copyText={project.id} org_id={currentOrgId ?? ''} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
                   {project.id}
                 </CopyableBadge>
               </div>
@@ -1053,7 +1053,7 @@ const Projects = () => {
                               </TableCell>
                               <TableCell className="text-center">
                                 <div className="flex justify-center">
-                                  <CopyableBadge copyText={project.id} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
+                                  <CopyableBadge copyText={project.id} org_id={currentOrgId ?? ''} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
                                     {project.id}
                                   </CopyableBadge>
                                 </div>

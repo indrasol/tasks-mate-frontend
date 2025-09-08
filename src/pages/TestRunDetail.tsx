@@ -308,7 +308,7 @@ const TestRunDetail = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3">
 
-                      <CopyableIdBadge id={testRun?.id} isCompleted={status === 'completed'} className="bg-orange-600 hover:bg-orange-700 text-white" copyLabel="Tracker" />
+                      <CopyableIdBadge id={testRun?.id} org_id={currentOrgId} isCompleted={status === 'completed'} className="bg-orange-600 hover:bg-orange-700 text-white" copyLabel="Tracker" />
 
                       {/* <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                     {(() => {

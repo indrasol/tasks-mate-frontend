@@ -28,6 +28,7 @@ type Bug = {
   closed: boolean;
   date: string;         // created date
   closedDate?: string;  // date when bug was closed
+  tracker_id?: string;
 };
 
 const BugBoard = () => {
@@ -101,7 +102,8 @@ const BugBoard = () => {
             tags: bug.tags || [],
             closed: ['closed', 'won_t_fix', 'duplicate'].includes(bug.status),
             date: bug.created_at || new Date().toISOString().split('T')[0],
-            closedDate: closedDate
+            closedDate: closedDate,
+            tracker_id: bug.tracker_id || '',
           };
         });
 
@@ -403,6 +405,8 @@ const BugBoard = () => {
               </div>
               <CopyableIdBadge
                 id={bug.id}
+                org_id={currentOrgId}
+                tracker_id={bug.tracker_id}
                 className="bg-red-600"
                 copyLabel="Bug"
                 isCompleted={bug.closed}
@@ -517,6 +521,8 @@ const BugBoard = () => {
               <TableCell className="font-medium">
                 <CopyableIdBadge
                   id={bug?.id}
+                  org_id={currentOrgId}
+                  tracker_id={bug?.tracker_id}
                   className="bg-red-600"
                   copyLabel="Bug"
                   isCompleted={bug?.closed}

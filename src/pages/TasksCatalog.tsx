@@ -1041,7 +1041,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                             </TableCell>
                             <TableCell className="text-center">
                               <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
-                                <CopyableIdBadge id={task.id} isCompleted={task.status === 'completed'} />
+                                <CopyableIdBadge id={task.id} org_id={currentOrgId} isCompleted={task.status === 'completed'} />
                               </div>
                             </TableCell>
                             <TableCell className="font-medium w-80">

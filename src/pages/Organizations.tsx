@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '@/config';
 const CopyOrgId = ({ id, children }: { id: string, children: React.ReactNode }) => (
   <span onClick={(e) => e.stopPropagation()}>
-    <CopyableBadge copyText={id} variant="outline">
+    <CopyableBadge copyText={id} org_id={id} variant="outline">
       {children}
     </CopyableBadge>
   </span>
@@ -810,7 +810,7 @@ const Organizations = () => {
                         <p className="text-sm text-amber-800 flex items-center flex-wrap">
                           To confirm deletion, please enter the 
                           <span className="mx-1" onClick={(e) => e.stopPropagation()}>
-                            <CopyableBadge copyText={orgToDelete?.org_id || ''} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
+                            <CopyableBadge copyText={orgToDelete?.org_id || ''} org_id={orgToDelete?.org_id || ''} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
                               {orgToDelete?.org_id}
                             </CopyableBadge>
                           </span>
@@ -949,7 +949,7 @@ const Organizations = () => {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span onClick={(e) => e.stopPropagation()}>
-                                    <CopyableBadge copyText={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
+                                    <CopyableBadge copyText={org.org_id} org_id={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
                                       <Info className="w-3 h-3 mr-1" /> {org.org_id}
                                     </CopyableBadge>
                                   </span>
@@ -1082,7 +1082,7 @@ const Organizations = () => {
                         <div className="flex items-center flex-wrap gap-2">
                           {org.org_id && (
                             <span onClick={(e) => e.stopPropagation()}>
-                              <CopyableBadge copyText={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
+                              <CopyableBadge copyText={org.org_id} org_id={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
                                 <Info className="w-3 h-3 mr-1" /> {org.org_id}
                               </CopyableBadge>
                             </span>

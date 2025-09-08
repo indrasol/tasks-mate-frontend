@@ -2,6 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import CopyableIdBadge from "@/components/ui/copyable-id-badge";
+import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
 import { Task } from "@/types/tasks";
 import { Check } from "lucide-react";
@@ -16,6 +17,9 @@ interface TaskListViewProps {
 }
 
 const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle, projectMap, canDeleteTask, onDeleteTask }: TaskListViewProps) => {
+
+  const currentOrgId = useCurrentOrgId();
+  
   const getStatusText = (status: string) => {
     const normalized = status.replace("in_progress", "in-progress");
     switch (normalized) {
@@ -58,7 +62,7 @@ const TaskListView = ({ tasks, onTaskClick, onTaskStatusToggle, projectMap, canD
                     )}
                   </div>
                   <div onClick={(e)=>e.stopPropagation()}>
-                    <CopyableIdBadge id={task.id} isCompleted={task.status==='completed'} />
+                    <CopyableIdBadge id={task.id} org_id={currentOrgId} isCompleted={task.status==='completed'} />
                   </div>
                 </div>
 
