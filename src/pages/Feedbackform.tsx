@@ -26,7 +26,7 @@ const moduleNames = [
     'Members Management',
 ];
 
-const feedbackTypes = ['Bug', 'Suggestion', 'General'];
+const feedbackTypes = ['Bug', 'Suggestion/Improvements', 'General'];
 
 const FeedbackForm: React.FC = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -105,7 +105,7 @@ const FeedbackForm: React.FC = () => {
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
                             <div className="space-y-2">
                                 <Label htmlFor="module" className="text-sm font-medium">
-                                    Module <span className="text-destructive">*</span>
+                                    Feature <span className="text-destructive">*</span>
                                 </Label>
                                 <Select
                                     value={selectedModule}
@@ -113,7 +113,7 @@ const FeedbackForm: React.FC = () => {
                                     required
                                 >
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select a module" />
+                                        <SelectValue placeholder="Select a feature" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {moduleNames.map((mod) => (

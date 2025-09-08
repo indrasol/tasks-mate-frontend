@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
+import { AvatarProvider } from "@/services/AvatarContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ResetPassword from "./components/auth/ResetPassword";
@@ -44,7 +45,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
+          <AvatarProvider>
+            <Routes>
 
             <Route path="/" element={
               <Navigate to={"/index"} replace />
@@ -81,6 +83,7 @@ const App = () => (
             <Route path="/feedback" element={<PrivateRoute><FeedbackForm /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </AvatarProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
