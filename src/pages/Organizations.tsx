@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -334,27 +335,67 @@ const Organizations = () => {
   const [deleteOrgModalOpen, setDeleteOrgModalOpen] = useState(false);
   const [orgToDelete, setOrgToDelete] = useState<Organization | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
+  const [deleteReasonType, setDeleteReasonType] = useState('');
+  const [customReason, setCustomReason] = useState('');
+  const [deleteOrgIdConfirm, setDeleteOrgIdConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   const openDeleteModal = (org: Organization) => {
     setOrgToDelete(org);
     setDeleteReason('');
+    setDeleteReasonType('');
+    setCustomReason('');
+    setDeleteOrgIdConfirm('');
     setDeleteOrgModalOpen(true);
   };
 
+  // Handle change of reason type
+  const handleReasonTypeChange = (value: string) => {
+    setDeleteReasonType(value);
+    
+    if (value !== 'other') {
+      // For predefined reasons, use the value directly
+      setDeleteReason(value);
+    } else {
+      // For "Other", we'll use the custom reason when it's entered
+      setDeleteReason('');
+    }
+  };
+  
+  // Handle custom reason change
+  const handleCustomReasonChange = (value: string) => {
+    setCustomReason(value);
+    if (deleteReasonType === 'other') {
+      setDeleteReason(`Other - ${value}`);
+    }
+  };
+  
   const handleDeleteOrganization = async () => {
     if (!orgToDelete) return;
-    if (!deleteReason.trim()) {
-      toast({ title: 'Reason required', description: 'Please provide a reason for deletion.', variant: 'destructive' });
+    
+    // Check if a reason is provided (either through dropdown or custom input)
+    if (deleteReasonType === '') {
+      toast({ title: 'Reason required', description: 'Please select a reason for deletion.', variant: 'destructive' });
       return;
     }
+    
+    // If "Other" is selected, make sure custom reason is provided
+    if (deleteReasonType === 'other' && !customReason.trim()) {
+      toast({ title: 'Comment required', description: 'Please provide comments for "Other" reason.', variant: 'destructive' });
+      return;
+    }
+    
     setDeleting(true);
     toast({
       title: "Deleting organization",
       description: "Please wait...",
     });
+    
     try {
-      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${orgToDelete.org_id}`, { delete_reason: deleteReason });
+      // Use final reason - either selected value or "Other - custom reason"
+      const finalReason = deleteReasonType === 'other' ? `Other - ${customReason}` : deleteReasonType;
+      
+      await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${orgToDelete.org_id}`, { delete_reason: finalReason });
       toast({ title: 'Deleted', description: 'Organization deleted successfully' });
       setOrganizations(prev => prev.filter(o => o.org_id !== orgToDelete.org_id));
       setDeleteOrgModalOpen(false);
@@ -764,15 +805,55 @@ const Organizations = () => {
                       <p className="mb-4 text-gray-700">
                         Are you sure you want to delete <b>{orgToDelete?.name}</b>? This action cannot be undone.
                       </p>
-                      <div className="space-y-2">
-                        <Label htmlFor="deleteReason">Reason for deletion <span className="text-red-500">*</span></Label>
+                      
+                      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                        <p className="text-sm text-amber-800 flex items-center flex-wrap">
+                          To confirm deletion, please enter the 
+                          <span className="mx-1" onClick={(e) => e.stopPropagation()}>
+                            <CopyableBadge copyText={orgToDelete?.org_id || ''} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
+                              {orgToDelete?.org_id}
+                            </CopyableBadge>
+                          </span>
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2 mb-4">
+                        <Label htmlFor="deleteOrgIdConfirm">Enter organization ID to confirm <span className="text-red-500">*</span></Label>
                         <Input
-                          id="deleteReason"
-                          value={deleteReason}
-                          onChange={e => setDeleteReason(e.target.value)}
-                          placeholder="Enter reason"
+                          id="deleteOrgIdConfirm"
+                          value={deleteOrgIdConfirm}
+                          onChange={e => setDeleteOrgIdConfirm(e.target.value)}
+                          placeholder="Paste organization ID here"
                           required
                         />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="deleteReason">Reason for deletion <span className="text-red-500">*</span></Label>
+                        <Select value={deleteReasonType} onValueChange={handleReasonTypeChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a reason" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="No longer needed">No longer needed</SelectItem>
+                            <SelectItem value="Created by mistake">Created by mistake</SelectItem>
+                            <SelectItem value="Moving to a different organization">Moving to a different organization</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        {deleteReasonType === 'other' && (
+                          <div className="mt-3 space-y-2">
+                            <Label htmlFor="customReason">Please specify comments <span className="text-red-500">*</span></Label>
+                            <Input
+                              id="customReason"
+                              value={customReason}
+                              onChange={e => handleCustomReasonChange(e.target.value)}
+                              placeholder="Enter specific reason"
+                              required
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="flex justify-end gap-2 mt-6">
                         <Button variant="outline" onClick={() => setDeleteOrgModalOpen(false)} disabled={deleting}>
@@ -781,7 +862,12 @@ const Organizations = () => {
                         <Button
                           className="bg-red-500 hover:bg-red-600 text-white"
                           onClick={handleDeleteOrganization}
-                          disabled={deleting}
+                          disabled={
+                            deleting || 
+                            deleteOrgIdConfirm !== orgToDelete?.org_id || 
+                            !deleteReasonType ||
+                            (deleteReasonType === 'other' && !customReason.trim())
+                          }
                         >
                           {deleting ? 'Deleting...' : 'Delete'}
                         </Button>

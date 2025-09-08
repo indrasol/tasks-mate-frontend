@@ -1,5 +1,10 @@
 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
+import { useAvatar } from '@/services/AvatarContext';
 import {
   ArrowLeft,
   Bug,
@@ -56,6 +62,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { avatarUrl, isEnlarged, setIsEnlarged } = useAvatar();
   const [searchParams] = useSearchParams();
   const orgId = useMemo(() => searchParams.get('org_id'), [searchParams]);
   const { data: orgMembers = [] } = useOrganizationMembers(orgId || undefined);
@@ -75,6 +82,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const currentOrgName = useMemo(() => {
     if (!orgId) return '';
     const currentOrg = userOrganizations.find((org) => org.id === orgId);
+    console.log('Current org in MainNavigation:', currentOrg);
     return currentOrg?.name ?? '';
   }, [orgId, userOrganizations]);
 
@@ -458,9 +466,18 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                     onClick={handleUserProfileNavigation}
                     title={profileLabel}
                   >
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="w-4 h-4 text-white" />
-                    </div>
+                    <Avatar 
+                      className="w-8 h-8 cursor-pointer" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsEnlarged(true);
+                      }}
+                    >
+                      <AvatarImage src={avatarUrl || undefined} />
+                      <AvatarFallback className="bg-green-500 text-white">
+                        {(profileLabel || 'U').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
                     {!isCollapsed && (
                       <div className="flex-1 text-left min-w-0">
                         <p className="text-sm font-medium text-gray-700 truncate">
@@ -482,9 +499,15 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                       onClick={handleUserProfileNavigation}
                       title={profileLabel}
                     >
-                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                        <User className="w-4 h-4 text-white" />
-                      </div>
+                      <Avatar 
+                        className="w-8 h-8 cursor-pointer" 
+                        onClick={() => setIsEnlarged(true)}
+                      >
+                        <AvatarImage src={avatarUrl || undefined} />
+                        <AvatarFallback className="bg-green-500 text-white">
+                          {(profileLabel || 'U').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       {!isCollapsed && (
                         <div className="flex-1 text-left min-w-0">
                           <p className="text-sm font-medium text-gray-700 truncate">
@@ -515,6 +538,32 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       </div>
     </nav>
   );
+  
+  {/* Enlarged Avatar Modal */}
+  <Dialog open={isEnlarged} onOpenChange={setIsEnlarged}>
+    <DialogContent className="sm:max-w-md flex flex-col items-center p-0 gap-0 overflow-hidden">
+      <div className="w-full h-full">
+        <img 
+          src={avatarUrl || undefined} 
+          alt={`${profileLabel}'s avatar`}
+          className="w-full h-auto object-contain"
+          onError={(e) => {
+            // If image loading fails, show the initials fallback
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+          }}
+        />
+        {/* Fallback if the image fails to load */}
+        {!avatarUrl && (
+          <div className="flex items-center justify-center bg-gray-100 w-full h-64">
+            <div className="flex items-center justify-center w-32 h-32 text-3xl font-bold text-white bg-green-500 rounded-full">
+              {(profileLabel || 'U').charAt(0).toUpperCase()}
+            </div>
+          </div>
+        )}
+      </div>
+    </DialogContent>
+  </Dialog>
 };
 
 export default MainNavigation;
