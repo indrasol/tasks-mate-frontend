@@ -10,6 +10,16 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import CopyableIdBadge from '@/components/ui/copyable-id-badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,7 +31,7 @@ import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
 import { getPriorityColor, getStatusMeta } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
 import { TestRunTrackDetail } from '@/types/tracker';
-import { Calendar, ChevronRight, Loader2, Pencil, RefreshCw, Save, X } from 'lucide-react';
+import { Calendar, ChevronRight, Loader2, Pencil, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
@@ -75,6 +85,7 @@ const TestRunDetail = () => {
   const [trackerName, setTrackerName] = useState('');
   // Editing toggles
   const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const fetchTestRun = async (isRefresh?: boolean) => {
     if (!id) return;
@@ -297,7 +308,7 @@ const TestRunDetail = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3">
 
-                      <CopyableIdBadge id={testRun?.id} isCompleted={status === 'completed'} />
+                      <CopyableIdBadge id={testRun?.id} isCompleted={status === 'completed'} className="bg-orange-600 hover:bg-orange-700 text-white" copyLabel="Tracker" />
 
                       {/* <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                     {(() => {
@@ -357,18 +368,18 @@ const TestRunDetail = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      {/* Edit icon removed as requested */}
-                      {/* {testRun?.is_editable && canDeleteTask && (
+                      {/* Add delete button for tracker creators */}
+                      {testRun?.is_editable && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                    onClick={() => setIsDeleteTaskOpen(true)}
+                    onClick={() => setIsDeleteDialogOpen(true)}
                     title="Delete Tracker"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                )} */}
+                )}
                     </div>
                     {/* Title */}
                     <div className="mt-2 flex items-start gap-2">
@@ -455,6 +466,52 @@ const TestRunDetail = () => {
         </div>
       </main>
 
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this tracker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the tracker and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={async () => {
+              try {
+                toast({
+                  title: "Deleting tracker...",
+                  description: "Please wait while we delete the tracker.",
+                  variant: "default"
+                });
+                
+                await api.del(`${API_ENDPOINTS.TRACKERS}/${id}`);
+                
+                toast({
+                  title: "Success",
+                  description: "Tracker deleted successfully!",
+                  variant: "default"
+                });
+                
+                // Navigate back to the trackers list
+                // Refresh the tracker list
+                const event = new CustomEvent('tracker-created');
+                window.dispatchEvent(event);
+                navigate(currentOrgId ? `/tester-zone?org_id=${currentOrgId}` : '/tester-zone');
+              } catch (err: any) {
+                const msg = err?.message || (err?.detail ? String(err.detail) : 'Failed to delete tracker');
+                toast({
+                  title: "Failed to delete tracker",
+                  description: msg,
+                  variant: "destructive"
+                });
+              }
+            }}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

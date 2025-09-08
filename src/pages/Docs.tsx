@@ -23,8 +23,14 @@ const sections = [
   {
     id: "bugs",
     title: "Bug Tracker",
-    img: "/placeholder.svg",
-    content: `File, triage, and smash bugs fast. Each run has an evidence gallery, reproduction steps, and status workflow so engineering always knows what to fix next.`
+    img: "/bug_tracker_.png",
+    content: `Create project-specific bug trackers to organize and prioritize issues efficiently. Track conversion rates from reported to resolved, with intuitive evidence galleries and reproduction steps that accelerate fix times and boost team productivity.`
+  },
+  {
+    id: "bug-board",
+    title: "Bug Board",
+    img: "/bugs_.png",
+    content: `Interactive board view for bugs with rich evidence galleries and detailed reproduction steps. Add comments for collaborative debugging, directly convert bugs to actionable tasks, and track resolution workflows seamlessly across your project teams.`
   },
   {
     id: "scratchpad",
