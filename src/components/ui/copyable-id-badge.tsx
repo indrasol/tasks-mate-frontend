@@ -20,20 +20,31 @@ const CopyableIdBadge = ({ id, org_id, tracker_id, className, isCompleted = fals
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      let copyTextUrl = `${env.APP_URL || "http://tasksmate.indrasol.com"}`;
+      let copyTextToCopy = id;
+      
+      // For organization IDs, copy just the org_id instead of the full URL
+      if (id.startsWith("O")) {
+        copyTextToCopy = id;
+      } else {
+        // For other types (Tasks, Bugs, etc.), keep the full URL behavior
+        let copyTextUrl = `${env.APP_URL || "http://tasksmate.indrasol.com"}`;
 
-      if (id.startsWith("T")) {
-        copyTextUrl = `${copyTextUrl}/tasks/${id}?org_id=${org_id}`;
-      } else if (id.startsWith("B")) {
-        copyTextUrl = `${copyTextUrl}/tester-zone/runs/${tracker_id}/bugs/${id}?org_id=${org_id}`;
-      } else if (id.startsWith("TR")) {
-        copyTextUrl = `${copyTextUrl}/tester-zone/runs/${id}?org_id=${org_id}`;
-      } else if (id.startsWith("P")) {
-        copyTextUrl = `${copyTextUrl}/projects/${id}?org_id=${org_id}`;
-      } else if (id.startsWith("O")) {
-        copyTextUrl = `${copyTextUrl}/dashboard?org_id=${org_id}`;
+        if (id.startsWith("T")) {
+          copyTextUrl = `${copyTextUrl}/tasks/${id}?org_id=${org_id}`;
+          copyTextToCopy = copyTextUrl;
+        } else if (id.startsWith("B")) {
+          copyTextUrl = `${copyTextUrl}/tester-zone/runs/${tracker_id}/bugs/${id}?org_id=${org_id}`;
+          copyTextToCopy = copyTextUrl;
+        } else if (id.startsWith("TR")) {
+          copyTextUrl = `${copyTextUrl}/tester-zone/runs/${id}?org_id=${org_id}`;
+          copyTextToCopy = copyTextUrl;
+        } else if (id.startsWith("P")) {
+          copyTextUrl = `${copyTextUrl}/projects/${id}?org_id=${org_id}`;
+          copyTextToCopy = copyTextUrl;
+        }
       }
-      await navigator.clipboard.writeText(copyTextUrl);
+      
+      await navigator.clipboard.writeText(copyTextToCopy);
       setCopied(true);
       toast({
         title: "Success",
