@@ -10,6 +10,7 @@ interface EnvConfig {
   DEV_BASE_API_URL: string;
   ENABLE_ANALYTICS: boolean;
   ENABLE_DEBUGGER: boolean;
+  APP_URL?: string;
 }
 
 // Helper function to convert string 'true'/'false' to boolean
@@ -27,6 +28,7 @@ export const env: EnvConfig = {
   DEV_BASE_API_URL: import.meta.env.VITE_DEV_BASE_API_URL || 'http://localhost:8000/v1',
   ENABLE_ANALYTICS: stringToBoolean(import.meta.env.VITE_ENABLE_ANALYTICS),
   ENABLE_DEBUGGER: stringToBoolean(import.meta.env.VITE_ENABLE_DEBUGGER),
+  APP_URL: import.meta.env.VITE_APP_URL || 'http://localhost:8080',
 };
 
 // Useful getters for determining environment and feature flags

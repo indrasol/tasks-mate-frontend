@@ -4,6 +4,8 @@ import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { Check, LogOut, User } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAvatar } from '@/services/AvatarContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface OrganizationsHeaderProps {
   pageLabel?: string
@@ -15,6 +17,7 @@ export default function OrganizationsHeader({
 
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { avatarUrl } = useAvatar();
   const [searchParams] = useSearchParams();
   const orgId = useMemo(() => searchParams.get('org_id'), [searchParams]);
 
@@ -75,7 +78,16 @@ export default function OrganizationsHeader({
               onClick={handleUserProfileNavigation}
             >
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <User className="w-4 h-4 text-white" />
+                {/* <User className="w-4 h-4 text-white" /> */}
+                <Avatar
+                  className="w-8 h-8 cursor-pointer"
+                  // onClick={() => setIsEnlarged(true)}
+                >
+                  <AvatarImage src={avatarUrl || undefined} />
+                  <AvatarFallback className="bg-green-500 text-white">
+                    {(profileLabel || 'U').charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
               </div>
               {!isCollapsed && (
                 <div className="flex-1 text-left min-w-0">

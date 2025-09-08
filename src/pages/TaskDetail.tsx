@@ -1346,7 +1346,7 @@ const TaskDetail = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
 
-                    <CopyableIdBadge id={task?.id} isCompleted={status === 'completed'} />
+                    <CopyableIdBadge id={task?.id} org_id={currentOrgId} isCompleted={status === 'completed'} />
 
                     {/* <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
                     {(() => {
@@ -1682,7 +1682,7 @@ const TaskDetail = () => {
                           </Button>
 
                           {/* Task ID */}
-                          <CopyableIdBadge id={String(depId)} isCompleted={(dep.status ?? '') === 'completed'} />
+                          <CopyableIdBadge id={String(depId)} org_id={currentOrgId} isCompleted={(dep.status ?? '') === 'completed'} />
 
                           {/* Owner, Status, Priority badges */}
                           <Badge key='owner' variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
@@ -2299,7 +2299,7 @@ const TaskDetail = () => {
                     <div className="text-sm text-gray-600 mt-1">
                       This action cannot be undone. Type the task ID
                       <span className="mx-1 inline-block align-middle">
-                        <CopyableIdBadge id={task?.id} />
+                        <CopyableIdBadge id={task?.id} org_id={currentOrgId} />
                       </span>
                       to confirm deletion.
                     </div>

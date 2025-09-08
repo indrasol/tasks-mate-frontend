@@ -38,6 +38,17 @@ import UserProfile from "./pages/UserProfile";
 
 const queryClient = new QueryClient();
 
+// import { useRegisterSW } from 'virtual:pwa-register/react';
+
+// const { needRefresh, updateServiceWorker } = useRegisterSW();
+
+// {needRefresh && (
+//   <div className="update-toast">
+//     <p>New version available!</p>
+//     <button onClick={() => updateServiceWorker(true)}>Update</button>
+//   </div>
+// )}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

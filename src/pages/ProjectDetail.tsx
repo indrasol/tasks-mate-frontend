@@ -1200,7 +1200,7 @@ const ProjectDetail = () => {
               <div className="flex-1 min-w-0 ml-3 space-y-2">
                 {/* Top row: ID + status + priority + actions */}
                 <div className="flex items-center gap-3">
-                  <CopyableBadge copyText={project?.id ?? ''} variant="default" className="text-sm font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
+                  <CopyableBadge copyText={project?.id ?? ''} org_id={currentOrgId ?? ''} variant="default" className="text-sm font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
                     {project?.id}
                   </CopyableBadge>
                   {(userRole === "owner" || userRole === "admin") ? (
@@ -2180,6 +2180,7 @@ const ProjectDetail = () => {
               <span className="mx-1 inline-block align-middle align-middle">
                 <CopyableBadge
                   copyText={project?.id ?? ''}
+                  org_id={currentOrgId ?? ''}
                   variant="default"
                   className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white"
                 >
