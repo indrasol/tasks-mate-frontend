@@ -450,146 +450,148 @@ const BugBoard = () => {
   // List view component
   const BugListView = () => (
     <div className="bg-white rounded-lg border shadow-sm">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-12"></TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => toggleSort('id')}
-            >
-              <div className="flex items-center gap-2">
-                Bug ID
-                {sortBy === 'id' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </div>
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => toggleSort('title')}
-            >
-              <div className="flex items-center gap-2">
-                Title
-                {sortBy === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </div>
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => toggleSort('severity')}
-            >
-              <div className="flex items-center gap-2">
-                Severity
-                {sortBy === 'severity' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </div>
-            </TableHead>
-            <TableHead>Tags</TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => toggleSort('date')}
-            >
-              <div className="flex items-center gap-2">
-                Created Date
-                {sortBy === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </div>
-            </TableHead>
-            <TableHead>Closed Date</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredBugs.map((bug) => (
-            <TableRow
-              key={bug?.id}
-              className="hover:bg-gray-50"
-            >
-              <TableCell>
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${bug.closed
-                    ? 'bg-tasksmate-gradient border-transparent hover:scale-110'
-                    : 'border-gray-300 hover:border-gray-400 hover:scale-110'
-                    }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleBugToggle(bug?.id, !bug?.closed);
-                  }}
-                >
-                  {bug?.closed && (
-                    <Check className="h-3 w-3 text-white" />
-                  )}
+      <div className="min-w-max w-full">
+        <Table className="w-full">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12"></TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => toggleSort('id')}
+              >
+                <div className="flex items-center gap-2">
+                  Bug ID
+                  {sortBy === 'id' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </div>
-              </TableCell>
-              <TableCell className="font-medium">
-                <CopyableIdBadge
-                  id={bug?.id}
-                  org_id={currentOrgId}
-                  tracker_id={bug?.tracker_id}
-                  className="bg-red-600"
-                  copyLabel="Bug"
-                  isCompleted={bug?.closed}
-                />
-              </TableCell>
-              <TableCell className={`${bug?.closed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                {bug?.title}
-              </TableCell>
-              <TableCell>
-                <Badge className={`${getSeverityColor(bug?.severity)} text-xs`}>
-                  {bug?.severity?.toUpperCase()}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {bug?.tags?.slice(0, 2).map((tag, index) => (
-                    <Badge key={index} variant="outline" className={`${getTagColor(tag)} text-xs`}>
-                      {tag}
-                    </Badge>
-                  ))}
-                  {bug?.tags?.length > 2 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{bug?.tags?.length - 2}
-                    </Badge>
-                  )}
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => toggleSort('title')}
+              >
+                <div className="flex items-center gap-2">
+                  Title
+                  {sortBy === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </div>
-              </TableCell>
-              <TableCell className="text-sm text-gray-600">
-                {new Date(bug?.date).toLocaleDateString()}
-              </TableCell>
-              <TableCell className="text-sm text-gray-600">
-                {bug?.closedDate ? (
-                  <span className="text-green-600 font-medium">
-                    {new Date(bug.closedDate).toLocaleDateString()}
-                  </span>
-                ) : '-'}
-              </TableCell>
-              <TableCell>
-                <Badge
-                  className={`${bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
-                    bug?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                      bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
-                        bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
-                          bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
-                            bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
-                              bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
-                                'bg-red-100 text-red-700'
-                    } text-xs`}
-                >
-                  {capitalizeFirstLetter(bug?.status?.replace(/_/g, ' '))}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <button 
-                    className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
-                    onClick={() => handleBugClick(bug?.id)}
-                    title="View bug details"
-                  >
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => toggleSort('severity')}
+              >
+                <div className="flex items-center gap-2">
+                  Severity
+                  {sortBy === 'severity' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </div>
-              </TableCell>
+              </TableHead>
+              <TableHead>Tags</TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => toggleSort('date')}
+              >
+                <div className="flex items-center gap-2">
+                  Created Date
+                  {sortBy === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </div>
+              </TableHead>
+              <TableHead>Closed Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {filteredBugs.map((bug) => (
+              <TableRow
+                key={bug?.id}
+                className="hover:bg-gray-50"
+              >
+                <TableCell>
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${bug.closed
+                      ? 'bg-tasksmate-gradient border-transparent hover:scale-110'
+                      : 'border-gray-300 hover:border-gray-400 hover:scale-110'
+                      }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBugToggle(bug?.id, !bug?.closed);
+                    }}
+                  >
+                    {bug?.closed && (
+                      <Check className="h-3 w-3 text-white" />
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="font-medium">
+                  <CopyableIdBadge
+                    id={bug?.id}
+                    org_id={currentOrgId}
+                    tracker_id={bug?.tracker_id}
+                    className="bg-red-600"
+                    copyLabel="Bug"
+                    isCompleted={bug?.closed}
+                  />
+                </TableCell>
+                <TableCell className={`${bug?.closed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                  {bug?.title}
+                </TableCell>
+                <TableCell>
+                  <Badge className={`${getSeverityColor(bug?.severity)} text-xs`}>
+                    {bug?.severity?.toUpperCase()}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {bug?.tags?.slice(0, 2).map((tag, index) => (
+                      <Badge key={index} variant="outline" className={`${getTagColor(tag)} text-xs`}>
+                        {tag}
+                      </Badge>
+                    ))}
+                    {bug?.tags?.length > 2 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{bug?.tags?.length - 2}
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="text-sm text-gray-600">
+                  {new Date(bug?.date).toLocaleDateString()}
+                </TableCell>
+                <TableCell className="text-sm text-gray-600">
+                  {bug?.closedDate ? (
+                    <span className="text-green-600 font-medium">
+                      {new Date(bug.closedDate).toLocaleDateString()}
+                    </span>
+                  ) : '-'}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    className={`${bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
+                      bug?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                        bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
+                          bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
+                            bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
+                              bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
+                                bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-red-100 text-red-700'
+                      } text-xs`}
+                  >
+                    {capitalizeFirstLetter(bug?.status?.replace(/_/g, ' '))}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
+                      onClick={() => handleBugClick(bug?.id)}
+                      title="View bug details"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 

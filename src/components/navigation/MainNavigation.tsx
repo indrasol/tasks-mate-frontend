@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import ThemeToggle from '@/components/ui/theme-toggle';
 
 import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
 import type { SimpleOrg } from '@/hooks/useOrganizations';
@@ -206,14 +207,16 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
               <span className="font-sora font-bold text-xl text-gray-900">TasksMate</span>
             </Link>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hover:bg-gray-100"
-          >
-            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-          </Button>
+          <div className="flex items-center gap-1">            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="hover:bg-gray-100"
+            >
+              {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+            </Button>
+          </div>
         </div>
 
         {/* Organization Dropdown - Show only when inside an org */}
@@ -357,6 +360,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
             >
               <MessageSquare  className="w-4 h-4" />
             </Button>
+
+            {/* <ThemeToggle /> */}
 
             <Button
               variant="ghost"
@@ -519,6 +524,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                         </div>
                       )}
                     </Button>
+
+                    {/* <ThemeToggle /> */}
 
                     {/* Sign Out Button */}
                     <Button
