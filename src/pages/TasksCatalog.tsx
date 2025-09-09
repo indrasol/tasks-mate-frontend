@@ -46,6 +46,7 @@ import { api } from "@/services/apiService";
 import { taskService } from "@/services/taskService";
 import { BackendTask, Task } from "@/types/tasks";
 import {
+  ArrowRight,
   Calendar,
   CalendarRange,
   Check,
@@ -1317,14 +1318,15 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               </div>
                             </TableCell>
                             <TableCell className="text-center">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleTaskClick(task.id)}
-                                className="text-xs"
-                              >
-                                Detail
-                              </Button>
+                              <div className="flex items-center justify-center gap-1">
+                                <button 
+                                  className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
+                                  onClick={() => handleTaskClick(task.id)}
+                                  title="View task details"
+                                >
+                                  <ArrowRight className="w-4 h-4" />
+                                </button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}

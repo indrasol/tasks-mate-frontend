@@ -41,7 +41,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
 import { TestRun } from '@/types/tracker';
-import { Beaker, Calendar, Check, ChevronDown, ChevronUp, Filter, Loader2, Maximize2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
+import { ArrowRight, Beaker, Calendar, Check, ChevronDown, ChevronUp, Filter, Loader2, Maximize2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -899,10 +899,10 @@ const TesterZone = () => {
                     <TableRow>
                       <TableHead></TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="w-20 sm:w-24 md:w-28 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
                         onClick={() => handleSort('id')}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           ID
                           {getSortIcon('id')}
                         </div>
@@ -935,51 +935,51 @@ const TesterZone = () => {
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="w-24 sm:w-28 md:w-32 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
                         onClick={() => handleSort('status')}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           Status
                           {getSortIcon('status')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="w-20 sm:w-24 md:w-28 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
                         onClick={() => handleSort('priority')}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           Priority
                           {getSortIcon('priority')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="w-20 sm:w-24 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
                         onClick={() => handleSort('totalBugs')}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           Bugs
                           {getSortIcon('totalBugs')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="w-20 sm:w-24 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
                         onClick={() => handleSort('totalTasks')}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           Tasks
                           {getSortIcon('totalTasks')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="w-28 sm:w-32 md:w-36 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
                         onClick={() => handleSort('date')}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           Created Date
                           {getSortIcon('date')}
                         </div>
                       </TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1081,19 +1081,20 @@ const TesterZone = () => {
                             {run.creator}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <Select
-                            value={run.status}
-                            onValueChange={(value) => handleStatusChange(run.id, value)}
-                          >
-                            <SelectTrigger className="w-36 border-none bg-transparent p-0 h-auto">
-                              <Badge
-                                variant="secondary"
-                                className={`text-xs ${getStatusColor(run.status)}`}
-                              >
-                                {getStatusText(run.status)}
-                              </Badge>
-                            </SelectTrigger>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center">
+                            <Select
+                              value={run.status}
+                              onValueChange={(value) => handleStatusChange(run.id, value)}
+                            >
+                              <SelectTrigger className="w-36 border-none bg-transparent p-0 h-auto">
+                                <Badge
+                                  variant="secondary"
+                                  className={`text-xs ${getStatusColor(run.status)}`}
+                                >
+                                  {getStatusText(run.status)}
+                                </Badge>
+                              </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="not_started">
                                 <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
@@ -1126,10 +1127,12 @@ const TesterZone = () => {
                                 </Badge>
                               </SelectItem>
                             </SelectContent>
-                          </Select>
+                            </Select>
+                          </div>
                         </TableCell>
-                        <TableCell>
-                          <Select
+                        <TableCell className="text-center">
+                          <div className="flex justify-center">
+                            <Select
                             value={run.priority}
                             onValueChange={(value) => handlePriorityChange(run.id, value)}
                           >
@@ -1168,32 +1171,34 @@ const TesterZone = () => {
                                 </Badge>
                               </SelectItem>
                             </SelectContent>
-                          </Select>
+                            </Select>
+                          </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                           <span className="font-semibold text-red-600">{run.totalBugs}</span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                           <span className="font-semibold text-blue-600">{run.totalTasks}</span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                           <Badge className="bg-yellow-100 text-yellow-800 text-xs">
                             <Calendar className="w-3 h-3 mr-1" />
                             {new Date(run.date).toLocaleDateString()}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/tester-zone/runs/${run.id}?org_id=${currentOrgId}`);
-                            }}
-                            className="text-xs"
-                          >
-                            Detail
-                          </Button>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button 
+                              className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/tester-zone/runs/${run.id}?org_id=${currentOrgId}`);
+                              }}
+                              title="View tracker details"
+                            >
+                              <ArrowRight className="w-4 h-4" />
+                            </button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

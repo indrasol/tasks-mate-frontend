@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { toast } from '@/hooks/use-toast';
-import { AlertCircle, CalendarRange, Check, Filter, Loader2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
+import { AlertCircle, ArrowRight, CalendarRange, Check, Filter, Loader2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TestRunDetail from './TestRunDetail';
@@ -493,14 +493,14 @@ const BugBoard = () => {
             </TableHead>
             <TableHead>Closed Date</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredBugs.map((bug) => (
             <TableRow
               key={bug?.id}
-              className="hover:bg-gray-50 cursor-pointer"
-              onClick={() => handleBugClick(bug?.id)}
+              className="hover:bg-gray-50"
             >
               <TableCell>
                 <div
@@ -574,6 +574,17 @@ const BugBoard = () => {
                 >
                   {capitalizeFirstLetter(bug?.status?.replace(/_/g, ' '))}
                 </Badge>
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <button 
+                    className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
+                    onClick={() => handleBugClick(bug?.id)}
+                    title="View bug details"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
