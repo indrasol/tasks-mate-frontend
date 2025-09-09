@@ -895,7 +895,8 @@ const Organizations = () => {
               <TableHeader className="bg-gray-50">
                 <TableRow>
                   <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
-                  <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80 font-bold">Organization</TableHead>
+                  <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60 font-bold">Name</TableHead>
+                  <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80 font-bold">Description</TableHead>
                   <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Role</TableHead>
                   <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Members</TableHead>
                   <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Projects</TableHead>
@@ -935,7 +936,23 @@ const Organizations = () => {
                           >
                             {org.name}
                           </div>
-                          <div className="text-sm text-gray-500 truncate">{org.description}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="min-w-0 max-w-xs">
+                        <div 
+                          className="text-sm text-gray-600 break-words overflow-hidden"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            lineHeight: '1.4em',
+                            maxHeight: '2.8em'
+                          }}
+                          title={org.description}
+                        >
+                          {org.description}
                         </div>
                       </div>
                     </TableCell>
