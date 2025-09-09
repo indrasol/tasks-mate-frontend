@@ -21,20 +21,55 @@ const CopyableBadge = ({ org_id, copyText, children, className, variant = "outli
   const handleCopy = async (e: MouseEvent) => {
     e.stopPropagation();
     try {
-      let copyTextUrl = `${env.APP_URL || "http://tasksmate.indrasol.com"}`;
+      // ------------------------------------------------------------
+      // 1. Build the deep-link URL that should open the item inside
+      //    the TasksMate app when clicked.
+      // ------------------------------------------------------------
+      const appBase = env.APP_URL || "https://tasksmate.indrasol.com";
+      let deepLink = appBase; // will be overwritten below if we recognise the prefix
 
       if (copyText.startsWith("T")) {
-        copyTextUrl = `${copyTextUrl}/tasks/${copyText}?org_id=${org_id}`;
+        deepLink = `${appBase}/tasks/${copyText}?org_id=${org_id}`;
       } else if (copyText.startsWith("B")) {
-        copyTextUrl = `${copyTextUrl}/tester-zone/runs/${copyText}/bugs/${copyText}?org_id=${org_id}`;
+        deepLink = `${appBase}/tester-zone/runs/${copyText}/bugs/${copyText}?org_id=${org_id}`;
       } else if (copyText.startsWith("TR")) {
-        copyTextUrl = `${copyTextUrl}/tester-zone/runs/${copyText}?org_id=${org_id}`;
+        deepLink = `${appBase}/tester-zone/runs/${copyText}?org_id=${org_id}`;
       } else if (copyText.startsWith("P")) {
-        copyTextUrl = `${copyTextUrl}/projects/${copyText}?org_id=${org_id}`;
+        deepLink = `${appBase}/projects/${copyText}?org_id=${org_id}`;
       } else if (copyText.startsWith("O")) {
-        copyTextUrl = `${copyTextUrl}/dashboard?org_id=${org_id}`;
+        deepLink = `${appBase}/dashboard?org_id=${org_id}`;
       }
-      await navigator.clipboard.writeText(copyTextUrl);
+
+      // ------------------------------------------------------------
+      // 2. Prefer copying a rich clipboard item: we copy **plain text**
+      //    that is just the ID (for terminals / plain-text editors) and
+      //    **HTML** that renders the ID but is hyper-linked to the URL.
+      //    Many modern apps (Slack, Gmail, Notion, etc.) understand the
+      //    text/html clipboard flavour and will therefore paste a
+      //    clickable link whose visible label is the ID.
+      // ------------------------------------------------------------
+      const htmlSnippet = `<a href=\"${deepLink}\">${copyText}</a>`;
+
+      // navigator.clipboard.write is not supported everywhere.  We fall
+      // back to writeText(URL) if it fails.
+      // @ts-ignore – ClipboardItem is available in most evergreen
+      // browsers but not yet in the TS lib shipped with the repo.
+      if (navigator.clipboard && navigator.clipboard.write) {
+        // @ts-ignore – suppress TS until lib.dom.d.ts is bumped
+        const item = new ClipboardItem({
+          // Plain text version → just the raw ID (better DX in code editors)
+          "text/plain": new Blob([copyText], { type: "text/plain" }),
+          // Rich HTML version  → ID that links to deepLink
+          "text/html": new Blob([htmlSnippet], { type: "text/html" })
+        });
+        // @ts-ignore – write() exists in modern browsers
+        await navigator.clipboard.write([item]);
+      } else {
+        // Fallback – at worst copy the full URL so that the user still
+        // gets something useful.
+        await navigator.clipboard.writeText(deepLink);
+      }
+
       setCopied(true);
       toast({
         title: "Success",

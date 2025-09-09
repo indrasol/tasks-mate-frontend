@@ -20,20 +20,31 @@ const CopyableIdBadge = ({ id, org_id, tracker_id, className, isCompleted = fals
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      let copyTextUrl = `${env.APP_URL || "http://tasksmate.indrasol.com"}`;
+      let copyTextToCopy = id;
+      
+      // For organization IDs, copy just the org_id instead of the full URL
+      if (id.startsWith("O")) {
+        copyTextToCopy = id;
+      } else {
+        // For other types (Tasks, Bugs, etc.), keep the full URL behavior
+        let copyTextUrl = `${env.APP_URL || "http://tasksmate.indrasol.com"}`;
 
-      if (id.startsWith("T")) {
-        copyTextUrl = `${copyTextUrl}/tasks/${id}?org_id=${org_id}`;
-      } else if (id.startsWith("B")) {
-        copyTextUrl = `${copyTextUrl}/tester-zone/runs/${tracker_id}/bugs/${id}?org_id=${org_id}`;
-      } else if (id.startsWith("TR")) {
-        copyTextUrl = `${copyTextUrl}/tester-zone/runs/${id}?org_id=${org_id}`;
-      } else if (id.startsWith("P")) {
-        copyTextUrl = `${copyTextUrl}/projects/${id}?org_id=${org_id}`;
-      } else if (id.startsWith("O")) {
-        copyTextUrl = `${copyTextUrl}/dashboard?org_id=${org_id}`;
+        if (id.startsWith("T")) {
+          copyTextUrl = `${copyTextUrl}/tasks/${id}?org_id=${org_id}`;
+          copyTextToCopy = copyTextUrl;
+        } else if (id.startsWith("B")) {
+          copyTextUrl = `${copyTextUrl}/tester-zone/runs/${tracker_id}/bugs/${id}?org_id=${org_id}`;
+          copyTextToCopy = copyTextUrl;
+        } else if (id.startsWith("TR")) {
+          copyTextUrl = `${copyTextUrl}/tester-zone/runs/${id}?org_id=${org_id}`;
+          copyTextToCopy = copyTextUrl;
+        } else if (id.startsWith("P")) {
+          copyTextUrl = `${copyTextUrl}/projects/${id}?org_id=${org_id}`;
+          copyTextToCopy = copyTextUrl;
+        }
       }
-      await navigator.clipboard.writeText(copyTextUrl);
+      
+      await navigator.clipboard.writeText(copyTextToCopy);
       setCopied(true);
       toast({
         title: "Success",
@@ -54,14 +65,19 @@ const CopyableIdBadge = ({ id, org_id, tracker_id, className, isCompleted = fals
     <Badge
       className={cn(
         "text-xs font-mono cursor-pointer select-none relative overflow-hidden",
+        "max-w-full min-w-0 flex-shrink",
         isCompleted ? "line-through text-black" : "text-white",
         className
       )}
-      title="Click to copy ID"
+      title={`Click to copy ID: ${id}`}
       onClick={handleCopy}
     >
-      <span className={cn("transition-opacity duration-150 flex items-center", copied ? "opacity-0" : "opacity-100")}>{id}
-        <span className="ml-2">
+      <span className={cn(
+        "transition-opacity duration-150 flex items-center min-w-0 flex-shrink",
+        copied ? "opacity-0" : "opacity-100"
+      )}>
+        <span className="truncate flex-shrink min-w-0">{id}</span>
+        <span className="ml-1 sm:ml-2 flex-shrink-0">
           <Copy className="h-3 w-3" />
         </span>
       </span>
