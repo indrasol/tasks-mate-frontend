@@ -2141,9 +2141,9 @@ const TaskDetail = () => {
                               </>
                             }</Badge>
                           ))}
-                          {(task?.tags ?? []).length > 3 && (
+                          {/* {(task?.tags ?? []).length > 3 && (
                             <Badge key='tags_count' variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task?.tags ?? []).length - 3}</Badge>
-                          )}
+                          )} */}
                           <Button
                             variant="ghost"
                             size="sm"

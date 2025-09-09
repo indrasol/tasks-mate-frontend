@@ -66,6 +66,7 @@ import { capitalizeFirstLetter, deriveDisplayFromEmail, getPriorityColor, getSta
 import { api } from "@/services/apiService";
 import { taskService } from '@/services/taskService';
 import imageCompression from "browser-image-compression";
+import { formatDate } from "date-fns";
 
 interface Project {
   id: string;
@@ -683,7 +684,7 @@ const ProjectDetail = () => {
       });
       await api.put(
         `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`,
-        { name: newName }
+        { resource_name: newName }
       );
       toast({
         title: "Success",
@@ -710,7 +711,7 @@ const ProjectDetail = () => {
       });
       await api.put(
         `${API_ENDPOINTS.PROJECT_RESOURCES}/${resource.id}?project_id=${project.id}`,
-        { name, url: urlStr }
+        { resource_name: name, resource_url: urlStr }
       );
       toast({
         title: "Success",
@@ -1504,9 +1505,11 @@ const ProjectDetail = () => {
                                   className="text-xs bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200 transition-colors px-3 py-1.5"
                                 >
                                   {project?.startDate ?
-                                    (project.startDate.includes('T') ?
-                                      new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
-                                      new Date(project.startDate + 'T12:00:00').toLocaleDateString()) :
+                                    // (project.startDate.includes('T') ?
+                                    //   new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                    //   new Date(project.startDate + 'T12:00:00').toLocaleDateString()) 
+                                      formatDate(project.startDate, 'MMM dd, yyyy')
+                                      :
                                     'Set start date'}
                                   <Pencil className="w-3 h-3 inline ml-1" />
                                 </Badge>
@@ -1569,9 +1572,11 @@ const ProjectDetail = () => {
                             <div className="relative group">
                               <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
                                 {project?.startDate ?
-                                  (project.startDate.includes('T') ?
-                                    new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
-                                    new Date(project.startDate + 'T12:00:00').toLocaleDateString()) :
+                                  // (project.startDate.includes('T') ?
+                                  //   new Date(project.startDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                  //   new Date(project.startDate + 'T12:00:00').toLocaleDateString()) 
+                                  formatDate(project.startDate, 'MMM dd, yyyy')
+                                    :
                                   'Not set'}
                               </Badge>
                               <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
@@ -1594,9 +1599,11 @@ const ProjectDetail = () => {
                                   className="text-xs bg-red-100 text-red-800 cursor-pointer hover:bg-red-200 transition-colors px-3 py-1.5"
                                 >
                                   {project?.endDate ?
-                                    (project.endDate.includes('T') ?
-                                      new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
-                                      new Date(project.endDate + 'T12:00:00').toLocaleDateString()) :
+                                  // (project.endDate.includes('T') ?
+                                  //   new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                  //   new Date(project.endDate + 'T12:00:00').toLocaleDateString()) 
+                                  formatDate(project.endDate, 'MMM dd, yyyy')
+                                    :
                                     'Set end date'}
                                   <Pencil className="w-3 h-3 inline ml-1" />
                                 </Badge>
@@ -1665,9 +1672,11 @@ const ProjectDetail = () => {
                             <div className="relative group">
                               <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
                                 {project?.endDate ?
-                                  (project.endDate.includes('T') ?
-                                    new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
-                                    new Date(project.endDate + 'T12:00:00').toLocaleDateString()) :
+                                  // (project.endDate.includes('T') ?
+                                  //   new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                  //   new Date(project.endDate + 'T12:00:00').toLocaleDateString()) 
+                                  formatDate(project.endDate, 'MMM dd, yyyy')
+                                  :
                                   'Not set'}
                               </Badge>
                               <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
