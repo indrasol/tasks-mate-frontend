@@ -65,14 +65,19 @@ const CopyableIdBadge = ({ id, org_id, tracker_id, className, isCompleted = fals
     <Badge
       className={cn(
         "text-xs font-mono cursor-pointer select-none relative overflow-hidden",
+        "max-w-full min-w-0 flex-shrink",
         isCompleted ? "line-through text-black" : "text-white",
         className
       )}
-      title="Click to copy ID"
+      title={`Click to copy ID: ${id}`}
       onClick={handleCopy}
     >
-      <span className={cn("transition-opacity duration-150 flex items-center", copied ? "opacity-0" : "opacity-100")}>{id}
-        <span className="ml-2">
+      <span className={cn(
+        "transition-opacity duration-150 flex items-center min-w-0 flex-shrink",
+        copied ? "opacity-0" : "opacity-100"
+      )}>
+        <span className="truncate flex-shrink min-w-0">{id}</span>
+        <span className="ml-1 sm:ml-2 flex-shrink-0">
           <Copy className="h-3 w-3" />
         </span>
       </span>

@@ -1,7 +1,6 @@
 import OrganizationsHeader from '@/components/navigation/OrganizationsHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import CopyableBadge from '@/components/ui/copyable-badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -9,12 +8,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/services/apiService';
 import { BackendOrg, Organization, OrganizationInvitation } from '@/types/organization';
-import { Building2, Check, ChevronDown, ChevronsUpDown, Info, Layers, LayoutGrid, List, Mail, Pencil, Plus, Search, Trash2, User, UserCheck, Users, X } from 'lucide-react';
+import { ArrowRight, Building2, Check, ChevronDown, ChevronsUpDown, Layers, Mail, Pencil, Plus, Search, Trash2, User, UserCheck, Users, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '@/config';
@@ -85,7 +85,6 @@ const Organizations = () => {
   const [newOrgDescription, setNewOrgDescription] = useState('');
   const [creating, setCreating] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   // Edit organization state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editOrg, setEditOrg] = useState<Organization | null>(null);
@@ -689,25 +688,6 @@ const Organizations = () => {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="bg-transparent border border-gray-200/50 rounded-lg overflow-hidden p-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`h-8 ${viewMode === 'grid' ? 'bg-green-50 text-green-600' : ''} rounded-md`}
-                    onClick={() => setViewMode('grid')}
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`h-8 ${viewMode === 'list' ? 'bg-green-50 text-green-600' : ''} rounded-md`}
-                    onClick={() => setViewMode('list')}
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-
                 <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-green-500 hover:bg-green-600">
@@ -909,223 +889,84 @@ const Organizations = () => {
               </Button>
             )}
           </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid gap-4 md:gap-6 auto-rows-max grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredOrganizations.map((org) => (
-              <Card
-                key={org.org_id}
-                className="relative cursor-pointer overflow-hidden flex flex-col h-full backdrop-blur-sm bg-white/90 dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-500 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 ease-in-out hover:-translate-y-2 group"
-                onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && org.org_id) handleOrgCardClick(org.org_id);
-                }}
-              >
-                <div className="h-3 w-full bg-gradient-to-r from-green-500 to-green-600 group-hover:scale-105 transition-transform duration-300"></div>
-
-
-                <CardContent className="p-6 flex-1">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-300">
-                      <Building2 className="w-6 h-6 text-green-600 dark:text-green-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">{org.name}</h3>
-                        <div className="flex items-center flex-wrap gap-2">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge
-                                  variant="default"
-                                  className={`transition-colors duration-300 ${getRoleBadgeColor()}`}
-                                >
-                                  <UserCheck className="w-3 h-3 mr-1" /> {capitalizeWords(org.role)}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Your role in this organization</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          {org.org_id && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span onClick={(e) => e.stopPropagation()}>
-                                    <CopyableBadge copyText={org.org_id} org_id={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
-                                      <Info className="w-3 h-3 mr-1" /> {org.org_id}
-                                    </CopyableBadge>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Organization ID</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mt-1 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors duration-300">
-                        {org.description}
-                      </p>
-                      <div className="flex flex-wrap gap-2 mt-3 items-center">
-                        {org.created_by && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge variant="outline" className={`transition-colors duration-300 ${getCreatorBadgeColor()}`}>
-                                  <User className="w-3 h-3 mr-1" /> {org.created_by}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Created by</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                        {org.created_at && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <polyline points="12 6 12 12 16 14" />
-                                  </svg> {formatDate(org.created_at)}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Created at</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                        {(org.role === 'owner' || org.role === 'admin') && (
-                          <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
-                            <button className="p-1 text-gray-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-green-600" onClick={() => openEditModal(org)}>
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            {org.role === 'owner' && (
-                              <button className="p-1 text-red-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-red-700" onClick={() => openDeleteModal(org)}>
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        )}
-
-                        {(org.is_invite) &&
-                          <div className="flex items-center gap-1 ml-2">
-                            <button
-                              onClick={() => handleAcceptInvite(org.invitation_id)}
-                              className="p-1 text-gray-600 hover:bg-transparent"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check">
-                                <path d="M20 6 9 17l-5-5" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleRejectInvite(org.invitation_id)}
-                              className="p-1 text-red-600 hover:bg-transparent"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x">
-                                <path d="M18 6 6 18" />
-                                <path d="m6 6 12 12" />
-                              </svg>
-                            </button>
-                            <span className="font-semibold">Pending Invitation</span>
-                          </div>
-                        }
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-3">
-                  <div className="flex justify-between items-center w-full">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                        <Users className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
-                        <span>{org.member_count} member{org.member_count !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                        <Layers className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
-                        <span>{org.project_count} project{org.project_count !== 1 ? 's' : ''}</span>
-                      </div>
-                    </div>
-
-                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20 p-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-right">
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    </Button>
-                  </div>
-
-                  {/* Footer content can be added here if needed */}
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
         ) : (
-          <div className="flex flex-col space-y-3">
-            {filteredOrganizations.map((org) => (
-              <div
-                key={org.org_id}
-                className="relative bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-4 hover:border-green-400 dark:hover:border-green-500 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
-                onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
-              >
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Building2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">{org.name}</h3>
-                        <div className="flex items-center flex-wrap gap-2">
-                          {org.org_id && (
-                            <span onClick={(e) => e.stopPropagation()}>
-                              <CopyableBadge copyText={org.org_id} org_id={org.org_id} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
-                                <Info className="w-3 h-3 mr-1" /> {org.org_id}
-                              </CopyableBadge>
-                            </span>
-                          )}
-                          <Badge
-                            variant="default"
-                            className={`transition-colors duration-300 ${getRoleBadgeColor()}`}
+          <div className="rounded-md border shadow-tasksmate overflow-x-auto">
+            <Table className="min-w-full">
+              <TableHeader className="bg-gray-50">
+                <TableRow>
+                  <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
+                  <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80 font-bold">Organization</TableHead>
+                  <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Role</TableHead>
+                  <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Members</TableHead>
+                  <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Projects</TableHead>
+                  <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Created By</TableHead>
+                  <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Created At</TableHead>
+                  <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredOrganizations.map((org) => (
+                  <TableRow
+                    key={org.org_id}
+                    className="hover:bg-slate-50/60 transition-colors"
+                  >
+                    <TableCell className="text-center p-2">
+                      <div onClick={(e) => e.stopPropagation()} className="flex justify-center min-w-0">
+                        <CopyableBadge 
+                          copyText={org.org_id} 
+                          org_id={org.org_id} 
+                          variant="outline" 
+                          className={`transition-colors duration-300 ${getOrgIdBadgeColor()} max-w-full min-w-0 flex-shrink`}
+                        >
+                          {org.org_id}
+                        </CopyableBadge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div 
+                            className="font-semibold text-gray-900 truncate hover:text-green-600 cursor-pointer transition-colors"
+                            onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
+                            title="Click to view organization details"
                           >
-                            <UserCheck className="w-3 h-3 mr-1" /> {capitalizeWords(org.role)}
-                          </Badge>
+                            {org.name}
+                          </div>
+                          <div className="text-sm text-gray-500 truncate">{org.description}</div>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{org.description}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <Users className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
-                          <span>{org.member_count} member{org.member_count !== 1 ? 's' : ''}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <Layers className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
-                          <span>{org.project_count} project{org.project_count !== 1 ? 's' : ''}</span>
-                        </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant="default"
+                        className={`transition-colors duration-300 ${getRoleBadgeColor()}`}
+                      >
+                        <UserCheck className="w-3 h-3 mr-1" /> {capitalizeWords(org.role)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center text-sm text-gray-600">
+                        <Users className="w-4 h-4 mr-1 text-gray-500" />
+                        <span>{org.member_count}</span>
                       </div>
-
-                      {/* Additional info can be added here if needed */}
-                    </div>
-
-                    <div className="flex gap-2">
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center text-sm text-gray-600">
+                        <Layers className="w-4 h-4 mr-1 text-gray-500" />
+                        <span>{org.project_count}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
                       {org.created_by && (
                         <Badge variant="outline" className={`transition-colors duration-300 ${getCreatorBadgeColor()}`}>
                           <User className="w-3 h-3 mr-1" /> {org.created_by}
                         </Badge>
                       )}
-
+                    </TableCell>
+                    <TableCell className="text-center">
                       {org.created_at && (
                         <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
                           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
@@ -1134,44 +975,61 @@ const Organizations = () => {
                           </svg> {formatDate(org.created_at)}
                         </Badge>
                       )}
-                      {(org.role === 'owner' || org.role === 'admin') && (
-                        <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
-                          <button className="p-1 text-gray-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-green-600" onClick={() => openEditModal(org)}>
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          {org.role === 'owner' && (
-                            <button className="p-1 text-red-600 transition-transform transform hover:-translate-y-0.5 hover:scale-110 hover:text-red-700" onClick={() => openDeleteModal(org)}>
-                              <Trash2 className="w-4 h-4" />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        {org.is_invite ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleAcceptInvite(org.invitation_id)}
+                              className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                              title="Accept invitation"
+                            >
+                              <Check className="w-4 h-4" />
                             </button>
-                          )}
-                        </div>
-                      )}
-                      {(org.is_invite) &&
-                        <div className="flex items-center gap-1 ml-2">
-                          <button
-                            onClick={() => handleAcceptInvite(org.invitation_id)}
-                            className="p-1 text-gray-600 hover:bg-transparent"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check">
-                              <path d="M20 6 9 17l-5-5" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleRejectInvite(org.invitation_id)}
-                            className="p-1 text-red-600 hover:bg-transparent"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x">
-                              <path d="M18 6 6 18" />
-                              <path d="m6 6 12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      }
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+                            <button
+                              onClick={() => handleRejectInvite(org.invitation_id)}
+                              className="p-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                              title="Reject invitation"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <button 
+                              className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
+                              onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
+                              title="View organization details"
+                            >
+                              <ArrowRight className="w-4 h-4" />
+                            </button>
+                            {(org.role === 'owner' || org.role === 'admin') && (
+                              <button 
+                                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-600 hover:text-green-600 transition-colors" 
+                                onClick={() => openEditModal(org)}
+                                title="Edit organization"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                            )}
+                            {org.role === 'owner' && (
+                              <button 
+                                className="p-1.5 rounded-full hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" 
+                                onClick={() => openDeleteModal(org)}
+                                title="Delete organization"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
