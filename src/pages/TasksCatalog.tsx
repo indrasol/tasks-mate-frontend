@@ -998,22 +998,22 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-md border shadow-tasksmate">
-                    <Table className="table-fixed">
+                  <div className="rounded-md border shadow-tasksmate overflow-x-auto">
+                    <Table className="min-w-full">
                       <TableHeader className="bg-gray-50">
                         <TableRow>
-                          <TableHead className="w-12 text-center"></TableHead>
-                          <TableHead className="w-28 text-center font-bold">ID</TableHead>
-                          <TableHead className="w-80 font-bold">Title</TableHead>
-                          <TableHead className="w-32 text-center font-bold">Status</TableHead>
-                          <TableHead className="w-28 text-center font-bold">Priority</TableHead>
-                          <TableHead className="w-40 text-center font-bold">Assigned To</TableHead>
-                          <TableHead className="w-36 text-center font-bold">Start Date</TableHead>
-                          <TableHead className="w-36 text-center font-bold">Due Date</TableHead>
-                          <TableHead className="w-36 text-center font-bold">Project</TableHead>
-                          <TableHead className="w-40 text-center font-bold">Tags</TableHead>
-                          <TableHead className="w-24 text-center font-bold">Created By</TableHead>
-                          <TableHead className="w-24 text-center font-bold">Actions</TableHead>
+                          <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
+                          <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
+                          <TableHead className="min-w-[200px] sm:min-w-[300px] md:w-80 font-bold">Title</TableHead>
+                          <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
+                          <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Priority</TableHead>
+                          <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Assigned To</TableHead>
+                          <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Start Date</TableHead>
+                          <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Due Date</TableHead>
+                          <TableHead className="w-24 sm:w-28 md:w-36 text-center font-bold">Project</TableHead>
+                          <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Tags</TableHead>
+                          <TableHead className="w-20 sm:w-24 text-center font-bold">Created By</TableHead>
+                          <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1039,8 +1039,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-center">
-                              <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
+                            <TableCell className="text-center p-2">
+                              <div onClick={(e) => e.stopPropagation()} className="flex justify-center min-w-0">
                                 <CopyableIdBadge id={task.id} org_id={currentOrgId} isCompleted={task.status === 'completed'} />
                               </div>
                             </TableCell>
