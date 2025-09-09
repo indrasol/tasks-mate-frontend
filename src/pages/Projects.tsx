@@ -39,6 +39,7 @@ import type { BackendOrgMember } from "@/types/organization";
 import { Project } from '@/types/projects';
 import {
   AlertCircle,
+  ArrowRight,
   CalendarRange,
   Check,
   CheckCircle2,
@@ -1305,19 +1306,19 @@ const Projects = () => {
                         </div>
                       </TableCell> */}
                               <TableCell className="text-center">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleProjectClick(project.id)}
-                                  className="text-xs"
-                                  // Disable only when the current user is neither a team member nor the project owner
-                                  disabled={
-                                    !project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) &&
-                                    !userIdentifiers.includes(String(project.owner).toLowerCase())
-                                  }
-                                >
-                                  Detail
-                                </Button>
+                                <div className="flex items-center justify-center gap-1">
+                                  <button 
+                                    className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
+                                    onClick={() => handleProjectClick(project.id)}
+                                    title="View project details"
+                                    disabled={
+                                      !project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) &&
+                                      !userIdentifiers.includes(String(project.owner).toLowerCase())
+                                    }
+                                  >
+                                    <ArrowRight className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
