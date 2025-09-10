@@ -9,7 +9,7 @@ interface UseThemeReturn {
   toggleTheme: () => void;
 }
 
-export function useTheme(): UseThemeReturn {
+export const useTheme = (): UseThemeReturn => {
   // Get initial theme from localStorage or default to 'system'
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -79,4 +79,4 @@ export function useTheme(): UseThemeReturn {
     resolvedTheme,
     toggleTheme,
   };
-}
+};
