@@ -85,15 +85,15 @@ const FeedbackForm: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
             <MainNavigation />
 
             <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
-                <div className="px-8 py-6 bg-white/50 border-b border-gray-200">
+                <div className="px-8 py-6 bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="font-sora font-bold text-2xl text-gray-900 mb-1">Submit Feedback</h1>
-                            <p className="text-sm text-muted-foreground">
+                            <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-white mb-1">Submit Feedback</h1>
+                            <p className="text-sm text-muted-foreground dark:text-gray-300">
                                 Share your thoughts, report issues, or suggest improvements
                             </p>
                         </div>
@@ -101,10 +101,10 @@ const FeedbackForm: React.FC = () => {
                 </div>
 
                 <div className="px-8 py-6">
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
                             <div className="space-y-2">
-                                <Label htmlFor="module" className="text-sm font-medium">
+                                <Label htmlFor="module" className="text-sm font-medium dark:text-gray-300">
                                     Feature <span className="text-destructive">*</span>
                                 </Label>
                                 <Select
@@ -112,10 +112,10 @@ const FeedbackForm: React.FC = () => {
                                     onValueChange={setSelectedModule}
                                     required
                                 >
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                         <SelectValue placeholder="Select a feature" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                                         {moduleNames.map((mod) => (
                                             <SelectItem key={mod} value={mod}>
                                                 {mod}
@@ -126,7 +126,7 @@ const FeedbackForm: React.FC = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-sm font-medium">
+                                <Label className="text-sm font-medium dark:text-gray-300">
                                     Feedback Type <span className="text-destructive">*</span>
                                 </Label>
                                 <RadioGroup
@@ -137,7 +137,7 @@ const FeedbackForm: React.FC = () => {
                                     {feedbackTypes.map((type) => (
                                         <div key={type} className="flex items-center space-x-2">
                                             <RadioGroupItem value={type} id={type} />
-                                            <Label htmlFor={type} className="font-normal cursor-pointer">
+                                            <Label htmlFor={type} className="font-normal cursor-pointer dark:text-gray-300">
                                                 {type}
                                             </Label>
                                         </div>
@@ -146,7 +146,7 @@ const FeedbackForm: React.FC = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="message" className="text-sm font-medium">
+                                <Label htmlFor="message" className="text-sm font-medium dark:text-gray-300">
                                     Feedback Message <span className="text-destructive">*</span>
                                 </Label>
                                 <Textarea
@@ -156,7 +156,7 @@ const FeedbackForm: React.FC = () => {
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
                                     required
-                                    className="min-h-[120px]"
+                                    className="min-h-[120px] dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                                 />
                             </div>
 

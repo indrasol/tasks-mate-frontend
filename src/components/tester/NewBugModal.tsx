@@ -166,7 +166,7 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-white flex flex-col p-0 max-h-screen">
+      <SheetContent className="w-[400px] sm:w-[540px] bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
         {/* Modern Green Header */}
         <div className="relative bg-tasksmate-gradient p-6 flex-shrink-0">
           <div className="absolute inset-0 bg-black/5"></div>
@@ -194,37 +194,37 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
           <div className="py-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-3">
-                <Label htmlFor="title" className="text-sm font-semibold text-gray-700">Bug Title</Label>
+                <Label htmlFor="title" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Bug Title</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData({...formData, title: e.target.value})}
                   placeholder="Brief description of the bug"
-                  className="h-12"
+                  className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                   required
                 />
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="description" className="text-sm font-semibold text-gray-700">Description</Label>
+                <Label htmlFor="description" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Description</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
                   placeholder="Detailed description of the bug..."
                   rows={4}
-                  className="min-h-[100px]"
+                  className="min-h-[100px] dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                   required
                 />
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="severity" className="text-sm font-semibold text-gray-700">Bug Severity</Label>
+                <Label htmlFor="severity" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Bug Severity</Label>
                 <Select value={formData.severity} onValueChange={(value) => setFormData({...formData, severity: value})}>
-                  <SelectTrigger className="h-12">
+                  <SelectTrigger className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     <SelectValue placeholder="Select severity level" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="low">Low</SelectItem>
@@ -233,9 +233,9 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
               </div>
               
               <div className="space-y-3">
-                <Label htmlFor="project" className="text-sm font-semibold text-gray-700">Project</Label>
+                <Label htmlFor="project" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Project</Label>
                 <Select value={formData.projectId} onValueChange={handleProjectChange}>
-                  <SelectTrigger className="h-12">
+                  <SelectTrigger className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     {loadingProjects ? (
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -245,7 +245,7 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
                       <SelectValue placeholder="Select project" />
                     )}
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                     {projects.length === 0 && !loadingProjects && (
                       <SelectItem value="no-projects" disabled>No projects available</SelectItem>
                     )}
@@ -259,8 +259,8 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="tags" className="text-sm font-semibold text-gray-700">Tags</Label>
-                <p className="text-xs text-gray-500 mb-2">
+                <Label htmlFor="tags" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tags</Label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                   {formData.projectName ? (
                     <Badge className="bg-teal-100 text-teal-800 text-xs mr-1">{formData.projectName}</Badge>
                   ) : (
@@ -275,7 +275,7 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
                     onChange={(e) => setNewTag(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Add tag and press Enter"
-                    className="h-12"
+                    className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                   />
                   <Button type="button" onClick={handleAddTag} variant="outline" size="sm" className="h-12">
                     Add

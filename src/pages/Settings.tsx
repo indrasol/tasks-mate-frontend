@@ -395,7 +395,7 @@ const Settings = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
         <MainNavigation />
         <div className="flex-1 ml-64 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
@@ -407,7 +407,7 @@ const Settings = () => {
 
   if (currentOrgLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
         <MainNavigation />
         <div className="flex-1 ml-64 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
@@ -419,14 +419,14 @@ const Settings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       <MainNavigation />
 
       <div className="flex-1 transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         <div className="px-6 py-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-600 mt-2">Manage your organization settings</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your organization settings</p>
           </div>
 
           <div className="space-y-6">

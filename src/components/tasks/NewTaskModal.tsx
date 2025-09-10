@@ -350,7 +350,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-white flex flex-col p-0 max-h-screen">
+      <SheetContent className="w-[400px] sm:w-[540px] bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
         {/* Modern Header */}
         <div className="relative bg-tasksmate-gradient p-6 flex-shrink-0">
           <div className="absolute inset-0 bg-black/5"></div>
@@ -384,7 +384,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
           <div className="py-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-3">
-                <Label htmlFor="name" className="text-sm font-semibold text-gray-700">
+                <Label htmlFor="name" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Task Name *
                 </Label>
                 <Input
@@ -392,13 +392,13 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                   placeholder="Enter a descriptive task name"
                   value={formData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
-                  className="h-12 text-base"
+                  className="h-12 text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                   required
                 />
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
+                <Label htmlFor="description" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Description
                 </Label>
                 <RichTextEditor
@@ -420,17 +420,17 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
 
               {/* Project Dropdown */}
               <div className="space-y-3">
-                <Label htmlFor="project" className="text-sm font-semibold text-gray-700">
+                <Label htmlFor="project" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Project *
                 </Label>
                 <Select
                   value={formData.projectId}
                   onValueChange={(value) => handleInputChange("projectId", value)}
                 >
-                  <SelectTrigger className="h-12">
+                  <SelectTrigger className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     <SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select project"} />
                   </SelectTrigger>
-                  <SelectContent className="bg-white border shadow-lg z-50">
+                  <SelectContent className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg z-50">
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
@@ -443,7 +443,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
               {/* Bugs dropdown removed to avoid mock data; integrate once backend endpoint is available */}
 
               <div className="space-y-3">
-                <Label htmlFor="tags" className="text-sm font-semibold text-gray-700">
+                <Label htmlFor="tags" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Tags
                 </Label>
                 {/* No automatic tags applied */}
@@ -455,7 +455,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                       value={tagInput}
                       onChange={(e) => setTagInput(e.target.value)}
                       onKeyPress={handleTagInputKeyPress}
-                      className="h-10 text-base flex-1"
+                      className="h-10 text-base flex-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                     />
                     <Button
                       type="button"
@@ -502,14 +502,14 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  <Label htmlFor="status" className="text-sm font-semibold text-gray-700">
+                  <Label htmlFor="status" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     Status
                   </Label>
                   <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
-                    <SelectTrigger className="h-12">
+                    <SelectTrigger className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white border shadow-lg z-50">
+                    <SelectContent className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg z-50">
                       {statusOptions.map((status) => {
                         const meta = getStatusMeta(status);
                         return (
@@ -523,14 +523,14 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                 </div>
 
                 <div className="space-y-3">
-                  <Label htmlFor="priority" className="text-sm font-semibold text-gray-700">
+                  <Label htmlFor="priority" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     Priority
                   </Label>
                   <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
-                    <SelectTrigger className="h-12">
+                    <SelectTrigger className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white border shadow-lg z-50">
+                    <SelectContent className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg z-50">
                       {priorityOptions.map((priority) => (
                         <SelectItem key={priority} value={priority}>
                           <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(priority)}`}>{priority.toUpperCase()}</span>
@@ -541,14 +541,14 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                 </div>
 
                 <div className="space-y-3">
-                  <Label htmlFor="owner" className="text-sm font-semibold text-gray-700">
+                  <Label htmlFor="owner" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     Owner *
                   </Label>
                   <Select value={formData.owner} onValueChange={(value) => handleInputChange("owner", value)}>
-                    <SelectTrigger className="h-12">
+                    <SelectTrigger className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                       <SelectValue placeholder="Select owner" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white border shadow-lg z-50">
+                    <SelectContent className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg z-50">
 
                       {orgMembers.map((m) => {
                         const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
@@ -567,7 +567,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  <Label htmlFor="startDate" className="text-sm font-semibold text-gray-700">
+                  <Label htmlFor="startDate" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     Start Date
                   </Label>
                   <Input
@@ -575,11 +575,11 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => handleInputChange("startDate", e.target.value)}
-                    className="h-12"
+                    className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                 </div>
                 <div className="space-y-3">
-                  <Label htmlFor="targetDate" className="text-sm font-semibold text-gray-700">
+                  <Label htmlFor="targetDate" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     Target Date
                   </Label>
                   <Input
@@ -587,7 +587,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                     type="date"
                     value={formData.targetDate}
                     onChange={(e) => handleInputChange("targetDate", e.target.value)}
-                    className="h-12"
+                    className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                 </div>
               </div>

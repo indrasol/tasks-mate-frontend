@@ -516,17 +516,17 @@ const Organizations = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading organizations...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading organizations...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-gray-50">
+    <div className="min-h-screen w-full bg-gray-50 dark:bg-gray-900">
       {/* Organization Invitations Panel - Only shown when there are pending invitations */}
       {/* {invitations.length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-3 px-4 sm:px-6 lg:px-8">
@@ -611,26 +611,26 @@ const Organizations = () => {
                 {invitations.map((invite) => (
                   <div
                     key={invite.id}
-                    className="flex items-center justify-between bg-white/60 dark:bg-gray-900/40 border border-indigo-100 rounded-md p-3 transform transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:bg-white/80 dark:hover:bg-gray-900/60"
+                    className="flex items-center justify-between bg-white/60 dark:bg-gray-800/60 border border-indigo-100 dark:border-gray-700 rounded-md p-3 transform transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:bg-white/80 dark:hover:bg-gray-800/80"
                   >
                     <div>
                       <div className="font-medium text-gray-800 dark:text-gray-100">
                         Invitation to join <span className="font-semibold">{invite.org_name || invite.org_id}</span>
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         Invited by {invite.invited_by} on {formatDate(invite.sent_at)} {invite.role && ` • Role: ${capitalizeWords(invite.role)}`} {invite.designation && ` • Designation: ${capitalizeWords(invite.designation)}`}
                       </div>
                     </div>
                     <div className="flex items-center flex-shrink-0 gap-2">
                       <button
                         onClick={() => handleAcceptInvite(invite.id)}
-                        className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                        className="p-1.5 rounded-full bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
                       >
                         <Check className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleRejectInvite(invite.id)}
-                        className="p-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                        className="p-1.5 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -641,7 +641,7 @@ const Organizations = () => {
             </div>
           </Collapsible>
         ) : (
-          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-gray-500 text-sm flex items-center gap-2 shadow mb-3">
+          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-3 text-gray-500 dark:text-gray-400 text-sm flex items-center gap-2 shadow mb-3">
             <Mail className="w-4 h-4" />
             <span>No pending organization invitations</span>
           </div>
@@ -660,18 +660,18 @@ const Organizations = () => {
                     placeholder="Search by name, ID, role, description..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-52 md:w-64 bg-transparent border-gray-200/50 transition-all duration-300 focus:w-72 md:focus:w-96"
+                    className="pl-10 w-52 md:w-64 bg-white/80 dark:bg-gray-700/80 border-gray-200/50 dark:border-gray-600/50 dark:text-white dark:placeholder-gray-400 transition-all duration-300 focus:w-72 md:focus:w-96"
                   />
                 </div>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9 bg-transparent border-gray-200/50">
+                    <Button variant="outline" size="sm" className="h-9 bg-white/80 dark:bg-gray-700/80 border-gray-200/50 dark:border-gray-600/50 dark:text-white">
                       <span>Sort by</span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-md border-gray-100">
+                  <DropdownMenuContent align="end" className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-gray-100 dark:border-gray-700">
                     <DropdownMenuItem onClick={() => setSortBy('name')} className="cursor-pointer">
                       {sortBy === 'name' && <Check className="mr-2 h-4 w-4" />} Name
                     </DropdownMenuItem>
@@ -879,11 +879,11 @@ const Organizations = () => {
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
         {filteredOrganizations.length === 0 ? (
           <div className="text-center py-12">
-            <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <Building2 className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               {searchQuery ? 'No organizations found' : 'Get started by creating your first organization'}
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
               {searchQuery
                 ? 'Try adjusting your search query'
                 : 'Organizations help you manage projects and collaborate with your team'
@@ -900,10 +900,10 @@ const Organizations = () => {
             )}
           </div>
         ) : (
-          <div className="rounded-md border shadow-tasksmate overflow-x-auto">
+          <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
             <div className="min-w-max w-full">
               <Table className="w-full">
-                <TableHeader className="bg-gray-50">
+                <TableHeader className="bg-gray-50 dark:bg-gray-800">
                   <TableRow>
                     <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
                     <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60 font-bold">Name</TableHead>
@@ -920,7 +920,7 @@ const Organizations = () => {
                   {filteredOrganizations.map((org) => (
                     <TableRow
                       key={org.org_id}
-                      className="hover:bg-slate-50/60 transition-colors"
+                      className="hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors"
                     >
                       <TableCell className="text-center p-2">
                         <div onClick={(e) => e.stopPropagation()} className="flex justify-center min-w-0">
@@ -936,12 +936,12 @@ const Organizations = () => {
                       </TableCell>
                       <TableCell className="font-medium">
                         <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Building2 className="w-4 h-4 text-green-600" />
+                          <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Building2 className="w-4 h-4 text-green-600 dark:text-green-400" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div
-                              className="font-semibold text-gray-900 truncate hover:text-green-600 cursor-pointer transition-colors"
+                              className="font-semibold text-gray-900 dark:text-white truncate hover:text-green-600 dark:hover:text-green-400 cursor-pointer transition-colors"
                               onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
                               title="Click to view organization details"
                             >
@@ -953,7 +953,7 @@ const Organizations = () => {
                       <TableCell className="font-medium">
                         <div className="min-w-0 max-w-xs">
                           <div
-                            className="text-sm text-gray-600 break-words overflow-hidden"
+                            className="text-sm text-gray-600 dark:text-gray-300 break-words overflow-hidden"
                             style={{
                               display: '-webkit-box',
                               WebkitLineClamp: 2,
@@ -976,14 +976,14 @@ const Organizations = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <div className="flex items-center justify-center text-sm text-gray-600">
-                          <Users className="w-4 h-4 mr-1 text-gray-500" />
+                        <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-300">
+                          <Users className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
                           <span>{org.member_count}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <div className="flex items-center justify-center text-sm text-gray-600">
-                          <Layers className="w-4 h-4 mr-1 text-gray-500" />
+                        <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-300">
+                          <Layers className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
                           <span>{org.project_count}</span>
                         </div>
                       </TableCell>

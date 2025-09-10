@@ -1026,13 +1026,13 @@ const ProjectDetail = () => {
 
   if (loadingProject) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <MainNavigation />
         <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
           <div className="min-h-screen px-6 py-10 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading Project...</p>
+                <p className="mt-4 text-gray-600 dark:text-gray-300">Loading Project...</p>
             </div>
           </div>
         </div>
@@ -1055,7 +1055,7 @@ const ProjectDetail = () => {
   // Graceful fallback when project failed to load or does not exist
   if (!loadingProject && !project) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <MainNavigation />
         <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
           <div className="px-6 py-10">
@@ -1064,7 +1064,7 @@ const ProjectDetail = () => {
                 <CardTitle>Project not found</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600 mb-4">We couldn't load this project. It may have been deleted or you may not have access.</p>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">We couldn't load this project. It may have been deleted or you may not have access.</p>
                 <Button onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)} className="bg-green-500 hover:bg-green-600">
                   Back to Projects
                 </Button>
@@ -1122,11 +1122,11 @@ const ProjectDetail = () => {
   // }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
-        <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200" >
+        <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50" >
           <div className="w-full flex items-center justify-between">
             <div className="flex items-center">
               <Button
@@ -1148,18 +1148,18 @@ const ProjectDetail = () => {
 
         {/* Permission Banner */}
         {userRole !== "owner" && userRole !== "admin" && isBannerVisible && (
-          <div className="w-full bg-amber-50 border-b border-amber-200 px-6 py-3">
+          <div className="w-full bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-amber-600" />
-                <p className="text-amber-800 font-medium">
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <p className="text-amber-800 dark:text-amber-200 font-medium">
                   You are viewing this project as a member. Some actions like editing or deleting the project are restricted to members.
                 </p>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-amber-600 hover:bg-amber-100"
+                className="h-8 w-8 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/30"
                 onClick={handleHideBanner}
                 aria-label="Dismiss message"
               >
@@ -1172,13 +1172,13 @@ const ProjectDetail = () => {
 
 
         {/* Header */}
-        <header className="px-6 py-6 bg-white/30 backdrop-blur-sm border-b border-gray-200">
+        <header className="px-6 py-6 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
           <div className="w-full">
             {/* <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
                 onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+                className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Projects
@@ -1316,7 +1316,7 @@ const ProjectDetail = () => {
                     </div>
                   ) : (
                     <>
-                      <h1 className="font-sora font-bold text-3xl text-gray-900">{project?.name ?? ''}</h1>
+                      <h1 className="font-sora font-bold text-3xl text-gray-900 dark:text-white">{project?.name ?? ''}</h1>
                       {(userRole === 'owner' || userRole === 'admin') && (
                         <Button
                           variant="ghost"
@@ -1340,10 +1340,10 @@ const ProjectDetail = () => {
         {/* Description above Stats */}
         <div className="px-6 py-4">
           <div className="w-full">
-            <Card className="glass border-0 shadow-tasksmate mb-6">
+            <Card className="glass border-0 shadow-tasksmate mb-6 bg-white/80 dark:bg-gray-800/80">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <CardTitle className="font-sora">Description</CardTitle>
+                  <CardTitle className="font-sora text-gray-900 dark:text-white">Description</CardTitle>
                   {isDescriptionEditing ? (
                     <>
                       <Button
@@ -1394,7 +1394,7 @@ const ProjectDetail = () => {
                   />
                 ) : (
                   <div
-                    className="prose max-w-none text-gray-700"
+                    className="prose max-w-none text-gray-700 dark:text-gray-300 dark:prose-invert"
                     dangerouslySetInnerHTML={{ __html: project?.description || '' }}
                   />
                 )}
@@ -1407,12 +1407,12 @@ const ProjectDetail = () => {
         <div className="px-6 py-2">
           <div className="w-full">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Progress</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats?.progress_percent ?? project?.progress ?? 0}%</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Progress</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.progress_percent ?? project?.progress ?? 0}%</p>
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                       <Target className="w-6 h-6 text-blue-600" />
@@ -1422,12 +1422,12 @@ const ProjectDetail = () => {
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate cursor-pointer" onClick={() => handleNavigation('tasks_catalog')}>
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80 cursor-pointer hover:bg-white/90 dark:hover:bg-gray-700/90 transition-colors" onClick={() => handleNavigation('tasks_catalog')}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Tasks Completed</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats?.tasks_completed ?? project?.completedTasks ?? 0}/{stats?.tasks_total ?? project?.tasksCount ?? 0}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Tasks Completed</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.tasks_completed ?? project?.completedTasks ?? 0}/{stats?.tasks_total ?? project?.tasksCount ?? 0}</p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-green-600" />
@@ -1437,12 +1437,12 @@ const ProjectDetail = () => {
               </Card>
 
               {/* Bugs Reported stats card */}
-              <Card className="glass border-0 shadow-tasksmate cursor-pointer" onClick={() => handleNavigation('tester-zone')}>
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80 cursor-pointer hover:bg-white/90 dark:hover:bg-gray-700/90 transition-colors" onClick={() => handleNavigation('tester-zone')}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Bugs Reported</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Bugs Reported</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
                         {stats?.bugs_total ?? 0}
                       </p>
                     </div>
@@ -1453,12 +1453,12 @@ const ProjectDetail = () => {
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Days Left</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Days Left</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
                         {daysLeft !== undefined ? daysLeft :
                           (project?.endDate ?
                             Math.max(0, Math.ceil((new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12, 0, 0, 0)) / (1000 * 60 * 60 * 24))) :
@@ -1483,9 +1483,9 @@ const ProjectDetail = () => {
               <TabsContent value="overview" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   {/* Project Timeline */}
-                  <Card className="lg:col-span-6 glass border-0 shadow-tasksmate">
+                  <Card className="lg:col-span-6 glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                         <Calendar className="w-5 h-5" />
                         Project Timeline
                       </CardTitle>
@@ -1493,8 +1493,8 @@ const ProjectDetail = () => {
                     <CardContent>
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600 flex items-center">
-                            <Calendar className="w-4 h-4 text-blue-600 mr-1" />
+                          <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                            <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-1" />
                             Start Date
                           </span>
                           {(userRole === "owner" || userRole === "admin") ? (
@@ -1587,8 +1587,8 @@ const ProjectDetail = () => {
                         </div>
 
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600 flex items-center">
-                            <Calendar className="w-4 h-4 text-red-600 mr-1" />
+                          <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                            <Calendar className="w-4 h-4 text-red-600 dark:text-red-400 mr-1" />
                             End Date
                           </span>
                           {(userRole === "owner" || userRole === "admin") ? (
@@ -1687,8 +1687,8 @@ const ProjectDetail = () => {
                         </div>
 
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">Duration</span>
-                          <span className="font-medium">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">Duration</span>
+                          <span className="font-medium text-gray-900 dark:text-white">
                             {projectDuration}
                             {/* {project?.endDate && project?.startDate ?
                               Math.ceil((new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() -
@@ -1700,9 +1700,9 @@ const ProjectDetail = () => {
                   </Card>
 
                   {/* Team Members */}
-                  <Card className="lg:col-span-6 glass border-0 shadow-tasksmate">
+                  <Card className="lg:col-span-6 glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                     <CardHeader>
-                      <CardTitle className="flex items-center justify-between gap-2">
+                      <CardTitle className="flex items-center justify-between gap-2 text-gray-900 dark:text-white">
                         <span className="flex items-center gap-2">
                           <Users className="w-5 h-5" />
                           Team Members ({teamMembers.length})
@@ -1725,7 +1725,7 @@ const ProjectDetail = () => {
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium truncate">
+                                <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
                                   {member.displayName ?? deriveDisplayFromEmail(member.name ?? member.email ?? "").displayName}
                                 </p>
                                 {member.designation && (
@@ -1734,7 +1734,7 @@ const ProjectDetail = () => {
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-600 mt-1">{capitalizeFirstLetter(member.role)}</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{capitalizeFirstLetter(member.role)}</p>
                             </div>
 
                             {(userRole === "owner" || userRole === "admin") && (
@@ -1802,9 +1802,9 @@ const ProjectDetail = () => {
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Upload File Section */}
-                    <Card className="glass border-0 shadow-tasksmate">
+                    <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                           <Upload className="w-5 h-5" />
                           Upload File
                         </CardTitle>
@@ -1814,10 +1814,10 @@ const ProjectDetail = () => {
                           {/* File preview section */}
                           {selectedFiles.length > 0 && (
                             <div className="space-y-2">
-                              <h4 className="text-sm font-medium">Selected Files ({selectedFiles.length})</h4>
-                              <div className="space-y-2 max-h-40 overflow-y-auto p-2 border rounded-md">
+                              <h4 className="text-sm font-medium text-gray-900 dark:text-white">Selected Files ({selectedFiles.length})</h4>
+                              <div className="space-y-2 max-h-40 overflow-y-auto p-2 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
                                 {selectedFiles.map((file, index) => (
-                                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                  <div key={index} className="flex items-center justify-between p-2 bg-white dark:bg-gray-600 rounded">
                                     <div className="flex items-center space-x-2">
                                       {file.preview ? (
                                         <img
@@ -1828,7 +1828,7 @@ const ProjectDetail = () => {
                                       ) : (
                                         <File className="w-5 h-5 text-gray-400" />
                                       )}
-                                      <span className="text-sm truncate max-w-xs">{file.file.name}</span>
+                                      <span className="text-sm truncate max-w-xs text-gray-900 dark:text-white">{file.file.name}</span>
                                     </div>
                                     <Button
                                       type="button"
@@ -1859,9 +1859,9 @@ const ProjectDetail = () => {
                           )}
 
                           {/* File input area */}
-                          <div className={`border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors ${selectedFiles.length > 0 ? 'mt-4' : ''}`}>
-                            <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                            <p className="text-sm text-gray-600 mb-3">Drag and drop files here, or click to browse</p>
+                          <div className={`border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors bg-gray-50/50 dark:bg-gray-700/50 ${selectedFiles.length > 0 ? 'mt-4' : ''}`}>
+                            <Upload className="w-10 h-10 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Drag and drop files here, or click to browse</p>
                             <input
                               type="file"
                               multiple
@@ -1874,21 +1874,21 @@ const ProjectDetail = () => {
                             <div className="flex items-center justify-center gap-3">
                               <label
                                 htmlFor="file-upload"
-                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
                               >
                                 Select Files
                               </label>
                             </div>
-                            <p className="text-xs text-gray-500 mt-2">Support for PDF, DOC, XLS, PNG, JPG files (Max 10MB)</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Support for PDF, DOC, XLS, PNG, JPG files (Max 10MB)</p>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
 
                     {/* Add URL Section */}
-                    <Card className="glass border-0 shadow-tasksmate">
+                    <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                           <Link className="w-5 h-5" />
                           Add URL
                         </CardTitle>
@@ -1896,7 +1896,7 @@ const ProjectDetail = () => {
                       <CardContent>
                         <div className="space-y-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">URL Name</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">URL Name</label>
                             <Input
                               type="text"
                               value={newUrlName}
@@ -1905,7 +1905,7 @@ const ProjectDetail = () => {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">URL</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">URL</label>
                             <Input
                               type="url"
                               value={newUrl}
@@ -1930,9 +1930,9 @@ const ProjectDetail = () => {
                 )}
 
                 {/* Resources List */}
-                <Card className="glass border-0 shadow-tasksmate">
+                <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                       <FileText className="w-5 h-5" />
                       Project Resources
                     </CardTitle>
@@ -1942,9 +1942,9 @@ const ProjectDetail = () => {
 
                       {
                         errorLoadingResources ? (
-                          <div className="text-center py-16 bg-white rounded-lg border">
+                          <div className="text-center py-16 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                             {/* <AlertCircle className="w-12 h-12 text-green-600 mx-auto mb-4" /> */}
-                            <p className="text-gray-500">Failed to load resources <br></br> {errorLoadingResources}</p>
+                            <p className="text-gray-500 dark:text-gray-400">Failed to load resources <br></br> {errorLoadingResources}</p>
                             <Button
                               className="bg-tasksmate-gradient hover:scale-105 transition-transform"
                               onClick={fetchResources}
@@ -1955,21 +1955,21 @@ const ProjectDetail = () => {
                           </div>
                         ) :
                           (isLoadingResources ? (
-                            <div className="text-center py-16 bg-white rounded-lg border">
+                            <div className="text-center py-16 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                               <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
-                              <p className="text-gray-500">Loading resources...</p>
+                              <p className="text-gray-500 dark:text-gray-400">Loading resources...</p>
                             </div>
                             // <p className="text-gray-500">Loading resources...</p>
                           ) : resources.length == 0 ? (
-                            <div className="text-center py-16 bg-white rounded-lg border">
+                            <div className="text-center py-16 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                               <FileText className="w-12 h-12 text-green-600 mx-auto mb-4" />
-                              <p className="text-gray-500">No resources found.</p>
+                              <p className="text-gray-500 dark:text-gray-400">No resources found.</p>
                             </div>
                           ) :
                             resources.map((resource) => (
-                              <div key={resource.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                              <div key={resource.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors bg-white/50 dark:bg-gray-800/50">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center overflow-hidden">
+                                  <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center overflow-hidden">
                                     {resource.type === 'file' ? (
                                       resource.url?.match(/\.(jpg|jpeg|png|gif|webp|ico)$/i) ? (
                                         <img
@@ -1992,8 +1992,8 @@ const ProjectDetail = () => {
                                     )}
                                   </div>
                                   <div>
-                                    <p className="font-medium text-gray-900">{resource.name}</p>
-                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <p className="font-medium text-gray-900 dark:text-white">{resource.name}</p>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                       <span>Added by {resource.uploadedBy}</span>
                                       <span>•</span>
                                       <span>{new Date(resource.uploadedAt).toLocaleDateString()}</span>
