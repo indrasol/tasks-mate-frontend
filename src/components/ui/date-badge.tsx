@@ -1,24 +1,86 @@
-import { formatDate } from "date-fns";
-import { Badge } from "./badge";
-import { Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-const DateBadge = ({ date, className }: { date: any, className?: string }) => {
+interface DateBadgeProps {
+  date: string | Date | null | undefined;
+  className?: string;
+  format?: 'short' | 'long' | 'relative';
+}
+
+export default function DateBadge({ date, className, format = 'short' }: DateBadgeProps) {
+  if (!date) {
     return (
-        <Badge variant="secondary" className={`transition-colors duration-300 ${className}`}>
-            {/* <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-            </svg>  */}
-            {date ? (
-                <>
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {formatDate(date, 'MMM dd, yyyy')}
-                </>
-            ) : (
-                '-'
-            )}
-        </Badge>
+      <Badge variant="outline" className={cn("text-xs text-gray-500", className)}>
+        N/A
+      </Badge>
     );
-};
+  }
 
-export default DateBadge;
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  // Check if date is valid
+  if (isNaN(dateObj.getTime())) {
+    return (
+      <Badge variant="outline" className={cn("text-xs text-gray-500", className)}>
+        Invalid Date
+      </Badge>
+    );
+  }
+
+  let formattedDate: string;
+
+  switch (format) {
+    case 'long':
+      formattedDate = dateObj.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      break;
+    case 'relative':
+      const now = new Date();
+      const diffInMs = now.getTime() - dateObj.getTime();
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      
+      if (diffInDays === 0) {
+        formattedDate = 'Today';
+      } else if (diffInDays === 1) {
+        formattedDate = 'Yesterday';
+      } else if (diffInDays < 7) {
+        formattedDate = `${diffInDays} days ago`;
+      } else if (diffInDays < 30) {
+        const weeks = Math.floor(diffInDays / 7);
+        formattedDate = weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+      } else {
+        formattedDate = dateObj.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: dateObj.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+        });
+      }
+      break;
+    case 'short':
+    default:
+      formattedDate = dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      break;
+  }
+
+  return (
+    <Badge 
+      variant="outline" 
+      className={cn("text-xs font-medium", className)}
+      title={dateObj.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })}
+    >
+      {formattedDate}
+    </Badge>
+  );
+}

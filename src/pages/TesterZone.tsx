@@ -539,15 +539,15 @@ const TesterZone = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <MainNavigation />
 
       <div className="transition-all duration-300 p-8" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Header */}
         <div className="flex items-center justify-between w-full mb-8">
           <div>
-            <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Bug Tracker</h1>
-            <p className="text-gray-600">Manage and track your Issues</p>
+            <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-white mb-2">Bug Tracker</h1>
+            <p className="text-gray-600 dark:text-gray-300">Manage and track your Issues</p>
           </div>
 
           <Button
@@ -582,7 +582,7 @@ const TesterZone = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by Tracker ID, keywords..."
-                  className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
+                  className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-300 dark:border-gray-600 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end dark:text-white dark:placeholder-gray-400"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -843,8 +843,8 @@ const TesterZone = () => {
         {
           error ?
             (
-              <div className="text-center py-16 bg-white rounded-lg border">
-                <p className="text-red-500">Error loading trackers <br></br> {error}</p>
+              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                <p className="text-red-500 dark:text-red-400">Error loading trackers <br></br> {error}</p>
                 <Button
                   className="bg-tasksmate-gradient hover:scale-105 transition-transform"
                   onClick={fetchTrackers}
@@ -857,19 +857,19 @@ const TesterZone = () => {
             :
 
             (loading ? (
-              <div className="text-center py-16 bg-white rounded-lg border">
+              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                 <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
-                <p className="text-gray-500">Loading trackers...</p>
+                <p className="text-gray-500 dark:text-gray-400">Loading trackers...</p>
               </div>
             ) : filteredAndSortedRuns.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-lg border">
-                <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Beaker className="w-12 h-12 text-green-600" />
+              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Beaker className="w-12 h-12 text-green-600 dark:text-green-400" />
                 </div>
-                <p className="text-lg font-medium text-gray-900 mb-2">
+                <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                   {hasActiveFilters ? 'No trackers found with current filters' : 'No bug trackers found'}
                 </p>
-                <p className="text-gray-500 mb-6">
+                <p className="text-gray-500 dark:text-gray-400 mb-6">
                   {hasActiveFilters
                     ? 'Try adjusting your search terms or filters, or create a new tracker.'
                     : 'Create your first bug tracker to get started.'
@@ -893,93 +893,21 @@ const TesterZone = () => {
                 </Button>
               </div>
             ) : (
-              <div className="rounded-md border shadow-tasksmate overflow-x-auto">
+              <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
                 <div className="min-w-max w-full">
                   <Table className="w-full">
-                    <TableHeader>
+                    <TableHeader className="bg-gray-50 dark:bg-gray-800">
                       <TableRow>
                         <TableHead></TableHead>
-                        <TableHead
-                          className="w-20 sm:w-24 md:w-28 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => handleSort('id')}
-                        >
-                          <div className="flex items-center justify-center gap-2">
-                            ID
-                            {getSortIcon('id')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => handleSort('name')}
-                        >
-                          <div className="flex items-center gap-2">
-                            Name
-                            {getSortIcon('name')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => handleSort('project')}
-                        >
-                          <div className="flex items-center gap-2">
-                            Project
-                            {getSortIcon('project')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => handleSort('creator')}
-                        >
-                          <div className="flex items-center gap-2">
-                            Creator
-                            {getSortIcon('creator')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="w-24 sm:w-28 md:w-32 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => handleSort('status')}
-                        >
-                          <div className="flex items-center justify-center gap-2">
-                            Status
-                            {getSortIcon('status')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="w-20 sm:w-24 md:w-28 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => handleSort('priority')}
-                        >
-                          <div className="flex items-center justify-center gap-2">
-                            Priority
-                            {getSortIcon('priority')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="w-20 sm:w-24 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => handleSort('totalBugs')}
-                        >
-                          <div className="flex items-center justify-center gap-2">
-                            Bugs
-                            {getSortIcon('totalBugs')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="w-20 sm:w-24 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => handleSort('totalTasks')}
-                        >
-                          <div className="flex items-center justify-center gap-2">
-                            Tasks
-                            {getSortIcon('totalTasks')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="w-28 sm:w-32 md:w-36 text-center font-bold cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => handleSort('date')}
-                        >
-                          <div className="flex items-center justify-center gap-2">
-                            Created Date
-                            {getSortIcon('date')}
-                          </div>
-                        </TableHead>
+                        <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">ID</TableHead>
+                        <TableHead className="font-bold">Name</TableHead>
+                        <TableHead className="font-bold">Project</TableHead>
+                        <TableHead className="font-bold">Creator</TableHead>
+                        <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
+                        <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Priority</TableHead>
+                        <TableHead className="w-20 sm:w-24 text-center font-bold">Bugs</TableHead>
+                        <TableHead className="w-20 sm:w-24 text-center font-bold">Tasks</TableHead>
+                        <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Created Date</TableHead>
                         <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -987,7 +915,7 @@ const TesterZone = () => {
                       {filteredAndSortedRuns.map((run) => (
                         <TableRow
                           key={run.id}
-                          className="cursor-auto hover:bg-transparent"
+                          className="cursor-auto hover:bg-gray-50/60 dark:hover:bg-gray-700/60"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <TableCell className="p-2 text-center">

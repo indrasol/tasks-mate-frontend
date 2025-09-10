@@ -44,7 +44,7 @@ export default function OrganizationsHeader({
 
 
   return (
-    <div className="bg-white border-b border-gray-200 w-full">
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 w-full">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex justify-between items-center">
           {/* Left — brand & title */}
@@ -54,29 +54,29 @@ export default function OrganizationsHeader({
                 <Check className="h-4 w-4 text-white" />
               </div>
               <div className="flex items-baseline space-x-2">
-                <span className="font-sora font-bold text-2xl">TasksMate</span>
+                <span className="font-sora font-bold text-2xl text-gray-900 dark:text-white">TasksMate</span>
                 <a
                   href="https://indrasol.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                 >
                   by Indrasol
                 </a>
               </div>
             </div>
-            <div className="h-6 w-px bg-gray-300 mx-2" />
-            <h1 className="text-2xl font-bold text-gray-900">
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2" />
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               {pageLabel ? pageLabel : 'Your Organizations'}
             </h1>
           </div>
 
-          {/* Right — theme, profile & sign-out */}
+          {/* Right — profile & sign-out */}
           <div className="flex items-center space-x-2">
-            {/* <ThemeToggle /> */}
+            <ThemeToggle />
             <Button
               variant="ghost"
-              className={`${isCollapsed ? "w-8 h-8 p-0" : "flex-1"} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
+              className={`${isCollapsed ? "w-8 h-8 p-0" : "flex-1"} flex items-center space-x-2 hover:bg-gray-50 dark:hover:bg-gray-700 justify-start`}
               onClick={handleUserProfileNavigation}
             >
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -93,7 +93,7 @@ export default function OrganizationsHeader({
               </div>
               {!isCollapsed && (
                 <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-medium text-gray-700 truncate">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
                     {profileLabel}
                   </p>
                 </div>
@@ -104,7 +104,7 @@ export default function OrganizationsHeader({
               variant="ghost"
               size="icon"
               onClick={signOut}
-              className="w-8 h-8 hover:bg-red-50 hover:text-red-600 ml-2 flex-shrink-0"
+              className="w-8 h-8 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 ml-2 flex-shrink-0"
               title="Sign Out"
             >
               <LogOut className="w-4 h-4" />

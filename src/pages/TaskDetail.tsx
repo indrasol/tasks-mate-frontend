@@ -1265,13 +1265,13 @@ const TaskDetail = () => {
     // return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div></div>;
 
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <MainNavigation />
         <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
           <div className="min-h-screen px-6 py-10 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading task details...</p>
+                <p className="mt-4 text-gray-600 dark:text-gray-300">Loading task details...</p>
             </div>
           </div>
         </div>
@@ -1281,7 +1281,7 @@ const TaskDetail = () => {
   else if (error) {
     // return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <MainNavigation />
         <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
           <div className="min-h-screen px-6 py-10 flex items-center justify-center">
@@ -1304,17 +1304,17 @@ const TaskDetail = () => {
   else {
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
         {/* Navigation */}
         <MainNavigation />
 
         <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
 
 
-          <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200" >
+          <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50" >
             <div className="w-full flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <Link to={`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`} className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors">
+                <Link to={`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`} className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
                   <ArrowLeft className="h-4 w-4" />
                   <span>Back to Catalog</span>
                 </Link>
@@ -1326,7 +1326,7 @@ const TaskDetail = () => {
           </nav>
 
           {/* Header */}
-          <header className="px-6 py-6 bg-white/30 backdrop-blur-sm border-b border-gray-200">
+          <header className="px-6 py-6 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
             <div className="w-full">
               <div className="flex items-start justify-between space-x-3">
                 {/* Column with toggle + green bar */}
@@ -1446,7 +1446,7 @@ const TaskDetail = () => {
                       </div>
                     ) : (
                       <>
-                        <span className={`text-2xl font-sora font-bold ${status === 'completed' ? 'line-through text-gray-400' : ''}`}>{taskName}</span>
+                        <span className={`text-2xl font-sora font-bold ${status === 'completed' ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>{taskName}</span>
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsTitleEditing(true)} disabled={!task?.is_editable}>
                           <Pencil className="h-4 w-4 text-gray-500" />
                         </Button>
@@ -1483,11 +1483,11 @@ const TaskDetail = () => {
                   onEnter={() => setIsFullscreen(true)}
                   onExit={() => setIsFullscreen(false)}
                 >
-                  <Card className="glass border-0 shadow-tasksmate">
+                  <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <CardTitle className="font-sora">Description</CardTitle>
+                          <CardTitle className="font-sora text-gray-900 dark:text-white">Description</CardTitle>
                           {isDescriptionEditing ? (
                             <>
                               <Button
@@ -1652,10 +1652,10 @@ const TaskDetail = () => {
 
                 {/* Documents Section - Enhanced */}
                 {/* Dependencies */}
-                <Card className="glass border-0 shadow-tasksmate">
+                <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="font-sora flex items-center space-x-2">
+                      <CardTitle className="font-sora flex items-center space-x-2 text-gray-900 dark:text-white">
                         <Link2 className="h-4 w-4" />
                         <span>Dependencies ({dependencyDetails?.length ?? 0})</span>
                       </CardTitle>
@@ -1675,7 +1675,7 @@ const TaskDetail = () => {
                     {dependencyDetails.map((dep: any) => {
                       const depId = dep.task_id ?? dep.id;
                       return (
-                        <div key={depId} className="flex flex-wrap items-start gap-2 p-3 rounded-lg bg-white/50 micro-lift group">
+                        <div key={depId} className="flex flex-wrap items-start gap-2 p-3 rounded-lg bg-white/50 dark:bg-gray-700/50 micro-lift group border border-gray-200 dark:border-gray-600">
                           {/* Toggle */}
                           <Button variant="ghost" size="sm" className="p-0 h-auto" disabled={!task?.is_editable} onClick={() => handleDependencyToggle(depId)}>
                             {(dep.status ?? '') === 'completed' ? <CheckCircle className="h-5 w-5 text-tasksmate-green-end" /> : <Circle className="h-5 w-5 text-gray-400" />}
@@ -1723,9 +1723,9 @@ const TaskDetail = () => {
 
                           {/* Content Column */}
                           <div className="flex flex-col min-w-0 basis-full w-full mt-1">
-                            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300 min-w-0">
                               <span className="font-bold">Title :</span>
-                              <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                              <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500' : ''}`}>
                                 {dep.title ?? dep.name}
                               </span>
                             </div>
@@ -1745,25 +1745,25 @@ const TaskDetail = () => {
                 </Card>
 
                 {/* Documents Section - Enhanced */}
-                <Card className="glass border-0 shadow-tasksmate">
+                <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                   <CardHeader>
-                    <CardTitle className="font-sora flex items-center space-x-2">
+                    <CardTitle className="font-sora flex items-center space-x-2 text-gray-900 dark:text-white">
                       <File className="h-4 w-4" />
                       <span>Attachments ({attachments?.length ?? 0})</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div
-                      className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                        }`}
+                      className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600'
+                        } bg-gray-50/50 dark:bg-gray-700/50`}
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
                     >
                       <div className="flex flex-col items-center space-y-2">
-                        <Upload className="h-8 w-8 text-gray-400" />
-                        <p className="text-gray-500">Drop files here or click to upload</p>
-                        <p className="text-xs text-gray-400">Max 5 files</p>
+                        <Upload className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                        <p className="text-gray-500 dark:text-gray-400">Drop files here or click to upload</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">Max 5 files</p>
                       </div>
 
                       <input
@@ -1788,19 +1788,19 @@ const TaskDetail = () => {
                     </div>
                     {fileUploadingProgress > 0 && (
                       <div className="mt-4 space-y-2">
-                        <h4 className="font-medium text-sm text-gray-700">Uploading {fileUploadingProgress} of {fileUploadingTotal} files - {fileUploadingName}</h4>
+                        <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">Uploading {fileUploadingProgress} of {fileUploadingTotal} files - {fileUploadingName}</h4>
                         <Progress value={fileUploadingPercentage} />
                       </div>
                     )}
 
                     {attachments.length > 0 && (
                       <div className="mt-4 space-y-2">
-                        <h4 className="font-medium text-sm text-gray-700">Uploaded Files:</h4>
+                        <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">Uploaded Files:</h4>
                         {attachments.map((file, index) => (
-                          <div key={file.attachment_id || index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                          <div key={file.attachment_id || index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                             <div className="flex items-center space-x-2">
-                              <FileText className="h-4 w-4 text-gray-500" />
-                              <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm underline">
+                              <FileText className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                              <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm underline text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400">
                                 {file.name}
                               </a>
                             </div>
@@ -1821,12 +1821,12 @@ const TaskDetail = () => {
                 </Card>
 
                 {/* Comments Section - Collapsible */}
-                <Card className="glass border-0 shadow-tasksmate">
+                <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                   <Collapsible open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
                     <CollapsibleTrigger asChild>
-                      <CardHeader className="cursor-pointer hover:bg-gray-50/50 transition-colors">
+                      <CardHeader className="cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="font-sora flex items-center space-x-2">
+                          <CardTitle className="font-sora flex items-center space-x-2 text-gray-900 dark:text-white">
                             <MessageCircle className="h-4 w-4" />
                             <span>Comments ({comments.length})</span>
                           </CardTitle>
@@ -1855,25 +1855,25 @@ const TaskDetail = () => {
                                 {/* @mention popover */}
                                 {showMentionPopover && (
                                   <div
-                                    className="absolute z-50 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-y-auto w-64"
+                                    className="absolute z-50 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 max-h-60 overflow-y-auto w-64"
                                     style={{
                                       top: 30, // Position below cursor
                                       left: 10
                                     }}
                                   >
                                     <div className="p-1">
-                                      <div className="px-2 py-1 text-sm font-semibold border-b border-gray-100 mb-1 bg-blue-50 text-blue-800 rounded-t">
+                                      <div className="px-2 py-1 text-sm font-semibold border-b border-gray-100 dark:border-gray-600 mb-1 bg-blue-50 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-t">
                                         @Mention Team Member
                                       </div>
                                       {filteredMembers.length === 0 ? (
-                                        <div className="px-2 py-1 text-sm text-gray-500">No members found</div>
+                                        <div className="px-2 py-1 text-sm text-gray-500 dark:text-gray-400">No members found</div>
                                       ) : (
                                         filteredMembers.map((member, idx) => {
                                           const { displayName } = deriveDisplayFromEmail(member.email || '');
                                           return (
                                             <button
                                               key={member.id || member.user_id}
-                                              className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded transition-colors ${idx === mentionActiveIndex ? 'bg-blue-100' : 'hover:bg-gray-100 hover:bg-blue-50 active:bg-blue-100'}`}
+                                              className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded transition-colors ${idx === mentionActiveIndex ? 'bg-blue-100 dark:bg-blue-900/50' : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 active:bg-blue-100 dark:active:bg-blue-900/50'}`}
                                               type="button"
                                               onMouseDown={(e) => {
                                                 // Using onMouseDown instead of onClick to prevent focus issues
@@ -1883,11 +1883,11 @@ const TaskDetail = () => {
                                               }}
                                             >
                                               <Avatar className="h-5 w-5">
-                                                <AvatarFallback className="text-[10px] bg-blue-100 text-blue-800">
+                                                <AvatarFallback className="text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
                                                   {displayName.substring(0, 2).toUpperCase()}
                                                 </AvatarFallback>
                                               </Avatar>
-                                              <span className="text-sm font-medium">{displayName}</span>
+                                              <span className="text-sm font-medium text-gray-900 dark:text-white">{displayName}</span>
                                             </button>
                                           );
                                         })
@@ -1962,7 +1962,7 @@ const TaskDetail = () => {
                                   </div>
                                 ) : (
                                   <div className="flex items-start justify-between gap-2">
-                                    <div className="text-sm text-gray-700">
+                                    <div className="text-sm text-gray-700 dark:text-gray-300">
                                       <p className="whitespace-pre-wrap">
                                         {renderCommentWithMentions(comment.content || comment.comment)}
                                       </p>
@@ -2044,14 +2044,14 @@ const TaskDetail = () => {
               </Card> */}
 
                 {/* Metadata */}
-                <Card className="glass border-0 shadow-tasksmate">
+                <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
                   <CardHeader>
-                    <CardTitle className="font-sora">Details</CardTitle>
+                    <CardTitle className="font-sora text-gray-900 dark:text-white">Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <Label className="text-sm text-gray-600">Project</Label>
+                        <Label className="text-sm text-gray-600 dark:text-gray-400">Project</Label>
                         <Select
                           value={task?.project_id}
                           onValueChange={handleProjectChange}
@@ -2069,7 +2069,7 @@ const TaskDetail = () => {
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <Label className="text-sm text-gray-600">Start date</Label>
+                        <Label className="text-sm text-gray-600 dark:text-gray-400">Start date</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-1 h-6 inline-flex items-center gap-1"
@@ -2091,7 +2091,7 @@ const TaskDetail = () => {
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <Label className="text-sm text-gray-600">Due date</Label>
+                        <Label className="text-sm text-gray-600 dark:text-gray-400">Due date</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="text-xs bg-rose-100 text-rose-800 rounded-full px-2 py-1 h-6 inline-flex items-center gap-1"
@@ -2112,9 +2112,9 @@ const TaskDetail = () => {
                         </Popover>
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label className="text-sm text-gray-600">Created</Label>
+                        <Label className="text-sm text-gray-600 dark:text-gray-400">Created</Label>
                         <div className="flex items-center gap-1">
-                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
+                          <Badge variant="secondary" className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                             {formatDate(task?.createdDate)}
                           </Badge>
                         </div>
@@ -2125,7 +2125,7 @@ const TaskDetail = () => {
                         {/* <Label className="text-sm text-gray-600">Tags</Label> */}
                         <div className="flex items-end justify-end gap-1 flex-wrap">
                           {(task?.tags ?? []).map((tag: string, idx: number) => (
-                            <Badge key={idx} variant="secondary" className="text-xs bg-purple-100 text-purple-800">{
+                            <Badge key={idx} variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200">{
                               <>
                                 <span>{tag}</span>
                                 <Button
@@ -2141,13 +2141,13 @@ const TaskDetail = () => {
                               </>
                             }</Badge>
                           ))}
-                          {/* {(task?.tags ?? []).length > 3 && (
+                          {(task?.tags ?? []).length > 3 && (
                             <Badge key='tags_count' variant="secondary" className="text-xs bg-gray-100 text-gray-600">+{(task?.tags ?? []).length - 3}</Badge>
-                          )} */}
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 px-2 text-purple-700 hover:text-purple-900"
+                            className="h-6 px-2 text-purple-700 dark:text-purple-400 hover:text-purple-900 dark:hover:text-purple-300"
                             onClick={() => setIsTagInputOpen((v) => !v)}
                             title="Add tag"
                             disabled={!task?.is_editable}
@@ -2293,10 +2293,10 @@ const TaskDetail = () => {
           {task?.is_editable &&
             task && isDeleteTaskOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="bg-white rounded-lg p-6 w-[90%] max-w-md shadow-xl">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-[90%] max-w-md shadow-xl border border-gray-200 dark:border-gray-600">
                   <div className="mb-3">
-                    <div className="text-lg font-semibold">Delete Task</div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="text-lg font-semibold text-gray-900 dark:text-white">Delete Task</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                       This action cannot be undone. Type the task ID
                       <span className="mx-1 inline-block align-middle">
                         <CopyableIdBadge id={task?.id} org_id={currentOrgId} />
@@ -2304,7 +2304,7 @@ const TaskDetail = () => {
                       to confirm deletion.
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500 mb-1">Enter Task ID</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Enter Task ID</div>
                   <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder="Enter the task ID to confirm" />
                   <div className="flex justify-end gap-2 mt-4">
                     <Button variant="outline" onClick={() => { setIsDeleteTaskOpen(false); setDeleteConfirmText(''); }}>Cancel</Button>

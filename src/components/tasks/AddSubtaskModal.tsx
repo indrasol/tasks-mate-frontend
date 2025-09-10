@@ -69,6 +69,8 @@ const AddSubtaskModal = ({ open, onOpenChange, onSubtaskAdded, excludeIds = [], 
       params.project_id = projectId;
     }
 
+    // Set limit to 100 (backend maximum) to show more than the default 20 tasks
+    params.limit = 100;
     taskService.getTasks(params)
       .then((data) => {
         const mapped = ((data as any[]) || []).map((t: any) => ({
