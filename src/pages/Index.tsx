@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { ArrowRight, Check, FileText, MessageCircle, KanbanSquare, LayoutDashboard, Rocket, Sparkles, Lightbulb } from "lucide-react";
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import ThemeToggle from "@/components/ui/theme-toggle";
 
 const Index = () => {
   const { user } = useAuth();
@@ -82,7 +81,6 @@ const Index = () => {
             </div>
           </div>
           <div className="hidden md:flex items-center space-x-6">
-            {/* <ThemeToggle /> */}
             {user && (
               <Link to="/tasks_catalog" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Dashboard

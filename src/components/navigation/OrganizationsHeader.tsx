@@ -6,7 +6,6 @@ import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAvatar } from '@/services/AvatarContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import ThemeToggle from '@/components/ui/theme-toggle';
 
 interface OrganizationsHeaderProps {
   pageLabel?: string
@@ -71,9 +70,8 @@ export default function OrganizationsHeader({
             </h1>
           </div>
 
-          {/* Right — theme, profile & sign-out */}
+          {/* Right — profile & sign-out */}
           <div className="flex items-center space-x-2">
-            {/* <ThemeToggle /> */}
             <Button
               variant="ghost"
               className={`${isCollapsed ? "w-8 h-8 p-0" : "flex-1"} flex items-center space-x-2 hover:bg-gray-50 justify-start`}

@@ -1,7 +1,6 @@
 import MainNavigation from '@/components/navigation/MainNavigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import DateBadge from '@/components/ui/date-badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -132,7 +131,7 @@ const TeamMembers = () => {
           role: org.role,
           joined_at: org.accepted_at || org.invited_at || org.updated_at || '',
           // Handle designation display logic
-          designation: org.role === 'owner'
+          designation: org.role === 'owner' 
             ? (org.designation || 'Organization Owner')  // Owners always show "Organization Owner"
             : org.designation,  // Non-owners show actual designation or undefined for placeholder
         };
@@ -227,10 +226,10 @@ const TeamMembers = () => {
         title: "Success",
         description: "Invitation sent successfully"
       });
-
+      
       fetchInvitedTeamMembers(); // Refresh team members list
 
-
+      
       setIsInviteModalOpen(false);
       setInviteEmail('');
       setInviteRole('member');
@@ -424,7 +423,7 @@ const TeamMembers = () => {
         // Update local state
         setTeamMembers(prev => prev.filter(m => m.user_id !== memberId));
       }
-
+      
     } catch (error) {
       console.error('Error removing member:', error);
       toast({
@@ -621,7 +620,7 @@ const TeamMembers = () => {
                           </div>
                         </div>
                       </TableCell> */}
-                      <TableCell className="text-gray-600 lowercase">
+                      <TableCell className="text-gray-600">
                         {member.email}
                       </TableCell>
                       <TableCell>
@@ -649,8 +648,8 @@ const TeamMembers = () => {
                       </TableCell>
                       <TableCell>
                         <Select
-                          disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
-                          value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
+                        disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
+                        value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
                           <SelectTrigger className="w-48">
                             <SelectValue placeholder="Please set designation" />
                           </SelectTrigger>
@@ -661,9 +660,7 @@ const TeamMembers = () => {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>
-                        <DateBadge date={member.joined_at} className="text-xs bg-green-100 text-green-800" />
-                      </TableCell>
+                      <TableCell>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>
                         {((currentUserOrgRole === 'owner' && hasMoreOwners && member.role === 'owner') || ((currentUserOrgRole === 'admin' || currentUserOrgRole === 'owner') && member.role !== 'owner')) && (
                           <div className="flex w-10 items-center gap-2">
@@ -727,7 +724,7 @@ const TeamMembers = () => {
                           </div>
                         </div>
                       </TableCell> */}
-                      <TableCell className="text-gray-600 lowercase">
+                      <TableCell className="text-gray-600">
                         {member.email}
                       </TableCell>
                       <TableCell>
@@ -754,9 +751,9 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Select
-                          disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
-                          value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
+                        <Select 
+                        disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
+                        value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
                           <SelectTrigger className="w-48">
                             <SelectValue placeholder="Please set designation" />
                           </SelectTrigger>
@@ -767,9 +764,7 @@ const TeamMembers = () => {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>
-                        <DateBadge date={member.sent_at} className="text-xs bg-green-100 text-green-800" />
-                      </TableCell>
+                      <TableCell>{member.sent_at ? new Date(member.sent_at).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>
                         {((currentUserOrgRole === 'owner') || (currentUserOrgRole === 'admin' && member.role !== 'owner')) && (
                           <div className="flex w-10 items-center gap-2">
