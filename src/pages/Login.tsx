@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import ThemeToggle from "@/components/ui/theme-toggle";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/hooks/useTheme";
+import { useTheme } from "@/hooks";
 import { Check, KanbanSquare, LayoutDashboard, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";

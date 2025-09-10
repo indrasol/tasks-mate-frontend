@@ -2,11 +2,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import ThemeToggle from "@/components/ui/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowRight, Check, FileText, MessageCircle, KanbanSquare, LayoutDashboard, Rocket, Sparkles, Lightbulb } from "lucide-react";
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import ThemeToggle from "@/components/ui/theme-toggle";
 
 const Index = () => {
   const { user } = useAuth();

@@ -37,9 +37,9 @@ import {
   Users,
   MessageSquare 
 } from 'lucide-react';
+import ThemeToggle from '@/components/ui/theme-toggle';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import ThemeToggle from '@/components/ui/theme-toggle';
 
 import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
 import type { SimpleOrg } from '@/hooks/useOrganizations';
@@ -360,8 +360,6 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
             >
               <MessageSquare  className="w-4 h-4" />
             </Button>
-
-            {/* <ThemeToggle /> */}
 
             <Button
               variant="ghost"

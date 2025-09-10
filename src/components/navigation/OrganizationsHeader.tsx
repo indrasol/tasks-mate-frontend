@@ -71,7 +71,7 @@ export default function OrganizationsHeader({
             </h1>
           </div>
 
-          {/* Right — theme, profile & sign-out */}
+          {/* Right — profile & sign-out */}
           <div className="flex items-center space-x-2">
             <ThemeToggle />
             <Button
