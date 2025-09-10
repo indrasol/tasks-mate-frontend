@@ -2,10 +2,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-} from '@/components/ui/dialog';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -13,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import ThemeToggle from '@/components/ui/theme-toggle';
 import { useAuth } from '@/hooks/useAuth';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { useAvatar } from '@/services/AvatarContext';
@@ -30,18 +27,15 @@ import {
   Layers,
   LogOut,
   MapPin,
+  MessageSquare,
   RefreshCw,
   Settings,
-  Star,
-  User,
-  Users,
-  MessageSquare 
+  Users
 } from 'lucide-react';
-import ThemeToggle from '@/components/ui/theme-toggle';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
-import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
+// import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
 import type { SimpleOrg } from '@/hooks/useOrganizations';
 import { useOrganizations } from '@/hooks/useOrganizations';
 
@@ -66,7 +60,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const { avatarUrl } = useAvatar();
   const [searchParams] = useSearchParams();
   const orgId = useMemo(() => searchParams.get('org_id'), [searchParams]);
-  const { data: orgMembers = [] } = useOrganizationMembers(orgId || undefined);
+  // const { data: orgMembers = [] } = useOrganizationMembers(orgId || undefined);
   // Determine a friendly username to show in the sidebar
   const profileLabel = useMemo(() => {
     if (!user) return 'Profile';
@@ -77,7 +71,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   }, [user]);
 
   const { data: orgList } = useOrganizations();
-  const userOrganizations = (orgList ?? []) as SimpleOrg[];
+  const userOrganizations = useMemo(() => (orgList ?? []) as SimpleOrg[], [orgList]);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const currentOrgName = useMemo(() => {
@@ -88,19 +82,19 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   }, [orgId, userOrganizations]);
 
   // Resolve designation for current user within current org (if available)
-  const myDesignation = useMemo(() => {
-    if (!user || !orgId) return '';
-    const match = orgMembers.find((m) => {
-      const emailMatch = m.email?.toLowerCase() === (user.email ?? '').toLowerCase();
-      const idMatch = m.user_id === user.id;
-      const usernameMatch = ((user as any)?.user_metadata?.username || '').toLowerCase() === (m.email || '').toLowerCase();
-      return emailMatch || idMatch || usernameMatch;
-    });
-    if (match?.designation) {
-      return match.designation;
-    }
-    return '';
-  }, [orgMembers, user, orgId]);
+  // const myDesignation = useMemo(() => {
+  //   if (!user || !orgId) return '';
+  //   const match = orgMembers.find((m) => {
+  //     const emailMatch = m.email?.toLowerCase() === (user.email ?? '').toLowerCase();
+  //     const idMatch = m.user_id === user.id;
+  //     const usernameMatch = ((user as any)?.user_metadata?.username || '').toLowerCase() === (m.email || '').toLowerCase();
+  //     return emailMatch || idMatch || usernameMatch;
+  //   });
+  //   if (match?.designation) {
+  //     return match.designation;
+  //   }
+  //   return '';
+  // }, [orgMembers, user, orgId]);
 
   // Broadcast sidebar collapse
   useEffect(() => {
@@ -159,7 +153,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       { name: 'Scratchpad', path: '/scratchpad', icon: Edit3 },
       { name: 'Members', path: '/team-members', icon: Users },
       { name: 'Settings', path: '/settings', icon: Settings },
-      { name: 'Feedback', path: '/feedback', icon: MessageSquare  },
+      { name: 'Feedback', path: '/feedback', icon: MessageSquare },
     ];
 
 
@@ -207,7 +201,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
               <span className="font-sora font-bold text-xl text-gray-900 dark:text-white">TasksMate</span>
             </Link>
           )}
-          <div className="flex items-center gap-1">            
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
@@ -358,7 +352,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
               className="w-8 h-8 hover:bg-gray-50 hover:text-gray-600 flex-shrink-0"
               title="Feedback"
             >
-              <MessageSquare  className="w-4 h-4" />
+              <MessageSquare className="w-4 h-4" />
             </Button>
 
             <Button
@@ -477,7 +471,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                         </AvatarFallback>
                       </Avatar>
                     </Button>
-                    
+
                     {/* Theme Toggle for collapsed sidebar */}
                     <ThemeToggle />
                   </div>
@@ -491,9 +485,9 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                       onClick={handleUserProfileNavigation}
                       title={profileLabel}
                     >
-                      <Avatar 
-                        className="w-8 h-8 cursor-pointer" 
-                        // onClick={() => setIsEnlarged(true)}
+                      <Avatar
+                        className="w-8 h-8 cursor-pointer"
+                      // onClick={() => setIsEnlarged(true)}
                       >
                         <AvatarImage src={avatarUrl || undefined} />
                         <AvatarFallback className="bg-green-500 text-white">
@@ -535,8 +529,8 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       </div>
     </nav>
   );
-  
-  {/* Enlarged Avatar Modal */}
+
+  {/* Enlarged Avatar Modal */ }
   // <Dialog open={isEnlarged} onOpenChange={setIsEnlarged}>
   //   <DialogContent className="sm:max-w-md flex flex-col items-center p-0 gap-0 overflow-hidden">
   //     <div className="w-full h-full">

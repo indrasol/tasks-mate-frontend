@@ -30,7 +30,7 @@ import type { BackendOrgMember } from "@/types/organization";
 import { Project } from "@/types/projects";
 import { Task } from "@/types/tasks";
 import { Plus, Sparkles, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RichTextEditor } from "../ui/rich-text-editor";
 
 interface NewTaskModalProps {
@@ -129,7 +129,15 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
 
   // Organization members for Owner dropdown
   const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
-  const orgMembers: BackendOrgMember[] = (orgMembersRaw ?? []) as BackendOrgMember[];
+
+  const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
+    ...m,
+    name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
+  })).map((m: any) => ({
+    ...m,
+    displayName: deriveDisplayFromEmail(m.name).displayName,
+    initials: deriveDisplayFromEmail(m.name).initials,
+  })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
 
   // Set default tags when modal opens
   useEffect(() => {
@@ -350,7 +358,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
+      <SheetContent className="w-[600px] sm:max-w-[600px] bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
         {/* Modern Header */}
         <div className="relative bg-tasksmate-gradient p-6 flex-shrink-0">
           <div className="absolute inset-0 bg-black/5"></div>
@@ -431,9 +439,9 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                     <SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select project"} />
                   </SelectTrigger>
                   <SelectContent className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg z-50">
-                    {projects.map((project) => (
+                    {projects.sort((a, b) => a.name.localeCompare(b.name)).map((project) => (
                       <SelectItem key={project.id} value={project.id}>
-                        {project.name}
+                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{project.name}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -550,12 +558,10 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                     </SelectTrigger>
                     <SelectContent className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg z-50">
 
-                      {orgMembers.map((m) => {
-                        const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
-                        const { displayName } = deriveDisplayFromEmail(username);
+                      {orgMembers.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => {
                         return (
-                          <SelectItem key={m.user_id} value={String(username)}>
-                            {displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
+                          <SelectItem key={m.user_id} value={String(m.name)}>
+                            {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
                           </SelectItem>
                         );
                       })}

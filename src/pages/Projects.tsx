@@ -92,7 +92,14 @@ const Projects = () => {
   const { data: organizations } = useOrganizations();
   const currentOrgId = useCurrentOrgId() ?? organizations?.[0]?.id;
   const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
-  const orgMembers: BackendOrgMember[] = (orgMembersRaw ?? []) as BackendOrgMember[];
+  const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
+    ...m,
+    name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
+  })).map((m: any) => ({
+    ...m,
+    displayName: deriveDisplayFromEmail(m.name).displayName,
+    initials: deriveDisplayFromEmail(m.name).initials,
+  })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
 
   const [tab, setTab] = useState<'all' | 'mine'>('all');
   // Projects state populated from backend
@@ -106,26 +113,39 @@ const Projects = () => {
   const projectsPerPage = 10;
 
   const userDisplayMap = React.useMemo(() => {
-    const map: Record<string, { displayName: string; initials: string }> = {};
+    const map: Record<string, { displayName: string; initials: string; isOwner: boolean }> = {};
     orgMembers.forEach(m => {
-      const info = deriveDisplayFromEmail(m.email ?? m.user_id);
-      map[m.user_id] = info;
+      // const info = deriveDisplayFromEmail(m.email ?? m.user_id);
+      map[m.user_id] = {
+        displayName: m.displayName,
+        initials: m.initials,
+        isOwner: m.role === 'owner',
+      };
     });
     return map;
   }, [orgMembers]);
   const renderMemberAvatar = (memberId: string, idx: number) => {
-    const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
-    return (
+    const info = userDisplayMap[memberId];
+    return info && (
       <HoverCard key={idx}>
         <HoverCardTrigger asChild>
-          <Avatar className="w-6 h-6 border-2 border-white cursor-default">
+          <Avatar className="w-8 h-8 border-2 border-white cursor-default">
             <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
-              {info.initials}
+              {info?.initials}
             </AvatarFallback>
           </Avatar>
         </HoverCardTrigger>
         <HoverCardContent className="text-sm p-2">
-          {info.displayName}
+          <div className="flex items-center gap-2">
+            <Avatar className="w-8 h-8 border-2 border-gray-200">
+              <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                {info.initials}
+              </AvatarFallback>
+            </Avatar>
+            <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+              {info.displayName}
+            </Badge>
+          </div>
         </HoverCardContent>
       </HoverCard>
     );
@@ -622,7 +642,7 @@ const Projects = () => {
                   {project.teamMembers.length > 3 && (
                     <HoverCard>
                       <HoverCardTrigger asChild>
-                        <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
                           <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
                         </div>
                       </HoverCardTrigger>
@@ -631,14 +651,16 @@ const Projects = () => {
                         <div className="grid grid-cols-2 gap-2">
                           {project.teamMembers.slice(3).map((memberId, idx) => {
                             const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
-                            return (
+                            return info && (
                               <div key={idx} className="flex items-center gap-2">
-                                <Avatar className="w-5 h-5 border-2 border-white">
+                                <Avatar className="w-8 h-8 border-2 border-gray-200">
                                   <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
                                     {info.initials}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="text-xs text-gray-700 truncate">{info.displayName}</span>
+                                <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+                                  {info.displayName}
+                                </Badge>
                               </div>
                             );
                           })}
@@ -720,7 +742,7 @@ const Projects = () => {
                     <div className="flex items-center gap-2 text-gray-600">
                       <Target className="w-4 h-4" />
                       <span className="text-sm">{project.completedTasks}/{project.tasksCount}</span>
-                      <span className="text-sm">Tasks</span>
+                      <span className="text-sm">Tasks Completed</span>
                     </div>
                   </div>
                 </div>
@@ -761,14 +783,16 @@ const Projects = () => {
                         <div className="grid grid-cols-2 gap-2">
                           {project.teamMembers.slice(3).map((memberId, idx) => {
                             const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
-                            return (
+                            return info && (
                               <div key={idx} className="flex items-center gap-2">
                                 <Avatar className="w-5 h-5 border-2 border-white">
                                   <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
                                     {info.initials}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="text-xs text-gray-700 truncate">{info.displayName}</span>
+                                <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+                                  {info.displayName}
+                                </Badge>
                               </div>
                             );
                           })}
@@ -837,7 +861,7 @@ const Projects = () => {
 
               {/* Filters and Controls - Right side */}
               <div className="flex items-center space-x-4">
-                <Filter className="w-4 h-4 text-gray-500" />
+                {/* <Filter className="w-4 h-4 text-gray-500" /> */}
 
                 {/* Status Filter – Multi-select */}
                 <DropdownMenu>
@@ -904,7 +928,7 @@ const Projects = () => {
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
                     </SelectItem>
-                    {projects.map(p => (
+                    {projects.sort((a, b) => a.name.localeCompare(b.name)).map(p => (
                       <SelectItem key={p.id} value={p.id}>
                         <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{p.name}</span>
                       </SelectItem>
@@ -1042,7 +1066,7 @@ const Projects = () => {
                               <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
                               <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60 font-bold">Title</TableHead>
                               <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80 font-bold">Description</TableHead>
-                              <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Progress</TableHead>
+                              <TableHead className="w-40 sm:w-40 md:w-40 text-center font-bold">Progress</TableHead>
                               <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
                               <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Priority</TableHead>
                               <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Owner</TableHead>
@@ -1069,8 +1093,14 @@ const Projects = () => {
                                       e.stopPropagation();
                                       if (
                                         // check for project membership or project creation
-                                        !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
+                                        !(project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
+                                          || userDisplayMap[user?.id]?.isOwner)
                                       ) {
+                                        toast({
+                                          title: "Access Denied",
+                                          description: "You do not have permission to update this project",
+                                          variant: "destructive"
+                                        });
                                         return;
                                       }
                                       handleProjectStatusToggle(project.id);
@@ -1107,10 +1137,11 @@ const Projects = () => {
                                         e.stopPropagation();
                                         if (
                                           // check for project membership or project creation
-                                          !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
+                                          !(project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
+                                            || userDisplayMap[user?.id]?.isOwner)
                                         ) {
                                           toast({
-                                            title: "Error",
+                                            title: "Access Denied",
                                             description: "You do not have permission to view this project",
                                             variant: "destructive"
                                           });
@@ -1154,16 +1185,18 @@ const Projects = () => {
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                  <div className="flex flex-col items-center">
-                                    <div className="w-full bg-gray-200 rounded-full h-3 max-w-[180px] cursor-pointer" onClick={() => handleNavigation('tasks_catalog', project.id)}>
+                                  <div className="w-full flex flex-col items-center" onClick={() => handleNavigation('tasks_catalog', project.id)}>
+                                    <div className="w-full flex items-center bg-gray-200 rounded-full h-3 cursor-pointer" >
                                       <div
                                         className="bg-tasksmate-gradient h-3 rounded-full transition-all duration-300"
                                         style={{ width: `${project.progress}%` }}
                                       ></div>
+
                                     </div>
                                     <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                                      <span className="font-semibold">{project.progress}%</span>
-                                      <span>(<span className="font-semibold">{project.completedTasks}</span>/<span className="font-semibold">{project.tasksCount}</span> <span className="font-semibold">Tasks</span>)</span>
+                                      <span className="font-semibold text-xs">{project.progress}%</span>
+                                      <span>(<span className="font-semibold">{project.completedTasks}</span>/<span className="font-semibold">{project.tasksCount}</span>
+                                        <span className="ml-1 font-semibold text-xs">Tasks Completed</span>)</span>
                                     </div>
                                   </div>
                                 </TableCell>
@@ -1205,7 +1238,8 @@ const Projects = () => {
 
                                       disabled={
                                         // check for project membership or project creation
-                                        !(project.owner === user?.user_metadata?.username || project.owner === user?.id)
+                                        !((project.owner === user?.user_metadata?.username || project.owner === user?.id)
+                                          || userDisplayMap[user?.id]?.isOwner)
                                       }
                                     >
                                       <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${getStatusMeta(project.status).color}`}>
@@ -1267,7 +1301,8 @@ const Projects = () => {
                                       }}
                                       disabled={
                                         // check for project membership or project creation
-                                        !(project.owner === user?.user_metadata?.username || project.owner === user?.id)
+                                        !((project.owner === user?.user_metadata?.username || project.owner === user?.id)
+                                          || userDisplayMap[user?.id]?.isOwner)
                                       }
                                     >
                                       <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(project.priority)}`}>
@@ -1304,7 +1339,7 @@ const Projects = () => {
                                       {project.teamMembers.length > 3 && (
                                         <HoverCard>
                                           <HoverCardTrigger asChild>
-                                            <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
+                                            <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
                                               <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
                                             </div>
                                           </HoverCardTrigger>
@@ -1313,14 +1348,16 @@ const Projects = () => {
                                             <div className="grid grid-cols-2 gap-2">
                                               {project.teamMembers.slice(3).map((memberId, idx) => {
                                                 const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
-                                                return (
+                                                return info && (
                                                   <div key={idx} className="flex items-center gap-2">
-                                                    <Avatar className="w-5 h-5 border-2 border-white">
-                                                      <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                                                    <Avatar className="w-8 h-8 border-2 border-white">
+                                                      <AvatarFallback className="text-xs bg-tasksmate-gradient text-gray-200">
                                                         {info.initials}
                                                       </AvatarFallback>
                                                     </Avatar>
-                                                    <span className="text-xs text-gray-700 truncate">{info.displayName}</span>
+                                                    <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+                                                      {info.displayName}
+                                                    </Badge>
                                                   </div>
                                                 );
                                               })}
@@ -1353,13 +1390,22 @@ const Projects = () => {
                                 <TableCell className="text-center">
                                   <div className="flex items-center justify-center gap-1">
                                     <button
-                                      className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
-                                      onClick={() => handleProjectClick(project.id)}
+                                      className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50"
+                                      onClick={() => {
+                                        if (!(project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) ||
+                                          userIdentifiers.includes(String(project.owner).toLowerCase())
+                                          || userDisplayMap[user?.id]?.isOwner)) {
+                                          toast({
+                                            title: "Access Denied",
+                                            description: "You do not have permission to view this project.",
+                                            variant: "destructive",
+                                          });
+                                        } else {
+                                          handleProjectClick(project.id)
+                                        }
+                                      }}
                                       title="View project details"
-                                      disabled={
-                                        !project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) &&
-                                        !userIdentifiers.includes(String(project.owner).toLowerCase())
-                                      }
+
                                     >
                                       <ArrowRight className="w-4 h-4" />
                                     </button>
@@ -1374,106 +1420,106 @@ const Projects = () => {
                   )
                 )}
 
-                {/* Pagination */}
-                {filteredProjects.length > 0 && (
-                  <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Showing {startIndex + 1}-{Math.min(endIndex, filteredProjects.length)} of {filteredProjects.length} projects
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 flex-wrap justify-center">
-                      {/* Previous button */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1"
-                      >
-                        Previous
-                      </Button>
+            {/* Pagination */}
+            {filteredProjects.length > 0 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredProjects.length)} of {filteredProjects.length} projects
+                </div>
 
-                      {/* Page numbers */}
-                      <div className="flex items-center space-x-1">
-                        {(() => {
-                          const pages = [];
-                          const maxVisiblePages = 5;
-                          let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-                          let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-                          
-                          // Adjust start if we're near the end
-                          if (endPage - startPage < maxVisiblePages - 1) {
-                            startPage = Math.max(1, endPage - maxVisiblePages + 1);
-                          }
+                <div className="flex items-center space-x-2 flex-wrap justify-center">
+                  {/* Previous button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1"
+                  >
+                    Previous
+                  </Button>
 
-                          // First page + ellipsis
-                          if (startPage > 1) {
-                            pages.push(
-                              <Button
-                                key={1}
-                                variant={1 === currentPage ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setCurrentPage(1)}
-                                className="w-8 h-8 p-0"
-                              >
-                                1
-                              </Button>
-                            );
-                            if (startPage > 2) {
-                              pages.push(<span key="ellipsis1" className="text-gray-400 px-2">...</span>);
-                            }
-                          }
+                  {/* Page numbers */}
+                  <div className="flex items-center space-x-1">
+                    {(() => {
+                      const pages = [];
+                      const maxVisiblePages = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
-                          // Visible page numbers
-                          for (let i = startPage; i <= endPage; i++) {
-                            pages.push(
-                              <Button
-                                key={i}
-                                variant={i === currentPage ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setCurrentPage(i)}
-                                className="w-8 h-8 p-0"
-                              >
-                                {i}
-                              </Button>
-                            );
-                          }
+                      // Adjust start if we're near the end
+                      if (endPage - startPage < maxVisiblePages - 1) {
+                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                      }
 
-                          // Last page + ellipsis
-                          if (endPage < totalPages) {
-                            if (endPage < totalPages - 1) {
-                              pages.push(<span key="ellipsis2" className="text-gray-400 px-2">...</span>);
-                            }
-                            pages.push(
-                              <Button
-                                key={totalPages}
-                                variant={totalPages === currentPage ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setCurrentPage(totalPages)}
-                                className="w-8 h-8 p-0"
-                              >
-                                {totalPages}
-                              </Button>
-                            );
-                          }
+                      // First page + ellipsis
+                      if (startPage > 1) {
+                        pages.push(
+                          <Button
+                            key={1}
+                            variant={1 === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(1)}
+                            className="w-8 h-8 p-0"
+                          >
+                            1
+                          </Button>
+                        );
+                        if (startPage > 2) {
+                          pages.push(<span key="ellipsis1" className="text-gray-400 px-2">...</span>);
+                        }
+                      }
 
-                          return pages;
-                        })()}
-                      </div>
+                      // Visible page numbers
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <Button
+                            key={i}
+                            variant={i === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(i)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {i}
+                          </Button>
+                        );
+                      }
 
-                      {/* Next button */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1"
-                      >
-                        Next
-                      </Button>
-                    </div>
+                      // Last page + ellipsis
+                      if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                          pages.push(<span key="ellipsis2" className="text-gray-400 px-2">...</span>);
+                        }
+                        pages.push(
+                          <Button
+                            key={totalPages}
+                            variant={totalPages === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {totalPages}
+                          </Button>
+                        );
+                      }
+
+                      return pages;
+                    })()}
                   </div>
-                )}
+
+                  {/* Next button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>

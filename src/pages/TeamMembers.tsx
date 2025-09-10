@@ -1,6 +1,8 @@
 import MainNavigation from '@/components/navigation/MainNavigation';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import DateBadge from '@/components/ui/date-badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -131,7 +133,7 @@ const TeamMembers = () => {
           role: org.role,
           joined_at: org.accepted_at || org.invited_at || org.updated_at || '',
           // Handle designation display logic
-          designation: org.role === 'owner' 
+          designation: org.role === 'owner'
             ? (org.designation || 'Organization Owner')  // Owners always show "Organization Owner"
             : org.designation,  // Non-owners show actual designation or undefined for placeholder
         };
@@ -226,10 +228,10 @@ const TeamMembers = () => {
         title: "Success",
         description: "Invitation sent successfully"
       });
-      
+
       fetchInvitedTeamMembers(); // Refresh team members list
 
-      
+
       setIsInviteModalOpen(false);
       setInviteEmail('');
       setInviteRole('member');
@@ -423,7 +425,7 @@ const TeamMembers = () => {
         // Update local state
         setTeamMembers(prev => prev.filter(m => m.user_id !== memberId));
       }
-      
+
     } catch (error) {
       console.error('Error removing member:', error);
       toast({
@@ -560,7 +562,7 @@ const TeamMembers = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {roleOptions.map((role) => (
+                              {roleOptions.sort((a, b) => a.localeCompare(b)).map((role) => (
                                 <SelectItem key={role} value={role} disabled={role === 'owner' && currentUserOrgRole !== 'owner'}>
                                   {capitalizeFirstLetter(role)}
                                 </SelectItem>
@@ -575,7 +577,7 @@ const TeamMembers = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {designationOptions.map((designation) => (
+                              {designationOptions.sort((a, b) => a.localeCompare(b)).map((designation) => (
                                 <SelectItem key={designation} value={designation}>
                                   {capitalizeFirstLetter(designation)}
                                 </SelectItem>
@@ -620,8 +622,10 @@ const TeamMembers = () => {
                           </div>
                         </div>
                       </TableCell> */}
-                      <TableCell className="text-gray-600">
-                        {member.email}
+                      <TableCell>
+                        <Badge variant="outline" className={`transition-colors duration-300 text-xs bg-green-100 text-green-800`}>
+                          {member.email}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Select
@@ -634,7 +638,7 @@ const TeamMembers = () => {
                             {/* {updating && <span className="ml-2 animate-spin">⟳</span>} */}
                           </SelectTrigger>
                           <SelectContent>
-                            {roleOptions.map(role => (
+                            {roleOptions.sort((a, b) => a.localeCompare(b)).map(role => (
                               <SelectItem
                                 key={role}
                                 value={role}
@@ -648,22 +652,24 @@ const TeamMembers = () => {
                       </TableCell>
                       <TableCell>
                         <Select
-                        disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
-                        value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
+                          disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
+                          value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
                           <SelectTrigger className="w-48">
                             <SelectValue placeholder="Please set designation" />
                           </SelectTrigger>
                           <SelectContent>
-                            {designationOptions.map(opt => (
+                            {designationOptions.sort((a, b) => a.localeCompare(b)).map(opt => (
                               <SelectItem key={opt} value={opt}>{capitalizeFirstLetter(opt)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>
+                        <DateBadge date={member.joined_at} className="text-xs bg-green-100 text-green-800" />
+                      </TableCell>
                       <TableCell>
                         {((currentUserOrgRole === 'owner' && hasMoreOwners && member.role === 'owner') || ((currentUserOrgRole === 'admin' || currentUserOrgRole === 'owner') && member.role !== 'owner')) && (
-                          <div className="flex w-10 items-center gap-2">
+                          <div className="flex w-10 items-center justify-center gap-2">
                             <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => !updating && handleRemoveTeamMember(member.org_id, member.user_id)} />
                           </div>
                         )}
@@ -724,8 +730,10 @@ const TeamMembers = () => {
                           </div>
                         </div>
                       </TableCell> */}
-                      <TableCell className="text-gray-600">
-                        {member.email}
+                      <TableCell>
+                        <Badge variant="outline" className={`transition-colors duration-300 text-xs bg-green-100 text-green-800`}>
+                          {member.email}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Select
@@ -738,7 +746,7 @@ const TeamMembers = () => {
                             {/* {updating && <span className="ml-2 animate-spin">⟳</span>} */}
                           </SelectTrigger>
                           <SelectContent>
-                            {roleOptions.map(role => (
+                            {roleOptions.sort((a, b) => a.localeCompare(b)).map(role => (
                               <SelectItem
                                 key={role}
                                 value={role}
@@ -751,23 +759,25 @@ const TeamMembers = () => {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Select 
-                        disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
-                        value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
+                        <Select
+                          disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
+                          value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
                           <SelectTrigger className="w-48">
                             <SelectValue placeholder="Please set designation" />
                           </SelectTrigger>
                           <SelectContent>
-                            {designationOptions.map(opt => (
+                            {designationOptions.sort((a, b) => a.localeCompare(b)).map(opt => (
                               <SelectItem key={opt} value={opt}>{capitalizeFirstLetter(opt)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>{member.sent_at ? new Date(member.sent_at).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>
+                        <DateBadge date={member.sent_at} className="text-xs bg-green-100 text-green-800" />
+                      </TableCell>
                       <TableCell>
                         {((currentUserOrgRole === 'owner') || (currentUserOrgRole === 'admin' && member.role !== 'owner')) && (
-                          <div className="flex w-10 items-center gap-2">
+                          <div className="flex w-10 items-center justify-center gap-2">
                             <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => handleRemoveTeamMember(member.org_id, member.id, "invited")} />
                           </div>
                         )}

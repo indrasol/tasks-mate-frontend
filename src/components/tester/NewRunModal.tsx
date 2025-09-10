@@ -148,9 +148,9 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
                 {projects.length === 0 && !loadingProjects && (
                   <SelectItem value="no-projects" disabled>No projects available</SelectItem>
                 )}
-                {projects.map(project => (
+                {projects.sort((a, b) => a.name.localeCompare(b.name)).map(project => (
                   <SelectItem key={project.id} value={project.id}>
-                    {project.name}
+                    <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{project.name}</span>
                   </SelectItem>
                 ))}
               </SelectContent>

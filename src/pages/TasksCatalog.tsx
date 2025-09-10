@@ -64,6 +64,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DateBadge from "@/components/ui/date-badge";
+import { BackendOrgMember } from "@/types/organization";
 
 
 type ViewMode = 'table';
@@ -130,7 +131,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tab, setTab] = useState<'all' | 'mine'>('all');
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const tasksPerPage = 10;
@@ -139,7 +140,16 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [error, setError] = useState<string | null>(null);
   const { data: organizations } = useOrganizations();
   const currentOrgId = useCurrentOrgId() ?? organizations?.[0]?.id;
-  const { data: orgMembers } = useOrganizationMembers(currentOrgId);
+  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
+  const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
+    ...m,
+    name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
+  })).map((m: any) => ({
+    ...m,
+    displayName: deriveDisplayFromEmail(m.name).displayName,
+    initials: deriveDisplayFromEmail(m.name).initials,
+  })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
+
 
   const [isCreatedDatePopoverOpen, setIsCreatedDatePopoverOpen] = useState(false);
   const [isDueDatePopoverOpen, setIsDueDatePopoverOpen] = useState(false);
@@ -411,6 +421,31 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     }
   };
 
+  
+  const getUniqueOwners = () => {
+    const taskOwners = tasks.map(task => task.owner).filter(Boolean);
+    if (!orgMembers || orgMembers.length === 0) {
+      return Array.from(new Set(taskOwners.map(owner => ({
+        id: owner,
+        email: owner,
+        username: owner,
+        displayName: deriveDisplayFromEmail(owner).displayName
+      }))));
+    }
+    return orgMembers
+      // .filter(member => taskOwners.includes(member.email)
+      //   || taskOwners.includes(member.username)
+      //   || taskOwners.includes(member.user_id)
+      // )
+      .map(member => ({
+        id: member.user_id,
+        email: member.email,
+        username: member.username,
+        displayName: member.displayName
+      }));
+    // return Array.from(new Set(tasks.map(task => task.owner).filter(Boolean)));
+  };
+
   // Enhanced filter and search logic with custom date range support
   const filteredTasks = useMemo(() => {
     return sortTasks(tasks.filter(task => {
@@ -418,7 +453,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       if (tab === 'mine') {
         const ownerString = String(task.owner ?? '').toLowerCase();
         const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
-        if (!userIdentifiers.includes(ownerString) && !userIdentifiers.includes(ownerDisplay)) {
+        if (!(userIdentifiers.includes(ownerString) || userIdentifiers.includes(ownerDisplay))) {
           return false;
         }
       }
@@ -431,12 +466,15 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
       // Status filter
       const matchesStatus =
-        filterStatuses.length === 0 || filterStatuses.includes(task.status);
+        filterStatuses.length === 0 || filterStatuses.map(m => m.replace("in_progress", "in-progress").toLowerCase()).includes(task.status.replace("in_progress", "in-progress").toLowerCase());
 
       // Owner filter
-      const matchesOwner = filterOwner === "all" || task.owner === filterOwner;
+      const matchesOwner = filterOwner === "all" ||
+      (
+        getUniqueOwners().filter(m => m.id.toLowerCase() === filterOwner.toLowerCase()).some(owner => (owner.id === task.owner || owner.username === task.owner || owner.email === task.owner))
+      )
       const matchesPriority =
-        filterPriorities.length === 0 || filterPriorities.includes((task.priority ?? 'none'));
+        filterPriorities.length === 0 || filterPriorities.map(m => m.toLowerCase()).includes((task.priority ?? 'none').toLowerCase());
 
       // Project filter
       const matchesProject = filterProject === "all" || task.projectId === filterProject;
@@ -475,8 +513,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterStatuses, filterOwner, filterPriorities, filterProject, 
-      createdDateFilter, dueDateFilter, tab]);
+  }, [searchQuery, filterStatuses, filterOwner, filterPriorities, filterProject,
+    createdDateFilter, dueDateFilter, tab]);
 
   // Reset to last valid page if current page exceeds total pages
   useEffect(() => {
@@ -528,9 +566,6 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     }
   };
 
-  const getUniqueOwners = () => {
-    return Array.from(new Set(tasks.map(task => task.owner).filter(Boolean)));
-  };
 
   const handleTaskClick = (taskId: string) => {
     if (currentOrgId) {
@@ -756,7 +791,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
               {/* Search + Filters and Controls */}
               <div className="flex items-center space-x-4">
-                <Filter className="w-4 h-4 text-gray-500" />
+                {/* <Filter className="w-4 h-4 text-gray-500" /> */}
 
                 {/* Status Filter Multi-Select */}
                 <DropdownMenu>
@@ -766,9 +801,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-40">
-                    {statusOptions.map(opt => (
+                    {statusOptions.map((opt, idx) => (
                       <DropdownMenuCheckboxItem
-                        key={opt.value}
+                        key={idx}
                         checked={filterStatuses.includes(opt.value)}
                         onCheckedChange={(checked) => {
                           setFilterStatuses(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value));
@@ -789,9 +824,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-40">
-                    {priorityOptions.map(p => (
+                    {priorityOptions.map((p, idx) => (
                       <DropdownMenuCheckboxItem
-                        key={p}
+                        key={idx}
                         checked={filterPriorities.includes(p)}
                         onCheckedChange={(checked) => {
                           setFilterPriorities(prev => checked ? [...prev, p] : prev.filter(x => x !== p));
@@ -813,8 +848,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
                     </SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
+                    {projects?.sort((a, b) => a.name.localeCompare(b.name)).map((project, idx) => (
+                      <SelectItem key={idx} value={project.id}>
                         <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{project.name}</span>
                       </SelectItem>
                     ))}
@@ -830,9 +865,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Owners</span>
                     </SelectItem>
-                    {getUniqueOwners().map((owner) => (
-                      <SelectItem key={owner} value={owner}>
-                        <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">{owner}</span>
+                    {getUniqueOwners().sort((a, b) => a.displayName.localeCompare(b.displayName)).map((owner, idx) => (
+                      <SelectItem key={idx} value={owner.id}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">{owner.displayName}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1063,9 +1098,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {currentPageTasks.map((task) => (
+                          {currentPageTasks.map((task, idx) => (
                             <TableRow
-                              key={task.id}
+                              key={idx}
                               className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${task.status === 'completed' ? 'bg-gray-50/60 dark:bg-gray-800/60' : ''}`}
                             >
                               <TableCell className="p-2 text-center">
@@ -1185,8 +1220,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                         { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
                                         { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
                                         { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
-                                      ].map(opt => (
-                                        <SelectItem key={opt.value} value={opt.value}>
+                                      ].map((opt, idx) => (
+                                        <SelectItem key={idx} value={opt.value}>
                                           <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
                                         </SelectItem>
                                       ))}
@@ -1237,8 +1272,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                       <SelectValue>{(task.priority ?? 'NONE').toUpperCase()}</SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {['critical', 'high', 'medium', 'low', 'none'].map(p => (
-                                        <SelectItem key={p} value={p}>
+                                      {['critical', 'high', 'medium', 'low', 'none'].map((p, idx) => (
+                                        <SelectItem key={idx} value={p}>
                                           <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
                                         </SelectItem>
                                       ))}
@@ -1286,7 +1321,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                   }}>
                                     <SelectTrigger className="h-8 px-2 py-0 w-fit min-w-[5rem] border-0">
                                       <SelectValue placeholder="Select owner" className="text-xs" >
-                                        {(() => {                                          
+                                        {(() => {
                                           const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
                                           return `👤 ${displayName}`;
                                         })()}
@@ -1294,12 +1329,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                     </SelectTrigger>
                                     <SelectContent className="w-fit min-w-[5rem]">
 
-                                      {orgMembers?.map((m) => {
-                                        const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
-                                        const { displayName } = deriveDisplayFromEmail(username);
+                                      {orgMembers?.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m, idx) => {
+                                        // const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
+                                        // const { displayName } = deriveDisplayFromEmail(username);
                                         return (
-                                          <SelectItem key={m.user_id} value={String(username)}>
-                                            {displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
+                                          <SelectItem key={idx} value={String(m.name)}>
+                                            {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
                                           </SelectItem>
                                         );
                                       })}
@@ -1325,18 +1360,18 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               <TableCell className="text-center">
                                 <div className="flex justify-center">
                                   {/* decrease scroll-bar height or width */}
-                                  <div className="max-w-[200px] overflow-x-auto whitespace-nowrap py-1" 
-                                  style={{
-                                    scrollbarWidth: "thin",
-                                    scrollBehavior: "smooth",
+                                  <div className="max-w-[200px] overflow-x-auto whitespace-nowrap py-1"
+                                    style={{
+                                      scrollbarWidth: "thin",
+                                      scrollBehavior: "smooth",
 
-                                    // scrollbarColor: "#ccc #f1f1f1"
-                                  }}
+                                      // scrollbarColor: "#ccc #f1f1f1"
+                                    }}
                                   >
                                     <div className="inline-flex gap-1">
                                       {task.tags && task.tags.length > 0 ? (
-                                        task.tags.map((tag, index) => (
-                                          <Badge key={index} variant="outline" className="text-xs bg-purple-100 text-purple-800 whitespace-nowrap">
+                                        task.tags.map((tag, idx) => (
+                                          <Badge key={idx} variant="outline" className="text-xs bg-purple-100 text-purple-800 whitespace-nowrap">
                                             {tag}
                                           </Badge>
                                         ))
@@ -1349,12 +1384,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               </TableCell>
                               <TableCell className="text-center">
                                 <div className="flex justify-center">
-                                  {orgMembers?.filter((m: any, index: number) => (((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id) === task.createdBy)?.map((m, index) => {
-                                    const username = (((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id);
-                                    const { displayName } = deriveDisplayFromEmail(username);
+                                  {orgMembers?.filter((m: any) => (m.name === task.createdBy))?.map((m, idx) => {
                                     return (
-                                      <Badge key={index} variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                                        {displayName}
+                                      <Badge key={idx} variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                                        {m.displayName}
                                       </Badge>
                                     );
                                   })}
@@ -1395,7 +1428,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     • Use Ctrl+← → to navigate
                   </span>
                 </div>
-                
+
                 <div className="flex items-center space-x-2 flex-wrap justify-center">
                   {/* Previous button */}
                   <Button
@@ -1415,7 +1448,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       const maxVisiblePages = 5;
                       let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
                       let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-                      
+
                       // Adjust start if we're near the end
                       if (endPage - startPage < maxVisiblePages - 1) {
                         startPage = Math.max(1, endPage - maxVisiblePages + 1);

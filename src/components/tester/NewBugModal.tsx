@@ -166,7 +166,7 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
+      <SheetContent className="w-[600px] sm:max-w-[600px] bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
         {/* Modern Green Header */}
         <div className="relative bg-tasksmate-gradient p-6 flex-shrink-0">
           <div className="absolute inset-0 bg-black/5"></div>
@@ -249,9 +249,9 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
                     {projects.length === 0 && !loadingProjects && (
                       <SelectItem value="no-projects" disabled>No projects available</SelectItem>
                     )}
-                    {projects.map(project => (
+                    {projects.sort((a, b) => a.name.localeCompare(b.name)).map(project => (
                       <SelectItem key={project.id} value={project.id}>
-                        {project.name}
+                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{project.name}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>

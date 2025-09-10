@@ -24,6 +24,7 @@ const moduleNames = [
     'Bug Trackers',
     'Bugs',
     'Members Management',
+    'Other',
 ];
 
 const feedbackTypes = ['Bug', 'Suggestion/Improvements', 'General'];
