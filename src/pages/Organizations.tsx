@@ -19,6 +19,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '@/config';
 import { processDesignations } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
+import DateBadge from '@/components/ui/date-badge';
 const CopyOrgId = ({ id, children }: { id: string, children: React.ReactNode }) => (
   <span onClick={(e) => e.stopPropagation()}>
     <CopyableBadge copyText={id} org_id={id} variant="outline">
@@ -126,7 +128,7 @@ const Organizations = () => {
       const data = await api.get<{ name: string }[]>(API_ENDPOINTS.DESIGNATIONS);
       const names = (data || []).map((d) => d.name);
       const processedDesignations = processDesignations(names);
-      
+
       setDesignationOptions(processedDesignations);
       if (!selectedDesignation) {
         setSelectedDesignation('Organization Owner');
@@ -211,8 +213,8 @@ const Organizations = () => {
       title: "Creating organization",
       description: "Please wait...",
     });
-    
-    
+
+
     try {
 
       type BackendOrgResp = {
@@ -232,8 +234,8 @@ const Organizations = () => {
         description: newOrgDescription.trim() || undefined,
         // Only send designation if it's explicitly selected and not the default "Organization Owner"
         // The backend will handle setting "Organization Owner" for owners automatically
-        designation: (selectedDesignation && selectedDesignation !== 'Organization Owner') 
-          ? selectedDesignation 
+        designation: (selectedDesignation && selectedDesignation !== 'Organization Owner')
+          ? selectedDesignation
           : undefined,
       };
       const data = await api.post<BackendOrgResp>(API_ENDPOINTS.ORGANIZATIONS, payload);
@@ -355,7 +357,7 @@ const Organizations = () => {
   // Handle change of reason type
   const handleReasonTypeChange = (value: string) => {
     setDeleteReasonType(value);
-    
+
     if (value !== 'other') {
       // For predefined reasons, use the value directly
       setDeleteReason(value);
@@ -364,7 +366,7 @@ const Organizations = () => {
       setDeleteReason('');
     }
   };
-  
+
   // Handle custom reason change
   const handleCustomReasonChange = (value: string) => {
     setCustomReason(value);
@@ -372,32 +374,32 @@ const Organizations = () => {
       setDeleteReason(`Other - ${value}`);
     }
   };
-  
+
   const handleDeleteOrganization = async () => {
     if (!orgToDelete) return;
-    
+
     // Check if a reason is provided (either through dropdown or custom input)
     if (deleteReasonType === '') {
       toast({ title: 'Reason required', description: 'Please select a reason for deletion.', variant: 'destructive' });
       return;
     }
-    
+
     // If "Other" is selected, make sure custom reason is provided
     if (deleteReasonType === 'other' && !customReason.trim()) {
       toast({ title: 'Comment required', description: 'Please provide comments for "Other" reason.', variant: 'destructive' });
       return;
     }
-    
+
     setDeleting(true);
     toast({
       title: "Deleting organization",
       description: "Please wait...",
     });
-    
+
     try {
       // Use final reason - either selected value or "Other - custom reason"
       const finalReason = deleteReasonType === 'other' ? `Other - ${customReason}` : deleteReasonType;
-      
+
       await api.del(`${API_ENDPOINTS.ORGANIZATIONS}/${orgToDelete.org_id}`, { delete_reason: finalReason });
       toast({ title: 'Deleted', description: 'Organization deleted successfully' });
       setOrganizations(prev => prev.filter(o => o.org_id !== orgToDelete.org_id));
@@ -514,17 +516,17 @@ const Organizations = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading organizations...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading organizations...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-gray-50">
+    <div className="min-h-screen w-full bg-gray-50 dark:bg-gray-900">
       {/* Organization Invitations Panel - Only shown when there are pending invitations */}
       {/* {invitations.length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-3 px-4 sm:px-6 lg:px-8">
@@ -574,8 +576,7 @@ const Organizations = () => {
               ))}
             </div>
           </div>
-        </div>
-      )} */}
+        )} */}
 
 
       {/* Header */}
@@ -610,26 +611,26 @@ const Organizations = () => {
                 {invitations.map((invite) => (
                   <div
                     key={invite.id}
-                    className="flex items-center justify-between bg-white/60 dark:bg-gray-900/40 border border-indigo-100 rounded-md p-3 transform transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:bg-white/80 dark:hover:bg-gray-900/60"
+                    className="flex items-center justify-between bg-white/60 dark:bg-gray-800/60 border border-indigo-100 dark:border-gray-700 rounded-md p-3 transform transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:bg-white/80 dark:hover:bg-gray-800/80"
                   >
                     <div>
                       <div className="font-medium text-gray-800 dark:text-gray-100">
                         Invitation to join <span className="font-semibold">{invite.org_name || invite.org_id}</span>
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         Invited by {invite.invited_by} on {formatDate(invite.sent_at)} {invite.role && ` • Role: ${capitalizeWords(invite.role)}`} {invite.designation && ` • Designation: ${capitalizeWords(invite.designation)}`}
                       </div>
                     </div>
                     <div className="flex items-center flex-shrink-0 gap-2">
                       <button
                         onClick={() => handleAcceptInvite(invite.id)}
-                        className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                        className="p-1.5 rounded-full bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
                       >
                         <Check className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleRejectInvite(invite.id)}
-                        className="p-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                        className="p-1.5 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -640,7 +641,7 @@ const Organizations = () => {
             </div>
           </Collapsible>
         ) : (
-          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-gray-500 text-sm flex items-center gap-2 shadow mb-3">
+          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-3 text-gray-500 dark:text-gray-400 text-sm flex items-center gap-2 shadow mb-3">
             <Mail className="w-4 h-4" />
             <span>No pending organization invitations</span>
           </div>
@@ -659,18 +660,18 @@ const Organizations = () => {
                     placeholder="Search by name, ID, role, description..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-52 md:w-64 bg-transparent border-gray-200/50 transition-all duration-300 focus:w-72 md:focus:w-96"
+                    className="pl-10 w-52 md:w-64 bg-white/80 dark:bg-gray-700/80 border-gray-200/50 dark:border-gray-600/50 dark:text-white dark:placeholder-gray-400 transition-all duration-300 focus:w-72 md:focus:w-96"
                   />
                 </div>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9 bg-transparent border-gray-200/50">
+                    <Button variant="outline" size="sm" className="h-9 bg-white/80 dark:bg-gray-700/80 border-gray-200/50 dark:border-gray-600/50 dark:text-white">
                       <span>Sort by</span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-md border-gray-100">
+                  <DropdownMenuContent align="end" className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-gray-100 dark:border-gray-700">
                     <DropdownMenuItem onClick={() => setSortBy('name')} className="cursor-pointer">
                       {sortBy === 'name' && <Check className="mr-2 h-4 w-4" />} Name
                     </DropdownMenuItem>
@@ -723,13 +724,22 @@ const Organizations = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="orgDescription">Description *</Label>
-                        <Input
+
+                        <Textarea
                           id="orgDescription"
                           value={newOrgDescription}
                           onChange={(e) => setNewOrgDescription(e.target.value)}
                           placeholder="Describe your organization"
                           required
                         />
+
+                        {/* <Input
+                          id="orgDescription"
+                          value={newOrgDescription}
+                          onChange={(e) => setNewOrgDescription(e.target.value)}
+                          placeholder="Describe your organization"
+                          required
+                        /> */}
                       </div>
 
                       <Button
@@ -763,7 +773,7 @@ const Organizations = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="editOrgDescription">Description *</Label>
-                        <Input
+                        <Textarea
                           id="editOrgDescription"
                           value={editOrgDescription}
                           onChange={(e) => setEditOrgDescription(e.target.value)}
@@ -789,10 +799,10 @@ const Organizations = () => {
                       <p className="mb-4 text-gray-700">
                         Are you sure you want to delete <b>{orgToDelete?.name}</b>? This action cannot be undone.
                       </p>
-                      
+
                       <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
                         <p className="text-sm text-amber-800 flex items-center flex-wrap">
-                          To confirm deletion, please enter the 
+                          To confirm deletion, please enter the
                           <span className="mx-1" onClick={(e) => e.stopPropagation()}>
                             <CopyableBadge copyText={orgToDelete?.org_id || ''} org_id={orgToDelete?.org_id || ''} variant="outline" className={`transition-colors duration-300 ${getOrgIdBadgeColor()}`}>
                               {orgToDelete?.org_id}
@@ -800,7 +810,7 @@ const Organizations = () => {
                           </span>
                         </p>
                       </div>
-                      
+
                       <div className="space-y-2 mb-4">
                         <Label htmlFor="deleteOrgIdConfirm">Enter organization ID to confirm <span className="text-red-500">*</span></Label>
                         <Input
@@ -811,7 +821,7 @@ const Organizations = () => {
                           required
                         />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="deleteReason">Reason for deletion <span className="text-red-500">*</span></Label>
                         <Select value={deleteReasonType} onValueChange={handleReasonTypeChange}>
@@ -825,7 +835,7 @@ const Organizations = () => {
                             <SelectItem value="other">Other</SelectItem>
                           </SelectContent>
                         </Select>
-                        
+
                         {deleteReasonType === 'other' && (
                           <div className="mt-3 space-y-2">
                             <Label htmlFor="customReason">Please specify comments <span className="text-red-500">*</span></Label>
@@ -847,8 +857,8 @@ const Organizations = () => {
                           className="bg-red-500 hover:bg-red-600 text-white"
                           onClick={handleDeleteOrganization}
                           disabled={
-                            deleting || 
-                            deleteOrgIdConfirm !== orgToDelete?.org_id || 
+                            deleting ||
+                            deleteOrgIdConfirm !== orgToDelete?.org_id ||
                             !deleteReasonType ||
                             (deleteReasonType === 'other' && !customReason.trim())
                           }
@@ -869,11 +879,11 @@ const Organizations = () => {
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
         {filteredOrganizations.length === 0 ? (
           <div className="text-center py-12">
-            <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <Building2 className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               {searchQuery ? 'No organizations found' : 'Get started by creating your first organization'}
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
               {searchQuery
                 ? 'Try adjusting your search query'
                 : 'Organizations help you manage projects and collaborate with your team'
@@ -890,163 +900,167 @@ const Organizations = () => {
             )}
           </div>
         ) : (
-          <div className="rounded-md border shadow-tasksmate overflow-x-auto">
-            <Table className="min-w-full">
-              <TableHeader className="bg-gray-50">
-                <TableRow>
-                  <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
-                  <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60 font-bold">Name</TableHead>
-                  <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80 font-bold">Description</TableHead>
-                  <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Role</TableHead>
-                  <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Members</TableHead>
-                  <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Projects</TableHead>
-                  <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Created By</TableHead>
-                  <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Created At</TableHead>
-                  <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrganizations.map((org) => (
-                  <TableRow
-                    key={org.org_id}
-                    className="hover:bg-slate-50/60 transition-colors"
-                  >
-                    <TableCell className="text-center p-2">
-                      <div onClick={(e) => e.stopPropagation()} className="flex justify-center min-w-0">
-                        <CopyableBadge 
-                          copyText={org.org_id} 
-                          org_id={org.org_id} 
-                          variant="outline" 
-                          className={`transition-colors duration-300 ${getOrgIdBadgeColor()} max-w-full min-w-0 flex-shrink`}
-                        >
-                          {org.org_id}
-                        </CopyableBadge>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Building2 className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div 
-                            className="font-semibold text-gray-900 truncate hover:text-green-600 cursor-pointer transition-colors"
-                            onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
-                            title="Click to view organization details"
-                          >
-                            {org.name}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="min-w-0 max-w-xs">
-                        <div 
-                          className="text-sm text-gray-600 break-words overflow-hidden"
-                          style={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            lineHeight: '1.4em',
-                            maxHeight: '2.8em'
-                          }}
-                          title={org.description}
-                        >
-                          {org.description}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant="default"
-                        className={`transition-colors duration-300 ${getRoleBadgeColor()}`}
-                      >
-                        <UserCheck className="w-3 h-3 mr-1" /> {capitalizeWords(org.role)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center text-sm text-gray-600">
-                        <Users className="w-4 h-4 mr-1 text-gray-500" />
-                        <span>{org.member_count}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center text-sm text-gray-600">
-                        <Layers className="w-4 h-4 mr-1 text-gray-500" />
-                        <span>{org.project_count}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {org.created_by && (
-                        <Badge variant="outline" className={`transition-colors duration-300 ${getCreatorBadgeColor()}`}>
-                          <User className="w-3 h-3 mr-1" /> {org.created_by}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {org.created_at && (
-                        <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                            <circle cx="12" cy="12" r="10" />
-                            <polyline points="12 6 12 12 16 14" />
-                          </svg> {formatDate(org.created_at)}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        {org.is_invite ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleAcceptInvite(org.invitation_id)}
-                              className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-                              title="Accept invitation"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleRejectInvite(org.invitation_id)}
-                              className="p-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                              title="Reject invitation"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <button 
-                              className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
-                              onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
-                              title="View organization details"
-                            >
-                              <ArrowRight className="w-4 h-4" />
-                            </button>
-                            {(org.role === 'owner' || org.role === 'admin') && (
-                              <button 
-                                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-600 hover:text-green-600 transition-colors" 
-                                onClick={() => openEditModal(org)}
-                                title="Edit organization"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                            )}
-                            {org.role === 'owner' && (
-                              <button 
-                                className="p-1.5 rounded-full hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" 
-                                onClick={() => openDeleteModal(org)}
-                                title="Delete organization"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
+          <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
+            <div className="min-w-max w-full">
+              <Table className="w-full">
+                <TableHeader className="bg-gray-50 dark:bg-gray-800">
+                  <TableRow>
+                    <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
+                    <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60 font-bold">Name</TableHead>
+                    <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80 font-bold">Description</TableHead>
+                    <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Role</TableHead>
+                    <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Members</TableHead>
+                    <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Projects</TableHead>
+                    <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Created By</TableHead>
+                    <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Created At</TableHead>
+                    <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrganizations.map((org) => (
+                    <TableRow
+                      key={org.org_id}
+                      className="hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors"
+                    >
+                      <TableCell className="text-center p-2">
+                        <div onClick={(e) => e.stopPropagation()} className="flex justify-center min-w-0">
+                          <CopyableBadge
+                            copyText={org.org_id}
+                            org_id={org.org_id}
+                            variant="outline"
+                            className={`transition-colors duration-300 ${getOrgIdBadgeColor()} max-w-full min-w-0 flex-shrink`}
+                          >
+                            {org.org_id}
+                          </CopyableBadge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Building2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div
+                              className="font-semibold text-gray-900 dark:text-white truncate hover:text-green-600 dark:hover:text-green-400 cursor-pointer transition-colors"
+                              onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
+                              title="Click to view organization details"
+                            >
+                              {org.name}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div className="min-w-0 max-w-xs">
+                          <div
+                            className="text-sm text-gray-600 dark:text-gray-300 break-words overflow-hidden"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              lineHeight: '1.4em',
+                              maxHeight: '2.8em'
+                            }}
+                            title={org.description}
+                          >
+                            {org.description}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant="default"
+                          className={`transition-colors duration-300 ${getRoleBadgeColor()}`}
+                        >
+                          <UserCheck className="w-3 h-3 mr-1" /> {capitalizeWords(org.role)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-300">
+                          <Users className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
+                          <span>{org.member_count}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-300">
+                          <Layers className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400" />
+                          <span>{org.project_count}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {org.created_by && (
+                          <Badge variant="outline" className={`transition-colors duration-300 ${getCreatorBadgeColor()}`}>
+                            <User className="w-3 h-3 mr-1" /> {org.created_by}
+                          </Badge>
+                        )}
+
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {/* {org.created_at && (
+                          <Badge variant="outline" className={`transition-colors duration-300 ${getCreatedAtBadgeColor()}`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg> {formatDate(org.created_at)}
+                          </Badge>
+                        )} */}
+                        <DateBadge date={org.created_at} className="text-xs bg-green-100 text-green-800" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          {org.is_invite ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleAcceptInvite(org.invitation_id)}
+                                className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                                title="Accept invitation"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleRejectInvite(org.invitation_id)}
+                                className="p-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                title="Reject invitation"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <button
+                                className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
+                                onClick={() => org.org_id && handleOrgCardClick(org.org_id)}
+                                title="View organization details"
+                              >
+                                <ArrowRight className="w-4 h-4" />
+                              </button>
+                              {(org.role === 'owner' || org.role === 'admin') && (
+                                <button
+                                  className="p-1.5 rounded-full hover:bg-gray-100 text-gray-600 hover:text-green-600 transition-colors"
+                                  onClick={() => openEditModal(org)}
+                                  title="Edit organization"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                              )}
+                              {org.role === 'owner' && (
+                                <button
+                                  className="p-1.5 rounded-full hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
+                                  onClick={() => openDeleteModal(org)}
+                                  title="Delete organization"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </div>

@@ -82,7 +82,7 @@ const Dashboard = () => {
   const renderLoadingState = () => (
     <div className="flex items-center justify-center h-64">
       <Loader2 className="animate-spin h-8 w-8 text-tasksmate-green-end mr-2" />
-      <span>Loading dashboard data...</span>
+      <span className="text-gray-600 dark:text-gray-300">Loading dashboard data...</span>
     </div>
   );
 
@@ -125,8 +125,8 @@ const Dashboard = () => {
         <div className="p-4 rounded-full bg-tasksmate-green-start/10 mb-4">
           {icon}
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-1">{title}</h3>
-        <p className="text-gray-500 mb-4 max-w-md">{message}</p>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">{title}</h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md">{message}</p>
         <button
           onClick={() => navigate(path)}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-tasksmate-green-end hover:bg-tasksmate-green-start focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tasksmate-green-end transition-colors"
@@ -190,22 +190,22 @@ const Dashboard = () => {
     return (
       <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
         {teamProductivityData.map((member: any, idx: number) => (
-          <div key={idx} className="bg-white/60 p-3 rounded-lg hover:shadow-md transition-shadow">
+          <div key={idx} className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg hover:shadow-md dark:hover:shadow-gray-900/20 transition-shadow">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center text-white text-xs font-bold">
                   {member.name.split(' ').map((n: string) => n[0]).join('')}
                 </div>
-                <span className="font-medium">{member.name}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{member.name}</span>
               </div>
-              <span className="text-sm font-semibold px-2 py-1 rounded-full bg-tasksmate-green-start/20 text-tasksmate-green-end">
+              <span className="text-sm font-semibold px-2 py-1 rounded-full bg-tasksmate-green-start/20 dark:bg-tasksmate-green-start/30 text-tasksmate-green-end dark:text-tasksmate-green-start">
                 {member.efficiency}%
               </span>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+            <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
               <span>{member.tasksCompleted}/{member.tasksTotal} tasks completed</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
               <div
                 className="h-2 rounded-full bg-tasksmate-gradient"
                 style={{ width: `${member.efficiency}%` }}
@@ -237,22 +237,22 @@ const Dashboard = () => {
             <TableRow 
               key={index}
               onClick={() => handleProjectClick(project?.project_id)}
-              className="cursor-pointer hover:bg-gray-50"
+              className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
             >
-              <TableCell className="font-medium">{project.name}</TableCell>
+              <TableCell className="font-medium text-gray-900 dark:text-white">{project.name}</TableCell>
               <TableCell>
                 <div className="flex items-center space-x-2">
-                  <div className="w-full bg-gray-200 rounded-full h-2 max-w-[100px]">
+                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 max-w-[100px]">
                     <div
                       className="bg-tasksmate-gradient h-2 rounded-full"
                       style={{ width: `${project.progress}%` }}
                     />
                   </div>
-                  <span className="text-sm text-gray-600">{project.progress}%</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{project.progress}%</span>
                 </div>
               </TableCell>
-              <TableCell>{project.tasks} total</TableCell>
-              <TableCell>{project.team} members</TableCell>
+              <TableCell className="text-gray-700 dark:text-gray-300">{project.tasks} total</TableCell>
+              <TableCell className="text-gray-700 dark:text-gray-300">{project.team} members</TableCell>
               <TableCell>
                 <Badge
                   variant="secondary"
@@ -321,7 +321,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
@@ -329,8 +329,8 @@ const Dashboard = () => {
         <div className="px-6 py-8">
           <div className="w-full flex items-center justify-between">
             <div>
-              <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Dashboard</h1>
-              <p className="text-gray-600">Comprehensive insights into your projects and tasks</p>
+              <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-white mb-2">Dashboard</h1>
+              <p className="text-gray-600 dark:text-gray-300">Comprehensive insights into your projects and tasks</p>
             </div>
             {/* Period filter buttons removed */}
           </div>
@@ -342,63 +342,63 @@ const Dashboard = () => {
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
+              <Card className="bg-white/90 dark:bg-gradient-to-br dark:from-gray-800/95 dark:to-gray-800/80 backdrop-blur-sm border dark:border-gray-700/50 shadow-tasksmate hover:shadow-xl dark:hover:shadow-blue-900/10 cursor-pointer transition-all duration-300 hover:scale-[1.02]" onClick={() => navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
                 <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 font-medium whitespace-nowrap">Total Tasks</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Total Tasks</p>
                   <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900">{kpis.total_tasks}</p>
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-blue-600" />
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.total_tasks}</p>
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=in_progress,planning`)}>
+              <Card className="bg-white/90 dark:bg-gradient-to-br dark:from-gray-800/95 dark:to-gray-800/80 backdrop-blur-sm border dark:border-gray-700/50 shadow-tasksmate hover:shadow-xl dark:hover:shadow-green-900/10 cursor-pointer transition-all duration-300 hover:scale-[1.02]" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=in_progress,planning`)}>
                 <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 flex items-center gap-1 font-medium whitespace-nowrap">Active Projects <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400" /></span></p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1 font-medium whitespace-nowrap">Active Projects <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400 dark:text-gray-500" /></span></p>
                   <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900">{kpis.active_projects}</p>
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <FolderOpen className="w-6 h-6 text-green-600" />
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.active_projects}</p>
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                      <FolderOpen className="w-6 h-6 text-green-600 dark:text-green-400" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Completed Projects KPI */}
-              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=completed`)}>
+              <Card className="bg-white/90 dark:bg-gradient-to-br dark:from-gray-800/95 dark:to-gray-800/80 backdrop-blur-sm border dark:border-gray-700/50 shadow-tasksmate hover:shadow-xl dark:hover:shadow-emerald-900/10 cursor-pointer transition-all duration-300 hover:scale-[1.02]" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=completed`)}>
                 <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 font-medium whitespace-nowrap">Completed Projects</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Completed Projects</p>
                   <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900">{kpis.completed_projects}</p>
-                    <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.completed_projects}</p>
+                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Blocked Projects KPI */}
-              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=blocked`)}>
+              <Card className="bg-white/90 dark:bg-gradient-to-br dark:from-gray-800/95 dark:to-gray-800/80 backdrop-blur-sm border dark:border-gray-700/50 shadow-tasksmate hover:shadow-xl dark:hover:shadow-red-900/10 cursor-pointer transition-all duration-300 hover:scale-[1.02]" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=blocked`)}>
                 <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 font-medium whitespace-nowrap">Blocked Projects</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Blocked Projects</p>
                   <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900">{kpis.blocked_projects}</p>
-                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                      <AlertCircle className="w-6 h-6 text-red-600" />
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.blocked_projects}</p>
+                    <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate hover:shadow-lg cursor-pointer" onClick={() => navigate(`/team-members${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
+              <Card className="bg-white/90 dark:bg-gradient-to-br dark:from-gray-800/95 dark:to-gray-800/80 backdrop-blur-sm border dark:border-gray-700/50 shadow-tasksmate hover:shadow-xl dark:hover:shadow-purple-900/10 cursor-pointer transition-all duration-300 hover:scale-[1.02]" onClick={() => navigate(`/team-members${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
                 <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 font-medium whitespace-nowrap">Team Members</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Team Members</p>
                   <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900">{kpis.team_members}</p>
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-6 h-6 text-purple-600" />
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.team_members}</p>
+                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                      <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                     </div>
                   </div>
                 </CardContent>
@@ -426,10 +426,10 @@ const Dashboard = () => {
             {/* Charts Section */}
             <div className="space-y-6">
               {/* Task Completion Trends */}
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="bg-white/90 dark:bg-gradient-to-br dark:from-gray-800/95 dark:to-gray-800/85 backdrop-blur-sm border dark:border-gray-700/50 shadow-tasksmate">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" />
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <BarChart3 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                     Task Completion Trends
                   </CardTitle>
                 </CardHeader>
@@ -442,10 +442,10 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Project Status Distribution */}
-                <Card className="glass border-0 shadow-tasksmate">
+                <Card className="bg-white/90 dark:bg-gradient-to-br dark:from-gray-800/95 dark:to-gray-800/85 backdrop-blur-sm border dark:border-gray-700/50 shadow-tasksmate">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <PieChartIcon className="w-5 h-5" />
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                      <PieChartIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                       Project Status Distribution
                     </CardTitle>
                   </CardHeader>
@@ -455,10 +455,10 @@ const Dashboard = () => {
                 </Card>
 
                 {/* Team Productivity */}
-                <Card className="glass border-0 shadow-tasksmate">
+                <Card className="bg-white/90 dark:bg-gradient-to-br dark:from-gray-800/95 dark:to-gray-800/85 backdrop-blur-sm border dark:border-gray-700/50 shadow-tasksmate">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                      <Activity className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                       Team Productivity
                     </CardTitle>
                   </CardHeader>
@@ -501,10 +501,10 @@ const Dashboard = () => {
               {/* Project Progress Overview card removed */}
 
               {/* Top Projects Table */}
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="w-5 h-5" />
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Target className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                     Project Performance Summary
                   </CardTitle>
                 </CardHeader>

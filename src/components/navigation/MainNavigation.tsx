@@ -37,6 +37,7 @@ import {
   Users,
   MessageSquare 
 } from 'lucide-react';
+import ThemeToggle from '@/components/ui/theme-toggle';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -194,55 +195,57 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   };
 
   return (
-    <nav className={`bg-white border-r border-gray-200 h-screen fixed left-0 top-0 z-50 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}`}>
+    <nav className={`bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen fixed left-0 top-0 z-50 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}`}>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           {!isCollapsed && (
             <Link to="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                 <Check className="w-5 h-5 text-white" />
               </div>
-              <span className="font-sora font-bold text-xl text-gray-900">TasksMate</span>
+              <span className="font-sora font-bold text-xl text-gray-900 dark:text-white">TasksMate</span>
             </Link>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hover:bg-gray-100"
-          >
-            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-          </Button>
+          <div className="flex items-center gap-1">            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+            </Button>
+          </div>
         </div>
 
         {/* Organization Dropdown - Show only when inside an org */}
         {orgId && !isCollapsed && (
-          <div className="px-3 py-2 border-b border-gray-100 space-y-2">
+          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 space-y-2">
             {/* Back to Organizations Button */}
             <Button
               variant="ghost"
               onClick={() => navigate('/org')}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <div className="flex items-center space-x-2">
-                <ArrowLeft className="w-4 h-4 text-gray-600" />
-                <span className="text-sm font-medium text-gray-700">Back to Organizations</span>
+                <ArrowLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Back to Organizations</span>
               </div>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center space-x-2 min-w-0">
-                    <Building2 className="w-4 h-4 text-gray-600 flex-shrink-0" />
-                    <span className="text-sm font-medium text-gray-700 truncate">
+                    <Building2 className="w-4 h-4 text-gray-600 dark:text-gray-300 flex-shrink-0" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
                       {currentOrgName || 'Loading...'}
                     </span>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56 bg-white border shadow-lg">
@@ -460,42 +463,31 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                       </Button>
                     </DropdownMenuContent>
                   </DropdownMenu> */}
-                  <Button
-                    variant="ghost"
-                    className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
-                    onClick={handleUserProfileNavigation}
-                    title={profileLabel}
-                  >
-                    <Avatar 
-                      className="w-8 h-8 cursor-pointer" 
-                      // onClick={(e) => {
-                      //   e.stopPropagation();
-                      //   setIsEnlarged(true);
-                      // }}
+                  <div className="flex flex-col items-center space-y-2">
+                    <Button
+                      variant="ghost"
+                      className="w-8 h-8 p-0 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
+                      onClick={handleUserProfileNavigation}
+                      title={profileLabel}
                     >
-                      <AvatarImage src={avatarUrl || undefined} />
-                      <AvatarFallback className="bg-green-500 text-white">
-                        {(profileLabel || 'U').charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    {!isCollapsed && (
-                      <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-medium text-gray-700 truncate">
-                          {
-                            // limit until 15 characters
-                            profileLabel.length > 15 ? profileLabel.substring(0, 15) + '...' : profileLabel
-                          }
-                        </p>
-                      </div>
-                    )}
-                  </Button>
+                      <Avatar className="w-8 h-8 cursor-pointer">
+                        <AvatarImage src={avatarUrl || undefined} />
+                        <AvatarFallback className="bg-green-500 text-white">
+                          {(profileLabel || 'U').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                    
+                    {/* Theme Toggle for collapsed sidebar */}
+                    <ThemeToggle />
+                  </div>
                 </>
               ) :
                 (
                   <>
                     <Button
                       variant="ghost"
-                      className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 justify-start`}
+                      className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 dark:hover:bg-gray-800 justify-start`}
                       onClick={handleUserProfileNavigation}
                       title={profileLabel}
                     >
@@ -510,7 +502,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                       </Avatar>
                       {!isCollapsed && (
                         <div className="flex-1 text-left min-w-0">
-                          <p className="text-sm font-medium text-gray-700 truncate">
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
                             {
                               // limit until 15 characters
                               profileLabel.length > 15 ? profileLabel.substring(0, 15) + '...' : profileLabel
@@ -520,12 +512,17 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                       )}
                     </Button>
 
+                    {/* Theme Toggle */}
+                    <div className="ml-2 flex-shrink-0">
+                      <ThemeToggle />
+                    </div>
+
                     {/* Sign Out Button */}
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={handleSignOut}
-                      className="w-8 h-8 hover:bg-red-50 hover:text-red-600 ml-2 flex-shrink-0"
+                      className="w-8 h-8 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 ml-2 flex-shrink-0"
                       title="Sign Out"
                     >
                       <LogOut className="w-4 h-4" />

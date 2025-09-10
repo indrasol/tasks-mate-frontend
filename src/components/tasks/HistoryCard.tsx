@@ -28,9 +28,9 @@ interface HistoryCardProps {
 export function HistoryCard({ history, isLoading, className = "", projectNameById }: HistoryCardProps) {
   if (isLoading) {
     return (
-      <Card className="glass border-0 shadow-tasksmate">
+      <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
         <CardHeader>
-          <CardTitle className="font-sora">History</CardTitle>
+          <CardTitle className="font-sora text-gray-900 dark:text-white">History</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -52,13 +52,13 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
 
   if (history.length === 0) {
     return (
-      <Card className="glass border-0 shadow-tasksmate">
+      <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
         <CardHeader>
-          <CardTitle className="font-sora">History</CardTitle>
+          <CardTitle className="font-sora text-gray-900 dark:text-white">History</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3 max-h-64 overflow-y-auto">
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground dark:text-gray-400">
               <History className="h-12 w-12 mb-2 opacity-30" />
               <p className="text-sm">No history available</p>
             </div>
@@ -92,13 +92,13 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
   const getAccentClass = (title: string) => {
     // Added -> green, Deleted -> red, Updated -> blue
     if (title.startsWith('attachment_')) {
-      if (title.endsWith('created')) return 'text-emerald-600';
-      if (title.endsWith('deleted')) return 'text-red-600';
-      return 'text-blue-600';
+      if (title.endsWith('created')) return 'text-emerald-600 dark:text-emerald-400';
+      if (title.endsWith('deleted')) return 'text-red-600 dark:text-red-400';
+      return 'text-blue-600 dark:text-blue-400';
     }
-    if (title === 'created' || title.includes('added')) return 'text-emerald-600';
-    if (title === 'deleted' || title.includes('removed')) return 'text-red-600';
-    return 'text-blue-600';
+    if (title === 'created' || title.includes('added')) return 'text-emerald-600 dark:text-emerald-400';
+    if (title === 'deleted' || title.includes('removed')) return 'text-red-600 dark:text-red-400';
+    return 'text-blue-600 dark:text-blue-400';
   };
 
   // const getChangeDescription = (item: TaskHistory): JSX.Element | string => {
@@ -234,8 +234,8 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
     const added = newArr.filter(x => !oldSet.has(x));
     const removed = oldArr.filter(x => !newSet.has(x));
     const parts: JSX.Element[] = [];
-    if (added.length) parts.push(<span key="added">added <span className="font-medium text-emerald-600">{added.join(", ")}</span></span>);
-    if (removed.length) parts.push(<span key="removed">removed <span className="font-medium text-rose-600">{removed.join(", ")}</span></span>);
+    if (added.length) parts.push(<span key="added">added <span className="font-medium text-emerald-600 dark:text-emerald-400">{added.join(", ")}</span></span>);
+    if (removed.length) parts.push(<span key="removed">removed <span className="font-medium text-rose-600 dark:text-rose-400">{removed.join(", ")}</span></span>);
     if (!parts.length) return null;
     const interleaved: JSX.Element[] = [];
     parts.forEach((p, i) => { if (i) interleaved.push(<span key={`sep-${i}`}>, </span>); interleaved.push(p); });
@@ -277,7 +277,7 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
     if (action.startsWith("attachment_")) {
       const attachAction = action.split("_")[1] || "updated";
       const displayAction = attachAction === "deleted" ? "deleted" : "updated";
-      const colorClass = attachAction === "deleted" ? "text-red-600" : "text-blue-600";
+      const colorClass = attachAction === "deleted" ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400";
       const context = metaArray[0] || {};
       const name = context?.filename || context?.name;
       const url = context?.url;
@@ -287,7 +287,7 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
           {name ? (
             <> (
               {url ? (
-                <a href={url} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:text-blue-700 underline underline-offset-2">
+                <a href={url} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline underline-offset-2">
                   {name}
                 </a>
               ) : (
@@ -302,19 +302,19 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
     // Subtasks & Dependencies
     if (action === "subtask_added") {
       const sid = metaArray[0]?.subtask_id;
-      return <span><span className="font-semibold">{who}</span> added subtask {sid && <span className="text-emerald-600 font-semibold">{sid}</span>}</span>;
+      return <span><span className="font-semibold">{who}</span> added subtask {sid && <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{sid}</span>}</span>;
     }
     if (action === "subtask_removed") {
       const sid = metaArray[0]?.subtask_id;
-      return <span><span className="font-semibold">{who}</span> removed subtask {sid && <span className="text-red-600 font-semibold">{sid}</span>}</span>;
+      return <span><span className="font-semibold">{who}</span> removed subtask {sid && <span className="text-red-600 dark:text-red-400 font-semibold">{sid}</span>}</span>;
     }
     if (action === "dependency_added") {
       const did = metaArray[0]?.dependency_id;
-      return <span><span className="font-semibold">{who}</span> added dependency {did && <span className="text-emerald-600 font-semibold">{did}</span>}</span>;
+      return <span><span className="font-semibold">{who}</span> added dependency {did && <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{did}</span>}</span>;
     }
     if (action === "dependency_removed") {
       const did = metaArray[0]?.dependency_id;
-      return <span><span className="font-semibold">{who}</span> removed dependency {did && <span className="text-red-600 font-semibold">{did}</span>}</span>;
+      return <span><span className="font-semibold">{who}</span> removed dependency {did && <span className="text-red-600 dark:text-red-400 font-semibold">{did}</span>}</span>;
     }
   
     if (action === "updated" && metaArray.length > 0) {
@@ -334,7 +334,7 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
           parts.push(
             <span key="assignee">
               owner from <span className="font-semibold">{humanName(String(oldVal || "—"))}</span> to{" "}
-              <span className="font-medium text-blue-600">{humanName(String(newVal || "—"))}</span>
+              <span className="font-medium text-blue-600 dark:text-blue-400">{humanName(String(newVal || "—"))}</span>
             </span>
           );
           continue;
@@ -350,7 +350,7 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
             parts.push(
               <span key={field}>
                 {field.replace("_", " ")} from <span className="font-semibold">{prettyOld}</span> to{" "}
-                <span className="font-medium text-blue-600">{prettyNew}</span>
+                <span className="font-medium text-blue-600 dark:text-blue-400">{prettyNew}</span>
               </span>
             );
           }
@@ -377,11 +377,11 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
   };
 
   return (
-    <Card className="glass border-0 shadow-tasksmate">
+    <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
       <CardHeader>
-        <CardTitle className="font-sora">
+        <CardTitle className="font-sora text-gray-900 dark:text-white">
           <span className="mr-2">History</span>
-          <Badge variant="outline" className="ml-auto">
+          <Badge variant="outline" className="ml-auto border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300">
             {history.length} {history.length === 1 ? 'event' : 'events'}
           </Badge>
         </CardTitle>
@@ -393,8 +393,8 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
                {history.map((item) => (
                 <div key={item.history_id} className="relative pb-2">
                   {/* Timeline dot */}
-                  <div className="absolute left-0 top-1.5 h-3 w-3 rounded-full bg-primary/20 flex items-center justify-center">
-                    <div className="h-2 w-2 rounded-full bg-primary" />
+                  <div className="absolute left-0 top-1.5 h-3 w-3 rounded-full bg-primary/20 dark:bg-primary/30 flex items-center justify-center">
+                    <div className="h-2 w-2 rounded-full bg-primary dark:bg-primary" />
                   </div>
 
                   <div className="ml-6">
@@ -402,18 +402,18 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
                       <HoverCard>
                         <HoverCardTrigger asChild>
                           <Avatar className="h-8 w-8 cursor-default">
-                            <AvatarFallback>
+                            <AvatarFallback className="bg-tasksmate-gradient text-white">
                               {getUserInitials(item.created_by)}
                             </AvatarFallback>
                           </Avatar>
                         </HoverCardTrigger>
-                        <HoverCardContent className="py-1 px-2 text-xs">
+                        <HoverCardContent className="py-1 px-2 text-xs bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white">
                           {item.created_by}
                         </HoverCardContent>
                       </HoverCard>
                       <div>
-                        <p className="text-sm">{getChangeDescription(item, projectNameById)}</p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <p className="text-sm text-gray-900 dark:text-white">{getChangeDescription(item, projectNameById)}</p>
+                        <p className="text-xs text-muted-foreground dark:text-gray-400 flex items-center gap-1 mt-1">
                           <Clock className="h-3 w-3" />
                           {format(new Date(item.created_at), 'MMM d, yyyy h:mm a')}
                         </p>
@@ -424,7 +424,7 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
 
                   {/* Timeline line */}
                    {history[history.length - 1] !== item && (
-                    <div className="absolute left-1.5 top-4 h-full w-px bg-border" />
+                    <div className="absolute left-1.5 top-4 h-full w-px bg-border dark:bg-gray-600" />
                   )}
                 </div>
               ))}

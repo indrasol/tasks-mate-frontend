@@ -129,18 +129,18 @@ const Scratchpad = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
       {/* Navigation */}
       <MainNavigation />
 
       {/* Main Content - adjusted for left sidebar */}
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Page Header */}
-        <div className="px-8 py-4 bg-white/50 border-b border-gray-200">
+        <div className="px-8 py-4 bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-sora font-bold text-2xl text-gray-900 mb-1">Scratchpad</h1>
-              <p className="text-sm text-gray-500">{getCurrentDateTime()}</p>
+              <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-white mb-1">Scratchpad</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{getCurrentDateTime()}</p>
             </div>
             <div className="flex items-center space-x-3">
               {showSaveCheck && (
@@ -162,14 +162,14 @@ const Scratchpad = () => {
         {/* Scratchpad Content */}
         <div className="px-8 py-6">
           <div className="">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
               <Textarea
                 ref={textareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Start typing… Scratch your content here"
-                className="min-h-[calc(100vh-300px)] resize-none border-0 focus:ring-0 focus-visible:ring-0 p-6 text-base leading-relaxed"
+                className="min-h-[calc(100vh-300px)] resize-none border-0 focus:ring-0 focus-visible:ring-0 p-6 text-base leading-relaxed dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
                 style={{
                   fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
                 }}

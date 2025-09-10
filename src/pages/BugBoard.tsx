@@ -1,18 +1,32 @@
 import MainNavigation from '@/components/navigation/MainNavigation';
 import NewBugModal from '@/components/tester/NewBugModal';
 import { Badge } from '@/components/ui/badge';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CopyableIdBadge from '@/components/ui/copyable-id-badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { toast } from '@/hooks/use-toast';
-import { AlertCircle, ArrowRight, CalendarRange, Check, Filter, Loader2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
+import { AlertCircle, ArrowRight, Calendar, CalendarRange, Check, ChevronRight, Filter, Loader2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import TestRunDetail from './TestRunDetail';
 import { api } from '@/services/apiService';
 import { API_ENDPOINTS } from '@/config';
@@ -42,15 +56,22 @@ const BugBoard = () => {
   }, []);
   const { id } = useParams();
   const navigate = useNavigate();
+  const currentOrgId = useCurrentOrgId();
   const [isNewBugModalOpen, setIsNewBugModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [dateRange, setDateRange] = useState<{
+    from: Date | undefined;
+    to: Date | undefined;
+  }>({ from: undefined, to: undefined });
+  const [isCustomDateRange, setIsCustomDateRange] = useState(false);
+  const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
+  const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [sortBy, setSortBy] = useState<'title' | 'severity' | 'id' | 'date'>('id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const currentOrgId = useCurrentOrgId();
   // Mock data - replace with actual data fetching
   const testRun = {
     id: id || 'TB-001',
@@ -152,13 +173,49 @@ const BugBoard = () => {
     return 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
-  const isDateInRange = (date: string, filter: string) => {
-    const itemDate = new Date(date);
+  const isDateInRange = (
+    taskDate: string,
+    filter: string,
+    customRange?: { from: Date | undefined; to: Date | undefined }
+  ) => {
+    if (!taskDate) return true; // Handle empty dates
+
+    // Normalize the task date to midnight UTC
+    let date: Date;
+    try {
+      date = new Date(taskDate);
+    } catch (e) {
+      console.error("Failed to parse date", e);
+      return true; // Invalid date
+    }
+    if (isNaN(date.getTime())) return true; // Invalid date
+
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // If we're in custom date range mode and have a valid range
+    if (filter === 'custom' && customRange?.from) {
+      // Normalize times to start of day for comparison
+      const from = new Date(customRange.from);
+      from.setHours(0, 0, 0, 0);
+
+      const taskDateStart = new Date(date);
+      taskDateStart.setHours(0, 0, 0, 0);
+
+      // If only "from" date is set
+      if (!customRange.to) {
+        return taskDateStart >= from;
+      }
+
+      // If both dates are set
+      const to = new Date(customRange.to);
+      to.setHours(23, 59, 59, 999);
+      return taskDateStart >= from && taskDateStart <= to;
+    }
 
     // Reset hours, minutes, seconds, and milliseconds for date comparisons
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
+    const itemDate = new Date(date);
+    itemDate.setHours(0, 0, 0, 0);
 
     // Yesterday
     const yesterday = new Date(today);
@@ -277,14 +334,42 @@ const BugBoard = () => {
       // Priority filter
       const matchesPriority = filterPriority === 'all' || bug.severity === filterPriority;
 
-      // Date filter
-      const matchesDate = dateFilter === 'all' || isDateInRange(bug.date, dateFilter);
+      // Date filter - Check created date
+      const matchesDate =
+        dateFilter === 'all' ||
+          (isCustomDateRange && dateRange?.from) ?
+          // For custom date range, check created date
+          isDateInRange(bug.date, 'custom', dateRange) :
+          // For preset filters, check created date
+          isDateInRange(bug.date, dateFilter);
 
       return matchesSearch && matchesStatus && matchesPriority && matchesDate;
     });
 
     return sortBugs(filtered);
-  }, [bugs, searchTerm, filterStatus, filterPriority, dateFilter, sortBy, sortDirection]);
+  }, [bugs, searchTerm, filterStatus, filterPriority, dateFilter, dateRange, isCustomDateRange, sortBy, sortDirection]);
+
+  // Handle date range selection
+  const handleDateRangeSelect = (range: { from: Date | undefined; to: Date | undefined }) => {
+    setTempDateRange(range);
+  };
+
+  const handleApplyDateRange = () => {
+    setDateRange(tempDateRange);
+    if (tempDateRange.from) {
+      setIsCustomDateRange(true);
+      setDateFilter('custom');
+    }
+    setIsDatePopoverOpen(false);
+  };
+
+  const resetDateRange = () => {
+    setIsCustomDateRange(false);
+    setDateRange({ from: undefined, to: undefined });
+    setTempDateRange({ from: undefined, to: undefined });
+    setDateFilter('all');
+    setIsDatePopoverOpen(false);
+  };
 
   const handleBugClick = (bugId: string) => {
     if (currentOrgId) {
@@ -364,7 +449,7 @@ const BugBoard = () => {
       {filteredBugs.map((bug) => (
         <Card
           key={bug.id}
-          className="cursor-pointer hover:shadow-md transition-shadow"
+          className="cursor-pointer hover:shadow-md dark:hover:shadow-gray-900/20 transition-shadow bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
           onClick={() => handleBugClick(bug.id)}
         >
           <CardHeader className="pb-3">
@@ -412,12 +497,12 @@ const BugBoard = () => {
                 isCompleted={bug.closed}
               />
             </div>
-            <CardTitle className={`text-lg font-semibold ${bug.closed ? 'text-gray-500 line-through' : 'text-gray-900'} line-clamp-2`}>
+            <CardTitle className={`text-lg font-semibold ${bug.closed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-white'} line-clamp-2`}>
               {bug.title}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={`text-sm ${bug.closed ? 'text-gray-400' : 'text-gray-600'} mb-4 line-clamp-3`}>
+            <p className={`text-sm ${bug.closed ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'} mb-4 line-clamp-3`}>
               {bug.description}
             </p>
 
@@ -449,160 +534,171 @@ const BugBoard = () => {
 
   // List view component
   const BugListView = () => (
-    <div className="bg-white rounded-lg border shadow-sm">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-12"></TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => toggleSort('id')}
-            >
-              <div className="flex items-center gap-2">
-                Bug ID
-                {sortBy === 'id' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </div>
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => toggleSort('title')}
-            >
-              <div className="flex items-center gap-2">
-                Title
-                {sortBy === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </div>
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => toggleSort('severity')}
-            >
-              <div className="flex items-center gap-2">
-                Severity
-                {sortBy === 'severity' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </div>
-            </TableHead>
-            <TableHead>Tags</TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => toggleSort('date')}
-            >
-              <div className="flex items-center gap-2">
-                Created Date
-                {sortBy === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </div>
-            </TableHead>
-            <TableHead>Closed Date</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredBugs.map((bug) => (
-            <TableRow
-              key={bug?.id}
-              className="hover:bg-gray-50"
-            >
-              <TableCell>
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${bug.closed
-                    ? 'bg-tasksmate-gradient border-transparent hover:scale-110'
-                    : 'border-gray-300 hover:border-gray-400 hover:scale-110'
-                    }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleBugToggle(bug?.id, !bug?.closed);
-                  }}
-                >
-                  {bug?.closed && (
-                    <Check className="h-3 w-3 text-white" />
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className="font-medium">
-                <CopyableIdBadge
-                  id={bug?.id}
-                  org_id={currentOrgId}
-                  tracker_id={bug?.tracker_id}
-                  className="bg-red-600"
-                  copyLabel="Bug"
-                  isCompleted={bug?.closed}
-                />
-              </TableCell>
-              <TableCell className={`${bug?.closed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                {bug?.title}
-              </TableCell>
-              <TableCell>
-                <Badge className={`${getSeverityColor(bug?.severity)} text-xs`}>
-                  {bug?.severity?.toUpperCase()}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {bug?.tags?.slice(0, 2).map((tag, index) => (
-                    <Badge key={index} variant="outline" className={`${getTagColor(tag)} text-xs`}>
-                      {tag}
-                    </Badge>
-                  ))}
-                  {bug?.tags?.length > 2 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{bug?.tags?.length - 2}
-                    </Badge>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className="text-sm text-gray-600">
-                {new Date(bug?.date).toLocaleDateString()}
-              </TableCell>
-              <TableCell className="text-sm text-gray-600">
-                {bug?.closedDate ? (
-                  <span className="text-green-600 font-medium">
-                    {new Date(bug.closedDate).toLocaleDateString()}
-                  </span>
-                ) : '-'}
-              </TableCell>
-              <TableCell>
-                <Badge
-                  className={`${bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
-                    bug?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                      bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
-                        bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
-                          bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
-                            bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
-                              bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
-                                'bg-red-100 text-red-700'
-                    } text-xs`}
-                >
-                  {capitalizeFirstLetter(bug?.status?.replace(/_/g, ' '))}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <button 
-                    className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
-                    onClick={() => handleBugClick(bug?.id)}
-                    title="View bug details"
-                  >
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </TableCell>
+    <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-sm">
+      <div className="min-w-max w-full">
+        <Table className="w-full">
+          <TableHeader className="bg-gray-50 dark:bg-gray-800">
+            <TableRow>
+              <TableHead className="w-12"></TableHead>
+              <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Bug ID</TableHead>
+              <TableHead className="font-bold">Title</TableHead>
+              <TableHead className="font-bold">Severity</TableHead>
+              <TableHead className="font-bold">Tags</TableHead>
+              <TableHead className="font-bold">Created Date</TableHead>
+              <TableHead className="font-bold">Closed Date</TableHead>
+              <TableHead className="font-bold">Status</TableHead>
+              <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {filteredBugs.map((bug) => (
+              <TableRow
+                key={bug?.id}
+                className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+              >
+                <TableCell>
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${bug.closed
+                      ? 'bg-tasksmate-gradient border-transparent hover:scale-110'
+                      : 'border-gray-300 hover:border-gray-400 hover:scale-110'
+                      }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBugToggle(bug?.id, !bug?.closed);
+                    }}
+                  >
+                    {bug?.closed && (
+                      <Check className="h-3 w-3 text-white" />
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="font-medium">
+                  <CopyableIdBadge
+                    id={bug?.id}
+                    org_id={currentOrgId}
+                    tracker_id={bug?.tracker_id}
+                    className="bg-red-600"
+                    copyLabel="Bug"
+                    isCompleted={bug?.closed}
+                  />
+                </TableCell>
+                <TableCell className={`${bug?.closed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>
+                  {bug?.title}
+                </TableCell>
+                <TableCell>
+                  <Badge className={`${getSeverityColor(bug?.severity)} text-xs`}>
+                    {bug?.severity?.toUpperCase()}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {bug?.tags?.slice(0, 2).map((tag, index) => (
+                      <Badge key={index} variant="outline" className={`${getTagColor(tag)} text-xs`}>
+                        {tag}
+                      </Badge>
+                    ))}
+                    {bug?.tags?.length > 2 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{bug?.tags?.length - 2}
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="text-sm text-gray-600 dark:text-gray-300">
+                  {new Date(bug?.date).toLocaleDateString()}
+                </TableCell>
+                <TableCell className="text-sm text-gray-600 dark:text-gray-300">
+                  {bug?.closedDate ? (
+                    <span className="text-green-600 dark:text-green-400 font-medium">
+                      {new Date(bug.closedDate).toLocaleDateString()}
+                    </span>
+                  ) : '-'}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    className={`${bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
+                      bug?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                        bug?.status === 'in_review' ? 'bg-purple-100 text-purple-700' :
+                          bug?.status === 'resolved' ? 'bg-cyan-100 text-cyan-700' :
+                            bug?.status === 'reopened' ? 'bg-orange-100 text-orange-700' :
+                              bug?.status === 'won_t_fix' ? 'bg-gray-100 text-gray-700' :
+                                bug?.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-red-100 text-red-700'
+                      } text-xs`}
+                  >
+                    {capitalizeFirstLetter(bug?.status?.replace(/_/g, ' '))}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
+                      onClick={() => handleBugClick(bug?.id)}
+                      title="View bug details"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <MainNavigation />
 
-      <TestRunDetail />
-
       <div className="px-6 transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+        
+        {/* Breadcrumbs - Moved to top */}
+        <nav className="py-4">
+          <div className="w-full">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to={currentOrgId ? `/tester-zone?org_id=${currentOrgId}` : '/tester-zone'}>
+                      Bug Tracker
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator>
+                  <ChevronRight className="h-4 w-4" />
+                </BreadcrumbSeparator>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{id}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </nav>
+        
+        {/* Page Header */}
+        <div className="py-4">
+          <div className="w-full flex items-center justify-between">
+            <div>
+              <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-white mb-2">Bug Board</h1>
+              <p className="text-gray-600 dark:text-gray-300">Track and manage all reported bugs</p>
+            </div>
+            <Button
+              onClick={() => setIsNewBugModalOpen(true)}
+              className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Bug</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Tracker Details and KPIs */}
+        <TestRunDetail />
 
         {/* Enhanced Controls */}
-        <div className="py-2 mb-2">
+        <div className="py-4 bg-white/30 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-700">
           <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
@@ -611,7 +707,7 @@ const BugBoard = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by Bug ID, keywords..."
-                  className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
+                  className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-300 dark:border-gray-600 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end dark:text-white dark:placeholder-gray-400"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -672,42 +768,55 @@ const BugBoard = () => {
                   </SelectContent>
                 </Select>
 
-                {/* Created Date Filter */}
-                <div className="flex items-center">
-                  <span className="text-sm text-gray-500 mr-2">Created:</span>
-                  <Select value={dateFilter} onValueChange={setDateFilter}>
-                    <SelectTrigger className="w-36 bg-white">
-                      <CalendarRange className="w-4 h-4 mr-2" />
-                      <SelectValue placeholder="Date Filter" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">
-                        <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Any Time</span>
-                      </SelectItem>
-                      <SelectItem value="today">
-                        <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">Today</span>
-                      </SelectItem>
-                      <SelectItem value="yesterday">
-                        <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">Yesterday</span>
-                      </SelectItem>
-                      <SelectItem value="thisWeek">
-                        <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">This Week</span>
-                      </SelectItem>
-                      <SelectItem value="lastWeek">
-                        <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Last Week</span>
-                      </SelectItem>
-                      <SelectItem value="thisMonth">
-                        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">This Month</span>
-                      </SelectItem>
-                      <SelectItem value="lastMonth">
-                        <span className="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800">Last Month</span>
-                      </SelectItem>
-                      <SelectItem value="custom">
-                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">Custom Range</span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Created Date Filter with Calendar */}
+                <Popover open={isDatePopoverOpen} onOpenChange={setIsDatePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={dateFilter !== 'all' || isCustomDateRange ? "default" : "outline"}
+                      className="px-3 py-2 flex items-center gap-1"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-xs">Created</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-4" align="center"
+                    onInteractOutside={(e) => {
+                      // Prevent closing when clicking the calendar
+                      if ((e.target as HTMLElement).closest('.rdp')) {
+                        e.preventDefault();
+                      }
+                    }}
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">Select Created Date Range</h4>
+                      </div>
+                      <CalendarComponent
+                        mode="range"
+                        defaultMonth={tempDateRange.from}
+                        selected={tempDateRange}
+                        onSelect={handleDateRangeSelect}
+                        numberOfMonths={2}
+                        className="rounded-md border"
+                      />
+                      <div className="flex justify-between pt-2">
+                        <Button type="button" onClick={() => {
+                          resetDateRange();
+                          setTempDateRange({ from: undefined, to: undefined });
+                        }} variant="outline" size="sm">
+                          Reset
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleApplyDateRange}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
 
                 {/* Sort Options */}
                 <DropdownMenu>
@@ -771,12 +880,23 @@ const BugBoard = () => {
           </div>
         </div>
 
+        {/* Results count */}
+        <div className="py-2">
+          <div className="w-full">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Showing {filteredBugs.length} bug{filteredBugs.length !== 1 ? 's' : ''}
+              {filteredBugs.length !== bugs.length && ` (filtered from ${bugs.length} total)`}
+            </p>
+          </div>
+        </div>
 
-
-        {
+        {/* Bugs Display */}
+        <div className="py-6">
+          <div className="w-full">
+            {
           error ? (
-            <div className="text-center py-16 bg-white rounded-lg border">
-              <p className="text-red-500">Error loading bugs <br></br> {error}</p>
+            <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+              <p className="text-red-500 dark:text-red-400">Error loading bugs <br></br> {error}</p>
               <Button
                 className="bg-tasksmate-gradient hover:scale-105 transition-transform"
                 onClick={fetchBugs}
@@ -788,31 +908,31 @@ const BugBoard = () => {
           ) :
 
             (loading ? (
-              <div className="text-center py-16 bg-white rounded-lg border">
+              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                 <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
-                <p className="text-gray-500">Loading bugs...</p>
+                <p className="text-gray-500 dark:text-gray-400">Loading bugs...</p>
               </div>
             ) :
 
               (filteredBugs.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-gray-400 mb-4">
-                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                  <div className="w-24 h-24 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">No bugs found</p>
+                  <p className="text-gray-500 dark:text-gray-400 mb-6">
                     {searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all'
-                      ? 'No bugs found with current filters'
-                      : 'No bugs found'
-                    }
-                  </h3>
-                  <p className="text-gray-500 mb-4">
-                    {searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all'
-                      ? 'Try adjusting your search terms or filters, or create a new bug.'
-                      : 'Get started by creating your first bug report.'
+                      ? 'Try adjusting your filters or search query'
+                      : 'Create your first bug report to get started'
                     }
                   </p>
+                  <Button
+                    className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                    onClick={() => setIsNewBugModalOpen(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Bug Report
+                  </Button>
                   {(searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all') && (
                     <Button
                       variant="outline"
@@ -821,19 +941,15 @@ const BugBoard = () => {
                         setFilterStatus('all');
                         setFilterPriority('all');
                         setDateFilter('all');
+                        setIsCustomDateRange(false);
+                        setDateRange({ from: undefined, to: undefined });
+                        setTempDateRange({ from: undefined, to: undefined });
                       }}
-                      className="mb-4"
+                      className="mt-4"
                     >
                       Clear Filters
                     </Button>
                   )}
-                  <Button
-                    onClick={() => setIsNewBugModalOpen(true)}
-                    className="bg-green-500 hover:bg-green-600 text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Bug
-                  </Button>
                 </div>
               )
                 :
@@ -841,6 +957,8 @@ const BugBoard = () => {
               )
             )
         }
+          </div>
+        </div>
 
       </div>
 

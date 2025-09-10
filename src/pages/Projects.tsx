@@ -5,6 +5,7 @@ import NewProjectModal from '@/components/projects/NewProjectModal';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import DateBadge from "@/components/ui/date-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import CopyableBadge from "@/components/ui/copyable-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -58,7 +59,7 @@ import {
   Target,
   Users
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
@@ -99,6 +100,10 @@ const Projects = () => {
 
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 10;
 
   const userDisplayMap = React.useMemo(() => {
     const map: Record<string, { displayName: string; initials: string }> = {};
@@ -285,30 +290,53 @@ const Projects = () => {
     });
   };
 
-  const filteredProjects = sortProjects(projects.filter(project => {
+  const filteredProjects = useMemo(() => {
+    return sortProjects(projects.filter(project => {
 
-    // Tab filter (all vs mine)
-    if (tab === 'mine') {
-      const ownerString = String(project.owner ?? '').toLowerCase();
-      const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
-      if (!userIdentifiers.includes(ownerString) && !userIdentifiers.includes(ownerDisplay)) {
-        return false;
+      // Tab filter (all vs mine)
+      if (tab === 'mine') {
+        // const ownerString = String(project.owner ?? '').toLowerCase();
+        // const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
+        // if (!userIdentifiers.includes(ownerString) && !userIdentifiers.includes(ownerDisplay)) {
+        //   return false;
+        // }
+
+        if (!project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) &&
+          !userIdentifiers.includes(String(project.owner).toLowerCase())) return false;
       }
+
+      const matchesSearch = searchQuery === "" ||
+        project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(project.status);
+      const matchesPriority = filterPriorities.length === 0 || filterPriorities.includes(project.priority);
+      const matchesDate = dateFilter === "all" || isDateInRange(project.endDate, dateFilter);
+      // For Projects page, optional project-name filter (mainly to spotlight one project)
+      const matchesName = filterProjectName === "all" || project.id === filterProjectName;
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesName;
+    }));
+  }, [projects, searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab, sortBy, sortDirection, userIdentifiers]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
+  const startIndex = (currentPage - 1) * projectsPerPage;
+  const endIndex = startIndex + projectsPerPage;
+  const currentPageProjects = filteredProjects.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab]);
+
+  // Reset to last valid page if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
     }
-
-    const matchesSearch = searchQuery === "" ||
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.category.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(project.status);
-    const matchesPriority = filterPriorities.length === 0 || filterPriorities.includes(project.priority);
-    const matchesDate = dateFilter === "all" || isDateInRange(project.endDate, dateFilter);
-    // For Projects page, optional project-name filter (mainly to spotlight one project)
-    const matchesName = filterProjectName === "all" || project.id === filterProjectName;
-
-    return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesName;
-  }));
+  }, [currentPage, totalPages]);
 
   const handleProjectClick = (projectId: string) => {
     if (currentOrgId) {
@@ -479,7 +507,7 @@ const Projects = () => {
 
   const ProjectGridView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {filteredProjects.map((project) => (
+      {currentPageProjects.map((project) => (
         <Card
           key={project.id}
           className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200"
@@ -758,7 +786,7 @@ const Projects = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
@@ -766,8 +794,8 @@ const Projects = () => {
         <div className="px-6 py-8">
           <div className="w-full flex items-center justify-between">
             <div>
-              <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Projects</h1>
-              <p className="text-gray-600">Manage and track all your projects in one place</p>
+              <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-white mb-2">Projects</h1>
+              <p className="text-gray-600 dark:text-gray-300">Manage and track all your projects in one place</p>
             </div>
             <Button
               className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
@@ -792,7 +820,7 @@ const Projects = () => {
         </div>
 
         {/* Controls */}
-        <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
+        <div className="px-6 py-4 bg-white/30 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-700">
           <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
@@ -801,7 +829,7 @@ const Projects = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search projects..."
-                  className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
+                  className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-300 dark:border-gray-600 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end dark:text-white dark:placeholder-gray-400"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -955,7 +983,7 @@ const Projects = () => {
 
         <div className="px-6 py-2">
           <div className="w-full">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Showing {filteredProjects.length} of {projects.length} projects
             </p>
           </div>
@@ -967,7 +995,7 @@ const Projects = () => {
             {
               error ?
                 (
-                  <div className="text-center py-16 bg-white rounded-lg border">
+                  <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                     <p className="text-red-500">Error loading projects <br></br> {error}</p>
                     <Button
                       className="bg-tasksmate-gradient hover:scale-105 transition-transform"
@@ -980,7 +1008,7 @@ const Projects = () => {
                 )
                 :
                 (loadingProjects ? (
-                  <div className="text-center py-16 bg-white rounded-lg border">
+                  <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                     <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
                     <p className="text-gray-500">Loading projects...</p>
                   </div>
@@ -1005,73 +1033,38 @@ const Projects = () => {
                     </Button>
                   </div>
                   ) : (
-                    <div className="rounded-md border shadow-tasksmate overflow-x-auto">
-                      <Table className="min-w-full">
-                        <TableHeader className="bg-gray-50">
-                          <TableRow>
-                            <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
-                            <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
-                            <TableHead className="min-w-[200px] sm:min-w-[300px] md:w-80 font-bold">Title</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Progress</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
-                            <TableHead className="w-20 sm:w-24 text-center font-bold">Priority</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Owner</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Start Date</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Due Date</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Members</TableHead>
-                            {/* <TableHead className="w-40 text-center font-bold">Tags</TableHead> */}
-                            <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredProjects.map((project) => (
-                            <TableRow
-                              key={project.id}
-                              className={`hover:bg-slate-50/60 transition-colors ${project.status === 'completed' ? 'bg-gray-50/60' : ''}`}
-                            >
-                              <TableCell className="p-2 text-center">
-                                <div
-                                  className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
-                                    ? 'bg-tasksmate-gradient border-transparent'
-                                    : 'border-gray-300 hover:border-gray-400'
-                                    }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (
-                                      // check for project membership or project creation
-                                      !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
-                                    ) {
-                                      return;
-                                    }
-                                    handleProjectStatusToggle(project.id);
-                                  }}
-
-                                >
-                                  {project.status === 'completed' && (
-                                    <Check className="h-3 w-3 text-white" />
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center p-2">
-                                <div className="flex justify-center min-w-0">
-                                  <CopyableBadge copyText={project.id} org_id={currentOrgId ?? ''} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white max-w-full min-w-0 flex-shrink">
-                                    {project.id}
-                                  </CopyableBadge>
-                                </div>
-                              </TableCell>
-                              <TableCell className="font-medium w-80">
-                                <div className="flex items-center">
+                    <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
+                      <div className="min-w-max w-full">
+                        <Table className="w-full">
+                          <TableHeader className="bg-gray-50 dark:bg-gray-800">
+                            <TableRow>
+                              <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
+                              <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
+                              <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60 font-bold">Title</TableHead>
+                              <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80 font-bold">Description</TableHead>
+                              <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Progress</TableHead>
+                              <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
+                              <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Priority</TableHead>
+                              <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Owner</TableHead>
+                              <TableHead className="w-32 sm:w-32 md:w-40 text-center font-bold">Start Date</TableHead>
+                              <TableHead className="w-32 sm:w-32 md:w-40 text-center font-bold">Due Date</TableHead>
+                              <TableHead className="w-32 sm:w-32 md:w-40 text-center font-bold">Members</TableHead>
+                              {/* <TableHead className="w-40 text-center font-bold">Tags</TableHead> */}
+                              <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {currentPageProjects.map((project) => (
+                              <TableRow
+                                key={project.id}
+                                className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${project.status === 'completed' ? 'bg-gray-50/60 dark:bg-gray-800/60' : ''}`}
+                              >
+                                <TableCell className="p-2 text-center">
                                   <div
-                                    className={`truncate max-w-[260px] ${project.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
-                                    ref={(el) => {
-                                      if (el) {
-                                        // Check if text is truncated
-                                        const isTrunc = el.scrollWidth > el.clientWidth;
-                                        if (isTruncated[project.id] !== isTrunc) {
-                                          setIsTruncated(prev => ({ ...prev, [project.id]: isTrunc }));
-                                        }
-                                      }
-                                    }}
+                                    className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${project.status === 'completed'
+                                      ? 'bg-tasksmate-gradient border-transparent'
+                                      : 'border-gray-300 hover:border-gray-400'
+                                      }`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       if (
@@ -1080,214 +1073,266 @@ const Projects = () => {
                                       ) {
                                         return;
                                       }
-                                      handleProjectClick(project.id);
-                                    }}
-                                  >
-                                    {project.name}
-                                  </div>
-                                  {isTruncated[project.id] && (
-                                    <Button
-                                      variant="ghost"
-                                      className="ml-1 p-0 h-6 w-6 shrink-0"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedProject(project);
-                                        setIsDialogOpen(true);
-                                      }}
-                                    >
-                                      <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex flex-col items-center">
-                                  <div className="w-full bg-gray-200 rounded-full h-3 max-w-[180px] cursor-pointer" onClick={() => handleNavigation('tasks_catalog', project.id)}>
-                                    <div
-                                      className="bg-tasksmate-gradient h-3 rounded-full transition-all duration-300"
-                                      style={{ width: `${project.progress}%` }}
-                                    ></div>
-                                  </div>
-                                  <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                                    <span className="font-semibold">{project.progress}%</span>
-                                    <span>(<span className="font-semibold">{project.completedTasks}</span>/<span className="font-semibold">{project.tasksCount}</span> <span className="font-semibold">Tasks</span>)</span>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Select
-                                    value={project.status}
-                                    onValueChange={(value) => {
-                                      // Optimistic update
-                                      setProjects(prev =>
-                                        prev.map(p => p.id === project.id ? { ...p, status: value } : p)
-                                      );
-                                      toast({
-                                        title: "Updating project status",
-                                        description: "Please wait...",
-                                      });
-                                      // API update
-                                      api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { status: value })
-                                        .then(() => {
-                                          toast({
-                                            title: "Success",
-                                            description: "Project status updated successfully!",
-                                            variant: "default"
-                                          });
-                                        })
-                                        .catch(error => {
-                                          console.error('Failed to update status:', error);
-                                          // Revert on error
-                                          setProjects(prev =>
-                                            prev.map(p => p.id === project.id ? { ...p, status: project.status } : p)
-                                          );
-                                          toast({
-                                            title: "Error",
-                                            description: "Failed to update status",
-                                            variant: "destructive"
-                                          });
-                                        });
+                                      handleProjectStatusToggle(project.id);
                                     }}
 
-                                    disabled={
-                                      // check for project membership or project creation
-                                      !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username) && project.owner !== user?.user_metadata?.username
-                                    }
                                   >
-                                    <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${getStatusMeta(project.status).color}`}>
-                                      <SelectValue>{getStatusMeta(project.status).label}</SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {[
-                                        { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
-                                        { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
-                                        { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
-                                        { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
-                                        { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
-                                        { value: 'planning', label: 'Planning', cls: 'bg-purple-100 text-purple-800' },
-                                        { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
-                                        { value: 'active', label: 'Active', cls: 'bg-blue-100 text-blue-800' },
-                                      ].map(opt => (
-                                        <SelectItem key={opt.value} value={opt.value}>
-                                          <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Select
-                                    value={project.priority}
-                                    onValueChange={(value) => {
-                                      // Optimistic update
-                                      setProjects(prev =>
-                                        prev.map(p => p.id === project.id ? { ...p, priority: value } : p)
-                                      );
-                                      toast({
-                                        title: "Updating project priority",
-                                        description: "Please wait...",
-                                      });
-                                      // API update
-                                      api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { priority: value })
-                                        .then(() => {
-                                          toast({
-                                            title: "Success",
-                                            description: "Project priority updated successfully!",
-                                            variant: "default"
-                                          });
-                                        })
-                                        .catch(error => {
-                                          console.error('Failed to update priority:', error);
-                                          // Revert on error
-                                          setProjects(prev =>
-                                            prev.map(p => p.id === project.id ? { ...p, priority: project.priority } : p)
-                                          );
-                                          toast({
-                                            title: "Error",
-                                            description: "Failed to update priority",
-                                            variant: "destructive"
-                                          });
-                                        });
-                                    }}
-                                    disabled={
-                                      // check for project membership or project creation
-                                      !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username) && project.owner !== user?.user_metadata?.username
-                                    }
-                                  >
-                                    <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(project.priority)}`}>
-                                      <SelectValue>{project.priority?.toUpperCase()}</SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {['critical', 'high', 'medium', 'low', 'none'].map(p => (
-                                        <SelectItem key={p} value={p}>
-                                          <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Badge className="text-xs bg-indigo-100 text-indigo-800">
-                                    {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
-                                  </Badge>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                                    {project.startDate ? formatDate(project.startDate) : formatDate(project.createdAt)}
-                                  </Badge>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
-                                    {project.endDate ? formatDate(project.endDate) : '—'}
-                                  </Badge>
-                                </div>
-                              </TableCell>
-
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <div className="flex -space-x-2">
-                                    {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
-                                    {project.teamMembers.length > 3 && (
-                                      <HoverCard>
-                                        <HoverCardTrigger asChild>
-                                          <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
-                                            <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
-                                          </div>
-                                        </HoverCardTrigger>
-                                        <HoverCardContent className="p-2 bg-white w-fit max-w-[280px]">
-                                          <div className="text-sm font-medium mb-1">Team Members</div>
-                                          <div className="grid grid-cols-2 gap-2">
-                                            {project.teamMembers.slice(3).map((memberId, idx) => {
-                                              const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
-                                              return (
-                                                <div key={idx} className="flex items-center gap-2">
-                                                  <Avatar className="w-5 h-5 border-2 border-white">
-                                                    <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
-                                                      {info.initials}
-                                                    </AvatarFallback>
-                                                  </Avatar>
-                                                  <span className="text-xs text-gray-700 truncate">{info.displayName}</span>
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-                                        </HoverCardContent>
-                                      </HoverCard>
+                                    {project.status === 'completed' && (
+                                      <Check className="h-3 w-3 text-white" />
                                     )}
                                   </div>
-                                </div>
-                              </TableCell>
+                                </TableCell>
+                                <TableCell className="text-center p-2">
+                                  <div className="flex justify-center min-w-0">
+                                    <CopyableBadge copyText={project.id} org_id={currentOrgId ?? ''} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white max-w-full min-w-0 flex-shrink">
+                                      {project.id}
+                                    </CopyableBadge>
+                                  </div>
+                                </TableCell>
 
-                              {/* <TableCell className="text-center">
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center">
+                                    <div
+                                      className={`truncate ${project.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
+                                      ref={(el) => {
+                                        if (el) {
+                                          // Check if text is truncated
+                                          const isTrunc = el.scrollWidth > el.clientWidth;
+                                          if (isTruncated[project.id] !== isTrunc) {
+                                            setIsTruncated(prev => ({ ...prev, [project.id]: isTrunc }));
+                                          }
+                                        }
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (
+                                          // check for project membership or project creation
+                                          !project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
+                                        ) {
+                                          toast({
+                                            title: "Error",
+                                            description: "You do not have permission to view this project",
+                                            variant: "destructive"
+                                          });
+                                          return;
+                                        }
+                                        handleProjectClick(project.id);
+                                      }}
+                                    >
+                                      {project.name}
+                                    </div>
+                                    {isTruncated[project.id] && (
+                                      <Button
+                                        variant="ghost"
+                                        className="ml-1 p-0 h-6 w-6 shrink-0"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedProject(project);
+                                          setIsDialogOpen(true);
+                                        }}
+                                      >
+                                        <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  <div className="min-w-0 max-w-xs">
+                                    <div
+                                      className="text-sm text-gray-600 dark:text-gray-300 break-words overflow-hidden"
+                                      style={{
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        lineHeight: '1.4em',
+                                        maxHeight: '2.8em'
+                                      }}
+                                      title={project.description}
+                                    >
+                                      {project.description}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-full bg-gray-200 rounded-full h-3 max-w-[180px] cursor-pointer" onClick={() => handleNavigation('tasks_catalog', project.id)}>
+                                      <div
+                                        className="bg-tasksmate-gradient h-3 rounded-full transition-all duration-300"
+                                        style={{ width: `${project.progress}%` }}
+                                      ></div>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                                      <span className="font-semibold">{project.progress}%</span>
+                                      <span>(<span className="font-semibold">{project.completedTasks}</span>/<span className="font-semibold">{project.tasksCount}</span> <span className="font-semibold">Tasks</span>)</span>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Select
+                                      value={project.status}
+                                      onValueChange={(value) => {
+                                        // Optimistic update
+                                        setProjects(prev =>
+                                          prev.map(p => p.id === project.id ? { ...p, status: value } : p)
+                                        );
+                                        toast({
+                                          title: "Updating project status",
+                                          description: "Please wait...",
+                                        });
+                                        // API update
+                                        api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { status: value })
+                                          .then(() => {
+                                            toast({
+                                              title: "Success",
+                                              description: "Project status updated successfully!",
+                                              variant: "default"
+                                            });
+                                          })
+                                          .catch(error => {
+                                            console.error('Failed to update status:', error);
+                                            // Revert on error
+                                            setProjects(prev =>
+                                              prev.map(p => p.id === project.id ? { ...p, status: project.status } : p)
+                                            );
+                                            toast({
+                                              title: "Error",
+                                              description: "Failed to update status",
+                                              variant: "destructive"
+                                            });
+                                          });
+                                      }}
+
+                                      disabled={
+                                        // check for project membership or project creation
+                                        !(project.owner === user?.user_metadata?.username || project.owner === user?.id)
+                                      }
+                                    >
+                                      <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${getStatusMeta(project.status).color}`}>
+                                        <SelectValue>{getStatusMeta(project.status).label}</SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {[
+                                          { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
+                                          { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
+                                          { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
+                                          { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
+                                          { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
+                                          { value: 'planning', label: 'Planning', cls: 'bg-purple-100 text-purple-800' },
+                                          { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
+                                          { value: 'active', label: 'Active', cls: 'bg-blue-100 text-blue-800' },
+                                        ].map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>
+                                            <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Select
+                                      value={project.priority}
+                                      onValueChange={(value) => {
+                                        // Optimistic update
+                                        setProjects(prev =>
+                                          prev.map(p => p.id === project.id ? { ...p, priority: value } : p)
+                                        );
+                                        toast({
+                                          title: "Updating project priority",
+                                          description: "Please wait...",
+                                        });
+                                        // API update
+                                        api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { priority: value })
+                                          .then(() => {
+                                            toast({
+                                              title: "Success",
+                                              description: "Project priority updated successfully!",
+                                              variant: "default"
+                                            });
+                                          })
+                                          .catch(error => {
+                                            console.error('Failed to update priority:', error);
+                                            // Revert on error
+                                            setProjects(prev =>
+                                              prev.map(p => p.id === project.id ? { ...p, priority: project.priority } : p)
+                                            );
+                                            toast({
+                                              title: "Error",
+                                              description: "Failed to update priority",
+                                              variant: "destructive"
+                                            });
+                                          });
+                                      }}
+                                      disabled={
+                                        // check for project membership or project creation
+                                        !(project.owner === user?.user_metadata?.username || project.owner === user?.id)
+                                      }
+                                    >
+                                      <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(project.priority)}`}>
+                                        <SelectValue>{project.priority?.toUpperCase()}</SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {['critical', 'high', 'medium', 'low', 'none'].map(p => (
+                                          <SelectItem key={p} value={p}>
+                                            <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Badge className="text-xs bg-indigo-100 text-indigo-800">
+                                      {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <DateBadge date={project.startDate ? project.startDate : project.createdAt} className="text-xs bg-blue-100 text-blue-800" />
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <DateBadge date={project.endDate ? project.endDate : project.createdAt} className="text-xs bg-rose-100 text-rose-800" />
+                                </TableCell>
+
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <div className="flex -space-x-2">
+                                      {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
+                                      {project.teamMembers.length > 3 && (
+                                        <HoverCard>
+                                          <HoverCardTrigger asChild>
+                                            <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
+                                              <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
+                                            </div>
+                                          </HoverCardTrigger>
+                                          <HoverCardContent className="p-2 bg-white w-fit max-w-[280px]">
+                                            <div className="text-sm font-medium mb-1">Team Members</div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                              {project.teamMembers.slice(3).map((memberId, idx) => {
+                                                const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
+                                                return (
+                                                  <div key={idx} className="flex items-center gap-2">
+                                                    <Avatar className="w-5 h-5 border-2 border-white">
+                                                      <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                                                        {info.initials}
+                                                      </AvatarFallback>
+                                                    </Avatar>
+                                                    <span className="text-xs text-gray-700 truncate">{info.displayName}</span>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </HoverCardContent>
+                                        </HoverCard>
+                                      )}
+                                    </div>
+                                  </div>
+                                </TableCell>
+
+                                {/* <TableCell className="text-center">
                         <div className="flex flex-wrap justify-center gap-1">
                           {project.hasOwnProperty('tags') && Array.isArray((project as any).tags) && (project as any).tags.length > 0 ? (
                             (project as any).tags.slice(0, 3).map((tag: string, index: number) => (
@@ -1305,30 +1350,131 @@ const Projects = () => {
                           )}
                         </div>
                       </TableCell> */}
-                              <TableCell className="text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <button 
-                                    className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
-                                    onClick={() => handleProjectClick(project.id)}
-                                    title="View project details"
-                                    disabled={
-                                      !project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) &&
-                                      !userIdentifiers.includes(String(project.owner).toLowerCase())
-                                    }
-                                  >
-                                    <ArrowRight className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                                <TableCell className="text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
+                                      onClick={() => handleProjectClick(project.id)}
+                                      title="View project details"
+                                      disabled={
+                                        !project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) &&
+                                        !userIdentifiers.includes(String(project.owner).toLowerCase())
+                                      }
+                                    >
+                                      <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   )
                 )}
 
-            
+                {/* Pagination */}
+                {filteredProjects.length > 0 && (
+                  <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Showing {startIndex + 1}-{Math.min(endIndex, filteredProjects.length)} of {filteredProjects.length} projects
+                    </div>
+                    
+                    <div className="flex items-center space-x-2 flex-wrap justify-center">
+                      {/* Previous button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1"
+                      >
+                        Previous
+                      </Button>
+
+                      {/* Page numbers */}
+                      <div className="flex items-center space-x-1">
+                        {(() => {
+                          const pages = [];
+                          const maxVisiblePages = 5;
+                          let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                          let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                          
+                          // Adjust start if we're near the end
+                          if (endPage - startPage < maxVisiblePages - 1) {
+                            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                          }
+
+                          // First page + ellipsis
+                          if (startPage > 1) {
+                            pages.push(
+                              <Button
+                                key={1}
+                                variant={1 === currentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(1)}
+                                className="w-8 h-8 p-0"
+                              >
+                                1
+                              </Button>
+                            );
+                            if (startPage > 2) {
+                              pages.push(<span key="ellipsis1" className="text-gray-400 px-2">...</span>);
+                            }
+                          }
+
+                          // Visible page numbers
+                          for (let i = startPage; i <= endPage; i++) {
+                            pages.push(
+                              <Button
+                                key={i}
+                                variant={i === currentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(i)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {i}
+                              </Button>
+                            );
+                          }
+
+                          // Last page + ellipsis
+                          if (endPage < totalPages) {
+                            if (endPage < totalPages - 1) {
+                              pages.push(<span key="ellipsis2" className="text-gray-400 px-2">...</span>);
+                            }
+                            pages.push(
+                              <Button
+                                key={totalPages}
+                                variant={totalPages === currentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {totalPages}
+                              </Button>
+                            );
+                          }
+
+                          return pages;
+                        })()}
+                      </div>
+
+                      {/* Next button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
           </div>
         </div>
       </div>
