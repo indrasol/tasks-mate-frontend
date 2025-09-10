@@ -63,7 +63,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import DateBadge from "@/components/ui/date-badge";
 
 
 type ViewMode = 'table';
@@ -500,7 +499,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   const handleNewTask = () => {
     setIsNewTaskModalOpen(true);
-    if (projects?.length == 0) {
+    if(projects?.length == 0){
       fetchProjects();
     }
   };
@@ -1001,349 +1000,348 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   </div>
                 ) : (
                   <div className="rounded-md border shadow-tasksmate overflow-x-auto">
-                    <div className="min-w-max w-full">
-                      <Table className="w-full">
-                        <TableHeader className="bg-gray-50">
-                          <TableRow>
-                            <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
-                            <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
-                            <TableHead className="min-w-[200px] sm:min-w-[300px] md:w-80 font-bold">Title</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Priority</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Assigned To</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Start Date</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Due Date</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-40 text-center font-bold">Project</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Tags</TableHead>
-                            <TableHead className="w-20 sm:w-24 text-center font-bold">Created By</TableHead>
-                            <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredTasks.map((task) => (
-                            <TableRow
-                              key={task.id}
-                              className={`hover:bg-slate-50/60 transition-colors ${task.status === 'completed' ? 'bg-gray-50/60' : ''}`}
-                            >
-                              <TableCell className="p-2 text-center">
+                    <Table className="min-w-full">
+                      <TableHeader className="bg-gray-50">
+                        <TableRow>
+                          <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
+                          <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
+                          <TableHead className="min-w-[200px] sm:min-w-[300px] md:w-80 font-bold">Title</TableHead>
+                          <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
+                          <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Priority</TableHead>
+                          <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Assigned To</TableHead>
+                          <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Start Date</TableHead>
+                          <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Due Date</TableHead>
+                          <TableHead className="w-24 sm:w-28 md:w-36 text-center font-bold">Project</TableHead>
+                          <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Tags</TableHead>
+                          <TableHead className="w-20 sm:w-24 text-center font-bold">Created By</TableHead>
+                          <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredTasks.map((task) => (
+                          <TableRow
+                            key={task.id}
+                            className={`hover:bg-slate-50/60 transition-colors ${task.status === 'completed' ? 'bg-gray-50/60' : ''}`}
+                          >
+                            <TableCell className="p-2 text-center">
+                              <div
+                                className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${task.status === 'completed'
+                                  ? 'bg-tasksmate-gradient border-transparent'
+                                  : 'border-gray-300 hover:border-gray-400'
+                                  }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!task.is_editable) return;
+                                  handleTaskStatusToggle(task.id);
+                                }}
+                              >
+                                {task.status === 'completed' && (
+                                  <Check className="h-3 w-3 text-white" />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center p-2">
+                              <div onClick={(e) => e.stopPropagation()} className="flex justify-center min-w-0">
+                                <CopyableIdBadge id={task.id} org_id={currentOrgId} isCompleted={task.status === 'completed'} />
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium w-80">
+                              <div className="flex items-center">
                                 <div
-                                  className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${task.status === 'completed'
-                                    ? 'bg-tasksmate-gradient border-transparent'
-                                    : 'border-gray-300 hover:border-gray-400'
-                                    }`}
+                                  className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
+                                  ref={(el) => {
+                                    if (el) {
+                                      // Check if text is truncated
+                                      const isTrunc = el.scrollWidth > el.clientWidth;
+                                      if (isTruncated[task.id] !== isTrunc) {
+                                        setIsTruncated(prev => ({ ...prev, [task.id]: isTrunc }));
+                                      }
+                                    }
+                                  }}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (!task.is_editable) return;
-                                    handleTaskStatusToggle(task.id);
+                                    handleTaskClick(task.id);
                                   }}
                                 >
-                                  {task.status === 'completed' && (
-                                    <Check className="h-3 w-3 text-white" />
-                                  )}
+                                  {task.name}
                                 </div>
-                              </TableCell>
-                              <TableCell className="text-center p-2">
-                                <div onClick={(e) => e.stopPropagation()} className="flex justify-center min-w-0">
-                                  <CopyableIdBadge id={task.id} org_id={currentOrgId} isCompleted={task.status === 'completed'} />
-                                </div>
-                              </TableCell>
-                              <TableCell className="font-medium w-80">
-                                <div className="flex items-center">
-                                  <div
-                                    className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
-                                    ref={(el) => {
-                                      if (el) {
-                                        // Check if text is truncated
-                                        const isTrunc = el.scrollWidth > el.clientWidth;
-                                        if (isTruncated[task.id] !== isTrunc) {
-                                          setIsTruncated(prev => ({ ...prev, [task.id]: isTrunc }));
-                                        }
-                                      }
-                                    }}
+                                {isTruncated[task.id] && (
+                                  <Button
+                                    variant="ghost"
+                                    className="ml-1 p-0 h-6 w-6 shrink-0"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleTaskClick(task.id);
+                                      setSelectedTask(task);
+                                      setIsDialogOpen(true);
                                     }}
                                   >
-                                    {task.name}
-                                  </div>
-                                  {isTruncated[task.id] && (
-                                    <Button
-                                      variant="ghost"
-                                      className="ml-1 p-0 h-6 w-6 shrink-0"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedTask(task);
-                                        setIsDialogOpen(true);
-                                      }}
-                                    >
-                                      <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Select
-                                    value={task.status}
-                                    onValueChange={(value) => {
-                                      // Optimistic update
-                                      setTasks(prev =>
-                                        prev.map(t => t.id === task.id ? { ...t, status: value } : t)
-                                      );
-                                      toast({
-                                        title: "Updating task status",
-                                        description: "Please wait...",
-                                      });
-                                      // API update
-                                      taskService.updateTask(task.id, {
-                                        status: value,
-                                        project_id: task.projectId,
-                                        title: task.name
-                                      }).then(() => {
-                                        toast({
-                                          title: "Success",
-                                          description: "Task status updated successfully",
-                                          variant: "default"
-                                        });
-                                      })
-                                        .catch(error => {
-                                          console.error('Failed to update status:', error);
-                                          // Revert on error
-                                          setTasks(prev =>
-                                            prev.map(t => t.id === task.id ? { ...t, status: task.status } : t)
-                                          );
-                                          toast({
-                                            title: "Error",
-                                            description: "Failed to update status",
-                                            variant: "destructive"
-                                          });
-                                        });
-                                    }}
-                                  >
-                                    <SelectTrigger
-                                      className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${(() => {
-                                        const s = task.status.replace('in_progress', 'in-progress');
-                                        if (s === 'completed') return 'bg-green-100 text-green-800';
-                                        if (s === 'in-progress') return 'bg-blue-100 text-blue-800';
-                                        if (s === 'blocked') return 'bg-red-100 text-red-800';
-                                        if (s === 'on_hold') return 'bg-yellow-100 text-yellow-800';
-                                        if (s === 'archived') return 'bg-black text-white';
-                                        return 'bg-gray-100 text-gray-800';
-                                      })()}`}
-                                    >
-                                      <SelectValue>{getStatusText(task.status)}</SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {[
-                                        { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
-                                        { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
-                                        { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
-                                        { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
-                                        { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
-                                        { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
-                                      ].map(opt => (
-                                        <SelectItem key={opt.value} value={opt.value}>
-                                          <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Select
-                                    value={task.priority ?? 'none'}
-                                    onValueChange={(value) => {
-                                      // Optimistic update
-                                      setTasks(prev =>
-                                        prev.map(t => t.id === task.id ? { ...t, priority: value } : t)
-                                      );
-                                      toast({
-                                        title: "Updating task priority",
-                                        description: "Please wait...",
-                                      });
-                                      // API update
-                                      taskService.updateTask(task.id, {
-                                        priority: value,
-                                        project_id: task.projectId,
-                                        title: task.name
-                                      }).then(() => {
-                                        toast({
-                                          title: "Success",
-                                          description: "Task priority updated successfully",
-                                          variant: "default"
-                                        });
-                                      })
-                                        .catch(error => {
-                                          console.error('Failed to update priority:', error);
-                                          // Revert on error
-                                          setTasks(prev =>
-                                            prev.map(t => t.id === task.id ? { ...t, priority: task.priority } : t)
-                                          );
-                                          toast({
-                                            title: "Error",
-                                            description: "Failed to update priority",
-                                            variant: "destructive"
-                                          });
-                                        });
-                                    }}
-                                  >
-                                    <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(task.priority ?? 'none')}`}>
-                                      <SelectValue>{(task.priority ?? 'NONE').toUpperCase()}</SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {['critical', 'high', 'medium', 'low', 'none'].map(p => (
-                                        <SelectItem key={p} value={p}>
-                                          <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-
-                                  <Select value={task.owner} onValueChange={(value) => {
+                                    <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                <Select
+                                  value={task.status}
+                                  onValueChange={(value) => {
                                     // Optimistic update
                                     setTasks(prev =>
-                                      prev.map(t => t.id === task.id ? { ...t, owner: value } : t)
+                                      prev.map(t => t.id === task.id ? { ...t, status: value } : t)
                                     );
                                     toast({
-                                      title: "Updating task owner",
+                                      title: "Updating task status",
                                       description: "Please wait...",
                                     });
                                     // API update
                                     taskService.updateTask(task.id, {
-                                      assignee: value,
+                                      status: value,
                                       project_id: task.projectId,
                                       title: task.name
+                                    }).then(() => {
+                                      toast({
+                                        title: "Success",
+                                        description: "Task status updated successfully",
+                                        variant: "default"
+                                      });
                                     })
-                                      .then(() => {
-                                        toast({
-                                          title: "Success",
-                                          description: "Task owner updated successfully",
-                                          variant: "default"
-                                        });
-                                      })
                                       .catch(error => {
-                                        console.error('Failed to update owner:', error);
+                                        console.error('Failed to update status:', error);
                                         // Revert on error
                                         setTasks(prev =>
-                                          prev.map(t => t.id === task.id ? { ...t, owner: task.owner } : t)
+                                          prev.map(t => t.id === task.id ? { ...t, status: task.status } : t)
                                         );
                                         toast({
                                           title: "Error",
-                                          description: "Failed to update owner",
+                                          description: "Failed to update status",
                                           variant: "destructive"
                                         });
                                       });
-                                  }}>
-                                    <SelectTrigger className="h-8 px-2 py-0 w-fit min-w-[5rem] border-0">
-                                      <SelectValue placeholder="Select owner" className="text-xs" >
-                                        {(() => {                                          
-                                          const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
-                                          return `👤 ${displayName}`;
-                                        })()}
-                                      </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent className="w-fit min-w-[5rem]">
-
-                                      {orgMembers?.map((m) => {
-                                        const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
-                                        const { displayName } = deriveDisplayFromEmail(username);
-                                        return (
-                                          <SelectItem key={m.user_id} value={String(username)}>
-                                            {displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
-                                          </SelectItem>
-                                        );
-                                      })}
-
-                                    </SelectContent>
-                                  </Select>
-
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <DateBadge date={task.startDate ? task.startDate : task.createdDate} className="text-xs bg-blue-100 text-blue-800" />
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <DateBadge date={task.targetDate} className="text-xs bg-rose-100 text-rose-800" />
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
-                                    {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
-                                  </Badge>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  {/* decrease scroll-bar height or width */}
-                                  <div className="max-w-[200px] overflow-x-auto whitespace-nowrap py-1" 
-                                  style={{
-                                    scrollbarWidth: "thin",
-                                    scrollBehavior: "smooth",
-
-                                    // scrollbarColor: "#ccc #f1f1f1"
                                   }}
+                                >
+                                  <SelectTrigger
+                                    className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${(() => {
+                                      const s = task.status.replace('in_progress', 'in-progress');
+                                      if (s === 'completed') return 'bg-green-100 text-green-800';
+                                      if (s === 'in-progress') return 'bg-blue-100 text-blue-800';
+                                      if (s === 'blocked') return 'bg-red-100 text-red-800';
+                                      if (s === 'on_hold') return 'bg-yellow-100 text-yellow-800';
+                                      if (s === 'archived') return 'bg-black text-white';
+                                      return 'bg-gray-100 text-gray-800';
+                                    })()}`}
                                   >
-                                    <div className="inline-flex gap-1">
-                                      {task.tags && task.tags.length > 0 ? (
-                                        task.tags.map((tag, index) => (
-                                          <Badge key={index} variant="outline" className="text-xs bg-purple-100 text-purple-800 whitespace-nowrap">
-                                            {tag}
-                                          </Badge>
-                                        ))
-                                      ) : (
-                                        <span className="text-xs text-gray-400">—</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  {orgMembers?.filter((m: any, index: number) => (((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id) === task.createdBy)?.map((m, index) => {
-                                    const username = (((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id);
-                                    const { displayName } = deriveDisplayFromEmail(username);
-                                    return (
-                                      <Badge key={index} variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                                        {displayName}
-                                      </Badge>
+                                    <SelectValue>{getStatusText(task.status)}</SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {[
+                                      { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
+                                      { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
+                                      { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
+                                      { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
+                                      { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
+                                      { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
+                                    ].map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>
+                                        <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                <Select
+                                  value={task.priority ?? 'none'}
+                                  onValueChange={(value) => {
+                                    // Optimistic update
+                                    setTasks(prev =>
+                                      prev.map(t => t.id === task.id ? { ...t, priority: value } : t)
                                     );
-                                  })}
+                                    toast({
+                                      title: "Updating task priority",
+                                      description: "Please wait...",
+                                    });
+                                    // API update
+                                    taskService.updateTask(task.id, {
+                                      priority: value,
+                                      project_id: task.projectId,
+                                      title: task.name
+                                    }).then(() => {
+                                      toast({
+                                        title: "Success",
+                                        description: "Task priority updated successfully",
+                                        variant: "default"
+                                      });
+                                    })
+                                      .catch(error => {
+                                        console.error('Failed to update priority:', error);
+                                        // Revert on error
+                                        setTasks(prev =>
+                                          prev.map(t => t.id === task.id ? { ...t, priority: task.priority } : t)
+                                        );
+                                        toast({
+                                          title: "Error",
+                                          description: "Failed to update priority",
+                                          variant: "destructive"
+                                        });
+                                      });
+                                  }}
+                                >
+                                  <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(task.priority ?? 'none')}`}>
+                                    <SelectValue>{(task.priority ?? 'NONE').toUpperCase()}</SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {['critical', 'high', 'medium', 'low', 'none'].map(p => (
+                                      <SelectItem key={p} value={p}>
+                                        <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
 
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <button
-                                    className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
-                                    onClick={() => handleTaskClick(task.id)}
-                                    title="View task details"
-                                  >
-                                    <ArrowRight className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                                <Select value={task.owner} onValueChange={(value) => {
+                                  // Optimistic update
+                                  setTasks(prev =>
+                                    prev.map(t => t.id === task.id ? { ...t, owner: value } : t)
+                                  );
+                                  toast({
+                                    title: "Updating task owner",
+                                    description: "Please wait...",
+                                  });
+                                  // API update
+                                  taskService.updateTask(task.id, {
+                                    assignee: value,
+                                    project_id: task.projectId,
+                                    title: task.name
+                                  })
+                                    .then(() => {
+                                      toast({
+                                        title: "Success",
+                                        description: "Task owner updated successfully",
+                                        variant: "default"
+                                      });
+                                    })
+                                    .catch(error => {
+                                      console.error('Failed to update owner:', error);
+                                      // Revert on error
+                                      setTasks(prev =>
+                                        prev.map(t => t.id === task.id ? { ...t, owner: task.owner } : t)
+                                      );
+                                      toast({
+                                        title: "Error",
+                                        description: "Failed to update owner",
+                                        variant: "destructive"
+                                      });
+                                    });
+                                }}>
+                                  <SelectTrigger className="h-8 px-2 py-0 w-fit min-w-[5rem] border-0">
+                                    <SelectValue placeholder="Select owner" >
+                                      {(() => {
+                                        const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                                        return `👤 ${displayName}`;
+                                      })()}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent className="w-fit min-w-[5rem]">
+
+                                    {orgMembers?.map((m) => {
+                                      const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
+                                      const { displayName } = deriveDisplayFromEmail(username);
+                                      return (
+                                        <SelectItem key={m.user_id} value={String(username)}>
+                                          {displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
+                                        </SelectItem>
+                                      );
+                                    })}
+
+                                  </SelectContent>
+                                </Select>
+
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                  {task.startDate ? formatDate(task.startDate) : formatDate(task.createdDate)}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                                  {task.targetDate ? formatDate(task.targetDate) : '—'}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
+                                  {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex flex-wrap justify-center gap-1">
+                                {task.tags && task.tags.length > 0 ? (
+                                  task.tags.slice(0, 3).map((tag, index) => (
+                                    <Badge key={index} variant="outline" className="text-xs bg-purple-100 text-purple-800">
+                                      {tag}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-gray-400">—</span>
+                                )}
+                                {task.tags && task.tags.length > 3 && (
+                                  <Badge key='tags' variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                                    +{task.tags.length - 3}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                {orgMembers?.filter((m: any, index: number) => (((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id) === task.createdBy)?.map((m, index) => {
+                                  const username = (((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id);
+                                  const { displayName } = deriveDisplayFromEmail(username);
+                                  return (
+                                    <Badge key={index} variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                                      {displayName}
+                                    </Badge>
+                                  );
+                                })}
+
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button 
+                                  className="p-1.5 rounded-full hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
+                                  onClick={() => handleTaskClick(task.id)}
+                                  title="View task details"
+                                >
+                                  <ArrowRight className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )
                 )}
 
             {/* Error state */}
-            {/* {error && (
+            {error && (
               <div className="text-center py-16 bg-white rounded-lg border">
                 <p className="text-red-500">Error loading tasks <br></br> {error}</p>
               </div>
-            )} */}
+            )}
           </div>
         </div>
 
