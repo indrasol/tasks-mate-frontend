@@ -110,30 +110,31 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+      <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto bg-white dark:bg-gray-900">
         <SheetHeader className="mb-6">
-          <SheetTitle>Create New Test Run</SheetTitle>
-          <SheetDescription>
+          <SheetTitle className="dark:text-white">Create New Test Run</SheetTitle>
+          <SheetDescription className="dark:text-gray-300">
             Set up a new test run for your project.
           </SheetDescription>
         </SheetHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Tracker Name</Label>
+            <Label htmlFor="name" className="text-gray-700 dark:text-gray-300">Tracker Name</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               placeholder="Enter tracker name"
+              className="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="project">Project</Label>
+            <Label htmlFor="project" className="text-gray-700 dark:text-gray-300">Project</Label>
             <Select value={formData.projectId} onValueChange={handleProjectChange}>
-              <SelectTrigger>
+              <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                 {loadingProjects ? (
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -143,7 +144,7 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
                   <SelectValue placeholder="Select project" />
                 )}
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                 {projects.length === 0 && !loadingProjects && (
                   <SelectItem value="no-projects" disabled>No projects available</SelectItem>
                 )}
@@ -158,15 +159,15 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status" className="text-gray-700 dark:text-gray-300">Status</Label>
               <Select 
                 value={formData.status} 
                 onValueChange={(value) => setFormData({...formData, status: value})}
               >
-                <SelectTrigger>
+                <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                   <SelectItem value="not_started">
                     <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Not Started</span>
                   </SelectItem>
@@ -190,15 +191,15 @@ const NewRunModal = ({ open, onOpenChange }: NewRunModalProps) => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
+              <Label htmlFor="priority" className="text-gray-700 dark:text-gray-300">Priority</Label>
               <Select 
                 value={formData.priority} 
                 onValueChange={(value) => setFormData({...formData, priority: value})}
               >
-                <SelectTrigger>
+                <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                   <SelectItem value="low">
                     <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">Low</span>
                   </SelectItem>

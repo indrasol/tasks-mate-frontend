@@ -59,7 +59,7 @@ import {
   Target,
   Users
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
@@ -100,6 +100,10 @@ const Projects = () => {
 
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 10;
 
   const userDisplayMap = React.useMemo(() => {
     const map: Record<string, { displayName: string; initials: string }> = {};
@@ -286,33 +290,53 @@ const Projects = () => {
     });
   };
 
-  const filteredProjects = sortProjects(projects.filter(project => {
+  const filteredProjects = useMemo(() => {
+    return sortProjects(projects.filter(project => {
 
-    // Tab filter (all vs mine)
-    if (tab === 'mine') {
-      // const ownerString = String(project.owner ?? '').toLowerCase();
-      // const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
-      // if (!userIdentifiers.includes(ownerString) && !userIdentifiers.includes(ownerDisplay)) {
-      //   return false;
-      // }
+      // Tab filter (all vs mine)
+      if (tab === 'mine') {
+        // const ownerString = String(project.owner ?? '').toLowerCase();
+        // const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
+        // if (!userIdentifiers.includes(ownerString) && !userIdentifiers.includes(ownerDisplay)) {
+        //   return false;
+        // }
 
-      if (!project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) &&
-        !userIdentifiers.includes(String(project.owner).toLowerCase())) return false;
+        if (!project.teamMembers.some(member => userIdentifiers.includes(String(member).toLowerCase())) &&
+          !userIdentifiers.includes(String(project.owner).toLowerCase())) return false;
+      }
+
+      const matchesSearch = searchQuery === "" ||
+        project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(project.status);
+      const matchesPriority = filterPriorities.length === 0 || filterPriorities.includes(project.priority);
+      const matchesDate = dateFilter === "all" || isDateInRange(project.endDate, dateFilter);
+      // For Projects page, optional project-name filter (mainly to spotlight one project)
+      const matchesName = filterProjectName === "all" || project.id === filterProjectName;
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesName;
+    }));
+  }, [projects, searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab, sortBy, sortDirection, userIdentifiers]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
+  const startIndex = (currentPage - 1) * projectsPerPage;
+  const endIndex = startIndex + projectsPerPage;
+  const currentPageProjects = filteredProjects.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab]);
+
+  // Reset to last valid page if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
     }
-
-    const matchesSearch = searchQuery === "" ||
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.category.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(project.status);
-    const matchesPriority = filterPriorities.length === 0 || filterPriorities.includes(project.priority);
-    const matchesDate = dateFilter === "all" || isDateInRange(project.endDate, dateFilter);
-    // For Projects page, optional project-name filter (mainly to spotlight one project)
-    const matchesName = filterProjectName === "all" || project.id === filterProjectName;
-
-    return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesName;
-  }));
+  }, [currentPage, totalPages]);
 
   const handleProjectClick = (projectId: string) => {
     if (currentOrgId) {
@@ -483,7 +507,7 @@ const Projects = () => {
 
   const ProjectGridView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {filteredProjects.map((project) => (
+      {currentPageProjects.map((project) => (
         <Card
           key={project.id}
           className="glass border-0 shadow-tasksmate micro-lift cursor-pointer group hover:scale-105 transition-all duration-200"
@@ -762,7 +786,7 @@ const Projects = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
@@ -770,8 +794,8 @@ const Projects = () => {
         <div className="px-6 py-8">
           <div className="w-full flex items-center justify-between">
             <div>
-              <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Projects</h1>
-              <p className="text-gray-600">Manage and track all your projects in one place</p>
+              <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-white mb-2">Projects</h1>
+              <p className="text-gray-600 dark:text-gray-300">Manage and track all your projects in one place</p>
             </div>
             <Button
               className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
@@ -796,7 +820,7 @@ const Projects = () => {
         </div>
 
         {/* Controls */}
-        <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
+        <div className="px-6 py-4 bg-white/30 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-700">
           <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
@@ -805,7 +829,7 @@ const Projects = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search projects..."
-                  className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
+                  className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-300 dark:border-gray-600 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end dark:text-white dark:placeholder-gray-400"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -959,7 +983,7 @@ const Projects = () => {
 
         <div className="px-6 py-2">
           <div className="w-full">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Showing {filteredProjects.length} of {projects.length} projects
             </p>
           </div>
@@ -971,7 +995,7 @@ const Projects = () => {
             {
               error ?
                 (
-                  <div className="text-center py-16 bg-white rounded-lg border">
+                  <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                     <p className="text-red-500">Error loading projects <br></br> {error}</p>
                     <Button
                       className="bg-tasksmate-gradient hover:scale-105 transition-transform"
@@ -984,7 +1008,7 @@ const Projects = () => {
                 )
                 :
                 (loadingProjects ? (
-                  <div className="text-center py-16 bg-white rounded-lg border">
+                  <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                     <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
                     <p className="text-gray-500">Loading projects...</p>
                   </div>
@@ -1009,10 +1033,10 @@ const Projects = () => {
                     </Button>
                   </div>
                   ) : (
-                    <div className="rounded-md border shadow-tasksmate overflow-x-auto">
+                    <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
                       <div className="min-w-max w-full">
                         <Table className="w-full">
-                          <TableHeader className="bg-gray-50">
+                          <TableHeader className="bg-gray-50 dark:bg-gray-800">
                             <TableRow>
                               <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
                               <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
@@ -1030,10 +1054,10 @@ const Projects = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {filteredProjects.map((project) => (
+                            {currentPageProjects.map((project) => (
                               <TableRow
                                 key={project.id}
-                                className={`hover:bg-slate-50/60 transition-colors ${project.status === 'completed' ? 'bg-gray-50/60' : ''}`}
+                                className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${project.status === 'completed' ? 'bg-gray-50/60 dark:bg-gray-800/60' : ''}`}
                               >
                                 <TableCell className="p-2 text-center">
                                   <div
@@ -1115,7 +1139,7 @@ const Projects = () => {
                                 <TableCell className="font-medium">
                                   <div className="min-w-0 max-w-xs">
                                     <div
-                                      className="text-sm text-gray-600 break-words overflow-hidden"
+                                      className="text-sm text-gray-600 dark:text-gray-300 break-words overflow-hidden"
                                       style={{
                                         display: '-webkit-box',
                                         WebkitLineClamp: 2,
@@ -1350,6 +1374,106 @@ const Projects = () => {
                   )
                 )}
 
+                {/* Pagination */}
+                {filteredProjects.length > 0 && (
+                  <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Showing {startIndex + 1}-{Math.min(endIndex, filteredProjects.length)} of {filteredProjects.length} projects
+                    </div>
+                    
+                    <div className="flex items-center space-x-2 flex-wrap justify-center">
+                      {/* Previous button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1"
+                      >
+                        Previous
+                      </Button>
+
+                      {/* Page numbers */}
+                      <div className="flex items-center space-x-1">
+                        {(() => {
+                          const pages = [];
+                          const maxVisiblePages = 5;
+                          let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                          let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                          
+                          // Adjust start if we're near the end
+                          if (endPage - startPage < maxVisiblePages - 1) {
+                            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                          }
+
+                          // First page + ellipsis
+                          if (startPage > 1) {
+                            pages.push(
+                              <Button
+                                key={1}
+                                variant={1 === currentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(1)}
+                                className="w-8 h-8 p-0"
+                              >
+                                1
+                              </Button>
+                            );
+                            if (startPage > 2) {
+                              pages.push(<span key="ellipsis1" className="text-gray-400 px-2">...</span>);
+                            }
+                          }
+
+                          // Visible page numbers
+                          for (let i = startPage; i <= endPage; i++) {
+                            pages.push(
+                              <Button
+                                key={i}
+                                variant={i === currentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(i)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {i}
+                              </Button>
+                            );
+                          }
+
+                          // Last page + ellipsis
+                          if (endPage < totalPages) {
+                            if (endPage < totalPages - 1) {
+                              pages.push(<span key="ellipsis2" className="text-gray-400 px-2">...</span>);
+                            }
+                            pages.push(
+                              <Button
+                                key={totalPages}
+                                variant={totalPages === currentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {totalPages}
+                              </Button>
+                            );
+                          }
+
+                          return pages;
+                        })()}
+                      </div>
+
+                      {/* Next button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
           </div>
         </div>

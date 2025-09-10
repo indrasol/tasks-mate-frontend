@@ -237,44 +237,14 @@ const TestRunDetail = () => {
 
 
   return (
-    <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
-
-
-      <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200" >
-        <div className="w-full flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            {/* Breadcrumb */}
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to={currentOrgId ? `/tester-zone?org_id=${currentOrgId}` : '/tester-zone'}>
-                      Bug Tracker
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator>
-                  <ChevronRight className="h-4 w-4" />
-                </BreadcrumbSeparator>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{id}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-            {/* Removed TasksMate logo and divider */}
-          </div>
-
-          {/* Removed profile avatar */}
-        </div>
-      </nav>
-
+    <div>
       {/* Header */}
-      <header className="px-6 py-6 bg-white/30 backdrop-blur-sm border-b border-gray-200">
+      <header className="py-6 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
         <div className="w-full">
           {
             errorTestRun ? (
-              <div className="text-center py-16 bg-white rounded-lg border">
-                <p className="text-red-500">Error loading Tracker <br></br> {errorTestRun}</p>
+              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                <p className="text-red-500 dark:text-red-400">Error loading Tracker <br></br> {errorTestRun}</p>
                 <Button
                   className="bg-tasksmate-gradient hover:scale-105 transition-transform"
                   onClick={() => fetchTestRun(false)}
@@ -418,7 +388,7 @@ const TestRunDetail = () => {
                         </div>
                       ) : (
                         <>
-                          <span className={`text-2xl font-sora font-bold ${status === 'completed' ? 'line-through text-gray-400' : ''}`}>{trackerName}</span>
+                          <span className={`text-2xl font-sora font-bold ${status === 'completed' ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>{trackerName}</span>
                           {/* <div className="flex items-center gap-3">
                       <div className="relative w-12 h-12">
                         <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
@@ -460,7 +430,7 @@ const TestRunDetail = () => {
         </div>
       </header>
 
-      <main className="px-6 py-2">
+      <main className="py-2">
         <div className="w-full">
           <BugBoardTab runId={testRun?.id} bugSummary={testRun?.summary} />
         </div>

@@ -130,6 +130,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tab, setTab] = useState<'all' | 'mine'>('all');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const tasksPerPage = 10;
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -190,7 +194,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     if (!currentOrgId) return;
     setLoadingTasks(true);
     setError(null);
-    taskService.getTasks({ org_id: currentOrgId })
+    // Fetch all tasks (up to backend maximum of 100) - pagination is handled on frontend
+    taskService.getTasks({ org_id: currentOrgId, limit: 100 })
       .then((data: BackendTask[]) => {
         // Map backend data to frontend Task type
         const mapped = (data || []).map((t: any) => ({
@@ -461,6 +466,43 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     dueDateFilter, dueDateRange, isCustomDueDateRange,
     sortBy, sortDirection, tab, user]);
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredTasks.length / tasksPerPage);
+  const startIndex = (currentPage - 1) * tasksPerPage;
+  const endIndex = startIndex + tasksPerPage;
+  const currentPageTasks = filteredTasks.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatuses, filterOwner, filterPriorities, filterProject, 
+      createdDateFilter, dueDateFilter, tab]);
+
+  // Reset to last valid page if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  // Keyboard navigation for pagination
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'ArrowLeft' && currentPage > 1) {
+          e.preventDefault();
+          setCurrentPage(prev => prev - 1);
+        } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+          e.preventDefault();
+          setCurrentPage(prev => prev + 1);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [currentPage, totalPages]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed": return "bg-green-500";
@@ -658,7 +700,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const priorityOptions = ["critical", "high", "medium", "low", "none"];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
       <MainNavigation
         onNewTask={handleNewTask}
         onNewMeeting={handleNewMeeting}
@@ -669,8 +711,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         <div className="px-6 py-8">
           <div className="w-full flex items-center justify-between">
             <div>
-              <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Tasks Catalog</h1>
-              <p className="text-gray-600">Manage and track all your tasks in one place</p>
+              <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-white mb-2">Tasks Catalog</h1>
+              <p className="text-gray-600 dark:text-gray-300">Manage and track all your tasks in one place</p>
             </div>
             <Button
               onClick={handleNewTask}
@@ -696,7 +738,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         </div>
 
         {/* Enhanced Controls */}
-        <div className="px-6 py-4 bg-white/30 border-b border-gray-200">
+        <div className="px-6 py-4 bg-white/30 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-700">
           <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between w-full">
@@ -706,7 +748,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by keyword or ID (e.g. T1234)"
-                  className="pl-10 bg-white/80 border-gray-300 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end"
+                  className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-300 dark:border-gray-600 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end dark:text-white dark:placeholder-gray-400"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -947,8 +989,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         {/* Results count */}
         <div className="px-6 py-2">
           <div className="w-full">
-            <p className="text-sm text-gray-600">
-              Showing {filteredTasks.length} of {tasks.length} tasks
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredTasks.length)} of {filteredTasks.length} tasks
+              {filteredTasks.length !== tasks.length && ` (filtered from ${tasks.length} total)`}
             </p>
           </div>
         </div>
@@ -960,8 +1003,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
             {
               error ?
                 (
-                  <div className="text-center py-16 bg-white rounded-lg border">
-                    <p className="text-red-500">Error loading tasks <br></br> {error}</p>
+                  <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                    <p className="text-red-500 dark:text-red-400">Error loading tasks <br></br> {error}</p>
                     <Button
                       className="bg-tasksmate-gradient hover:scale-105 transition-transform"
                       onClick={fetchTasks}
@@ -973,17 +1016,17 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 )
                 :
                 (loadingTasks ? (
-                  <div className="text-center py-16 bg-white rounded-lg border">
+                  <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                     <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-500">Loading tasks...</p>
+                    <p className="text-gray-500 dark:text-gray-400">Loading tasks...</p>
                   </div>
                 ) : filteredTasks.length === 0 ? (
-                  <div className="text-center py-16 bg-white rounded-lg border">
-                    <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Grid3X3 className="w-12 h-12 text-green-600" />
+                  <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                    <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Grid3X3 className="w-12 h-12 text-green-600 dark:text-green-400" />
                     </div>
-                    <p className="text-gray-500 text-lg mb-2">No tasks found</p>
-                    <p className="text-gray-400 mb-4">
+                    <p className="text-gray-500 dark:text-gray-300 text-lg mb-2">No tasks found</p>
+                    <p className="text-gray-400 dark:text-gray-500 mb-4">
                       {searchQuery || filterStatuses.length > 0 || filterOwner !== "all" || createdDateFilter !== "all" || dueDateFilter !== "all"
                         ? "Try adjusting your filters or search query"
                         : "Create your first task to get started"
@@ -1000,10 +1043,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-md border shadow-tasksmate overflow-x-auto">
+                  <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
                     <div className="min-w-max w-full">
                       <Table className="w-full">
-                        <TableHeader className="bg-gray-50">
+                        <TableHeader className="bg-gray-50 dark:bg-gray-800">
                           <TableRow>
                             <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
                             <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
@@ -1020,10 +1063,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredTasks.map((task) => (
+                          {currentPageTasks.map((task) => (
                             <TableRow
                               key={task.id}
-                              className={`hover:bg-slate-50/60 transition-colors ${task.status === 'completed' ? 'bg-gray-50/60' : ''}`}
+                              className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${task.status === 'completed' ? 'bg-gray-50/60 dark:bg-gray-800/60' : ''}`}
                             >
                               <TableCell className="p-2 text-center">
                                 <div
@@ -1337,6 +1380,115 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   </div>
                 )
                 )}
+
+            {/* Pagination */}
+            {filteredTasks.length > 0 && totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between mt-6 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-sm gap-4">
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                  <span>
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                    ({startIndex + 1}-{Math.min(endIndex, filteredTasks.length)} of {filteredTasks.length})
+                  </span>
+                  <span className="ml-2 text-xs text-gray-400 dark:text-gray-500 hidden sm:inline" title="Use Ctrl/Cmd + Arrow keys to navigate">
+                    • Use Ctrl+← → to navigate
+                  </span>
+                </div>
+                
+                <div className="flex items-center space-x-2 flex-wrap justify-center">
+                  {/* Previous button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1"
+                  >
+                    Previous
+                  </Button>
+
+                  {/* Page numbers */}
+                  <div className="flex items-center space-x-1">
+                    {(() => {
+                      const pages = [];
+                      const maxVisiblePages = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                      
+                      // Adjust start if we're near the end
+                      if (endPage - startPage < maxVisiblePages - 1) {
+                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                      }
+
+                      // First page + ellipsis
+                      if (startPage > 1) {
+                        pages.push(
+                          <Button
+                            key={1}
+                            variant={1 === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(1)}
+                            className="w-8 h-8 p-0"
+                          >
+                            1
+                          </Button>
+                        );
+                        if (startPage > 2) {
+                          pages.push(<span key="ellipsis1" className="text-gray-400 px-2">...</span>);
+                        }
+                      }
+
+                      // Visible page numbers
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <Button
+                            key={i}
+                            variant={i === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(i)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {i}
+                          </Button>
+                        );
+                      }
+
+                      // Last page + ellipsis
+                      if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                          pages.push(<span key="ellipsis2" className="text-gray-400 px-2">...</span>);
+                        }
+                        pages.push(
+                          <Button
+                            key={totalPages}
+                            variant={totalPages === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {totalPages}
+                          </Button>
+                        );
+                      }
+
+                      return pages;
+                    })()}
+                  </div>
+
+                  {/* Next button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Error state */}
             {/* {error && (

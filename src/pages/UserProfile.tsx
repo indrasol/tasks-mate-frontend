@@ -313,7 +313,7 @@ const UserProfile = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
                 <MainNavigation />
                 <div className="flex-1 ml-64 flex items-center justify-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
@@ -323,7 +323,7 @@ const UserProfile = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
             {/* <MainNavigation /> */}
 
             {/* {orgId ? (
@@ -501,7 +501,7 @@ const UserProfile = () => {
                         </div>
                     </DialogHeader>
                     <div>
-                        <p className="mb-4 text-gray-700">
+                        <p className="mb-4 text-gray-700 dark:text-gray-300">
                             Are you sure you want to delete your account? This action cannot be undone.
                         </p>
                         <div className="space-y-2">

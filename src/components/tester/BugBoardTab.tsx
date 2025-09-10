@@ -62,53 +62,59 @@ const BugBoardTab = ({ runId, bugSummary }: BugBoardTabProps) => {
             value: bugSummary?.total || 0,
             icon: <Bug className="w-4 h-4 text-gray-500" />,
             borderColor: 'border-l-gray-500',
-            textColor: 'text-gray-900'
+            textColor: 'text-gray-900',
+            bgColor: 'bg-gray-50 dark:bg-gray-800'
           },
           {
             title: 'High',
             value: bugSummary?.high || 0,
             icon: <AlertTriangle className="w-4 h-4 text-red-500" />,
             borderColor: 'border-l-red-500',
-            textColor: 'text-red-600'
+            textColor: 'text-red-600',
+            bgColor: 'bg-red-50 dark:bg-red-900/20'
           },
           {
             title: 'Medium',
             value: bugSummary?.medium || 0,
             icon: <TrendingUp className="w-4 h-4 text-orange-500" />,
             borderColor: 'border-l-orange-500',
-            textColor: 'text-orange-600'
+            textColor: 'text-orange-600',
+            bgColor: 'bg-orange-50 dark:bg-orange-900/20'
           },
           {
             title: 'Low',
             value: bugSummary?.low || 0,
             icon: <TrendingUp className="w-4 h-4 text-blue-500" />,
             borderColor: 'border-l-blue-500',
-            textColor: 'text-blue-600'
+            textColor: 'text-blue-600',
+            bgColor: 'bg-blue-50 dark:bg-blue-900/20'
           },
           {
             title: 'Closed',
             value: bugSummary?.closed || 0,
             icon: <CheckCircle className="w-4 h-4 text-green-500" />,
             borderColor: 'border-l-green-500',
-            textColor: 'text-green-600'
+            textColor: 'text-green-600',
+            bgColor: 'bg-green-50 dark:bg-green-900/20'
           },
           {
             title: 'Total Tasks',
             value: bugSummary?.totalTasks || 0,
             icon: <ClipboardList className="w-4 h-4 text-purple-500" />,
             borderColor: 'border-l-purple-500',
-            textColor: 'text-purple-600'
+            textColor: 'text-purple-600',
+            bgColor: 'bg-purple-50 dark:bg-purple-900/20'
           }
         ].map((card, index) => (
-          <Card key={index} className={`border-l-4 ${card.borderColor}`}>
+          <Card key={index} className={`border-l-4 ${card.borderColor} ${card.bgColor} border-gray-200 dark:border-gray-700`}>
             <CardHeader className="py-1 px-4 mt-1">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-gray-600">{card.title}</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">{card.title}</CardTitle>
                 {card.icon}
               </div>
             </CardHeader>
             <CardContent className="py-1 px-4 mt-1">
-              <div className={`text-2xl font-bold ${card.textColor}`}>{card.value}</div>
+              <div className={`text-2xl font-bold ${card.textColor} dark:${card.textColor}`}>{card.value}</div>
             </CardContent>
           </Card>
         ))}
