@@ -66,7 +66,7 @@ ${ideas.map(item => `- ${item.text} ${item.votes > 0 ? `(${item.votes} votes)` :
   const handleCopyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(summary);
-      console.log("Summary copied to clipboard!");
+      // console.log("Summary copied to clipboard!");
     } catch (err) {
       console.error("Failed to copy summary:", err);
     }

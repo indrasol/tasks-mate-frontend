@@ -296,7 +296,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Missing reset token");
     }
 
-    console.log("Reset token received:", accessToken);
+    // console.log("Reset token received:", accessToken);
 
     const {
       data: { session },
