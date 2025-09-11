@@ -52,7 +52,7 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
     if (!open) return;
     setLoading(true);
     setError(null);
-    taskService.getTasks(currentOrgId ? { org_id: currentOrgId, limit: 100 } : { limit: 100 })
+    taskService.getTasks({ org_id: currentOrgId })
       .then((data) => {
         const mapped = ((data as any[]) || []).map((t: any) => ({
           id: t.task_id,
