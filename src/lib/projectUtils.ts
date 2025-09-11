@@ -4,15 +4,15 @@
 */
 
 export const STATUS_META = {
-  planning:     { label: "Planning",     color: "bg-purple-100 text-purple-800" },
-  in_progress:  { label: "In Progress",  color: "bg-blue-100 text-blue-800" },
-  active:      { label: "Active",       color: "bg-blue-100 text-blue-800" },
-  not_started:  { label: "Not Started",  color: "bg-gray-100 text-gray-800" },
-  on_hold:      { label: "On Hold",       color: "bg-yellow-100 text-yellow-800" },
-  blocked:      { label: "Blocked",       color: "bg-red-100 text-red-800" },
-  paused:       { label: "Paused",        color: "bg-orange-100 text-orange-800" },
-  completed:    { label: "Completed",    color: "bg-green-100 text-green-800" },
-  archived:     { label: "Archived",     color: "bg-black text-white" },
+  planning: { label: "Planning", color: "bg-purple-100 text-purple-800" },
+  in_progress: { label: "In Progress", color: "bg-blue-100 text-blue-800" },
+  active: { label: "Active", color: "bg-blue-100 text-blue-800" },
+  not_started: { label: "Not Started", color: "bg-gray-100 text-gray-800" },
+  on_hold: { label: "On Hold", color: "bg-yellow-100 text-yellow-800" },
+  blocked: { label: "Blocked", color: "bg-red-100 text-red-800" },
+  paused: { label: "Paused", color: "bg-orange-100 text-orange-800" },
+  completed: { label: "Completed", color: "bg-green-100 text-green-800" },
+  archived: { label: "Archived", color: "bg-black text-white" },
 } as const;
 
 export type ProjectStatus = keyof typeof STATUS_META;
@@ -23,10 +23,10 @@ export function getStatusMeta(status: string) {
 
 export const PRIORITY_META = {
   critical: { color: "bg-red-600 text-white" },
-  high:     { color: "bg-red-100 text-red-800" },
-  medium:   { color: "bg-orange-100 text-orange-800" },
-  low:      { color: "bg-green-100 text-green-800" },
-  none:     { color: "bg-gray-100 text-gray-800" },
+  high: { color: "bg-red-100 text-red-800" },
+  medium: { color: "bg-orange-100 text-orange-800" },
+  low: { color: "bg-green-100 text-green-800" },
+  none: { color: "bg-gray-100 text-gray-800" },
 } as const;
 
 type ProjectPriority = keyof typeof PRIORITY_META;
@@ -63,15 +63,15 @@ export function deriveDisplayFromEmail(emailOrUsername: string) {
     t.length === 1 ? t.toUpperCase() : t.charAt(0).toUpperCase() + t.slice(1)
   );
   const displayName = displayTokens.join(" ");
-  const initials = displayTokens.map((t) => t[0]).join("").toUpperCase();
+  const initials = displayTokens.slice(0, 2).map((t) => t[0]).join("").toUpperCase();
   return { displayName, initials };
 }
 
 
-  export function capitalizeFirstLetter(opt: string): React.ReactNode {
-    // replace underscores with spaces
-    opt = opt.replace(/_/g, ' ');
-    // capitalize first letter of each word
-    opt = opt.replace(/\b\w/g, (char) => char.toUpperCase());
-    return opt;
-  }
+export function capitalizeFirstLetter(opt: string): React.ReactNode {
+  // replace underscores with spaces
+  opt = opt.replace(/_/g, ' ');
+  // capitalize first letter of each word
+  opt = opt.replace(/\b\w/g, (char) => char.toUpperCase());
+  return opt;
+}

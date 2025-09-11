@@ -45,7 +45,7 @@ const TaskFilters = ({
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="relative">
-            <Filter className="h-4 w-4 mr-2" />
+            {/* <Filter className="h-4 w-4 mr-2" /> */}
             Status
             {selectedStatuses.length > 0 && (
               <Badge className="ml-2 h-5 w-5 p-0 text-xs bg-tasksmate-gradient text-white">

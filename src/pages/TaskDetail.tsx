@@ -59,6 +59,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { capitalizeFirstLetter, deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 import imageCompression from "browser-image-compression";
 import { format } from "date-fns";
+import { BackendOrgMember } from "@/types/organization";
 
 
 const TaskDetail = () => {
@@ -168,7 +169,15 @@ const TaskDetail = () => {
   }, [task, userIdentifiers]);
 
   const currentOrgId = useCurrentOrgId();
-  const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId || '');  // Use empty string if undefined
+  const { data: orgMembersRaw = [] } = useOrganizationMembers(currentOrgId || '');  // Use empty string if undefined
+  const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
+    ...m,
+    name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
+  })).map((m: any) => ({
+    ...m,
+    displayName: deriveDisplayFromEmail(m.name).displayName,
+    initials: deriveDisplayFromEmail(m.name).initials,
+  })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
   // const { data: membersData, refetch: refetchMembers } = useProjectMembers(id);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -663,8 +672,7 @@ const TaskDetail = () => {
       // Check username, display name and email
       const searchLower = mentionSearchText.toLowerCase();
       const usernameMatch = member.email?.toLowerCase().includes(searchLower);
-      const displayName = deriveDisplayFromEmail(member.email || '').displayName.toLowerCase();
-      const displayNameMatch = displayName.includes(searchLower);
+      const displayNameMatch = member.displayName.toLowerCase().includes(searchLower);
 
       return usernameMatch || displayNameMatch;
     })
@@ -1253,8 +1261,8 @@ const TaskDetail = () => {
       e.preventDefault();
       const member = filteredMembers[mentionActiveIndex];
       if (member) {
-        const { displayName } = deriveDisplayFromEmail(member.email || '');
-        handleSelectMention(displayName);
+        // const { displayName } = deriveDisplayFromEmail(member.email || '');
+        handleSelectMention(member.displayName);
       }
     } else if (e.key === 'Escape') {
       setShowMentionPopover(false);
@@ -1271,7 +1279,7 @@ const TaskDetail = () => {
           <div className="min-h-screen px-6 py-10 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-                <p className="mt-4 text-gray-600 dark:text-gray-300">Loading task details...</p>
+              <p className="mt-4 text-gray-600 dark:text-gray-300">Loading task details...</p>
             </div>
           </div>
         </div>
@@ -1311,19 +1319,17 @@ const TaskDetail = () => {
         <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
 
 
-          <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50" >
+          {/* <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50" >
             <div className="w-full flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Link to={`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`} className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
                   <ArrowLeft className="h-4 w-4" />
                   <span>Back to Catalog</span>
                 </Link>
-                {/* Removed TasksMate logo and divider */}
               </div>
 
-              {/* Removed profile avatar */}
             </div>
-          </nav>
+          </nav> */}
 
           {/* Header */}
           <header className="px-6 py-6 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
@@ -1359,12 +1365,10 @@ const TaskDetail = () => {
                         <SelectValue placeholder="Assignee" />
                       </SelectTrigger>
                       <SelectContent align="start">
-                        {orgMembers?.map((m) => {
-                          const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
-                          const { displayName } = deriveDisplayFromEmail(username);
+                        {orgMembers?.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => {
                           return (
-                            <SelectItem key={m.user_id} value={String(username)}>
-                              {displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
+                            <SelectItem key={m.user_id} value={String(m.name)}>
+                              {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
                             </SelectItem>
                           );
                         })}
@@ -1453,15 +1457,17 @@ const TaskDetail = () => {
                       </>
                     )}
                   </div>
-
-                  {/* Meta row */}
-                  <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
-                    {/* Tags removed, now in Details card */}
-                  </div>
+                 
                 </div>
 
                 {/* Right actions (Duplicate only) */}
                 <div className="ml-4 flex items-center gap-2">
+                  <Button variant="outline" asChild>
+                    <Link to={`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`} className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to Catalog
+                    </Link>
+                  </Button>
                   <Button variant="outline" className="micro-lift" onClick={() => setIsDuplicateOpen(true)}>
                     <Copy className="mr-2 h-4 w-4" />
                     Duplicate
@@ -1869,7 +1875,7 @@ const TaskDetail = () => {
                                         <div className="px-2 py-1 text-sm text-gray-500 dark:text-gray-400">No members found</div>
                                       ) : (
                                         filteredMembers.map((member, idx) => {
-                                          const { displayName } = deriveDisplayFromEmail(member.email || '');
+                                          // const { displayName } = deriveDisplayFromEmail(member.email || '');
                                           return (
                                             <button
                                               key={member.id || member.user_id}
@@ -1879,15 +1885,15 @@ const TaskDetail = () => {
                                                 // Using onMouseDown instead of onClick to prevent focus issues
                                                 e.preventDefault();
                                                 e.stopPropagation();
-                                                handleSelectMention(displayName);
+                                                handleSelectMention(member.displayName);
                                               }}
                                             >
                                               <Avatar className="h-5 w-5">
                                                 <AvatarFallback className="text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
-                                                  {displayName.substring(0, 2).toUpperCase()}
+                                                  {member.displayName.substring(0, 2).toUpperCase()}
                                                 </AvatarFallback>
                                               </Avatar>
-                                              <span className="text-sm font-medium text-gray-900 dark:text-white">{displayName}</span>
+                                              <span className="text-sm font-medium text-gray-900 dark:text-white">{member.displayName}</span>
                                             </button>
                                           );
                                         })
@@ -1967,7 +1973,7 @@ const TaskDetail = () => {
                                         {renderCommentWithMentions(comment.content || comment.comment)}
                                       </p>
                                       {
-                                      (comment.updated_at || comment.created_at) &&
+                                        (comment.updated_at || comment.created_at) &&
                                         <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                                           <Clock className="h-3 w-3" />
                                           {format(new Date(comment.updated_at || comment.created_at), 'MMM d, yyyy h:mm a')}
@@ -2061,8 +2067,8 @@ const TaskDetail = () => {
                             <SelectValue placeholder={projectName ?? task?.project_name ?? '—'} />
                           </SelectTrigger>
                           <SelectContent align="end">
-                            {Object.entries(projectsMap).map(([id, name]) => (
-                              <SelectItem key={id} value={id}>{name}</SelectItem>
+                            {Object.entries(projectsMap).sort((a, b) => a[1].localeCompare(b[1])).map(([id, name]) => (
+                              <SelectItem key={id} value={id}><span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{name}</span></SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

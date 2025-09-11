@@ -688,9 +688,9 @@ const StatusCallMeeting = () => {
                   </SelectTrigger>
                   <SelectContent className="bg-white/95 backdrop-blur-md border border-blue-200 shadow-xl z-50">
                     <SelectItem value="all" className="hover:bg-blue-50">All Projects</SelectItem>
-                    {allProjects.map((project) => (
+                    {allProjects.sort((a, b) => a.localeCompare(b)).map((project) => (
                       <SelectItem key={project} value={project} className="hover:bg-blue-50">
-                        {project}
+                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{project}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -709,7 +709,7 @@ const StatusCallMeeting = () => {
                   </SelectTrigger>
                   <SelectContent className="bg-white/95 backdrop-blur-md border border-green-200 shadow-xl z-50">
                     <SelectItem value="all" className="hover:bg-green-50">All Users</SelectItem>
-                    {allUsers.map((user) => (
+                    {allUsers.sort((a, b) => a.localeCompare(b)).map((user) => (
                       <SelectItem key={user} value={user} className="hover:bg-green-50">
                         {user}
                       </SelectItem>

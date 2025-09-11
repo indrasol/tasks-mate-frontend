@@ -13,21 +13,21 @@ export interface Organization {
 }
 
 export interface OrganizationInvitation {
-  id: string;
-  org_id: string;
-  org_name?: string;
-  role?: string;
-  designation?: string;
-  invited_by: string;
-  sent_at?: string;
-  expires_at?: string;
-  cancel_date?: string;
-  created_at?: string;
-  updated_at?: string;
-  accepted_at?: string;
-  accepted_by?: string;
-  email: string;
-  status: 'pending' | 'accepted' | 'rejected';
+    id: string;
+    org_id: string;
+    org_name?: string;
+    role?: string;
+    designation?: string;
+    invited_by: string;
+    sent_at?: string;
+    expires_at?: string;
+    cancel_date?: string;
+    created_at?: string;
+    updated_at?: string;
+    accepted_at?: string;
+    accepted_by?: string;
+    email: string;
+    status: 'pending' | 'accepted' | 'rejected';
 }
 
 export type BackendOrg = {
@@ -59,10 +59,10 @@ export type BackendOrgMember = {
     // deleted_at: Optional[datetime] = Field(None, description="When the member was deleted")
     // delete_reason: Optional[str] = Field(None, description="Reason for deletion")
     // deleted_by: Optional[str] = Field(None, description="Who deleted the member")
-    id?:string; // Unique identifier for the member
+    id?: string; // Unique identifier for the member
     user_id: string; // User ID (UUID)
     org_id: string; // Organization ID (UUID) 
-    email:string;
+    email: string;
     designation?: string; // Designation ID (UUID)
     role?: string; // Role ID (UUID)
     invited_by?: string; // Inviter's User ID (UUID)
@@ -73,7 +73,10 @@ export type BackendOrgMember = {
     deleted_at?: string; // When the member was deleted (ISO date string)
     delete_reason?: string; // Reason for deletion
     deleted_by?: string; // Who deleted the member
-
+    username?: string;
+    name?: string;
+    displayName?: string;
+    initials?: string;
 };
 
 export type OrgMember = {
@@ -101,7 +104,7 @@ export type BackendOrgMemberInvite = {
     // deleted_at: Optional[datetime] = Field(None, description="When the member was deleted")
     // delete_reason: Optional[str] = Field(None, description="Reason for deletion")
     // deleted_by: Optional[str] = Field(None, description="Who deleted the member")
-    id?:string; // Unique identifier for the member
+    id?: string; // Unique identifier for the member
     email: string; // User ID (UUID)
     org_id: string; // Organization ID (UUID) 
     designation?: string; // Designation ID (UUID)

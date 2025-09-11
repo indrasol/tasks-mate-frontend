@@ -42,8 +42,10 @@ import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
 import { TestRun } from '@/types/tracker';
 import { ArrowRight, Beaker, Calendar, Check, ChevronDown, ChevronUp, Filter, Loader2, Maximize2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { BackendOrgMember } from '@/types/organization';
+import DateBadge from '@/components/ui/date-badge';
 
 type SortField = 'id' | 'name' | 'project' | 'creator' | 'status' | 'priority' | 'totalBugs' | 'totalTasks' | 'date';
 type SortOrder = 'asc' | 'desc';
@@ -53,7 +55,15 @@ const TesterZone = () => {
   const { user } = useAuth();
   const currentOrgId = useCurrentOrgId();
   const { projects, loading: loadingProjects } = useProjects();
-  const { data: orgMembers, isLoading: loadingMembers } = useOrganizationMembers(currentOrgId);
+  const { data: orgMembersRaw, isLoading: loadingMembers } = useOrganizationMembers(currentOrgId);
+  const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
+    ...m,
+    name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
+  })).map((m: any) => ({
+    ...m,
+    displayName: deriveDisplayFromEmail(m.name).displayName,
+    initials: deriveDisplayFromEmail(m.name).initials,
+  })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   useEffect(() => {
     const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
@@ -353,24 +363,39 @@ const TesterZone = () => {
 
   // Get unique values for filters from real data
   const getUniqueProjects = () => {
+    const testRunProjects = testRuns.map(run => run.project);
     if (loadingProjects || !projects || projects.length === 0) {
-      return Array.from(new Set(testRuns.map(run => run.project)));
+      return Array.from(new Set(testRunProjects.map((projectId: any) => ({
+        id: projectId,
+        name: projectId
+      }))));
     }
-    return projects.map(project => ({
-      id: project.id,
-      name: project.name
-    }));
+    return projects
+      // .filter(project => testRunProjects.includes(project.id))
+      .map(project => ({
+        id: project.id,
+        name: project.name
+      }));
   };
 
   const getUniqueCreators = () => {
+    const testRunCreators = testRuns.map(run => run.creator);
     if (loadingMembers || !orgMembers || orgMembers.length === 0) {
-      return Array.from(new Set(testRuns.map(run => run.creator)));
+      return Array.from(new Set(testRunCreators.map((memberId: any) => ({
+        id: memberId,
+        email: memberId,
+        username: memberId,
+        displayName: deriveDisplayFromEmail(memberId).displayName
+      }))));
     }
-    return orgMembers.map(member => ({
-      id: member.user_id,
-      email: member.email,
-      displayName: deriveDisplayFromEmail(member.email).displayName
-    }));
+    return orgMembers
+      // .filter(member => testRunCreators.includes(member.user_id))
+      .map(member => ({
+        id: member.user_id,
+        email: member.email,
+        username: member.username,
+        displayName: member.displayName
+      }));
   };
 
   // Date filter logic with custom date range support
@@ -449,8 +474,30 @@ const TesterZone = () => {
     return `${formatDateStr(dateRange.from)} - ${formatDateStr(dateRange.to)}`;
   };
 
+  // Build possible identifiers for current user (id, username, email, displayName)
+  const userIdentifiers = useMemo(() => {
+    if (!user) return [] as string[];
+    const ids: string[] = [];
+    if (user.id) ids.push(String(user.id));
+    if ((user as any).username) ids.push(String((user as any).username));
+    if ((user as any)?.user_metadata?.username) ids.push(String((user as any).user_metadata.username));
+    if (user.email) ids.push(String(user.email));
+    if (user.email) {
+      ids.push(deriveDisplayFromEmail(user.email).displayName);
+    }
+    return ids.map((x) => x.toLowerCase());
+  }, [user]);
+
   const filteredAndSortedRuns = testRuns
     .filter(run => {
+
+      // Filter based on active tab (all trackers vs my trackers)
+      const matchesTab = activeTab === 'all-trackers' ||
+        (activeTab === 'my-trackers'
+          && user
+          &&
+          userIdentifiers.includes(run.creator.toLowerCase()));
+
       const matchesSearch = searchTerm === '' ||
         run.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         run.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -473,7 +520,16 @@ const TesterZone = () => {
       // For creators, we need to handle both string and object formats
       const matchesCreator = filterCreator === 'all' ||
         // For string-based creator names (fallback for mock data)
-        run.creator.toLowerCase() === filterCreator.toLowerCase();
+        (
+          getUniqueCreators().filter(creator => creator.id === filterCreator).some(
+            creator =>
+            (creator.displayName.toLowerCase() === run.creator.toLowerCase()
+              || creator.email.toLowerCase() === run.creator.toLowerCase()
+              || creator.username.toLowerCase() === run.creator.toLowerCase()
+              || creator.id.toLowerCase() === run.creator.toLowerCase()
+            )
+          )
+        )
       //  ||
       // // For creator objects (real data from API)
       // (orgMembers?.find(m => m.user_id === filterCreator)?.email === run.creator);
@@ -483,9 +539,7 @@ const TesterZone = () => {
         isDateInRange(run.date, 'custom', dateRange) :
         isDateInRange(run.date, dateFilter);
 
-      // Filter based on active tab (all trackers vs my trackers)
-      const matchesTab = activeTab === 'all-trackers' ||
-        (activeTab === 'my-trackers' && user && (run.creator.toLowerCase() === user.email.toLowerCase() || run.creator.toLowerCase() === user.user_metadata?.username.toLowerCase()));
+      
 
       return matchesSearch && matchesStatus && matchesPriority && matchesProject &&
         matchesCreator && matchesDate && matchesTab;
@@ -542,7 +596,7 @@ const TesterZone = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <MainNavigation />
 
-      <div className="transition-all duration-300 p-8" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+      <div className="transition-all duration-300 px-6 py-8" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         {/* Header */}
         <div className="flex items-center justify-between w-full mb-8">
           <div>
@@ -590,7 +644,7 @@ const TesterZone = () => {
 
               {/* Filters and Controls - Right side */}
               <div className="flex items-center space-x-4">
-                <Filter className="w-4 h-4 text-gray-500" />
+                {/* <Filter className="w-4 h-4 text-gray-500" /> */}
 
                 {/* Status Filter Multi-Select */}
                 <DropdownMenu>
@@ -600,9 +654,9 @@ const TesterZone = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-40">
-                    {statusOptions.map(opt => (
+                    {statusOptions.map((opt,idx) => (
                       <DropdownMenuCheckboxItem
-                        key={opt.value}
+                        key={idx}
                         checked={filterStatuses.includes(opt.value)}
                         onCheckedChange={(checked) => {
                           setFilterStatuses(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value));
@@ -623,9 +677,9 @@ const TesterZone = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-40">
-                    {priorityOptions.map(p => (
+                    {priorityOptions.map((p,idx) => (
                       <DropdownMenuCheckboxItem
-                        key={p.value}
+                        key={idx}
                         checked={filterPriorities.includes(p.value)}
                         onCheckedChange={(checked) => {
                           setFilterPriorities(prev => checked ? [...prev, p.value] : prev.filter(x => x !== p.value));
@@ -654,12 +708,9 @@ const TesterZone = () => {
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
                     </SelectItem>
-                    {getUniqueProjects().map((project) => (
-                      <SelectItem key={typeof project === 'string' ? project : project.id}
-                        value={typeof project === 'string' ? project : project.id}>
-                        <span className="px-2 py-1 rounded-full text-xs bg-teal-100 text-teal-800">
-                          {typeof project === 'string' ? project : project.name}
-                        </span>
+                    {getUniqueProjects().sort((a, b) => a.name.localeCompare(b.name)).map((project,idx) => (
+                      <SelectItem key={idx} value={project.id}>
+                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{project.name}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -681,13 +732,13 @@ const TesterZone = () => {
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Creators</span>
                     </SelectItem>
-                    {getUniqueCreators().map((creator) => (
+                    {getUniqueCreators().sort((a, b) => a.displayName.localeCompare(b.displayName)).map((creator,idx) => (
                       <SelectItem
-                        key={typeof creator === 'string' ? creator : creator.id}
-                        value={typeof creator === 'string' ? creator : creator.displayName}
+                        key={idx}
+                        value={creator.id}
                       >
                         <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
-                          {typeof creator === 'string' ? creator : `${creator.displayName} (${creator.email})`}
+                          {`${creator.displayName}`}
                         </span>
                       </SelectItem>
                     ))}
@@ -902,19 +953,19 @@ const TesterZone = () => {
                         <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">ID</TableHead>
                         <TableHead className="font-bold">Name</TableHead>
                         <TableHead className="font-bold">Project</TableHead>
-                        <TableHead className="font-bold">Creator</TableHead>
                         <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
                         <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Priority</TableHead>
                         <TableHead className="w-20 sm:w-24 text-center font-bold">Bugs</TableHead>
                         <TableHead className="w-20 sm:w-24 text-center font-bold">Tasks</TableHead>
-                        <TableHead className="w-28 sm:w-32 md:w-36 text-center font-bold">Created Date</TableHead>
+                        <TableHead className="font-bold">Created By</TableHead>
+                        <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Created Date</TableHead>
                         <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAndSortedRuns.map((run) => (
+                      {filteredAndSortedRuns.map((run, idx) => (
                         <TableRow
-                          key={run.id}
+                          key={idx}
                           className="cursor-auto hover:bg-gray-50/60 dark:hover:bg-gray-700/60"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -1003,11 +1054,6 @@ const TesterZone = () => {
                           <TableCell>
                             <Badge className="bg-teal-100 text-teal-800 text-xs hover:bg-teal-100">
                               {run.project}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-purple-100 text-purple-800 text-xs hover:bg-purple-100">
-                              {run.creator}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center">
@@ -1109,11 +1155,18 @@ const TesterZone = () => {
                           <TableCell className="text-center">
                             <span className="font-semibold text-blue-600">{run.totalTasks}</span>
                           </TableCell>
-                          <TableCell className="text-center">
-                            <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {new Date(run.date).toLocaleDateString()}
+                          <TableCell>
+                            <Badge className="bg-purple-100 text-purple-800 text-xs hover:bg-purple-100">
+                              {orgMembers?.find(creator =>
+                              (creator.user_id === run.creator
+                                || creator.email === run.creator
+                                || creator.username === run.creator
+                                || creator.displayName === run.creator
+                              ))?.displayName}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <DateBadge date={run.date} className="text-xs bg-green-100 text-green-800" />
                           </TableCell>
                           <TableCell className="text-center">
                             <div className="flex items-center justify-center gap-1">

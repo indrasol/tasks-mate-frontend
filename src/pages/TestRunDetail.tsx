@@ -27,13 +27,14 @@ import { API_ENDPOINTS } from '@/config';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
-import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
+// import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
 import { getPriorityColor, getStatusMeta } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
 import { TestRunTrackDetail } from '@/types/tracker';
-import { Calendar, ChevronRight, Loader2, Pencil, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Calendar, ChevronRight, Loader2, Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import NewBugModal from '@/components/tester/NewBugModal';
 
 
 const TestRunDetail = () => {
@@ -61,7 +62,7 @@ const TestRunDetail = () => {
 
   const { id } = useParams();
   const currentOrgId = useCurrentOrgId();
-  const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId || '');  // Use empty string if undefined
+  // const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId || '');  // Use empty string if undefined
 
   // Utility helpers -------------------------------------------------
   const priorityOptions = ["critical", "high", "medium", "low", "none"] as const;
@@ -86,6 +87,8 @@ const TestRunDetail = () => {
   // Editing toggles
   const [isTitleEditing, setIsTitleEditing] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const [isNewBugModalOpen, setIsNewBugModalOpen] = useState(false);
 
   const fetchTestRun = async (isRefresh?: boolean) => {
     if (!id) return;
@@ -240,13 +243,13 @@ const TestRunDetail = () => {
     <div>
       {/* Header */}
       <header className="py-6 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="w-full">
+        <div className="w-full px-6">
           {
             errorTestRun ? (
-              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                <p className="text-red-500 dark:text-red-400">Error loading Tracker <br></br> {errorTestRun}</p>
+              <div className="text-center py-2 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                <p className="text-sm text-red-500 dark:text-red-400">Error loading Tracker <br></br> {errorTestRun}</p>
                 <Button
-                  className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                  className="bg-tasksmate-gradient hover:scale-105 transition-transform text-sm"
                   onClick={() => fetchTestRun(false)}
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
@@ -255,9 +258,9 @@ const TestRunDetail = () => {
               </div>
             ) :
               (loadingTestRun ? (
-                <div className="flex items-center justify-center h-full">
+                <div className="py-4 flex items-center justify-center h-full">
                   <Loader2 className="w-8 h-8 animate-spin" />
-                  <p className="ml-2 text-gray-500">Loading tracker details...</p>
+                  <p className="ml-2 text-gray-500 text-sm">Loading tracker details...</p>
                 </div>
               ) : (
                 <div className="flex items-start justify-between space-x-3">
@@ -290,11 +293,11 @@ const TestRunDetail = () => {
                       <Badge key={testRun?.creator} className="text-xs bg-purple-100 text-purple-800">
                         {testRun?.creator}
                       </Badge>
-                      <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 text-sm">
+                      <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 text-xs">
                         <Calendar className="w-4 h-4 mr-1" />
                         {new Date(testRun?.date).toLocaleDateString()}
                       </Badge>
-                      <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-200">{testRun?.project}</Badge>
+                      <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-200 text-xs">{testRun?.project}</Badge>
 
                       {/* <Select value={assignee} disabled={!testRun?.is_editable} onValueChange={handleAssigneeChange}>
                   <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
@@ -340,16 +343,16 @@ const TestRunDetail = () => {
                       </Select>
                       {/* Add delete button for tracker creators */}
                       {testRun?.is_editable && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                    onClick={() => setIsDeleteDialogOpen(true)}
-                    title="Delete Tracker"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                          onClick={() => setIsDeleteDialogOpen(true)}
+                          title="Delete Tracker"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                     {/* Title */}
                     <div className="mt-2 flex items-start gap-2">
@@ -418,7 +421,22 @@ const TestRunDetail = () => {
                       )}
                     </div>
 
+                  </div>
 
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button variant="outline" asChild>
+                      <Link to={`/tester-zone${currentOrgId ? `?org_id=${currentOrgId}` : ''}`} className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to Trackers
+                      </Link>
+                    </Button>
+                    <Button
+                      onClick={() => setIsNewBugModalOpen(true)}
+                      className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>New Bug</span>
+                    </Button>
                   </div>
 
                 </div>
@@ -430,7 +448,7 @@ const TestRunDetail = () => {
         </div>
       </header>
 
-      <main className="py-2">
+      <main className="px-6 py-2">
         <div className="w-full">
           <BugBoardTab runId={testRun?.id} bugSummary={testRun?.summary} />
         </div>
@@ -454,15 +472,15 @@ const TestRunDetail = () => {
                   description: "Please wait while we delete the tracker.",
                   variant: "default"
                 });
-                
+
                 await api.del(`${API_ENDPOINTS.TRACKERS}/${id}`);
-                
+
                 toast({
                   title: "Success",
                   description: "Tracker deleted successfully!",
                   variant: "default"
                 });
-                
+
                 // Navigate back to the trackers list
                 // Refresh the tracker list
                 const event = new CustomEvent('tracker-created');
@@ -482,6 +500,12 @@ const TestRunDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <NewBugModal
+        open={isNewBugModalOpen}
+        onOpenChange={setIsNewBugModalOpen}
+        runId={id}
+      />
     </div>
   );
 };
