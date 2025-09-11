@@ -33,6 +33,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useNavigate } from 'react-router-dom';
 import { BackendOrgMember } from '@/types/organization';
 import CopyableIdBadge from '@/components/ui/copyable-id-badge';
+import { TaskCreateInitialData } from '@/types/tasks';
 
 interface BugComment {
   id: string;
@@ -65,6 +66,7 @@ interface BugDetails {
   project_id: string;
   project_name: string;
   is_editable: boolean;
+  tracker_id?: string
 }
 
 const BugDetail = () => {
@@ -76,7 +78,7 @@ const BugDetail = () => {
     setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem');
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
-  
+
   const { id: runId, bugId } = useParams();
   const currentOrgId = useCurrentOrgId();
   const queryClient = useQueryClient();
@@ -112,13 +114,13 @@ const BugDetail = () => {
   const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
   const { data: orgMembersRaw = [] } = useOrganizationMembers(currentOrgId);
   const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
-      ...m,
-      name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
-    })).map((m: any) => ({
-      ...m,
-      displayName: deriveDisplayFromEmail(m.name).displayName,
-      initials: deriveDisplayFromEmail(m.name).initials,
-    })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
+    ...m,
+    name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
+  })).map((m: any) => ({
+    ...m,
+    displayName: deriveDisplayFromEmail(m.name).displayName,
+    initials: deriveDisplayFromEmail(m.name).initials,
+  })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
   const { user } = useAuth();
 
   const navigate = useNavigate();
@@ -788,7 +790,6 @@ const BugDetail = () => {
 
   const handleSelectMention = useCallback((username: string) => {
 
-    console.log(commentInputRef)
     if (!commentInputRef.current) return;
 
     const textarea = commentInputRef.current;
@@ -815,8 +816,7 @@ const BugDetail = () => {
         usernameSafe + ' ' + // Add username (with NBSP) and trailing regular space
         text.substring(curPos); // Keep text after cursor
 
-      console.log('Adding mention:', username);
-      console.log('New text:', newText);
+
 
       // Update the comment text
       setNewComment(newText);
@@ -1084,6 +1084,24 @@ const BugDetail = () => {
   //   handleSaveChanges(null, null, null, null, null, null, tags);
   // };
 
+  const [initialData, setInitialData] = useState<TaskCreateInitialData>(null);
+
+  const handleConvertToTask = async () => {
+    if (!bug) return;
+    const bugData: TaskCreateInitialData = {
+      projectId: bug.project_id,
+      name: bug.title,
+      description: bug.description,
+      // status: bug.status,
+      // priority: bug.priority,
+      // tags: bug.tags,
+      bug_id: bug.id,
+      tracker_id: bug.tracker_id,
+    }
+    setInitialData(bugData)
+    setIsNewTaskModalOpen(true)
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -1174,7 +1192,14 @@ const BugDetail = () => {
                   {bug?.priority?.toUpperCase()}
                 </Badge>
 
-                <CopyableIdBadge id={bug?.id} org_id={currentOrgId} isCompleted={bug?.closed || bug?.status === 'closed'} />
+                <CopyableIdBadge
+                  id={bug?.id}
+                  org_id={currentOrgId}
+                  isCompleted={bug?.closed || bug?.status === 'closed'}
+                  tracker_id={bug?.tracker_id || bug?.run_id}
+                  className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                  copyLabel="Bug"
+                />
               </div>
               <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
                 {bug?.title}
@@ -1189,13 +1214,13 @@ const BugDetail = () => {
 
             <div className="flex gap-3">
               <Button variant="outline" asChild>
-                <Link to={currentOrgId ? `/tester-zone/runs/${runId}?org_id=${currentOrgId}` : `/tester-zone/runs/${runId}`}>
+                <Link to={currentOrgId ? `/tester-zone/runs/${runId || bug?.run_id || bug?.tracker_id}?org_id=${currentOrgId}` : `/tester-zone/runs/${runId || bug?.run_id || bug?.tracker_id}`}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Board
                 </Link>
               </Button>
               <Button
-                onClick={() => setIsNewTaskModalOpen(true)}
+                onClick={() => handleConvertToTask()}
                 className="bg-green-500 hover:bg-green-600 text-white"
               >
                 Convert to Task
@@ -1627,11 +1652,15 @@ const BugDetail = () => {
 
       <NewTaskModal
         open={isNewTaskModalOpen}
-        onOpenChange={setIsNewTaskModalOpen}
-        onTaskCreated={() => console.log('Task created from bug')}
+        onOpenChange={(open) => {
+          setInitialData(null)
+          setIsNewTaskModalOpen(open)
+        }}
+        onTaskCreated={() => setInitialData(null)}
         defaultTags={[bug?.id]}
         isConvertingFromBug={true}
         projectName={bug?.project_name}
+        initialData={initialData}
       />
     </div>
   );

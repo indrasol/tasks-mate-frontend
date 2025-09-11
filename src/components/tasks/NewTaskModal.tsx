@@ -28,7 +28,7 @@ import { api } from "@/services/apiService";
 import { taskService } from "@/services/taskService";
 import type { BackendOrgMember } from "@/types/organization";
 import { Project } from "@/types/projects";
-import { Task } from "@/types/tasks";
+import { Task, TaskCreateInitialData } from "@/types/tasks";
 import { Plus, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { RichTextEditor } from "../ui/rich-text-editor";
@@ -39,24 +39,12 @@ interface NewTaskModalProps {
   onTaskCreated: (task: Task) => void;
   defaultTags?: string[];
   isConvertingFromBug?: boolean;
-  initialData?: Partial<{
-    projectId: string;
-    name: string;
-    description: string;
-    status: string; // backend enum preferred (e.g., in_progress)
-    priority: string;
-    owner: string;
-    startDate: string; // YYYY-MM-DD or ISO
-    targetDate: string; // YYYY-MM-DD or ISO
-    tags: string[];
-    is_subtask?: boolean;
-    parentTaskId?: string; // For subtasks, if applicable
-  }>;
+  initialData?: Partial<TaskCreateInitialData>;
   projectName?: string;
 }
 
 const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isConvertingFromBug = false, initialData, projectName }: NewTaskModalProps) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<TaskCreateInitialData>({
     projectId: "",
     name: "",
     description: "",
@@ -70,6 +58,8 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     tags: [] as string[],
     is_subtask: false, // Default to false; can be set later if needed
     parentTaskId: "", // For subtasks, if applicable
+    bug_id: "",
+    tracker_id: "",
   });
   const [tagInput, setTagInput] = useState("");
 
@@ -93,37 +83,38 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     "archived",
   ] as const;
 
+  const fetchProjects = async () => {
+    const orgId = currentOrgId;
+    if (!user || !orgId) return;
+
+    setLoadingProjects(true);
+
+    try {
+      const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}`);
+      const mapped: Project[] = res.map((p: any) => ({
+        id: p.project_id,
+        name: p.name,
+        description: p.description,
+        status: p.status,
+        progress: Number(p.progress_percent ?? 0),
+        startDate: p.start_date ?? p.created_at ?? '',
+        endDate: p.end_date ?? '',
+        teamMembers: p.team_members ?? [],
+        tasksCount: p.tasks_total ?? 0,
+        completedTasks: p.tasks_completed ?? 0,
+        priority: p.priority,
+        owner: p.owner ?? "",
+        category: 'General',
+      }));
+      setProjects(mapped);
+    } catch (err) {
+      console.error('Failed to fetch projects', err);
+    }
+    setLoadingProjects(false);
+  };
+
   // Fetch projects from backend
   useEffect(() => {
-    const fetchProjects = async () => {
-      const orgId = currentOrgId;
-      if (!user || !orgId) return;
-
-      setLoadingProjects(true);
-
-      try {
-        const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${orgId}`);
-        const mapped: Project[] = res.map((p: any) => ({
-          id: p.project_id,
-          name: p.name,
-          description: p.description,
-          status: p.status,
-          progress: Number(p.progress_percent ?? 0),
-          startDate: p.start_date ?? p.created_at ?? '',
-          endDate: p.end_date ?? '',
-          teamMembers: p.team_members ?? [],
-          tasksCount: p.tasks_total ?? 0,
-          completedTasks: p.tasks_completed ?? 0,
-          priority: p.priority,
-          owner: p.owner ?? "",
-          category: 'General',
-        }));
-        setProjects(mapped);
-      } catch (err) {
-        console.error('Failed to fetch projects', err);
-      }
-      setLoadingProjects(false);
-    };
     fetchProjects();
   }, [user, currentOrgId]);
 
@@ -142,21 +133,13 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
   // Set default tags when modal opens
   useEffect(() => {
     if (open && defaultTags.length > 0) {
-      if (isConvertingFromBug) {
-        // For bug conversion, set the bug ID as a non-editable tag
-        setFormData(prev => ({
-          ...prev,
-          tags: [...defaultTags]
-        }));
-      } else {
-        // For regular task creation with default tags
-        setFormData(prev => ({
-          ...prev,
-          tags: [...defaultTags]
-        }));
-      }
+      // For bug conversion, set the bug ID as a non-editable tag
+      setFormData(prev => ({
+        ...prev,
+        tags: [...defaultTags]
+      }));
     }
-  }, [open, defaultTags, isConvertingFromBug]);
+  }, [open, defaultTags]);
 
   // Initialize start date to today when modal opens
   useEffect(() => {
@@ -170,33 +153,64 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     }
   }, [open]);
 
+  useEffect(() => {
+    if (open && formData.projectId && projects) {
+      handleAddTag(formData.projectId);
+    }
+  }, [open, formData.projectId, projects]);
+
   // Apply initial data for duplication/edit-like flows
   useEffect(() => {
-    if (!open || !initialData) return;
-    const normalizeDate = (d?: string) => {
-      if (!d) return "";
-      // If ISO string, take date part
-      return d.length > 10 ? d.slice(0, 10) : d;
-    };
-    const normalizeStatus = (s?: string) => {
-      if (!s) return undefined;
-      return s.replace("in-progress", "in_progress");
-    };
-    setFormData(prev => ({
-      projectId: initialData.projectId ?? prev.projectId,
-      name: initialData.name ?? prev.name,
-      description: initialData.description ?? prev.description,
-      status: normalizeStatus(initialData.status) ?? prev.status,
-      priority: initialData.priority ?? prev.priority,
-      owner: initialData.owner ?? prev.owner,
-      startDate: normalizeDate(initialData.startDate) || prev.startDate,
-      targetDate: normalizeDate(initialData.targetDate) || prev.targetDate,
-      tags: Array.isArray(initialData.tags) ? [...initialData.tags] : prev.tags,
-      is_subtask: initialData.is_subtask ?? prev.is_subtask,
-      // If parentTaskId is provided, set it as a subtask
-      parentTaskId: initialData.parentTaskId ?? prev.parentTaskId,
-    }));
+    if (!open) {
+      clearFormData();
+    }
   }, [open, initialData]);
+
+  const normalizeDate = (d?: string) => {
+    if (!d) return "";
+    // If ISO string, take date part
+    return d.length > 10 ? d.slice(0, 10) : d;
+  };
+  const normalizeStatus = (s?: string) => {
+    if (!s) return undefined;
+    return s.replace("in-progress", "in_progress");
+  };
+
+  useEffect(() => {
+    if (!initialData) return;
+    console.log(initialData, initialData.description, formData.description)
+    setFormData(prev => ({
+      projectId: initialData.projectId || prev.projectId,
+      name: initialData.name || prev.name,
+      description: initialData.description || prev.description,
+      status: normalizeStatus(initialData.status || prev.status),
+      priority: initialData.priority || prev.priority,
+      owner: initialData.owner || prev.owner,
+      startDate: normalizeDate(initialData.startDate || prev.startDate),
+      targetDate: normalizeDate(initialData.targetDate || prev.targetDate),
+      tags: Array.isArray(initialData.tags) ? [...initialData.tags] : [...prev.tags],
+      is_subtask: initialData.is_subtask || prev.is_subtask,
+      // If parentTaskId is provided, set it as a subtask
+      parentTaskId: initialData.parentTaskId || prev.parentTaskId,
+      bug_id: initialData.bug_id || prev.bug_id,
+      tracker_id: initialData.tracker_id || prev.tracker_id,
+    }));
+    setContent(initialData.description);
+  }, [initialData]);
+
+  const [content, setContent] = useState('');
+
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      description: content
+    }));
+  }, [content]);
+
+  const clearFormData = async () => {
+    setFormData({ projectId: "", name: "", description: "", status: "not_started", priority: "low", owner: "", startDate: "", targetDate: "", tags: [], is_subtask: false, parentTaskId: "", bug_id: "", tracker_id: "" });
+    setTagInput("");
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,6 +242,8 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         priority: formData.priority,
         is_subtask: formData.is_subtask || false,
         parent_task_id: formData.parentTaskId || null, // For subtasks, if applicable
+        bug_id: formData.bug_id || null,
+        tracker_id: formData.tracker_id || null,
 
       };
       toast({
@@ -253,6 +269,8 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         projectId: created.project_id || formData.projectId,
         is_subtask: created.is_subtask || false,
         parentTaskId: created.parent_task_id || formData.parentTaskId, // For subtasks, if applicable
+        bug_id: created.bug_id || formData.bug_id,
+        tracker_id: created.tracker_id || formData.tracker_id,
       };
       onTaskCreated(newTask);
       toast({
@@ -260,8 +278,6 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         description: "Task created successfully!",
         variant: "default"
       });
-      setFormData({ projectId: "", name: "", description: "", status: "not_started", priority: "low", owner: "", startDate: "", targetDate: "", tags: [], is_subtask: false, parentTaskId: "" });
-      setTagInput("");
       onOpenChange(false);
     } catch (err: any) {
       toast({
@@ -276,11 +292,16 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+  const handleAddTag = (project_id_tag?: string) => {
+
+    const tagValue = project_id_tag ?
+      projects?.find(p => p.id === project_id_tag)?.name?.trim()
+      : tagInput.trim();
+
+    if (tagValue && !formData.tags.includes(tagValue)) {
       setFormData(prev => ({
         ...prev,
-        tags: [...prev.tags, tagInput.trim()]
+        tags: [...prev.tags, tagValue]
       }));
       setTagInput("");
     }
@@ -410,7 +431,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                   Description
                 </Label>
                 <RichTextEditor
-                  content={formData.description}
+                  content={content}
                   onChange={(content) => handleInputChange("description", content)}
                   placeholder="Provide detailed information about this task. You can also elaborate longer or update inside the task after creation"
                   // onImageUpload={handleImageUpload}
@@ -433,7 +454,9 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                 </Label>
                 <Select
                   value={formData.projectId}
-                  onValueChange={(value) => handleInputChange("projectId", value)}
+                  onValueChange={(value) => {
+                    handleInputChange("projectId", value)
+                  }}
                 >
                   <SelectTrigger className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     <SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select project"} />
@@ -467,7 +490,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                     />
                     <Button
                       type="button"
-                      onClick={handleAddTag}
+                      onClick={() => handleAddTag()}
                       variant="outline"
                       className="h-10 px-4"
                       disabled={!tagInput.trim()}
