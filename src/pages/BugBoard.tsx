@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { toast } from '@/hooks/use-toast';
-import { AlertCircle, ArrowRight, Calendar, CalendarRange, Check, ChevronRight, Filter, Loader2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Calendar, CalendarRange, Check, ChevronRight, Filter, Loader2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import TestRunDetail from './TestRunDetail';
@@ -582,8 +582,19 @@ const BugBoard = () => {
                     isCompleted={bug?.closed}
                   />
                 </TableCell>
-                <TableCell className={`${bug?.closed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>
-                  {bug?.title}
+                <TableCell className="font-medium w-80">
+                  <div className="flex items-center">
+                    <div
+                      className={`truncate max-w-[260px] ${bug?.closed ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}                      
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBugClick(bug.id);
+                      }}
+                    >
+                      {bug.title}
+                    </div>
+                    
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge className={`${getSeverityColor(bug?.severity)} text-xs`}>
@@ -652,10 +663,26 @@ const BugBoard = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <MainNavigation />
 
-      <div className="px-6 transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
-        
+      <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+
+        {/* <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50" >
+          <div className="w-full flex items-center justify-between">
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                onClick={() => navigate(`${currentOrgId ? `/tester-zone?org_id=${currentOrgId}` : '/tester-zone'}`)}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-transparent p-0 m-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Trackers
+              </Button>
+            </div>
+
+          </div>
+        </nav> */}
+
         {/* Breadcrumbs - Moved to top */}
-        <nav className="py-4">
+        {/* <nav className="py-4">
           <div className="w-full">
             <Breadcrumb>
               <BreadcrumbList>
@@ -675,10 +702,10 @@ const BugBoard = () => {
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-        </nav>
-        
+        </nav> */}
+
         {/* Page Header */}
-        <div className="py-4">
+        {/* <div className="px-6 py-4">
           <div className="w-full flex items-center justify-between">
             <div>
               <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-white mb-2">Bug Board</h1>
@@ -692,13 +719,13 @@ const BugBoard = () => {
               <span>New Bug</span>
             </Button>
           </div>
-        </div>
+        </div> */}
 
         {/* Tracker Details and KPIs */}
         <TestRunDetail />
 
         {/* Enhanced Controls */}
-        <div className="py-4 bg-white/30 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 bg-white/30 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-700">
           <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
@@ -715,7 +742,7 @@ const BugBoard = () => {
 
               {/* Filters and Controls - Right side */}
               <div className="flex items-center space-x-4">
-                <Filter className="w-4 h-4 text-gray-500" />
+                {/* <Filter className="w-4 h-4 text-gray-500" /> */}
 
                 {/* Status Filter Dropdown */}
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -866,7 +893,7 @@ const BugBoard = () => {
                   </Button>
                 </div> */}
 
-                <div className="ml-4 flex items-center gap-2">
+                {/* <div className="ml-4 flex items-center gap-2">
                   <Button
                     onClick={() => setIsNewBugModalOpen(true)}
                     className="bg-tasksmate-gradient hover:scale-105 transition-transform flex items-center space-x-2"
@@ -874,14 +901,14 @@ const BugBoard = () => {
                     <Plus className="w-4 h-4" />
                     <span>New Bug</span>
                   </Button>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>
         </div>
 
         {/* Results count */}
-        <div className="py-2">
+        <div className="px-6 py-2">
           <div className="w-full">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Showing {filteredBugs.length} bug{filteredBugs.length !== 1 ? 's' : ''}
@@ -891,72 +918,72 @@ const BugBoard = () => {
         </div>
 
         {/* Bugs Display */}
-        <div className="py-6">
+        <div className="px-6 py-6">
           <div className="w-full">
             {
-          error ? (
-            <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-              <p className="text-red-500 dark:text-red-400">Error loading bugs <br></br> {error}</p>
-              <Button
-                className="bg-tasksmate-gradient hover:scale-105 transition-transform"
-                onClick={fetchBugs}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Try again
-              </Button>
-            </div>
-          ) :
-
-            (loading ? (
-              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Loading bugs...</p>
-              </div>
-            ) :
-
-              (filteredBugs.length === 0 ? (
+              error ? (
                 <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                  <div className="w-24 h-24 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
-                  </div>
-                  <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">No bugs found</p>
-                  <p className="text-gray-500 dark:text-gray-400 mb-6">
-                    {searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all'
-                      ? 'Try adjusting your filters or search query'
-                      : 'Create your first bug report to get started'
-                    }
-                  </p>
+                  <p className="text-red-500 dark:text-red-400">Error loading bugs <br></br> {error}</p>
                   <Button
                     className="bg-tasksmate-gradient hover:scale-105 transition-transform"
-                    onClick={() => setIsNewBugModalOpen(true)}
+                    onClick={fetchBugs}
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Bug Report
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try again
                   </Button>
-                  {(searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all') && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSearchTerm('');
-                        setFilterStatus('all');
-                        setFilterPriority('all');
-                        setDateFilter('all');
-                        setIsCustomDateRange(false);
-                        setDateRange({ from: undefined, to: undefined });
-                        setTempDateRange({ from: undefined, to: undefined });
-                      }}
-                      className="mt-4"
-                    >
-                      Clear Filters
-                    </Button>
-                  )}
                 </div>
-              )
-                :
-                (viewMode === 'grid' ? BugGridView() : BugListView())
-              )
-            )
-        }
+              ) :
+
+                (loading ? (
+                  <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                    <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400">Loading bugs...</p>
+                  </div>
+                ) :
+
+                  (filteredBugs.length === 0 ? (
+                    <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                      <div className="w-24 h-24 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AlertCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
+                      </div>
+                      <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">No bugs found</p>
+                      <p className="text-gray-500 dark:text-gray-400 mb-6">
+                        {searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all'
+                          ? 'Try adjusting your filters or search query'
+                          : 'Create your first bug report to get started'
+                        }
+                      </p>
+                      <Button
+                        className="bg-tasksmate-gradient hover:scale-105 transition-transform"
+                        onClick={() => setIsNewBugModalOpen(true)}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        New Bug Report
+                      </Button>
+                      {(searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || dateFilter !== 'all') && (
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setSearchTerm('');
+                            setFilterStatus('all');
+                            setFilterPriority('all');
+                            setDateFilter('all');
+                            setIsCustomDateRange(false);
+                            setDateRange({ from: undefined, to: undefined });
+                            setTempDateRange({ from: undefined, to: undefined });
+                          }}
+                          className="mt-4"
+                        >
+                          Clear Filters
+                        </Button>
+                      )}
+                    </div>
+                  )
+                    :
+                    (viewMode === 'grid' ? BugGridView() : BugListView())
+                  )
+                )
+            }
           </div>
         </div>
 

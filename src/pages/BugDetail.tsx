@@ -27,9 +27,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import imageCompression from "browser-image-compression";
 import { format } from 'date-fns';
 import { ArrowLeft, ChevronRight, Clock, Edit3, Loader2, Pencil, Save, Send, Trash2, Upload, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useNavigate } from 'react-router-dom';
+import { BackendOrgMember } from '@/types/organization';
+import CopyableIdBadge from '@/components/ui/copyable-id-badge';
 
 interface BugComment {
   id: string;
@@ -48,6 +51,7 @@ interface BugEvidence {
 }
 
 interface BugDetails {
+  closed?: boolean;
   id: string;
   title: string;
   description: string;
@@ -64,6 +68,15 @@ interface BugDetails {
 }
 
 const BugDetail = () => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
+    window.addEventListener('sidebar-toggle', handler);
+    setSidebarCollapsed(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem');
+    return () => window.removeEventListener('sidebar-toggle', handler);
+  }, []);
+  
   const { id: runId, bugId } = useParams();
   const currentOrgId = useCurrentOrgId();
   const queryClient = useQueryClient();
@@ -97,9 +110,18 @@ const BugDetail = () => {
   const [cursorPosition, setCursorPosition] = useState(0);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
-  const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId);
+  const { data: orgMembersRaw = [] } = useOrganizationMembers(currentOrgId);
+  const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
+      ...m,
+      name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
+    })).map((m: any) => ({
+      ...m,
+      displayName: deriveDisplayFromEmail(m.name).displayName,
+      initials: deriveDisplayFromEmail(m.name).initials,
+    })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
   const { user } = useAuth();
 
+  const navigate = useNavigate();
 
   // Fetch bug details
 
@@ -831,9 +853,7 @@ const BugDetail = () => {
       // Check username, display name and email
       const searchLower = mentionSearchText.toLowerCase();
       const usernameMatch = member.email?.toLowerCase().includes(searchLower);
-      const displayName = deriveDisplayFromEmail(member.email || '').displayName.toLowerCase();
-      const displayNameMatch = displayName.includes(searchLower);
-
+      const displayNameMatch = member.displayName?.toLowerCase().includes(searchLower);
       return usernameMatch || displayNameMatch;
     })
     : orgMembers).filter((member) => member.email !== user?.email);
@@ -1096,9 +1116,26 @@ const BugDetail = () => {
     <div className="min-h-screen bg-gray-50">
       <MainNavigation />
 
-      <div className="ml-64 p-8">
+      <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+
+        {/* <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50" >
+          <div className="w-full flex items-center justify-between">
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                onClick={() => navigate(`${currentOrgId ? `/tester-zone/runs/${runId}?org_id=${currentOrgId}` : `/tester-zone/runs/${runId}`}`)}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-transparent p-0 m-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Board
+              </Button>
+            </div>
+
+          </div>
+        </nav> */}
+
         {/* Breadcrumb */}
-        <Breadcrumb className="mb-6">
+        {/* <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
@@ -1115,14 +1152,6 @@ const BugDetail = () => {
                 <Link to={currentOrgId ? `/tester-zone/runs/${runId}?org_id=${currentOrgId}` : `/tester-zone/runs/${runId}`}>{runId}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
-            {/* <BreadcrumbSeparator>
-              <ChevronRight className="h-4 w-4" />
-            </BreadcrumbSeparator>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link to={`/tester-zone/runs/${runId}/bugs`}>Bug Board</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem> */}
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
             </BreadcrumbSeparator>
@@ -1134,19 +1163,18 @@ const BugDetail = () => {
               </BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
-        </Breadcrumb>
+        </Breadcrumb> */}
 
         {/* Header */}
-        <div className="bg-white rounded-lg border shadow-sm p-6 mb-6">
+        <div className="px-6 bg-white rounded-lg border shadow-sm p-6 mb-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
                 <Badge className={`${getSeverityColor(bug?.priority)} border text-sm font-medium`}>
                   {bug?.priority?.toUpperCase()}
                 </Badge>
-                <Badge className="text-sm font-mono bg-red-600 text-white">
-                  {bug?.id}
-                </Badge>
+
+                <CopyableIdBadge id={bug?.id} org_id={currentOrgId} isCompleted={bug?.closed || bug?.status === 'closed'} />
               </div>
               <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
                 {bug?.title}
@@ -1185,7 +1213,7 @@ const BugDetail = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="px-6 py-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Description */}

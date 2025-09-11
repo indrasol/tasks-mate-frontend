@@ -34,7 +34,7 @@ import {
   Loader2,
   RefreshCw
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 // Dropdown removed for priority badge in header
 import { API_ENDPOINTS } from "@/config";
@@ -66,6 +66,7 @@ import { capitalizeFirstLetter, deriveDisplayFromEmail, getPriorityColor, getSta
 import { api } from "@/services/apiService";
 import { taskService } from '@/services/taskService';
 import imageCompression from "browser-image-compression";
+import { BackendOrgMember } from "@/types/organization";
 
 interface Project {
   id: string;
@@ -114,7 +115,18 @@ const ProjectDetail = () => {
   const [daysLeft, setDaysLeft] = useState<number | undefined>(undefined);
   const { data: membersData, refetch: refetchMembers } = useProjectMembers(id);
   const currentOrgId = useCurrentOrgId();
-  const { data: orgMembers = [] } = useOrganizationMembers(currentOrgId);
+  const { data: orgMembersRaw = [] } = useOrganizationMembers(currentOrgId);
+  const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
+    ...m,
+    name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
+  })).map((m: any) => ({
+    ...m,
+    displayName: deriveDisplayFromEmail(m.name).displayName,
+    initials: deriveDisplayFromEmail(m.name).initials,
+  })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
+
+  const orgRole = useMemo(() => orgMembers.find((m) => m.user_id === user?.id)?.role, [orgMembers, user]);
+
   const { data: resourcesData } = useProjectResources(id);
   const [project, setProject] = useState<Project | null>(null);
   const [teamMembers, setTeamMembers] = useState<Member[]>([]);
@@ -176,6 +188,7 @@ const ProjectDetail = () => {
       setDescriptionInput(project.description);
     }
   }, [project]);
+
 
   // Utility helpers -------------------------------------------------
   const priorityOptions = ["critical", "high", "medium", "low", "none"] as const;
@@ -270,6 +283,16 @@ const ProjectDetail = () => {
   };
 
   const [userRole, setUserRole] = useState<string | null>(null);
+
+
+  const isOwner = useMemo(() => {
+    return (userRole === "owner" || orgRole === "owner")
+  }, [userRole, orgRole]);
+
+  const isAdmin = useMemo(() => {
+    return ((userRole === "admin" || userRole === "owner")
+      || (orgRole === "owner" || orgRole === "admin"))
+  }, [userRole, orgRole]);
 
   // When react-query returns data, normalise into Member shape
   useEffect(() => {
@@ -1031,7 +1054,7 @@ const ProjectDetail = () => {
           <div className="min-h-screen px-6 py-10 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-                <p className="mt-4 text-gray-600 dark:text-gray-300">Loading Project...</p>
+              <p className="mt-4 text-gray-600 dark:text-gray-300">Loading Project...</p>
             </div>
           </div>
         </div>
@@ -1125,7 +1148,7 @@ const ProjectDetail = () => {
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
-        <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50" >
+        {/* <nav className="px-6 py-4 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50" >
           <div className="w-full flex items-center justify-between">
             <div className="flex items-center">
               <Button
@@ -1136,37 +1159,34 @@ const ProjectDetail = () => {
                 <ArrowLeft className="w-4 h-4" />
                 Back to Projects
               </Button>
-              {/* Removed TasksMate logo and divider */}
             </div>
-
-
-
-            {/* Removed profile avatar */}
           </div>
-        </nav>
+        </nav> */}
 
         {/* Permission Banner */}
-        {userRole !== "owner" && userRole !== "admin" && isBannerVisible && (
-          <div className="w-full bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-6 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                <p className="text-amber-800 dark:text-amber-200 font-medium">
-                  You are viewing this project as a member. Some actions like editing or deleting the project are restricted to members.
-                </p>
+        {
+          !isAdmin
+          && isBannerVisible && (
+            <div className="w-full bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-6 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <p className="text-amber-800 dark:text-amber-200 font-medium">
+                    You are viewing this project as a member. Some actions like editing or deleting the project are restricted to members.
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/30"
+                  onClick={handleHideBanner}
+                  aria-label="Dismiss message"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/30"
-                onClick={handleHideBanner}
-                aria-label="Dismiss message"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
-          </div>
-        )}
+          )}
 
 
 
@@ -1203,7 +1223,7 @@ const ProjectDetail = () => {
                   <CopyableBadge copyText={project?.id ?? ''} org_id={currentOrgId ?? ''} variant="default" className="text-sm font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white">
                     {project?.id}
                   </CopyableBadge>
-                  {(userRole === "owner" || userRole === "admin") ? (
+                  {isAdmin ? (
                     <>
                       {/* Status selector */}
                       <Select
@@ -1261,25 +1281,26 @@ const ProjectDetail = () => {
                   )}
                   {/* Edit icon removed as requested */}
 
-                  {(userRole === "owner") ? (
-                    <div className="cursor-pointer hover:scale-110 hover:text-red-600 transition" title="Delete project">
-                      <Trash2
-                        className="w-4 h-4"
-                        onClick={handleDelete}
-                      />
-                    </div>
-                  ) : (
-                    <div className="relative group">
-                      <div className="cursor-not-allowed">
+                  {isAdmin
+                    ? (
+                      <div className="cursor-pointer hover:scale-110 hover:text-red-600 transition" title="Delete project">
                         <Trash2
-                          className="w-4 h-4 text-gray-400"
+                          className="w-4 h-4"
+                          onClick={handleDelete}
                         />
                       </div>
-                      <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
-                        Only project owners can delete projects
+                    ) : (
+                      <div className="relative group">
+                        <div className="cursor-not-allowed">
+                          <Trash2
+                            className="w-4 h-4 text-gray-400"
+                          />
+                        </div>
+                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                          Only project owners can delete projects
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
                 {/* Title with inline edit */}
                 <div className="mt-2 flex items-start gap-2">
@@ -1316,7 +1337,7 @@ const ProjectDetail = () => {
                   ) : (
                     <>
                       <h1 className="font-sora font-bold text-3xl text-gray-900 dark:text-white">{project?.name ?? ''}</h1>
-                      {(userRole === 'owner' || userRole === 'admin') && (
+                      {isAdmin && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1331,6 +1352,23 @@ const ProjectDetail = () => {
                   )}
                 </div>
                 {/* Description moved to card in Overview tab */}
+              </div>
+              {/* Right actions (Duplicate only) */}
+              <div className="ml-4 flex items-center gap-2">
+                {/* <Button variant="outline">
+                  <Link to={`/projects?org_id=${searchParams.get('org_id') ?? ''}`} className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Projects
+                  </Link>
+                </Button> */}
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate(`/projects?org_id=${searchParams.get('org_id') ?? ''}`)}
+                  className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Projects
+                </Button>
               </div>
             </div>
           </div>
@@ -1370,7 +1408,8 @@ const ProjectDetail = () => {
                       </Button>
                     </>
                   ) : (
-                    (userRole === 'owner' || userRole === 'admin') && (
+                    isAdmin
+                    && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1496,7 +1535,7 @@ const ProjectDetail = () => {
                             <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-1" />
                             Start Date
                           </span>
-                          {(userRole === "owner" || userRole === "admin") ? (
+                          {isAdmin ? (
                             <Dialog>
                               <DialogTrigger asChild>
                                 <Badge
@@ -1586,95 +1625,97 @@ const ProjectDetail = () => {
                             <Calendar className="w-4 h-4 text-red-600 dark:text-red-400 mr-1" />
                             End Date
                           </span>
-                          {(userRole === "owner" || userRole === "admin") ? (
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Badge
-                                  variant="secondary"
-                                  className="text-xs bg-red-100 text-red-800 cursor-pointer hover:bg-red-200 transition-colors px-3 py-1.5"
-                                >
-                                  {project?.endDate ?
-                                    (project.endDate.includes('T') ?
-                                      new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
-                                      new Date(project.endDate + 'T12:00:00').toLocaleDateString()) :
-                                    'Set end date'}
-                                  <Pencil className="w-3 h-3 inline ml-1" />
-                                </Badge>
-                              </DialogTrigger>
-                              <DialogContent className="sm:max-w-[425px]">
-                                <DialogHeader>
-                                  <DialogTitle>Update End Date</DialogTitle>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                  <Input
-                                    type="date"
-                                    value={project?.endDate ? project.endDate.split('T')[0] : ''}
-                                    min={project?.startDate ? project.startDate.split('T')[0] : ''}
-                                    onChange={(e) => {
-                                      const newEndDate = e.target.value;
-                                      // Optimistic update
-                                      setProject(prev => prev ? {
-                                        ...prev,
-                                        endDate: newEndDate
-                                      } : null);
-                                    }}
-                                  />
-                                  {project?.startDate && (
-                                    <p className="text-xs text-gray-500">
-                                      Must be on or after the start date ({new Date(project.startDate).toLocaleDateString()})
-                                    </p>
-                                  )}
-                                </div>
-                                <DialogFooter>
-                                  <DialogClose asChild>
-                                    <Button
-                                      type="submit"
-                                      onClick={async () => {
-                                        try {
-                                          await updateProject({ end_date: project?.endDate });
-                                          toast({
-                                            title: "Success",
-                                            description: "End date updated successfully",
-                                            variant: "default"
-                                          });
-
-                                          // Manually update days left to reflect new end date
-                                          if (project?.endDate) {
-                                            const daysLeftVal = Math.max(0, Math.ceil(
-                                              (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12, 0, 0, 0)) /
-                                              (1000 * 60 * 60 * 24)
-                                            ));
-                                            setDaysLeft(daysLeftVal);
-                                          }
-                                        } catch (err) {
-                                          toast({
-                                            title: "Failed to update end date",
-                                            description: err.message,
-                                            variant: "destructive"
-                                          });
-                                        }
-                                      }}
+                          {
+                            isAdmin
+                              ? (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs bg-red-100 text-red-800 cursor-pointer hover:bg-red-200 transition-colors px-3 py-1.5"
                                     >
-                                      Save
-                                    </Button>
-                                  </DialogClose>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-                          ) : (
-                            <div className="relative group">
-                              <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
-                                {project?.endDate ?
-                                  (project.endDate.includes('T') ?
-                                    new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
-                                    new Date(project.endDate + 'T12:00:00').toLocaleDateString()) :
-                                  'Not set'}
-                              </Badge>
-                              <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
-                                Only owners and admins can modify dates
-                              </div>
-                            </div>
-                          )}
+                                      {project?.endDate ?
+                                        (project.endDate.includes('T') ?
+                                          new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                          new Date(project.endDate + 'T12:00:00').toLocaleDateString()) :
+                                        'Set end date'}
+                                      <Pencil className="w-3 h-3 inline ml-1" />
+                                    </Badge>
+                                  </DialogTrigger>
+                                  <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                      <DialogTitle>Update End Date</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                      <Input
+                                        type="date"
+                                        value={project?.endDate ? project.endDate.split('T')[0] : ''}
+                                        min={project?.startDate ? project.startDate.split('T')[0] : ''}
+                                        onChange={(e) => {
+                                          const newEndDate = e.target.value;
+                                          // Optimistic update
+                                          setProject(prev => prev ? {
+                                            ...prev,
+                                            endDate: newEndDate
+                                          } : null);
+                                        }}
+                                      />
+                                      {project?.startDate && (
+                                        <p className="text-xs text-gray-500">
+                                          Must be on or after the start date ({new Date(project.startDate).toLocaleDateString()})
+                                        </p>
+                                      )}
+                                    </div>
+                                    <DialogFooter>
+                                      <DialogClose asChild>
+                                        <Button
+                                          type="submit"
+                                          onClick={async () => {
+                                            try {
+                                              await updateProject({ end_date: project?.endDate });
+                                              toast({
+                                                title: "Success",
+                                                description: "End date updated successfully",
+                                                variant: "default"
+                                              });
+
+                                              // Manually update days left to reflect new end date
+                                              if (project?.endDate) {
+                                                const daysLeftVal = Math.max(0, Math.ceil(
+                                                  (new Date(project.endDate.split('T')[0] + 'T12:00:00').getTime() - new Date().setHours(12, 0, 0, 0)) /
+                                                  (1000 * 60 * 60 * 24)
+                                                ));
+                                                setDaysLeft(daysLeftVal);
+                                              }
+                                            } catch (err) {
+                                              toast({
+                                                title: "Failed to update end date",
+                                                description: err.message,
+                                                variant: "destructive"
+                                              });
+                                            }
+                                          }}
+                                        >
+                                          Save
+                                        </Button>
+                                      </DialogClose>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+                              ) : (
+                                <div className="relative group">
+                                  <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">
+                                    {project?.endDate ?
+                                      (project.endDate.includes('T') ?
+                                        new Date(project.endDate.split('T')[0] + 'T12:00:00').toLocaleDateString() :
+                                        new Date(project.endDate + 'T12:00:00').toLocaleDateString()) :
+                                      'Not set'}
+                                  </Badge>
+                                  <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-48 text-center">
+                                    Only owners and admins can modify dates
+                                  </div>
+                                </div>
+                              )}
                         </div>
 
                         <div className="flex justify-between items-center">
@@ -1698,11 +1739,11 @@ const ProjectDetail = () => {
                           <Users className="w-5 h-5" />
                           Team Members ({teamMembers.length})
                         </span>
-                        {(userRole === "owner" || userRole === "admin") && (
-                          <Button size="icon" variant="ghost" onClick={openAddMemberModal}>
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        )}
+                        {isAdmin && (
+                            <Button size="icon" variant="ghost" onClick={openAddMemberModal}>
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          )}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -1728,55 +1769,55 @@ const ProjectDetail = () => {
                               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{capitalizeFirstLetter(member.role)}</p>
                             </div>
 
-                            {(userRole === "owner" || userRole === "admin") && (
-                              <div className="flex items-center gap-2">
-                                {userRole === "owner" && (
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button title="Change role" variant="ghost" className="h-8 w-8 p-0">
-                                        <Edit className="w-4 h-4 text-blue-500" />
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="sm:max-w-[425px]">
-                                      <DialogHeader>
-                                        <DialogTitle>Change Member Role</DialogTitle>
-                                      </DialogHeader>
-                                      <div className="grid gap-4 py-4">
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                          <Label htmlFor="role" className="text-right">
-                                            Role
-                                          </Label>
-                                          <Select
-                                            defaultValue={member.role}
-                                            onValueChange={(value) => handleChangeRole(member, value)}
-                                          >
-                                            <SelectTrigger className="col-span-3">
-                                              <SelectValue placeholder="Select role" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="owner">Owner</SelectItem>
-                                              <SelectItem value="member">Member</SelectItem>
-                                            </SelectContent>
-                                          </Select>
+                            {isAdmin && (
+                                <div className="flex items-center gap-2">
+                                  {isOwner && (
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button title="Change role" variant="ghost" className="h-8 w-8 p-0">
+                                          <Edit className="w-4 h-4 text-blue-500" />
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="sm:max-w-[425px]">
+                                        <DialogHeader>
+                                          <DialogTitle>Change Member Role</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="grid gap-4 py-4">
+                                          <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="role" className="text-right">
+                                              Role
+                                            </Label>
+                                            <Select
+                                              defaultValue={member.role}
+                                              onValueChange={(value) => handleChangeRole(member, value)}
+                                            >
+                                              <SelectTrigger className="col-span-3">
+                                                <SelectValue placeholder="Select role" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="owner">Owner</SelectItem>
+                                                <SelectItem value="member">Member</SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
                                         </div>
-                                      </div>
-                                      <DialogFooter>
-                                        <DialogClose asChild>
-                                          <Button type="button">
-                                            Close
-                                          </Button>
-                                        </DialogClose>
-                                      </DialogFooter>
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
-                                {member.role !== "owner" && (
-                                  <Button title="Remove member" variant="ghost" onClick={() => handleDeleteMember(member)} className="h-8 w-8 p-0">
-                                    <Trash2 className="w-4 h-4 text-red-500" />
-                                  </Button>
-                                )}
-                              </div>
-                            )}
+                                        <DialogFooter>
+                                          <DialogClose asChild>
+                                            <Button type="button">
+                                              Close
+                                            </Button>
+                                          </DialogClose>
+                                        </DialogFooter>
+                                      </DialogContent>
+                                    </Dialog>
+                                  )}
+                                  {member.role !== "owner" && (
+                                    <Button title="Remove member" variant="ghost" onClick={() => handleDeleteMember(member)} className="h-8 w-8 p-0">
+                                      <Trash2 className="w-4 h-4 text-red-500" />
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                           </div>
                         ))}
                       </div>
@@ -1789,136 +1830,136 @@ const ProjectDetail = () => {
 
               <TabsContent value="resources" className="space-y-6">
 
-                {(userRole === "owner" || userRole === "admin") && (
+                {isAdmin && (
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Upload File Section */}
-                    <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                          <Upload className="w-5 h-5" />
-                          Upload File
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          {/* File preview section */}
-                          {selectedFiles.length > 0 && (
-                            <div className="space-y-2">
-                              <h4 className="text-sm font-medium text-gray-900 dark:text-white">Selected Files ({selectedFiles.length})</h4>
-                              <div className="space-y-2 max-h-40 overflow-y-auto p-2 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
-                                {selectedFiles.map((file, index) => (
-                                  <div key={index} className="flex items-center justify-between p-2 bg-white dark:bg-gray-600 rounded">
-                                    <div className="flex items-center space-x-2">
-                                      {file.preview ? (
-                                        <img
-                                          src={file.preview}
-                                          alt={file.file.name}
-                                          className="w-8 h-8 object-cover rounded"
-                                        />
-                                      ) : (
-                                        <File className="w-5 h-5 text-gray-400" />
-                                      )}
-                                      <span className="text-sm truncate max-w-xs text-gray-900 dark:text-white">{file.file.name}</span>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Upload File Section */}
+                      <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                            <Upload className="w-5 h-5" />
+                            Upload File
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {/* File preview section */}
+                            {selectedFiles.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium text-gray-900 dark:text-white">Selected Files ({selectedFiles.length})</h4>
+                                <div className="space-y-2 max-h-40 overflow-y-auto p-2 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
+                                  {selectedFiles.map((file, index) => (
+                                    <div key={index} className="flex items-center justify-between p-2 bg-white dark:bg-gray-600 rounded">
+                                      <div className="flex items-center space-x-2">
+                                        {file.preview ? (
+                                          <img
+                                            src={file.preview}
+                                            alt={file.file.name}
+                                            className="w-8 h-8 object-cover rounded"
+                                          />
+                                        ) : (
+                                          <File className="w-5 h-5 text-gray-400" />
+                                        )}
+                                        <span className="text-sm truncate max-w-xs text-gray-900 dark:text-white">{file.file.name}</span>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => handleRemoveFile(index)}
+                                      >
+                                        <X className="h-4 w-4 text-gray-500" />
+                                      </Button>
                                     </div>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={() => handleRemoveFile(index)}
-                                    >
-                                      <X className="h-4 w-4 text-gray-500" />
-                                    </Button>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          {selectedFiles.length > 0 && (
-                            <div className="flex items-center justify-center gap-3">
-                              <Button
-                                type="button"
-                                onClick={handleFileUpload}
+                            )}
+                            {selectedFiles.length > 0 && (
+                              <div className="flex items-center justify-center gap-3">
+                                <Button
+                                  type="button"
+                                  onClick={handleFileUpload}
+                                  disabled={uploading}
+                                  className="w-full bg-tasksmate-gradient"
+                                >
+                                  <Upload className="w-4 h-4 mr-2" />
+                                  {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}`}
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* File input area */}
+                            <div className={`border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors bg-gray-50/50 dark:bg-gray-700/50 ${selectedFiles.length > 0 ? 'mt-4' : ''}`}>
+                              <Upload className="w-10 h-10 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Drag and drop files here, or click to browse</p>
+                              <input
+                                type="file"
+                                multiple
+                                className="hidden"
+                                id="file-upload"
+                                onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+                                accept="*/*"
                                 disabled={uploading}
-                                className="w-full bg-tasksmate-gradient"
-                              >
-                                <Upload className="w-4 h-4 mr-2" />
-                                {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}`}
-                              </Button>
+                              />
+                              <div className="flex items-center justify-center gap-3">
+                                <label
+                                  htmlFor="file-upload"
+                                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
+                                >
+                                  Select Files
+                                </label>
+                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Support for PDF, DOC, XLS, PNG, JPG files (Max 10MB)</p>
                             </div>
-                          )}
-
-                          {/* File input area */}
-                          <div className={`border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors bg-gray-50/50 dark:bg-gray-700/50 ${selectedFiles.length > 0 ? 'mt-4' : ''}`}>
-                            <Upload className="w-10 h-10 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Drag and drop files here, or click to browse</p>
-                            <input
-                              type="file"
-                              multiple
-                              className="hidden"
-                              id="file-upload"
-                              onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
-                              accept="*/*"
-                              disabled={uploading}
-                            />
-                            <div className="flex items-center justify-center gap-3">
-                              <label
-                                htmlFor="file-upload"
-                                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
-                              >
-                                Select Files
-                              </label>
-                            </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Support for PDF, DOC, XLS, PNG, JPG files (Max 10MB)</p>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
 
-                    {/* Add URL Section */}
-                    <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                          <Link className="w-5 h-5" />
-                          Add URL
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">URL Name</label>
-                            <Input
-                              type="text"
-                              value={newUrlName}
-                              onChange={(e) => setNewUrlName(e.target.value)}
-                              placeholder="e.g., Design Mockups, API Documentation"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">URL</label>
-                            <Input
-                              type="url"
-                              value={newUrl}
-                              onChange={(e) => setNewUrl(e.target.value)}
-                              placeholder="https://example.com"
-                            />
-                          </div>
-                          <Button
-                            className="w-full bg-tasksmate-gradient"
-                            onClick={handleAddUrl}
-                            disabled={!newUrl || !newUrlName}
-
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
+                      {/* Add URL Section */}
+                      <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                            <Link className="w-5 h-5" />
                             Add URL
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">URL Name</label>
+                              <Input
+                                type="text"
+                                value={newUrlName}
+                                onChange={(e) => setNewUrlName(e.target.value)}
+                                placeholder="e.g., Design Mockups, API Documentation"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">URL</label>
+                              <Input
+                                type="url"
+                                value={newUrl}
+                                onChange={(e) => setNewUrl(e.target.value)}
+                                placeholder="https://example.com"
+                              />
+                            </div>
+                            <Button
+                              className="w-full bg-tasksmate-gradient"
+                              onClick={handleAddUrl}
+                              disabled={!newUrl || !newUrlName}
 
-                )}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add URL
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                  )}
 
                 {/* Resources List */}
                 <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
@@ -2037,42 +2078,42 @@ const ProjectDetail = () => {
 
 
 
-                                  {(userRole === "owner" || userRole === "admin") && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      title="Rename"
-                                      onClick={() => {
-                                        if (resource.type === 'url') {
-                                          setResourceToEdit(resource);
-                                          setEditUrlName(resource.name);
-                                          setEditUrlValue(resource.url || "");
-                                          setIsEditUrlOpen(true);
-                                        } else {
-                                          const newName = window.prompt('Enter new name', resource.name);
-                                          if (newName && newName !== resource.name) {
-                                            handleRenameResource(resource, newName);
+                                  {isAdmin && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Rename"
+                                        onClick={() => {
+                                          if (resource.type === 'url') {
+                                            setResourceToEdit(resource);
+                                            setEditUrlName(resource.name);
+                                            setEditUrlValue(resource.url || "");
+                                            setIsEditUrlOpen(true);
+                                          } else {
+                                            const newName = window.prompt('Enter new name', resource.name);
+                                            if (newName && newName !== resource.name) {
+                                              handleRenameResource(resource, newName);
+                                            }
                                           }
-                                        }
-                                      }}
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </Button>
-                                  )}
+                                        }}
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </Button>
+                                    )}
 
-                                  {(userRole === "owner" || userRole === "admin") && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      title="Delete"
-                                      onClick={() => {
-                                        setResourceToDelete(resource);
-                                        setIsDeleteResourceOpen(true);
-                                      }}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  )}
+                                  {isAdmin && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Delete"
+                                        onClick={() => {
+                                          setResourceToDelete(resource);
+                                          setIsDeleteResourceOpen(true);
+                                        }}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    )}
 
                                   {/* <DropdownMenu>
                               <DropdownMenuTrigger asChild>

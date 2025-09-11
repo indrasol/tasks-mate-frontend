@@ -152,7 +152,7 @@ const DuplicateTaskSidebar = ({ open, onOpenChange, sourceTask }: DuplicateTaskS
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-white">
+      <SheetContent className="w-[600px] sm:max-w-[600px] bg-white">
         <SheetHeader className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
