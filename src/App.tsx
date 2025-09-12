@@ -87,6 +87,7 @@ const App = () => (
             <Route path="/tester-zone/:projectId" element={<PrivateRoute checkOrg><TesterZone /></PrivateRoute>} />
             <Route path="/tester-zone/runs/:id" element={<PrivateRoute checkOrg><BugBoard /></PrivateRoute>} />
             <Route path="/tester-zone/runs/:id/bugs" element={<PrivateRoute checkOrg><BugBoard /></PrivateRoute>} />
+            <Route path="/tester-zone/bugs/:bugId" element={<PrivateRoute checkOrg><BugDetail /></PrivateRoute>} />
             <Route path="/tester-zone/runs/:id/bugs/:bugId" element={<PrivateRoute checkOrg><BugDetail /></PrivateRoute>} />
             <Route path="/scratchpad" element={<PrivateRoute checkOrg><Scratchpad /></PrivateRoute>} />
             <Route path="/privacy" element={<Privacy />} />

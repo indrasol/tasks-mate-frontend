@@ -634,9 +634,6 @@ const TaskDetail = () => {
         usernameSafe + ' ' + // Add username (with NBSP) and trailing regular space
         text.substring(curPos); // Keep text after cursor
 
-      console.log('Adding mention:', username);
-      console.log('New text:', newText);
-
       // Update the comment text
       setNewComment(newText);
 

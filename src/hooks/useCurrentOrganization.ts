@@ -11,10 +11,10 @@ export const useCurrentOrganization = (orgId: string) => {
     queryKey: ["current_organization", user?.id, orgId], // Include orgId in the queryKey
     queryFn: async () => {
       if (!user || !orgId) return null;
-      console.log(`Fetching organization data for orgId: ${orgId}`);
+      // console.log(`Fetching organization data for orgId: ${orgId}`);
       const data = await api.get<BackendOrg>(API_ENDPOINTS.ORGANIZATIONS + `/user/${orgId}`);
       if (!data) return null;
-      console.log('Fetched organization data:', data);
+      // console.log('Fetched organization data:', data);
       return data[0];
     },
     enabled: !!user && !!orgId,

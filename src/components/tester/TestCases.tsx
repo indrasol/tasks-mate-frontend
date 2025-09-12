@@ -55,7 +55,7 @@ const TestCases = ({ runId }: TestCasesProps) => {
 
   const handleCreateBugFromSelection = () => {
     if (selectedText) {
-      console.log('Creating bug from selection:', selectedText);
+      // console.log('Creating bug from selection:', selectedText);
       // This would open a bug creation modal with pre-filled content
     }
   };

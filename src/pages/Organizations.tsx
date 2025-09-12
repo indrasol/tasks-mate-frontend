@@ -103,7 +103,6 @@ const Organizations = () => {
 
   useEffect(() => {
     if (user) {
-      console.log(user);
       fetchOrganizations();
       fetchInvitations();
     }
@@ -141,11 +140,9 @@ const Organizations = () => {
   const fetchInvitations = async () => {
     try {
       setLoadingInvitations(true);
-      console.log('Fetching organization invitations');
 
       // Fetch pending invitations for the current user's email
       const data = await api.get<OrganizationInvitation[]>(`${API_ENDPOINTS.ORGANIZATION_INVITES}/user`);
-      console.log('Raw invitation data:', data);
 
       setInvitations(data || []);
     } catch (error) {
@@ -163,10 +160,8 @@ const Organizations = () => {
   const fetchOrganizations = async () => {
     try {
       setLoading(true);
-      console.log('Fetching organizations via API');
 
       const data = await api.get<BackendOrg[]>(API_ENDPOINTS.ORGANIZATIONS);
-      console.log('Raw data from backend:', data);
 
       const formattedOrgs: Organization[] = (data || []).map((org) => {
         const formattedOrg = {
@@ -182,11 +177,9 @@ const Organizations = () => {
         };
 
         // Log each formatted org for debugging
-        console.log(`Formatted org ${org.org_id}:`, formattedOrg);
         return formattedOrg;
       });
 
-      console.log('Formatted organizations:', formattedOrgs);
       setOrganizations(formattedOrgs);
     } catch (error) {
       console.error('Error fetching organizations:', error);
@@ -905,15 +898,15 @@ const Organizations = () => {
               <Table className="w-full">
                 <TableHeader className="bg-gray-50 dark:bg-gray-800">
                   <TableRow>
-                    <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
-                    <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60 font-bold">Name</TableHead>
-                    <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80 font-bold">Description</TableHead>
-                    <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Role</TableHead>
-                    <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Members</TableHead>
-                    <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Projects</TableHead>
-                    <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Created By</TableHead>
-                    <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Created At</TableHead>
-                    <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
+                    <TableHead className="w-20 sm:w-24 md:w-28 text-center min-w-[5rem]">ID</TableHead>
+                    <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60">Name</TableHead>
+                    <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80">Description</TableHead>
+                    <TableHead className="w-24 sm:w-28 md:w-32 text-center">Role</TableHead>
+                    <TableHead className="w-20 sm:w-24 md:w-28 text-center">Members</TableHead>
+                    <TableHead className="w-24 sm:w-28 md:w-32 text-center">Projects</TableHead>
+                    <TableHead className="w-28 sm:w-32 md:w-40 text-center">Created By</TableHead>
+                    <TableHead className="w-28 sm:w-32 md:w-40 text-center">Created At</TableHead>
+                    <TableHead className="w-20 sm:w-24 text-center flex-shrink-0">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

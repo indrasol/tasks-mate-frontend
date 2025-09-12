@@ -4,7 +4,7 @@ export interface Task {
   name: string;
   description: string;
   status: string;
-  priority?:string;
+  priority?: string;
   owner: string;
   startDate?: string;
   targetDate?: string;
@@ -22,7 +22,7 @@ export interface BackendTask {
   title: string;
   description: string;
   status: string;
-  priority?:string;
+  priority?: string;
   assignee: string;
   start_date?: string;
   due_date?: string;
@@ -31,4 +31,20 @@ export interface BackendTask {
   tags?: string[];
   created_by?: string;
   created_at?: string;
+}
+
+export interface TaskCreateInitialData {
+  projectId?: string;
+  name?: string;
+  description?: string;
+  status?: string; // backend enum preferred (e.g., in_progress)
+  priority?: string;
+  owner?: string;
+  startDate?: string; // YYYY-MM-DD or ISO
+  targetDate?: string; // YYYY-MM-DD or ISO
+  tags?: string[];
+  is_subtask?: boolean;
+  parentTaskId?: string; // For subtasks, if applicable
+  bug_id?: string;
+  tracker_id?:string;
 }

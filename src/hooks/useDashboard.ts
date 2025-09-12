@@ -60,11 +60,11 @@ export const useDashboard = () => {
       setError(null);
 
       try {
-        console.log('Fetching dashboard data for org:', currentOrgId);
+        // console.log('Fetching dashboard data for org:', currentOrgId);
         const response = await api.get<any>(`${API_ENDPOINTS.DASHBOARD}/${currentOrgId}`);
         
         if (response && response.data) {
-          console.log('Dashboard data received:', response.data);
+          // console.log('Dashboard data received:', response.data);
           setDashboardData(response.data);
         } else {
           console.warn('No dashboard data received');

@@ -116,7 +116,6 @@ const Meetings = () => {
     }
     
     setMeetings(prev => [...newMeetings, ...prev]);
-    console.log("Created new meeting(s):", newMeetings);
   };
 
   const handleDateClick = (date: Date) => {

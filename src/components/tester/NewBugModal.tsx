@@ -135,7 +135,7 @@ const NewBugModal = ({ open, onOpenChange, runId, projectName }: NewBugModalProp
       });
       
       // Refresh parent BugBoard component with the run ID
-      console.log(`Dispatching bug-created event with run ID: ${runId}`);
+      // console.log(`Dispatching bug-created event with run ID: ${runId}`);
       const event = new CustomEvent('bug-created', {
         detail: { id: runId }
       });

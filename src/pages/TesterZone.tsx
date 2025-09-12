@@ -1,11 +1,11 @@
 
-import { API_ENDPOINTS } from '@/config';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import NewRunModal from '@/components/tester/NewRunModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import CopyableIdBadge from '@/components/ui/copyable-id-badge';
+import DateBadge from '@/components/ui/date-badge';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -24,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -33,19 +35,20 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { API_ENDPOINTS } from '@/config';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
+import { stringArrayDeserialize, stringArraySerialize, usePersistedParam } from '@/hooks/usePersistedParam';
 import { useProjects } from '@/hooks/useProjects';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
+import { BackendOrgMember } from '@/types/organization';
 import { TestRun } from '@/types/tracker';
-import { ArrowRight, Beaker, Calendar, Check, ChevronDown, ChevronUp, Filter, Loader2, Maximize2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
+import { ArrowRight, Beaker, Calendar, Check, ChevronDown, ChevronUp, Loader2, Maximize2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BackendOrgMember } from '@/types/organization';
-import DateBadge from '@/components/ui/date-badge';
 
 type SortField = 'id' | 'name' | 'project' | 'creator' | 'status' | 'priority' | 'totalBugs' | 'totalTasks' | 'date';
 type SortOrder = 'asc' | 'desc';
@@ -72,12 +75,13 @@ const TesterZone = () => {
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
   const [showNewRunModal, setShowNewRunModal] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
-  const [filterPriorities, setFilterPriorities] = useState<string[]>([]);
-  const [filterProject, setFilterProject] = useState('all');
-  const [filterCreator, setFilterCreator] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
+  const pageKey = 'tester';
+  const [searchTerm, setSearchTerm] = usePersistedParam<string>('q', '', { pageKey, urlKey: 'q', storage: 'local', serialize: v => v?.trim() ? v : null, deserialize: v => v });
+  const [filterStatuses, setFilterStatuses] = usePersistedParam<string[]>('statuses', [], { pageKey, urlKey: 'statuses', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any });
+  const [filterPriorities, setFilterPriorities] = usePersistedParam<string[]>('priorities', [], { pageKey, urlKey: 'priorities', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any });
+  const [filterProject, setFilterProject] = usePersistedParam<string>('proj', 'all', { pageKey, urlKey: 'proj', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
+  const [filterCreator, setFilterCreator] = usePersistedParam<string>('creator', 'all', { pageKey, urlKey: 'creator', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
+  const [dateFilter, setDateFilter] = usePersistedParam<string>('date', 'all', { pageKey, urlKey: 'date', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
   const [isTruncated, setIsTruncated] = useState<Record<string, boolean>>({});
 
   // Date range picker state
@@ -91,9 +95,9 @@ const TesterZone = () => {
   }>({ from: undefined, to: undefined });
   const [isCustomDateRange, setIsCustomDateRange] = useState(false);
   const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
-  const [sortField, setSortField] = useState<SortField>('date');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  const [activeTab, setActiveTab] = useState('all-trackers');
+  const [sortField, setSortField] = usePersistedParam<SortField>('sortBy', 'date', { pageKey, urlKey: 'sort', storage: 'local', serialize: v => v === 'date' ? null : v, deserialize: v => (v as SortField) || 'date' });
+  const [sortOrder, setSortOrder] = usePersistedParam<SortOrder>('sortDir', 'desc', { pageKey, urlKey: 'dir', storage: 'local', serialize: v => v === 'desc' ? null : v, deserialize: v => (v as SortOrder) || 'desc' });
+  const [activeTab, setActiveTab] = usePersistedParam<string>('tab', 'all-trackers', { pageKey, urlKey: 'tab', storage: 'local', serialize: v => v === 'all-trackers' ? null : v, deserialize: v => v || 'all-trackers' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -488,6 +492,35 @@ const TesterZone = () => {
     return ids.map((x) => x.toLowerCase());
   }, [user]);
 
+  const [completionFilter, setCompletionFilter] = usePersistedParam<string>('completion', 'hide', {
+    pageKey, urlKey: 'completion', storage: 'local',
+    serialize: v => v === 'show' ? 'show' : v, deserialize: v => v || 'hide'
+  });
+
+  const [restoreCompletion, setRestoreCompletion] = useState<string | null>(null);
+  
+    useEffect(() => {
+      if (completionFilter === 'hide') {
+        setRestoreCompletion(completionFilter);
+      }
+      if (filterStatuses.includes('completed')) {
+        setCompletionFilter('show');
+      } else {
+        if (restoreCompletion) {
+          setCompletionFilter(restoreCompletion);
+          setRestoreCompletion(null);
+        }
+      }
+    }, [filterStatuses]);
+  
+    useEffect(() => {
+      if (completionFilter === 'hide') {
+        if(filterStatuses.includes('completed')) {
+          setFilterStatuses(filterStatuses.filter(s => s !== 'completed'));
+        }
+      }    
+    }, [completionFilter]);
+
   const filteredAndSortedRuns = testRuns
     .filter(run => {
 
@@ -539,10 +572,14 @@ const TesterZone = () => {
         isDateInRange(run.date, 'custom', dateRange) :
         isDateInRange(run.date, dateFilter);
 
-      
+
+      const matchesCompletion =
+        completionFilter === 'show' ||
+        (completionFilter === 'hide' ? run.status !== 'completed' : true);
+
 
       return matchesSearch && matchesStatus && matchesPriority && matchesProject &&
-        matchesCreator && matchesDate && matchesTab;
+        matchesCreator && matchesDate && matchesTab && matchesCompletion;
     })
     .sort((a, b) => {
       let aValue: any = a[sortField];
@@ -622,7 +659,18 @@ const TesterZone = () => {
                 <TabsTrigger value="my-trackers">My Trackers</TabsTrigger>
               </TabsList>
             </Tabs>
-            {/* placeholder to keep flex spacing */}
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="completionFilter" className="ml-2 text-xs font-xs text-gray-700 dark:text-gray-200">
+                {completionFilter === 'hide' ? 'Show' : 'Hide'} Completed
+              </Label>
+              <Switch
+                id="completionFilter"
+                name="completionFilter"
+                className="ml-1"
+                checked={completionFilter === 'show'}
+                onCheckedChange={v => setCompletionFilter(v ? 'show' : 'hide')}
+              />
+            </div>
           </div>
         </div>
 
@@ -654,12 +702,12 @@ const TesterZone = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-40">
-                    {statusOptions.map((opt,idx) => (
+                    {statusOptions.map((opt, idx) => (
                       <DropdownMenuCheckboxItem
                         key={idx}
                         checked={filterStatuses.includes(opt.value)}
                         onCheckedChange={(checked) => {
-                          setFilterStatuses(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value));
+                          setFilterStatuses(checked ? [...filterStatuses, opt.value] : filterStatuses.filter(s => s !== opt.value));
                         }}
                         className="cursor-pointer"
                       >
@@ -677,12 +725,12 @@ const TesterZone = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-40">
-                    {priorityOptions.map((p,idx) => (
+                    {priorityOptions.map((p, idx) => (
                       <DropdownMenuCheckboxItem
                         key={idx}
                         checked={filterPriorities.includes(p.value)}
                         onCheckedChange={(checked) => {
-                          setFilterPriorities(prev => checked ? [...prev, p.value] : prev.filter(x => x !== p.value));
+                          setFilterPriorities(checked ? [...filterPriorities, p.value] : filterPriorities.filter(x => x !== p.value));
                         }}
                         className="cursor-pointer"
                       >
@@ -708,7 +756,7 @@ const TesterZone = () => {
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
                     </SelectItem>
-                    {getUniqueProjects().sort((a, b) => a.name.localeCompare(b.name)).map((project,idx) => (
+                    {getUniqueProjects().sort((a, b) => a.name.localeCompare(b.name)).map((project, idx) => (
                       <SelectItem key={idx} value={project.id}>
                         <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{project.name}</span>
                       </SelectItem>
@@ -732,7 +780,7 @@ const TesterZone = () => {
                     <SelectItem value="all">
                       <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Creators</span>
                     </SelectItem>
-                    {getUniqueCreators().sort((a, b) => a.displayName.localeCompare(b.displayName)).map((creator,idx) => (
+                    {getUniqueCreators().sort((a, b) => a.displayName.localeCompare(b.displayName)).map((creator, idx) => (
                       <SelectItem
                         key={idx}
                         value={creator.id}
@@ -950,16 +998,16 @@ const TesterZone = () => {
                     <TableHeader className="bg-gray-50 dark:bg-gray-800">
                       <TableRow>
                         <TableHead></TableHead>
-                        <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">ID</TableHead>
-                        <TableHead className="font-bold">Name</TableHead>
-                        <TableHead className="font-bold">Project</TableHead>
-                        <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
-                        <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Priority</TableHead>
-                        <TableHead className="w-20 sm:w-24 text-center font-bold">Bugs</TableHead>
-                        <TableHead className="w-20 sm:w-24 text-center font-bold">Tasks</TableHead>
-                        <TableHead className="font-bold">Created By</TableHead>
-                        <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Created Date</TableHead>
-                        <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
+                        <TableHead className="w-20 sm:w-24 md:w-28 text-center">ID</TableHead>
+                        <TableHead className="text-center">Name</TableHead>
+                        <TableHead className="text-center">Project</TableHead>
+                        <TableHead className="w-24 sm:w-28 md:w-32 text-center">Status</TableHead>
+                        <TableHead className="w-20 sm:w-24 md:w-28 text-center">Priority</TableHead>
+                        <TableHead className="w-20 sm:w-24 text-center">Bugs</TableHead>
+                        <TableHead className="w-20 sm:w-24 text-center">Tasks</TableHead>
+                        <TableHead className="text-center">Created By</TableHead>
+                        <TableHead className="w-28 sm:w-32 md:w-40 text-center">Created Date</TableHead>
+                        <TableHead className="w-20 sm:w-24 text-center flex-shrink-0">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

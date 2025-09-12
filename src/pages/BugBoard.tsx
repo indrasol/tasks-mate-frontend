@@ -1,36 +1,42 @@
 import MainNavigation from '@/components/navigation/MainNavigation';
 import NewBugModal from '@/components/tester/NewBugModal';
 import { Badge } from '@/components/ui/badge';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CopyableIdBadge from '@/components/ui/copyable-id-badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
-import { toast } from '@/hooks/use-toast';
-import { AlertCircle, ArrowLeft, ArrowRight, Calendar, CalendarRange, Check, ChevronRight, Filter, Loader2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
-import TestRunDetail from './TestRunDetail';
-import { api } from '@/services/apiService';
 import { API_ENDPOINTS } from '@/config';
-import { capitalizeFirstLetter } from '@/lib/projectUtils';
+import { toast } from '@/hooks/use-toast';
+import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
+import { usePersistedParam } from '@/hooks/usePersistedParam';
+import { capitalizeFirstLetter, deriveDisplayFromEmail } from '@/lib/projectUtils';
+import { api } from '@/services/apiService';
+import { AlertCircle, ArrowRight, Calendar, Check, Loader2, Plus, RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import TestRunDetail from './TestRunDetail';
+
+import DateBadge from '@/components/ui/date-badge';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import { useAuth } from '@/hooks/useAuth';
+
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import type { BackendOrgMember } from "@/types/organization";
 
 type Bug = {
   id: string;
@@ -43,6 +49,7 @@ type Bug = {
   date: string;         // created date
   closedDate?: string;  // date when bug was closed
   tracker_id?: string;
+  creator?: string;
 };
 
 const BugBoard = () => {
@@ -55,14 +62,42 @@ const BugBoard = () => {
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
   const { id } = useParams();
+
+  const { user } = useAuth();
+
   const navigate = useNavigate();
   const currentOrgId = useCurrentOrgId();
+
+  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
+  const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
+    ...m,
+    name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
+  })).map((m: any) => ({
+    ...m,
+    displayName: deriveDisplayFromEmail(m.name).displayName,
+    initials: deriveDisplayFromEmail(m.name).initials,
+  })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
+
+  const userDisplayMap = useMemo(() => {
+    const map: Record<string, { displayName: string; initials: string; isOwner: boolean }> = {};
+    orgMembers.forEach(m => {
+      // const info = deriveDisplayFromEmail(m.email ?? m.user_id);
+      map[m.user_id] = {
+        displayName: m.displayName,
+        initials: m.initials,
+        isOwner: m.role === 'owner',
+      };
+    });
+    return map;
+  }, [orgMembers]);
+
   const [isNewBugModalOpen, setIsNewBugModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterPriority, setFilterPriority] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
+  const pageKey = 'bugs';
+  const [searchTerm, setSearchTerm] = usePersistedParam<string>('q', '', { pageKey, urlKey: 'q', storage: 'local', serialize: v => v?.trim() ? v : null, deserialize: v => v });
+  const [viewMode, setViewMode] = usePersistedParam<'grid' | 'list'>('view', 'list', { pageKey, urlKey: 'view', storage: 'local', serialize: v => v === 'list' ? null : v, deserialize: v => (v as 'grid' | 'list') || 'list' });
+  const [filterStatus, setFilterStatus] = usePersistedParam<string>('status', 'all', { pageKey, urlKey: 'status', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
+  const [filterPriority, setFilterPriority] = usePersistedParam<string>('severity', 'all', { pageKey, urlKey: 'severity', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
+  const [dateFilter, setDateFilter] = usePersistedParam<string>('date', 'all', { pageKey, urlKey: 'date', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
     to: Date | undefined;
@@ -70,8 +105,38 @@ const BugBoard = () => {
   const [isCustomDateRange, setIsCustomDateRange] = useState(false);
   const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
   const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
-  const [sortBy, setSortBy] = useState<'title' | 'severity' | 'id' | 'date'>('id');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = usePersistedParam<'title' | 'severity' | 'id' | 'date'>('sortBy', 'id', { pageKey, urlKey: 'sort', storage: 'local', serialize: v => v === 'id' ? null : v, deserialize: v => (v as any) || 'id' });
+  const [sortDirection, setSortDirection] = usePersistedParam<'asc' | 'desc'>('sortDir', 'desc', { pageKey, urlKey: 'dir', storage: 'local', serialize: v => v === 'desc' ? null : v, deserialize: v => (v as any) || 'desc' });
+  const [tab, setTab] = usePersistedParam<'all' | 'mine'>('tab', 'all', { pageKey, urlKey: 'tab', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => (v as 'all' | 'mine') || 'all' });
+  const [completionFilter, setCompletionFilter] = usePersistedParam<string>('completion', 'hide', {
+    pageKey, urlKey: 'completion', storage: 'local',
+    serialize: v => v === 'show' ? 'show' : v, deserialize: v => v || 'hide'
+  });
+
+  const [restoreCompletion, setRestoreCompletion] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (completionFilter === 'hide') {
+      setRestoreCompletion(completionFilter);
+    }
+    if (filterStatus.includes('closed')) {
+      setCompletionFilter('show');
+    } else {
+      if (restoreCompletion) {
+        setCompletionFilter(restoreCompletion);
+        setRestoreCompletion(null);
+      }
+    }
+  }, [filterStatus]);
+
+  useEffect(() => {
+    if (completionFilter === 'hide') {
+      if (filterStatus.includes('closed')) {
+        setFilterStatus(filterStatus.replace('closed', ''));
+      }
+    }
+  }, [completionFilter]);
+
   // Mock data - replace with actual data fetching
   const testRun = {
     id: id || 'TB-001',
@@ -125,6 +190,7 @@ const BugBoard = () => {
             date: bug.created_at || new Date().toISOString().split('T')[0],
             closedDate: closedDate,
             tracker_id: bug.tracker_id || '',
+            creator: bug.creator || '',
           };
         });
 
@@ -151,7 +217,7 @@ const BugBoard = () => {
 
   useEffect(() => {
     const handler = (e: any) => {
-      console.log('Bug created event received:', e.detail);
+      // console.log('Bug created event received:', e.detail);
       // Always fetch bugs when the event is received, regardless of the ID
       fetchBugs();
     };
@@ -313,8 +379,32 @@ const BugBoard = () => {
     }
   };
 
+  // Build possible identifiers for current user (id, username, email, displayName)
+  const userIdentifiers = useMemo(() => {
+    if (!user) return [] as string[];
+    const ids: string[] = [];
+    if (user.id) ids.push(String(user.id));
+    if ((user as any).username) ids.push(String((user as any).username));
+    if ((user as any)?.user_metadata?.username) ids.push(String((user as any).user_metadata.username));
+    if (user.email) ids.push(String(user.email));
+    if (user.email) {
+      ids.push(deriveDisplayFromEmail(user.email).displayName);
+    }
+    return ids.map((x) => x.toLowerCase());
+  }, [user]);
+
   const filteredBugs = useMemo(() => {
     let filtered = bugs.filter(bug => {
+
+      // Tab filter (all vs mine)
+      if (tab === 'mine') {
+        const ownerString = String(bug.creator ?? '').toLowerCase();
+        const ownerDisplay = deriveDisplayFromEmail(ownerString).displayName.toLowerCase();
+        if (!(userIdentifiers.includes(ownerString) || userIdentifiers.includes(ownerDisplay))) {
+          return false;
+        }
+      }
+
       // Search filter
       const matchesSearch = searchTerm === '' ||
         bug.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -343,11 +433,16 @@ const BugBoard = () => {
           // For preset filters, check created date
           isDateInRange(bug.date, dateFilter);
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesDate;
+      const matchesCompletion =
+        completionFilter === 'show' ||
+        (completionFilter === 'hide' ? !bug.closed : true);
+
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesCompletion;
     });
 
     return sortBugs(filtered);
-  }, [bugs, searchTerm, filterStatus, filterPriority, dateFilter, dateRange, isCustomDateRange, sortBy, sortDirection]);
+  }, [bugs, searchTerm, filterStatus, filterPriority, dateFilter, dateRange, isCustomDateRange, sortBy, sortDirection, completionFilter]);
 
   // Handle date range selection
   const handleDateRangeSelect = (range: { from: Date | undefined; to: Date | undefined }) => {
@@ -385,9 +480,6 @@ const BugBoard = () => {
       const formattedDate = currentDate.toISOString();
       const displayDate = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD format
 
-      console.log(`Toggling bug ${bugId} to ${checked ? 'closed' : 'open'}`);
-      console.log(`Using closed date: ${checked ? displayDate : 'undefined'}`);
-
       // First, update the UI optimistically
       setBugs(bugs.map(bug =>
         bug.id === bugId ? {
@@ -400,7 +492,6 @@ const BugBoard = () => {
 
       // Then update the server
       const newStatus = checked ? 'closed' : 'open';
-      console.log(`Updating bug ${bugId} status to ${newStatus}`);
 
       const updateData = {
         status: newStatus
@@ -413,7 +504,6 @@ const BugBoard = () => {
         updateData['closed_at'] = null; // Explicitly set to null when reopening
       }
 
-      console.log('Sending update to server:', updateData);
       toast({
         title: "Updating bug status...",
         description: "Please wait...",
@@ -492,7 +582,7 @@ const BugBoard = () => {
                 id={bug.id}
                 org_id={currentOrgId}
                 tracker_id={bug.tracker_id}
-                className="bg-red-600"
+                className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
                 copyLabel="Bug"
                 isCompleted={bug.closed}
               />
@@ -534,20 +624,21 @@ const BugBoard = () => {
 
   // List view component
   const BugListView = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-sm">
+    <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
       <div className="min-w-max w-full">
         <Table className="w-full">
           <TableHeader className="bg-gray-50 dark:bg-gray-800">
             <TableRow>
               <TableHead className="w-12"></TableHead>
-              <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold">Bug ID</TableHead>
-              <TableHead className="font-bold">Title</TableHead>
-              <TableHead className="font-bold">Severity</TableHead>
-              <TableHead className="font-bold">Tags</TableHead>
-              <TableHead className="font-bold">Created Date</TableHead>
-              <TableHead className="font-bold">Closed Date</TableHead>
-              <TableHead className="font-bold">Status</TableHead>
-              <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
+              <TableHead className="w-20 sm:w-24 md:w-28 text-center">Bug ID</TableHead>
+              <TableHead className="text-center">Title</TableHead>
+              <TableHead className="text-center">Severity</TableHead>
+              <TableHead className="text-center">Tags</TableHead>
+              <TableHead className="text-center">Created By</TableHead>
+              <TableHead className="text-center">Created Date</TableHead>
+              <TableHead className="text-center">Closed Date</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="w-20 sm:w-24 text-center flex-shrink-0">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -577,7 +668,7 @@ const BugBoard = () => {
                     id={bug?.id}
                     org_id={currentOrgId}
                     tracker_id={bug?.tracker_id}
-                    className="bg-red-600"
+                    className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
                     copyLabel="Bug"
                     isCompleted={bug?.closed}
                   />
@@ -585,7 +676,7 @@ const BugBoard = () => {
                 <TableCell className="font-medium w-80">
                   <div className="flex items-center">
                     <div
-                      className={`truncate max-w-[260px] ${bug?.closed ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}                      
+                      className={`truncate max-w-[260px] ${bug?.closed ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleBugClick(bug.id);
@@ -593,7 +684,7 @@ const BugBoard = () => {
                     >
                       {bug.title}
                     </div>
-                    
+
                   </div>
                 </TableCell>
                 <TableCell>
@@ -615,7 +706,21 @@ const BugBoard = () => {
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="text-sm text-gray-600 dark:text-gray-300">
+                <TableCell className="text-center">
+                  <div className="flex justify-center">
+                    <Badge className="text-xs bg-indigo-100 text-indigo-800">
+                      {userDisplayMap[bug.creator]?.displayName ?? deriveDisplayFromEmail(bug.creator).displayName}
+                    </Badge>
+                  </div>
+                </TableCell>
+                <TableCell className="text-center">
+                  <DateBadge date={bug.date} className="text-xs bg-blue-100 text-blue-800" />
+                </TableCell>
+                <TableCell className="text-center">
+                  <DateBadge date={bug.closedDate} className="text-xs bg-rose-100 text-rose-800" />
+                </TableCell>
+
+                {/* <TableCell className="text-sm text-gray-600 dark:text-gray-300">
                   {new Date(bug?.date).toLocaleDateString()}
                 </TableCell>
                 <TableCell className="text-sm text-gray-600 dark:text-gray-300">
@@ -624,7 +729,7 @@ const BugBoard = () => {
                       {new Date(bug.closedDate).toLocaleDateString()}
                     </span>
                   ) : '-'}
-                </TableCell>
+                </TableCell> */}
                 <TableCell>
                   <Badge
                     className={`${bug?.status === 'closed' ? 'bg-green-100 text-green-700' :
@@ -723,6 +828,32 @@ const BugBoard = () => {
 
         {/* Tracker Details and KPIs */}
         <TestRunDetail />
+
+        {/* Tabs for Tasks / My Tasks with Search bar */}
+        <div className="px-6 pt-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <Tabs value={tab} onValueChange={v => setTab(v as any)}>
+              <TabsList>
+                <TabsTrigger value="all">Bugs</TabsTrigger>
+                <TabsTrigger value="mine">My Bugs</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {/* placeholder to keep flex spacing */}
+            {/* Completion Filter Toggle */}
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="completionFilter" className="ml-2 text-xs font-xs text-gray-700 dark:text-gray-200">
+                {completionFilter === 'hide' ? 'Show' : 'Hide'} Completed
+              </Label>
+              <Switch
+                id="completionFilter"
+                name="completionFilter"
+                className="ml-1"
+                checked={completionFilter === 'show'}
+                onCheckedChange={v => setCompletionFilter(v ? 'show' : 'hide')}
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Enhanced Controls */}
         <div className="px-6 py-4 bg-white/30 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-700">
