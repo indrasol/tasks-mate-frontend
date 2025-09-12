@@ -138,11 +138,13 @@ const BugBoard = () => {
   }, [completionFilter]);
 
   // Mock data - replace with actual data fetching
-  const testRun = {
-    id: id || 'TB-001',
-    name: 'Sprint 12 Testing',
-    project: 'TasksMate Web'
-  };
+  // const testRun = {
+  //   id: id || 'TB-001',
+  //   name: 'Sprint 12 Testing',
+  //   project: 'TasksMate Web'
+  // };
+
+  const [testRun, setTestRun] = useState<any>();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -190,7 +192,7 @@ const BugBoard = () => {
             date: bug.created_at || new Date().toISOString().split('T')[0],
             closedDate: closedDate,
             tracker_id: bug.tracker_id || '',
-            creator: bug.creator || '',
+            creator: bug.creator || bug.reporter || '',
           };
         });
 
@@ -827,7 +829,13 @@ const BugBoard = () => {
         </div> */}
 
         {/* Tracker Details and KPIs */}
-        <TestRunDetail />
+        <TestRunDetail outProjectDetails={(projectId: string, projectName: string) => {
+          setTestRun({
+            id: id,
+            project_id: projectId,
+            project: projectName
+          });
+        }} />
 
         {/* Tabs for Tasks / My Tasks with Search bar */}
         <div className="px-6 pt-4">
@@ -1123,7 +1131,9 @@ const BugBoard = () => {
       <NewBugModal
         open={isNewBugModalOpen}
         onOpenChange={setIsNewBugModalOpen}
-        runId={testRun.id}
+        runId={testRun?.id}
+        projectId={testRun?.project_id}
+        projectName={testRun?.project}
       />
     </div>
   );

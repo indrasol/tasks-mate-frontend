@@ -1,16 +1,10 @@
 import MainNavigation from '@/components/navigation/MainNavigation';
 import NewTaskModal from '@/components/tasks/NewTaskModal';
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from '@/components/ui/badge';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import CopyableIdBadge from '@/components/ui/copyable-id-badge';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Label } from '@/components/ui/label';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
@@ -21,19 +15,16 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
-import { deriveDisplayFromEmail, formatDate } from '@/lib/projectUtils';
+import { capitalizeFirstLetter, deriveDisplayFromEmail, formatDate } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
+import { BackendOrgMember } from '@/types/organization';
+import { TaskCreateInitialData } from '@/types/tasks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import imageCompression from "browser-image-compression";
 import { format } from 'date-fns';
-import { ArrowLeft, ChevronRight, Clock, Edit3, Loader2, Pencil, Save, Send, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Clock, Edit3, Loader2, Pencil, Save, Send, Trash2, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useNavigate } from 'react-router-dom';
-import { BackendOrgMember } from '@/types/organization';
-import CopyableIdBadge from '@/components/ui/copyable-id-badge';
-import { TaskCreateInitialData } from '@/types/tasks';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 interface BugComment {
   id: string;
@@ -385,6 +376,34 @@ const BugDetail = () => {
     }
   });
 
+  // Mutation for updating bug assignee
+  const updateBugAssignee = useMutation({
+    mutationFn: async ({ assignee }: { assignee: string }) => {
+      toast({
+        title: "Updating assignee",
+        description: "Please wait...",
+      });
+      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { assignee });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bug', bugId] });
+      toast({
+        title: "Success",
+        description: "Bug assignee updated successfully!",
+        variant: "default"
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating bug assignee:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update bug assignee. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Mutation for adding a comment
   const addComment = useMutation({
     mutationFn: async (commentText: string) => {
@@ -424,7 +443,9 @@ const BugDetail = () => {
         title: "Updating comment",
         description: "Please wait...",
       });
-      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/comments/${commentId}`, { text });
+      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}/comments/${commentId}`, {
+        content: text
+      });
       return response.data;
     },
     onSuccess: () => {
@@ -454,7 +475,7 @@ const BugDetail = () => {
         title: "Deleting comment",
         description: "Please wait...",
       });
-      await api.del(`${API_ENDPOINTS.BUGS}/comments/${commentId}`);
+      await api.del(`${API_ENDPOINTS.BUGS}/${bugId}/comments/${commentId}`);
     },
     onSuccess: () => {
       refetchComments();
@@ -497,6 +518,10 @@ const BugDetail = () => {
 
   const handlePriorityChange = (newPriority: string) => {
     updateBugPriority.mutate({ priority: newPriority });
+  };
+
+  const handleAssigneeChange = (newAssignee: string) => {
+    updateBugAssignee.mutate({ assignee: newAssignee });
   };
 
   const handleSaveGuide = async () => {
@@ -1200,6 +1225,21 @@ const BugDetail = () => {
                   className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
                   copyLabel="Bug"
                 />
+
+                <Select value={assignee} onValueChange={handleAssigneeChange}>
+                  <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
+                    <SelectValue placeholder="Assignee" />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    {orgMembers?.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => {
+                      return (
+                        <SelectItem key={m.user_id} value={String(m.name)}>
+                          {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
               <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
                 {bug?.title}

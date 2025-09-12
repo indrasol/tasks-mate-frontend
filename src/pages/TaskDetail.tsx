@@ -716,6 +716,13 @@ const TaskDetail = () => {
     if (!newComment.trim()) return;
 
     try {
+
+      // Check for Matching UserNames from teamMembers List and assign the id's to an array
+      const matchingUserIds = orgMembers
+        .filter(member => newComment.replace(/ /g, '\u00A0').includes(member.displayName.replace(/ /g, '\u00A0')))
+        .map(member => { return { user_id: member.user_id, email: member.email, username: member.username } });
+
+
       // Create optimistic comment with temp ID
       const tempId = `temp-${Date.now()}`;
       const optimisticComment = {
@@ -735,6 +742,8 @@ const TaskDetail = () => {
         task_id: taskId,
         content: newComment,
         task_title: taskName || task?.name,
+        mentions: matchingUserIds,
+        org_id: currentOrgId
       };
 
       toast({
@@ -791,9 +800,19 @@ const TaskDetail = () => {
         description: "Please wait...",
       });
 
+      // Check for Matching UserNames from teamMembers List and assign the id's to an array
+      const matchingUserIdsEdit = orgMembers
+        .filter(member => editCommentText.replace(/ /g, '\u00A0').includes(member.displayName.replace(/ /g, '\u00A0')))
+        .map(member => { return { user_id: member.user_id, email: member.email, username: member.username } });
+
       const updated = await api.put(
         `${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`,
-        { content: editCommentText, task_title: taskName || task?.name }
+        {
+          content: editCommentText,
+          task_title: taskName || task?.name,
+          mentions: matchingUserIdsEdit,
+          org_id: currentOrgId
+        }
       );
 
       setComments(prev => prev.map(c =>
@@ -1454,7 +1473,7 @@ const TaskDetail = () => {
                       </>
                     )}
                   </div>
-                 
+
                 </div>
 
                 {/* Right actions (Duplicate only) */}
