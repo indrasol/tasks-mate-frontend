@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { formatDate } from "@/lib/projectUtils";
+import { capitalizeFirstLetter, formatDate } from "@/lib/projectUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -219,13 +219,13 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
     if (typeof m === "object") return [m];
     return [];
   };
-  
+
   const humanName = (raw: string): string => {
     if (!raw) return "Someone";
     const base = raw.includes("@") ? raw.split("@")[0] : raw;
     return base.split(/[._-]+/).filter(Boolean).map(s => s[0].toUpperCase() + s.slice(1)).join(" ");
   };
-  
+
   const tagsDiff = (oldVal: any, newVal: any) => {
     const oldArr = Array.isArray(oldVal) ? oldVal : [];
     const newArr = Array.isArray(newVal) ? newVal : [];
@@ -241,7 +241,7 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
     parts.forEach((p, i) => { if (i) interleaved.push(<span key={`sep-${i}`}>, </span>); interleaved.push(p); });
     return <>tags {interleaved}</>;
   };
-  
+
   const valueFor = (field: string, value: any, projectNameById?: (id: string) => string | undefined) => {
     if (value === null || value === undefined || value === "" || value === "null") return "—";
     if (field === "status") return getStatusMeta(String(value) as any).label;
@@ -262,17 +262,17 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
     const action = String(item.action || "").toLowerCase(); // Also check the action field
     const metaArray = normalizeMeta(item.metadata);
     // console.log("History item", item);
-  
+
     // Check both title and action for "created"
     if (action === "created") {
       return <span><span className="font-semibold">{who}</span> created the task</span>;
     }
-    
+
     // Check both title and action for "deleted"
     if (action === "deleted") {
       return <span><span className="font-semibold">{who}</span> deleted the task</span>;
     }
-  
+
     // Attachments
     if (action.startsWith("attachment_")) {
       const attachAction = action.split("_")[1] || "updated";
@@ -293,12 +293,12 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
               ) : (
                 <span className="font-medium">{name}</span>
               )}
-            )</>
+              )</>
           ) : null}
         </span>
       );
     }
-  
+
     // Subtasks & Dependencies
     if (action === "subtask_added") {
       const sid = metaArray[0]?.subtask_id;
@@ -316,54 +316,71 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
       const did = metaArray[0]?.dependency_id;
       return <span><span className="font-semibold">{who}</span> removed dependency {did && <span className="text-red-600 dark:text-red-400 font-semibold">{did}</span>}</span>;
     }
-  
+
     if (action === "updated" && metaArray.length > 0) {
       const parts: JSX.Element[] = [];
       for (const change of metaArray) {
         const field = String(change.field || "").toLowerCase();
         const oldVal = change.old;
         const newVal = change.new;
-  
+
         if (field === "tags") {
           const diff = tagsDiff(oldVal, newVal);
           if (diff) parts.push(<span key="tags">{diff}</span>);
           continue;
         }
-  
+
         if (field === "assignee") {
           parts.push(
             <span key="assignee">
-              owner from <span className="font-semibold">{humanName(String(oldVal || "—"))}</span> to{" "}
+              Owner from <span className="font-semibold">{humanName(String(oldVal || "—"))}</span> to{" "}
               <span className="font-medium text-blue-600 dark:text-blue-400">{humanName(String(newVal || "—"))}</span>
             </span>
           );
           continue;
         }
-  
-        if (["status","priority","due_date","start_date","completed_at","project_id","title","description"].includes(field)) {
+
+        if (["status", "priority", "due_date", "start_date", "completed_at", "project_id", "title", "description", "bug_id", "tracker_id"].includes(field)) {
           const prettyOld = valueFor(field, oldVal, projectNameById);
           const prettyNew = valueFor(field, newVal, projectNameById);
-  
+
           if (field === "title" || field === "description") {
-            parts.push(<span key={field}>{field}</span>);
+            parts.push(<span key={field} className="font-semibold text-gray-700 dark:text-gray-300">{capitalizeFirstLetter(field)}</span>);
           } else {
-            parts.push(
-              <span key={field}>
-                {field.replace("_", " ")} from <span className="font-semibold">{prettyOld}</span> to{" "}
-                <span className="font-medium text-blue-600 dark:text-blue-400">{prettyNew}</span>
-              </span>
-            );
+
+            if (field === "bug_id") {
+              parts.push(
+                <span key={field}>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">Bug</span> as {" "}
+                  <span className="font-medium text-red-600 dark:text-red-400">{prettyNew}</span>
+                </span>
+              );
+            } else if (field === "tracker_id") {
+              parts.push(
+                <span key={field}>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">Tracker</span> as {" "}
+                  <span className="font-medium text-orange-600 dark:text-orange-400">{prettyNew}</span>
+                </span>
+              );
+            } else {
+              parts.push(
+                <span key={field}>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">{capitalizeFirstLetter(field)}</span> from <span className="font-semibold">{prettyOld}</span> to{" "}
+                  <span className="font-medium text-blue-600 dark:text-blue-400">{prettyNew}</span>
+                </span>
+              );
+            }
           }
         }
       }
-  
+
       if (parts.length) {
         const interleaved: JSX.Element[] = [];
         parts.forEach((p, idx) => { if (idx) interleaved.push(<span key={`sep-${idx}`}>, </span>); interleaved.push(p); });
         return <span><span className="font-semibold">{who}</span> updated {interleaved}</span>;
       }
     }
-  
+
     return <span><span className="font-semibold">{who}</span> updated the task</span>;
   };
 
@@ -390,7 +407,7 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
         <div className="space-y-3">
           <ScrollArea className="h-[400px] pr-4">
             <div className="space-y-6 pl-6 pr-2 py-2">
-               {history.map((item) => (
+              {history.map((item) => (
                 <div key={item.history_id} className="relative pb-2">
                   {/* Timeline dot */}
                   <div className="absolute left-0 top-1.5 h-3 w-3 rounded-full bg-primary/20 dark:bg-primary/30 flex items-center justify-center">
@@ -423,7 +440,7 @@ export function HistoryCard({ history, isLoading, className = "", projectNameByI
                   </div>
 
                   {/* Timeline line */}
-                   {history[history.length - 1] !== item && (
+                  {history[history.length - 1] !== item && (
                     <div className="absolute left-1.5 top-4 h-full w-px bg-border dark:bg-gray-600" />
                   )}
                 </div>

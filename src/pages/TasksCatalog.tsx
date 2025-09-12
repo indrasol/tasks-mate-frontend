@@ -1,13 +1,11 @@
-import { API_ENDPOINTS } from "@/config";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import NewTaskModal from "@/components/tasks/NewTaskModal";
-import TaskListView from "@/components/tasks/TaskListView";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Card, CardContent } from "@/components/ui/card";
 import CopyableIdBadge from "@/components/ui/copyable-id-badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import DateBadge from "@/components/ui/date-badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -18,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
@@ -30,29 +29,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Tabs,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { API_ENDPOINTS } from "@/config";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { useOrganizations } from "@/hooks/useOrganizations";
-import { capitalizeFirstLetter, deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
+import { stringArrayDeserialize, stringArraySerialize, usePersistedParam } from "@/hooks/usePersistedParam";
+import { capitalizeFirstLetter, deriveDisplayFromEmail, getPriorityColor } from "@/lib/projectUtils";
 import { api } from "@/services/apiService";
 import { taskService } from "@/services/taskService";
+import { BackendOrgMember } from "@/types/organization";
 import { BackendTask, Task } from "@/types/tasks";
 import {
   ArrowRight,
   Calendar,
   CalendarRange,
   Check,
-  Filter,
   Grid3X3,
-  List,
   Loader2,
   Maximize2,
   Plus,
@@ -63,8 +64,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import DateBadge from "@/components/ui/date-badge";
-import { BackendOrgMember } from "@/types/organization";
 
 
 type ViewMode = 'table';
@@ -106,31 +105,60 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [isTruncated, setIsTruncated] = useState<Record<string, boolean>>({});
 
   // State management - enhanced with new filter and sort options
-  const [view, setView] = useState<ViewMode>("table");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([]); // empty array -> all
-  const [filterOwner, setFilterOwner] = useState<string>("all");
-  const [filterPriorities, setFilterPriorities] = useState<string[]>([]);
-  const [filterProject, setFilterProject] = useState<string>("all");
-  const [createdDateFilter, setCreatedDateFilter] = useState<string>("all");
+  const pageKey = 'tasks';
+  const [view, setView] = usePersistedParam<ViewMode>('view', 'table', { pageKey, urlKey: 'view', storage: 'local', serialize: v => v === 'table' ? null : v, deserialize: v => (v as ViewMode) || 'table' });
+  const [searchQuery, setSearchQuery] = usePersistedParam<string>('q', "", { pageKey, urlKey: 'q', storage: 'local', serialize: v => v?.trim() ? v : null, deserialize: v => v });
+  const [filterStatuses, setFilterStatuses] = usePersistedParam<string[]>('statuses', [], { pageKey, urlKey: 'statuses', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any });
+  const [filterOwner, setFilterOwner] = usePersistedParam<string>('owner', 'all', { pageKey, urlKey: 'owner', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
+  const [filterPriorities, setFilterPriorities] = usePersistedParam<string[]>('priorities', [], { pageKey, urlKey: 'priorities', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any });
+  const [filterProject, setFilterProject] = usePersistedParam<string>('proj', 'all', { pageKey, urlKey: 'proj', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
+  const [createdDateFilter, setCreatedDateFilter] = usePersistedParam<string>('cdate', 'all', { pageKey, urlKey: 'cdate', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
   const [createdDateRange, setCreatedDateRange] = useState<{
     from: Date | undefined;
     to: Date | undefined;
   }>({ from: undefined, to: undefined });
   const [isCustomCreatedDateRange, setIsCustomCreatedDateRange] = useState(false);
 
-  const [dueDateFilter, setDueDateFilter] = useState<string>("all");
+  const [dueDateFilter, setDueDateFilter] = usePersistedParam<string>('ddate', 'all', { pageKey, urlKey: 'ddate', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
   const [dueDateRange, setDueDateRange] = useState<{
     from: Date | undefined;
     to: Date | undefined;
   }>({ from: undefined, to: undefined });
   const [isCustomDueDateRange, setIsCustomDueDateRange] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortBy, setSortBy] = usePersistedParam<SortOption>('sortBy', 'name', { pageKey, urlKey: 'sort', storage: 'local', serialize: v => v === 'name' ? null : v, deserialize: v => (v as SortOption) || 'name' });
+  const [sortDirection, setSortDirection] = usePersistedParam<SortDirection>('sortDir', 'asc', { pageKey, urlKey: 'dir', storage: 'local', serialize: v => v === 'asc' ? null : v, deserialize: v => (v as SortDirection) || 'asc' });
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [tab, setTab] = useState<'all' | 'mine'>('all');
+  const [tab, setTab] = usePersistedParam<'all' | 'mine'>('tab', 'all', { pageKey, urlKey: 'tab', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => (v as 'all' | 'mine') || 'all' });
+  const [completionFilter, setCompletionFilter] = usePersistedParam<string>('completion', 'hide', {
+    pageKey, urlKey: 'completion', storage: 'local',
+    serialize: v => v === 'show' ? 'show' : v, deserialize: v => v || 'hide'
+  });
+
+  const [restoreCompletion, setRestoreCompletion] = useState<string | null>(null);
+  
+    useEffect(() => {
+      if (completionFilter === 'hide') {
+        setRestoreCompletion(completionFilter);
+      }
+      if (filterStatuses.includes('completed')) {
+        setCompletionFilter('show');
+      } else {
+        if (restoreCompletion) {
+          setCompletionFilter(restoreCompletion);
+          setRestoreCompletion(null);
+        }
+      }
+    }, [filterStatuses]);
+  
+    useEffect(() => {
+      if (completionFilter === 'hide') {
+        if(filterStatuses.includes('completed')) {
+          setFilterStatuses(filterStatuses.filter(s => s !== 'completed'));
+        }
+      }    
+    }, [completionFilter]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -205,7 +233,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     setLoadingTasks(true);
     setError(null);
     // Fetch all tasks (up to backend maximum of 100) - pagination is handled on frontend
-    taskService.getTasks({ org_id: currentOrgId, limit: 100 })
+    taskService.getTasks({ org_id: currentOrgId })
       .then((data: BackendTask[]) => {
         // Map backend data to frontend Task type
         const mapped = (data || []).map((t: any) => ({
@@ -421,7 +449,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     }
   };
 
-  
+
   const getUniqueOwners = () => {
     const taskOwners = tasks.map(task => task.owner).filter(Boolean);
     if (!orgMembers || orgMembers.length === 0) {
@@ -470,9 +498,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
       // Owner filter
       const matchesOwner = filterOwner === "all" ||
-      (
-        getUniqueOwners().filter(m => m.id.toLowerCase() === filterOwner.toLowerCase()).some(owner => (owner.id === task.owner || owner.username === task.owner || owner.email === task.owner))
-      )
+        (
+          getUniqueOwners().filter(m => m.id.toLowerCase() === filterOwner.toLowerCase()).some(owner => (owner.id === task.owner || owner.username === task.owner || owner.email === task.owner))
+        )
       const matchesPriority =
         filterPriorities.length === 0 || filterPriorities.map(m => m.toLowerCase()).includes((task.priority ?? 'none').toLowerCase());
 
@@ -497,12 +525,16 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           // For preset filters, check due date
           isDateInRange(task.targetDate, dueDateFilter);
 
-      return matchesSearch && matchesStatus && matchesOwner && matchesPriority && matchesProject && matchesCreatedDate && matchesDueDate;
+      const matchesCompletion =
+        completionFilter === 'show' ||
+        (completionFilter === 'hide' ? task.status !== 'completed' : true);
+
+      return matchesSearch && matchesStatus && matchesOwner && matchesPriority && matchesProject && matchesCreatedDate && matchesDueDate && matchesCompletion;
     }));
   }, [tasks, searchQuery, filterStatuses, filterOwner, filterPriorities, filterProject,
     createdDateFilter, createdDateRange, isCustomCreatedDateRange,
     dueDateFilter, dueDateRange, isCustomDueDateRange,
-    sortBy, sortDirection, tab, user]);
+    sortBy, sortDirection, tab, user, completionFilter]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredTasks.length / tasksPerPage);
@@ -514,7 +546,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, filterStatuses, filterOwner, filterPriorities, filterProject,
-    createdDateFilter, dueDateFilter, tab]);
+    createdDateFilter, dueDateFilter, tab, completionFilter]);
 
   // Reset to last valid page if current page exceeds total pages
   useEffect(() => {
@@ -587,7 +619,6 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   };
 
   const handleTaskCreated = (newTask: Task) => {
-    console.log("Direct task creation:", newTask);
     setTasks(prev => [newTask, ...prev]);
   };
 
@@ -714,6 +745,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     setIsCustomDueDateRange(false);
     setDueDateRange({ from: undefined, to: undefined });
     setSearchQuery("");
+    setCompletionFilter('all');
   };
 
   // In the render, show loading/error states
@@ -769,6 +801,19 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               </TabsList>
             </Tabs>
             {/* placeholder to keep flex spacing */}
+            {/* Completion Filter Toggle */}
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="completionFilter" className="ml-2 text-xs font-xs text-gray-700 dark:text-gray-200">
+                {completionFilter === 'hide' ? 'Show' : 'Hide'} Completed
+              </Label>
+              <Switch
+                id="completionFilter"
+                name="completionFilter"
+                className="ml-1"
+                checked={completionFilter === 'show'}
+                onCheckedChange={v => setCompletionFilter(v ? 'show' : 'hide')}
+              />
+            </div>
           </div>
         </div>
 
@@ -806,7 +851,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         key={idx}
                         checked={filterStatuses.includes(opt.value)}
                         onCheckedChange={(checked) => {
-                          setFilterStatuses(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value));
+                          setFilterStatuses(checked ? [...filterStatuses, opt.value] : filterStatuses.filter(s => s !== opt.value));
                         }}
                         className="cursor-pointer"
                       >
@@ -829,7 +874,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         key={idx}
                         checked={filterPriorities.includes(p)}
                         onCheckedChange={(checked) => {
-                          setFilterPriorities(prev => checked ? [...prev, p] : prev.filter(x => x !== p));
+                          setFilterPriorities(checked ? [...filterPriorities, p] : filterPriorities.filter(x => x !== p));
                         }}
                         className="cursor-pointer"
                       >
@@ -975,6 +1020,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   </PopoverContent>
                 </Popover>
 
+
+
                 {/* Sort Options + View Toggle */}
                 <div className="shrink-0">
                   <DropdownMenu>
@@ -1084,17 +1131,17 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         <TableHeader className="bg-gray-50 dark:bg-gray-800">
                           <TableRow>
                             <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
-                            <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
-                            <TableHead className="min-w-[200px] sm:min-w-[300px] md:w-80 font-bold">Title</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Priority</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Assigned To</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Start Date</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Due Date</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-40 text-center font-bold">Project</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Tags</TableHead>
-                            <TableHead className="w-20 sm:w-24 text-center font-bold">Created By</TableHead>
-                            <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
+                            <TableHead className="w-20 sm:w-24 md:w-28 text-center min-w-[5rem]">ID</TableHead>
+                            <TableHead className="min-w-[200px] sm:min-w-[300px] md:w-80">Title</TableHead>
+                            <TableHead className="w-24 sm:w-28 md:w-32 text-center">Status</TableHead>
+                            <TableHead className="w-24 sm:w-28 md:w-32 text-center">Priority</TableHead>
+                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Assigned To</TableHead>
+                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Start Date</TableHead>
+                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Due Date</TableHead>
+                            <TableHead className="w-24 sm:w-28 md:w-40 text-center">Project</TableHead>
+                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Tags</TableHead>
+                            <TableHead className="w-20 sm:w-24 text-center">Created By</TableHead>
+                            <TableHead className="w-20 sm:w-24 text-center flex-shrink-0">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>

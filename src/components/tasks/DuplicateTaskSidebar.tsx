@@ -88,7 +88,7 @@ const DuplicateTaskSidebar = ({ open, onOpenChange, sourceTask }: DuplicateTaskS
       createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     };
     
-    console.log("Duplicating task:", duplicatedTask);
+    // console.log("Duplicating task:", duplicatedTask);
     
     // In a real app, you would add this task to your global state or database
     // For now, we'll just show success and navigate to catalog

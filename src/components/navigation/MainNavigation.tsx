@@ -77,7 +77,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const currentOrgName = useMemo(() => {
     if (!orgId) return '';
     const currentOrg = userOrganizations.find((org) => org.id === orgId);
-    console.log('Current org in MainNavigation:', currentOrg);
+    // console.log('Current org in MainNavigation:', currentOrg);
     return currentOrg?.name ?? '';
   }, [orgId, userOrganizations]);
 
@@ -111,22 +111,6 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     if (!user || !orgId) {
       return;
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   }, [user, orgId]);
 
 
@@ -141,6 +125,28 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     navigate(`${location.pathname}?${newParams.toString()}`);
   };
 
+  const clearPersistedStateFor = (page: 'projects' | 'tasks' | 'bugs' | 'tester') => {
+    try {
+      const prefix = `${page}:`;
+      // Remove all localStorage keys created by usePersistedParam for this page
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {}
+  };
+  
+  const handleNavClick = (page: string) => {
+    // clear page-specific state when switching sections
+    if (page === 'Projects') clearPersistedStateFor('projects');
+    if (page === 'Tasks') clearPersistedStateFor('tasks');
+    if (page === 'Bug Tracker') {
+      clearPersistedStateFor('tester'); // TesterZone page
+      clearPersistedStateFor('bugs');   // BugBoard page under TesterZone
+    }
+  };
 
 
   const navigationItems = useMemo(() => {
@@ -235,18 +241,18 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                 >
                   <div className="flex items-center space-x-2 min-w-0">
                     <Building2 className="w-4 h-4 text-gray-600 dark:text-gray-300 flex-shrink-0" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                    <span className="text-sm font-bold font-medium text-gray-700 dark:text-gray-200 truncate">
                       {currentOrgName || 'Loading...'}
                     </span>
                   </div>
                   <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 bg-white border shadow-lg">
+              <DropdownMenuContent align="start" className="w-56 border shadow-lg">
                 <DropdownMenuLabel className="font-medium text-gray-900">
                   Current Organization
                 </DropdownMenuLabel>
-                <DropdownMenuItem disabled className="text-gray-600">
+                <DropdownMenuItem disabled className="font-bold disabled:text-gray-700">
                   <MapPin className="w-4 h-4 mr-2" />
                   {currentOrgName}
                 </DropdownMenuItem>
@@ -291,6 +297,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                   <Link
                     key={item.path}
                     to={item.path}
+                    onClick={() => handleNavClick(item.name)}
                     className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${item.isActive
                       ? 'bg-green-50 text-green-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -321,6 +328,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                   <Link
                     key={item.path}
                     to={item.path}
+                    onClick={() => handleNavClick(item.name)}
                     className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${item.isActive
                       ? 'bg-green-50 text-green-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'

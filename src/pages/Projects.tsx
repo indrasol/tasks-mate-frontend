@@ -1,14 +1,13 @@
 
-import { API_ENDPOINTS } from "@/config";
 import MainNavigation from "@/components/navigation/MainNavigation";
 import NewProjectModal from '@/components/projects/NewProjectModal';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import DateBadge from "@/components/ui/date-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import CopyableBadge from "@/components/ui/copyable-badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import DateBadge from "@/components/ui/date-badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -19,7 +18,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -29,11 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { API_ENDPOINTS } from "@/config";
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { useOrganizations } from "@/hooks/useOrganizations";
+import { stringArrayDeserialize, stringArraySerialize, usePersistedParam } from "@/hooks/usePersistedParam";
 import { deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 import { api } from "@/services/apiService";
 import type { BackendOrgMember } from "@/types/organization";
@@ -45,10 +46,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  Filter,
   FolderOpen,
-  Grid3X3,
-  List,
   Loader2,
   Maximize2,
   Plus,
@@ -59,9 +57,11 @@ import {
   Target,
   Users
 } from 'lucide-react';
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from "react-router-dom";
 
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Tabs,
   TabsList,
@@ -77,17 +77,59 @@ const Projects = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([]); // empty → all
-  const [filterPriorities, setFilterPriorities] = useState<string[]>([]);
-  const [filterProjectName, setFilterProjectName] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<string>("all");
+
+  const pageKey: string = 'projects';
+
+  const [searchQuery, setSearchQuery] = usePersistedParam<string>(
+    'q',
+    "",
+    { pageKey: pageKey, urlKey: 'q', storage: 'local', serialize: v => v?.trim() ? v : null, deserialize: v => v }
+  );
+  const [filterStatuses, setFilterStatuses] = usePersistedParam<string[]>(
+    'statuses',
+    [],
+    { pageKey: pageKey, urlKey: 'statuses', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any }
+  );
+  const [filterPriorities, setFilterPriorities] = usePersistedParam<string[]>(
+    'priorities',
+    [],
+    { pageKey: pageKey, urlKey: 'priorities', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any }
+  );
+  const [filterProjectName, setFilterProjectName] = usePersistedParam<string>(
+    'proj',
+    "all",
+    { pageKey: pageKey, urlKey: 'proj', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' }
+  );
+  const [dateFilter, setDateFilter] = usePersistedParam<string>(
+    'date',
+    "all",
+    { pageKey: pageKey, urlKey: 'date', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' }
+  );
+  const [completionFilter, setCompletionFilter] = usePersistedParam<string>('completion', 'hide', {
+    pageKey, urlKey: 'completion', storage: 'local',
+    serialize: v => v === 'show' ? 'show' : v, deserialize: v => v || 'hide'
+  });
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const [isTruncated, setIsTruncated] = useState<Record<string, boolean>>({});
-  const [sortBy, setSortBy] = useState<SortOption>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortBy, setSortBy] = usePersistedParam<SortOption>(
+    'sortBy',
+    'name',
+    { pageKey: pageKey, urlKey: 'sort', storage: 'local', serialize: v => v === 'name' ? null : v, deserialize: v => (v as SortOption) || 'name' }
+  );
+  const [sortDirection, setSortDirection] = usePersistedParam<SortDirection>(
+    'sortDir',
+    'asc',
+    { pageKey: pageKey, urlKey: 'dir', storage: 'local', serialize: v => v === 'asc' ? null : v, deserialize: v => (v as SortDirection) || 'asc' }
+  );
+
+  const [tab, setTab] = usePersistedParam<'all' | 'mine'>(
+    'tab',
+    'all',
+    { pageKey: pageKey, urlKey: 'tab', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => (v as 'all' | 'mine') || 'all' }
+  );
+
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const { data: organizations } = useOrganizations();
   const currentOrgId = useCurrentOrgId() ?? organizations?.[0]?.id;
@@ -101,7 +143,7 @@ const Projects = () => {
     initials: deriveDisplayFromEmail(m.name).initials,
   })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
 
-  const [tab, setTab] = useState<'all' | 'mine'>('all');
+
   // Projects state populated from backend
   const [projects, setProjects] = useState<Project[]>([]);
 
@@ -248,6 +290,30 @@ const Projects = () => {
   //   );
   // }
 
+  const [restoreCompletion, setRestoreCompletion] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (completionFilter === 'hide') {
+      setRestoreCompletion(completionFilter);
+    }
+    if (filterStatuses.includes('completed')) {
+      setCompletionFilter('show');
+    } else {
+      if (restoreCompletion) {
+        setCompletionFilter(restoreCompletion);
+        setRestoreCompletion(null);
+      }
+    }
+  }, [filterStatuses]);
+
+  useEffect(() => {
+    if (completionFilter === 'hide') {
+      if(filterStatuses.includes('completed')) {
+        setFilterStatuses(filterStatuses.filter(s => s !== 'completed'));
+      }
+    }    
+  }, [completionFilter]);
+
   if (!user) {
     return null;
   }
@@ -336,9 +402,13 @@ const Projects = () => {
       // For Projects page, optional project-name filter (mainly to spotlight one project)
       const matchesName = filterProjectName === "all" || project.id === filterProjectName;
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesName;
+      const matchesCompletion =
+        completionFilter === 'show' ||
+        (completionFilter === 'hide' ? project.status !== 'completed' : true);
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesName && matchesCompletion;
     }));
-  }, [projects, searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab, sortBy, sortDirection, userIdentifiers]);
+  }, [projects, searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab, sortBy, sortDirection, userIdentifiers, completionFilter]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
@@ -349,7 +419,7 @@ const Projects = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab]);
+  }, [searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab, completionFilter]);
 
   // Reset to last valid page if current page exceeds total pages
   useEffect(() => {
@@ -840,6 +910,21 @@ const Projects = () => {
               </TabsList>
             </Tabs>
             {/* placeholder to keep flex spacing */}
+
+            {/* Include a switch to toggle between completed and not completed projects */}
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="completionFilter" className="ml-2 text-xs font-xs text-gray-700 dark:text-gray-200">
+                {completionFilter === 'hide' ? 'Show' : 'Hide'} Completed
+              </Label>
+              <Switch
+                id="completionFilter"
+                name="completionFilter"
+                className="ml-1"
+                checked={completionFilter === 'show'}
+                onCheckedChange={v => setCompletionFilter(v ? 'show' : 'hide')}
+              />
+
+            </div>
           </div>
         </div>
 
@@ -886,7 +971,7 @@ const Projects = () => {
                         key={opt.value}
                         checked={filterStatuses.includes(opt.value)}
                         onCheckedChange={(checked) => {
-                          setFilterStatuses(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value));
+                          setFilterStatuses(checked ? [...filterStatuses, opt.value] : filterStatuses.filter(s => s !== opt.value));
                         }}
                         className="cursor-pointer"
                       >
@@ -909,7 +994,7 @@ const Projects = () => {
                         key={p}
                         checked={filterPriorities.includes(p)}
                         onCheckedChange={(checked) => {
-                          setFilterPriorities(prev => checked ? [...prev, p] : prev.filter(x => x !== p));
+                          setFilterPriorities(checked ? [...filterPriorities, p] : filterPriorities.filter(x => x !== p));
                         }}
                         className="cursor-pointer"
                       >
@@ -1063,18 +1148,18 @@ const Projects = () => {
                           <TableHeader className="bg-gray-50 dark:bg-gray-800">
                             <TableRow>
                               <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
-                              <TableHead className="w-20 sm:w-24 md:w-28 text-center font-bold min-w-[5rem]">ID</TableHead>
-                              <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60 font-bold">Title</TableHead>
-                              <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80 font-bold">Description</TableHead>
-                              <TableHead className="w-40 sm:w-40 md:w-40 text-center font-bold">Progress</TableHead>
-                              <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Status</TableHead>
-                              <TableHead className="w-24 sm:w-28 md:w-32 text-center font-bold">Priority</TableHead>
-                              <TableHead className="w-28 sm:w-32 md:w-40 text-center font-bold">Owner</TableHead>
-                              <TableHead className="w-32 sm:w-32 md:w-40 text-center font-bold">Start Date</TableHead>
-                              <TableHead className="w-32 sm:w-32 md:w-40 text-center font-bold">Due Date</TableHead>
-                              <TableHead className="w-32 sm:w-32 md:w-40 text-center font-bold">Members</TableHead>
+                              <TableHead className="w-20 sm:w-24 md:w-28 text-center min-w-[5rem]">ID</TableHead>
+                              <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60">Title</TableHead>
+                              <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80">Description</TableHead>
+                              <TableHead className="w-50 sm:w-50 md:w-50 text-center">Progress</TableHead>
+                              <TableHead className="w-24 sm:w-28 md:w-32 text-center">Status</TableHead>
+                              <TableHead className="w-24 sm:w-28 md:w-32 text-center">Priority</TableHead>
+                              <TableHead className="w-28 sm:w-32 md:w-40 text-center">Owner</TableHead>
+                              <TableHead className="w-32 sm:w-32 md:w-40 text-center">Start Date</TableHead>
+                              <TableHead className="w-32 sm:w-32 md:w-40 text-center">Due Date</TableHead>
+                              <TableHead className="w-32 sm:w-32 md:w-40 text-center">Members</TableHead>
                               {/* <TableHead className="w-40 text-center font-bold">Tags</TableHead> */}
-                              <TableHead className="w-20 sm:w-24 text-center font-bold flex-shrink-0">Actions</TableHead>
+                              <TableHead className="w-20 sm:w-24 text-center flex-shrink-0">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1184,18 +1269,21 @@ const Projects = () => {
                                     </div>
                                   </div>
                                 </TableCell>
-                                <TableCell className="text-center">
-                                  <div className="w-full flex flex-col items-center" onClick={() => handleNavigation('tasks_catalog', project.id)}>
-                                    <div className="w-full flex items-center bg-gray-200 rounded-full h-3 cursor-pointer" >
-                                      <div
-                                        className="bg-tasksmate-gradient h-3 rounded-full transition-all duration-300"
-                                        style={{ width: `${project.progress}%` }}
-                                      ></div>
-
+                                <TableCell className="text-center" onClick={() => handleNavigation('tasks_catalog', project.id)}>
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-full items-center space-x-2">
+                                      <div className="flex items-center space-x-2">
+                                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                          <div
+                                            className="bg-tasksmate-gradient h-2 rounded-full"
+                                            style={{ width: `${project.progress}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-xs text-gray-600 dark:text-gray-300 w-20">{project.progress}%</span>
+                                      </div>
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                                      <span className="font-semibold text-xs">{project.progress}%</span>
-                                      <span>(<span className="font-semibold">{project.completedTasks}</span>/<span className="font-semibold">{project.tasksCount}</span>
+                                    <div className="w-full items-center text-xs text-gray-500 mt-2">
+                                      <span>(<span className="font-semibold text-xs">{project.completedTasks}</span>/<span className="font-semibold text-xs">{project.tasksCount}</span>
                                         <span className="ml-1 font-semibold text-xs">Tasks Completed</span>)</span>
                                     </div>
                                   </div>

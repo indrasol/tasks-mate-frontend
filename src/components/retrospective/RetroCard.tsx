@@ -72,7 +72,7 @@ const RetroCard = ({
       // Confetti effect when reaching 5 votes
       if (item.votes === 4 && !hasUserVoted) {
         // Trigger confetti animation
-        console.log("🎉 Confetti burst!");
+        // console.log("🎉 Confetti burst!");
       }
     }
   };
