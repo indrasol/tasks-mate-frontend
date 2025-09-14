@@ -205,7 +205,7 @@ const Dashboard = () => {
         message: 'Great! You don\'t have any overdue tasks at the moment.',
         action: 'View All Tasks',
         icon: <CheckCircle2 className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
-        path: `/tasks_catalog?org_id=${currentOrgId}`
+        path: `/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`
       },
       upcoming: {
         title: 'No Upcoming Deadlines',
@@ -251,7 +251,10 @@ const Dashboard = () => {
         <LineChart data={taskCompletionData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="month" />
-          <YAxis />
+          <YAxis 
+            tickFormatter={(value) => Math.floor(value).toString()}
+            domain={[0, 'dataMax']}
+          />
           <Tooltip />
           <Line type="monotone" dataKey="completed" stroke="#10B981" />
           <Line type="monotone" dataKey="pending" stroke="#F59E0B" />
@@ -294,37 +297,51 @@ const Dashboard = () => {
 
     return (
       <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-        {teamProductivityData.map((member: any, idx: number) => (
-          <div key={idx} className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg hover:shadow-md dark:hover:shadow-gray-900/20 transition-shadow">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                {
-                  orgMembers.filter((m: any) => m.username === member.name).map((memberInfo: any) => (
-                    <>
-                      <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center text-white text-xs font-bold">
-                        {memberInfo.initials}
-                      </div>
-                      <span className="font-medium text-gray-900 dark:text-white">{memberInfo.displayName}</span>
-                    </>
-                  ))
-                }
+        {teamProductivityData.map((member: any, idx: number) => {
+          const tasksPending = member.tasksTotal - member.tasksCompleted;
+          
+          return (
+            <div key={idx} className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg hover:shadow-md dark:hover:shadow-gray-900/20 transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  {
+                    orgMembers.filter((m: any) => m.username === member.name).map((memberInfo: any) => (
+                      <>
+                        <div className="w-8 h-8 rounded-full bg-tasksmate-gradient flex items-center justify-center text-white text-xs font-bold">
+                          {memberInfo.initials}
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-900 dark:text-white">{memberInfo.displayName}</span>
+                          <div className="flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400">
+                            <span className="text-gray-900 dark:text-white font-medium">
+                              {member.tasksTotal} total
+                            </span>
+                            <span className="text-green-600 dark:text-green-400 font-medium">
+                              {member.tasksCompleted} completed
+                            </span>
+                            <span className="text-orange-600 dark:text-orange-400 font-medium">
+                              {tasksPending} pending
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ))
+                  }
 
+                </div>
+                <span className="text-sm font-semibold px-2 py-1 rounded-full bg-tasksmate-green-start/20 dark:bg-tasksmate-green-start/30 text-tasksmate-green-end dark:text-tasksmate-green-start">
+                  {member.efficiency}%
+                </span>
               </div>
-              <span className="text-sm font-semibold px-2 py-1 rounded-full bg-tasksmate-green-start/20 dark:bg-tasksmate-green-start/30 text-tasksmate-green-end dark:text-tasksmate-green-start">
-                {member.efficiency}%
-              </span>
+              <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                <div
+                  className="h-2 rounded-full bg-tasksmate-gradient"
+                  style={{ width: `${member.efficiency}%` }}
+                />
+              </div>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
-              <span>{member.tasksCompleted}/{member.tasksTotal} tasks completed</span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-              <div
-                className="h-2 rounded-full bg-tasksmate-gradient"
-                style={{ width: `${member.efficiency}%` }}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -640,8 +657,15 @@ const Dashboard = () => {
                       {member.assignee_name === 'unassigned' ? 'Unassigned' : member.assignee_name}
                     </span>
                     <div className="flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400">
-                      <span>{member.tasks_completed}/{member.tasks_total} completed</span>
-                      <span>{member.tasks_pending} pending</span>
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {member.tasks_total} total
+                      </span>
+                      <span className="text-green-600 dark:text-green-400 font-medium">
+                        {member.tasks_completed} completed
+                      </span>
+                      <span className="text-orange-600 dark:text-orange-400 font-medium">
+                        {member.tasks_pending} pending
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -819,8 +843,59 @@ const Dashboard = () => {
               </Card> */}
             </div>
 
-            {/* Key Metrics Row - Right after KPIs */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Project Performance Summary */}
+            <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+              <CardHeader>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Target className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                    Project Performance Summary
+                  </CardTitle>
+                  
+                  {/* Search and Filter Controls */}
+                  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                    {/* Search Bar with Animation */}
+                    <div className="relative group">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-tasksmate-green-end h-4 w-4 transition-colors duration-200" />
+                      <Input
+                        placeholder="Search projects..."
+                        value={projectSearchTerm}
+                        onChange={(e) => setProjectSearchTerm(e.target.value)}
+                        className="pl-10 h-9 w-[250px] focus:w-[320px] transition-all duration-300 ease-in-out focus:ring-2 focus:ring-tasksmate-green-end/20 focus:border-tasksmate-green-end"
+                      />
+                    </div>
+                    
+                    {/* Status Filter */}
+                    <div className="flex items-center">
+                      <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
+                        <SelectTrigger className="w-[140px] h-9 focus:ring-2 focus:ring-tasksmate-green-end/20 focus:border-tasksmate-green-end transition-all duration-200">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          {topProjects && [...new Set(topProjects.map((project: any) => project.status))].map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {getStatusMeta(status)?.label || status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Results Count */}
+                    <div className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {filteredProjects.length} of {topProjects?.length || 0}
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {renderTopProjects()}
+              </CardContent>
+            </Card>
+
+            {/* Top Row: Top Contributors + Team Productivity */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Top Contributors Leaderboard */}
               <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
                 <CardHeader>
@@ -834,6 +909,22 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
+              {/* Team Productivity */}
+              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Activity className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                    Team Productivity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {renderTeamProductivityTable()}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Bottom Row: Bug Insights + Overdue Tasks + Upcoming Deadlines */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Bug Insights */}
               <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
                 <CardHeader>
@@ -848,7 +939,10 @@ const Dashboard = () => {
               </Card>
 
               {/* Overdue Tasks */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+              <Card 
+                className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}&ddate=overdue` : '?ddate=overdue'}`)}
+              >
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                     <AlertTriangle className="w-5 h-5 text-gray-700 dark:text-gray-300" />
@@ -864,25 +958,40 @@ const Dashboard = () => {
                   {renderOverdueTasks()}
                 </CardContent>
               </Card>
+
+              {/* Upcoming Deadlines */}
+              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Calendar className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                    Upcoming Deadlines
+                    <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                      Top 5 Tasks
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {renderUpcomingDeadlines()}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Charts Section */}
             <div className="space-y-6">
-              {/* Task Completion Trends */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <BarChart3 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    Task Completion Trends
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {renderTaskCompletionChart()}
-                </CardContent>
-              </Card>
-
-              {/* Grid: Pie + Productivity */}
+              {/* Grid: Task Completion Trends + Project Status Distribution */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Task Completion Trends */}
+                <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                      <BarChart3 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                      Task Completion Trends
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {renderTaskCompletionChart()}
+                  </CardContent>
+                </Card>
 
                 {/* Project Status Distribution */}
                 <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
@@ -896,45 +1005,12 @@ const Dashboard = () => {
                     {renderProjectStatusChart()}
                   </CardContent>
                 </Card>
+              </div>
 
-                {/* Team Productivity */}
-                <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                      <Activity className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                      Team Productivity
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {renderTeamProductivityTable()}
-                  </CardContent>
-                </Card>
-
-              </div> {/* end grid */}
             </div> {/* end space-y-6 charts section */}
 
-
-            {/* Additional Row for Upcoming Deadlines and Workload Distribution */}
+            {/* Workload Distribution - Half Width */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Upcoming Deadlines */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <Calendar className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    Upcoming Deadlines
-                    {upcomingDeadlines?.length > 0 && (
-                      <Badge variant="secondary" className="ml-2">
-                        {upcomingDeadlines.length}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {renderUpcomingDeadlines()}
-                </CardContent>
-              </Card>
-
-              {/* Workload Distribution */}
               <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
@@ -946,89 +1022,11 @@ const Dashboard = () => {
                   {renderWorkloadDistribution()}
                 </CardContent>
               </Card>
+              
+              {/* Empty space for future card or can be removed */}
+              <div></div>
             </div>
 
-            {/* Charts Row 2 */}
-            <div className="grid grid-cols-1 gap-6">
-              {/* Meeting Books Analytics */}
-              {/* <Card className="glass border-0 shadow-tasksmate">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="w-5 h-5" />
-                    Meeting Books Activity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={meetingData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip />
-                        <Area type="monotone" dataKey="statusCalls" stackId="1" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} name="Status Calls" />
-                        <Area type="monotone" dataKey="retrospectives" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.6} name="Retrospectives" />
-                        <Area type="monotone" dataKey="knowshare" stackId="1" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.6} name="Knowshare" />
-                        <Area type="monotone" dataKey="adhoc" stackId="1" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.6} name="Ad-hoc" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card> */}
-
-              {/* Project Progress Overview card removed */}
-
-              {/* Top Projects Table */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                <CardHeader>
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                      <Target className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                      Project Performance Summary
-                    </CardTitle>
-                    
-                    {/* Search and Filter Controls */}
-                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                      {/* Search Bar with Animation */}
-                      <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-tasksmate-green-end h-4 w-4 transition-colors duration-200" />
-                        <Input
-                          placeholder="Search projects..."
-                          value={projectSearchTerm}
-                          onChange={(e) => setProjectSearchTerm(e.target.value)}
-                          className="pl-10 h-9 w-[250px] focus:w-[320px] transition-all duration-300 ease-in-out focus:ring-2 focus:ring-tasksmate-green-end/20 focus:border-tasksmate-green-end"
-                        />
-                      </div>
-                      
-                      {/* Status Filter */}
-                      <div className="flex items-center">
-                        <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
-                          <SelectTrigger className="w-[140px] h-9 focus:ring-2 focus:ring-tasksmate-green-end/20 focus:border-tasksmate-green-end transition-all duration-200">
-                            <SelectValue placeholder="Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Status</SelectItem>
-                            {topProjects && [...new Set(topProjects.map((project: any) => project.status))].map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {getStatusMeta(status)?.label || status}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* Results Count */}
-                      <div className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {filteredProjects.length} of {topProjects?.length || 0}
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {renderTopProjects()}
-                </CardContent>
-              </Card>
-            </div>
           </div>
         </div>
       </div>
