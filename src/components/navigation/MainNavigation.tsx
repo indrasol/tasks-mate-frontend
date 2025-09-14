@@ -1,6 +1,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -195,28 +196,59 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   };
 
   return (
-    <nav className={`bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen fixed left-0 top-0 z-50 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}`}>
+    <nav className={`bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen fixed left-0 top-0 z-50 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64 sm:w-64 max-w-[90vw] sm:max-w-[256px] min-w-[240px]'} overflow-hidden`}>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          {!isCollapsed && (
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                <Check className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-sora font-bold text-xl text-gray-900 dark:text-white">TasksMate</span>
-            </Link>
+        <div className={`border-b border-gray-200 dark:border-gray-700 ${isCollapsed ? 'p-2' : 'p-4'}`}>
+          {isCollapsed ? (
+            // Collapsed layout - vertical stack
+            <div className="flex flex-col items-center space-y-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link to="/" className="flex items-center justify-center">
+                      <div className="w-8 h-8 bg-tasksmate-gradient rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 shadow-md">
+                        <Check className="w-5 h-5 text-white" />
+                      </div>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-gray-900 text-white border-gray-700">
+                    <p className="font-sora font-semibold">TasksMate</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 w-8 h-8"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            // Expanded layout - horizontal
+            <div className="flex items-center justify-between">
+              <Link to="/" className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-tasksmate-gradient rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 shadow-md">
+                  <Check className="w-5 h-5 text-white" />
+                </div>
+                <span className="font-sora font-bold text-xl text-gray-900 dark:text-white transition-opacity duration-300">
+                  TasksMate
+                </span>
+              </Link>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+            </div>
           )}
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-            </Button>
-          </div>
         </div>
 
         {/* Organization Dropdown - Show only when inside an org */}
@@ -377,9 +409,9 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
 
 
         {/* Bottom Actions */}
-        <div className="border-t border-gray-200 p-4 space-y-3">
+        <div className="border-t border-gray-200 dark:border-gray-700 p-2 space-y-3">
           {/* User Profile Section */}
-          <div className={`flex items-center justify-between ${isCollapsed ? 'flex-col' : 'flex-1'}`}>
+          <div className={`flex items-center ${isCollapsed ? 'flex-col space-y-2' : 'justify-between w-full min-w-0'}`}>
             {/* <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -487,48 +519,44 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
               ) :
                 (
                   <>
+                    {/* Profile Button - takes available space but doesn't overflow */}
                     <Button
                       variant="ghost"
-                      className={`${isCollapsed ? 'w-8 h-8 p-0' : 'flex-1'} flex items-center space-x-2 hover:bg-gray-50 dark:hover:bg-gray-800 justify-start`}
+                      className="flex-1 flex items-center space-x-2 hover:bg-gray-50 dark:hover:bg-gray-800 justify-start min-w-0 px-2 py-1"
                       onClick={handleUserProfileNavigation}
                       title={profileLabel}
                     >
-                      <Avatar
-                        className="w-8 h-8 cursor-pointer"
-                      // onClick={() => setIsEnlarged(true)}
-                      >
+                      <Avatar className="w-8 h-8 cursor-pointer flex-shrink-0">
                         <AvatarImage src={avatarUrl || undefined} />
                         <AvatarFallback className="bg-green-500 text-white">
                           {(profileLabel || 'U').charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      {!isCollapsed && (
-                        <div className="flex-1 text-left min-w-0">
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
-                            {
-                              // limit until 15 characters
-                              profileLabel.length > 15 ? profileLabel.substring(0, 15) + '...' : profileLabel
-                            }
-                          </p>
-                        </div>
-                      )}
+                      <div className="flex-1 text-left min-w-0 overflow-hidden">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                          {profileLabel.length > 12 ? profileLabel.substring(0, 12) + '...' : profileLabel}
+                        </p>
+                      </div>
                     </Button>
 
-                    {/* Theme Toggle */}
-                    <div className="ml-2 flex-shrink-0">
-                      <ThemeToggle />
+                    {/* Action Buttons Container - fixed width to prevent overflow */}
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      {/* Theme Toggle */}
+                      <div className="flex-shrink-0">
+                        <ThemeToggle />
+                      </div>
+
+                      {/* Sign Out Button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleSignOut}
+                        className="w-8 h-8 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0"
+                        title="Sign Out"
+                      >
+                        <LogOut className="w-4 h-4" />
+                      </Button>
                     </div>
-
-                    {/* Sign Out Button */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleSignOut}
-                      className="w-8 h-8 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 ml-2 flex-shrink-0"
-                      title="Sign Out"
-                    >
-                      <LogOut className="w-4 h-4" />
-                    </Button>
                   </>
                 )
             }
