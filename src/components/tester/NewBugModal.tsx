@@ -201,7 +201,7 @@ const NewBugModal = ({ open, onOpenChange, runId, projectId, projectName }: NewB
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[600px] sm:max-w-[600px] bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
+      <SheetContent className="w-[600px] sm:max-w-full sm:max-w-full bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
         {/* Modern Green Header */}
         <div className="relative bg-tasksmate-gradient p-6 flex-shrink-0">
           <div className="absolute inset-0 bg-black/5"></div>
@@ -225,8 +225,8 @@ const NewBugModal = ({ open, onOpenChange, runId, projectId, projectName }: NewB
         </div>
 
         {/* Scrollable Content */}
-        <ScrollArea className="flex-1 px-6">
-          <div className="py-6">
+        <ScrollArea className="flex-1 px-2">
+          <div className="px-4 py-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-3">
                 <Label htmlFor="title" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Bug Title</Label>
