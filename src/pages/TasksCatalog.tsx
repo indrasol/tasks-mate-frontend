@@ -859,7 +859,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
             <div className="flex items-center justify-between w-full">
               {/* Search bar moved above */}
 
-              <div className="relative w-full max-w-md mr-auto">
+              <div className="relative w-80 mr-auto">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by keyword or ID (e.g. T1234)"
@@ -870,7 +870,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               </div>
 
               {/* Search + Filters and Controls */}
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 ml-2">
                 {/* <Filter className="w-4 h-4 text-gray-500" /> */}
 
                 {/* Overdue Filter Button */}
@@ -1240,7 +1240,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               <TableCell className="font-medium w-80">
                                 <div className="flex items-center">
                                   <div
-                                    className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
+                                    className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400 cursor-pointer' : 'hover:underline cursor-pointer'}`}
                                     ref={(el) => {
                                       if (el) {
                                         // Check if text is truncated
