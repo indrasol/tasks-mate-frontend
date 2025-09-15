@@ -1201,7 +1201,13 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           {currentPageTasks.map((task, idx) => (
                             <TableRow
                               key={idx}
-                              className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${task.status === 'completed' ? 'bg-gray-50/60 dark:bg-gray-800/60' : ''}`}
+                              className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${
+                                task.status === 'completed' 
+                                  ? 'bg-gray-50/60 dark:bg-gray-800/60' 
+                                  : isTaskOverdue(task) 
+                                    ? 'bg-red-50/60 dark:bg-red-900/20 border-l-4 border-red-500' 
+                                    : ''
+                              }`}
                             >
                               <TableCell className="p-2 text-center">
                                 <div
@@ -1448,7 +1454,14 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 <DateBadge date={task.startDate ? task.startDate : task.createdDate} className="text-xs bg-blue-100 text-blue-800" />
                               </TableCell>
                               <TableCell className="text-center">
-                                <DateBadge date={task.targetDate} className="text-xs bg-rose-100 text-rose-800" />
+                                <DateBadge 
+                                  date={task.targetDate} 
+                                  className={`text-xs ${
+                                    isTaskOverdue(task) 
+                                      ? 'bg-red-100 text-red-800 font-semibold border border-red-300' 
+                                      : 'bg-rose-100 text-rose-800'
+                                  }`} 
+                                />
                               </TableCell>
                               <TableCell className="text-center">
                                 <div className="flex justify-center">
