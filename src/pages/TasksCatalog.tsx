@@ -194,6 +194,15 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     }
   }, [projectId]);
 
+  // Reset custom date range states when overdue filter is applied
+  useEffect(() => {
+    if (dueDateFilter === 'overdue') {
+      setIsCustomDueDateRange(false);
+      setDueDateRange({ from: undefined, to: undefined });
+      setTempDueDateRange({ from: undefined, to: undefined });
+    }
+  }, [dueDateFilter]);
+
 
   // Build possible identifiers for current user (id, username, email, displayName)
   const userIdentifiers = useMemo(() => {
@@ -280,6 +289,18 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   // Mock project context
   const currentProject = 'TasksMate Web';
+
+  // Function to check if a task is overdue
+  const isTaskOverdue = (task: Task) => {
+    if (!task.targetDate || task.status === 'completed') return false;
+    
+    const dueDate = new Date(task.targetDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    dueDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    
+    return dueDate < today;
+  };
 
   // Enhanced date filtering logic with custom date range support
   const isDateInRange = (
@@ -374,8 +395,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
       case "overdue":
         // A task is overdue if its due date is before today and it's not completed
-        return date < today &&
-          tasks.find(t => t.targetDate === taskDate)?.status !== 'completed';
+        return date < today;
 
       default:
         return true; // "all" filter or any other value
@@ -518,13 +538,22 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           isDateInRange(task.createdDate, createdDateFilter);
 
       // Due date filter - Check targetDate
-      const matchesDueDate =
-        dueDateFilter === "all" ||
-          (isCustomDueDateRange && dueDateRange?.from) ?
+      const matchesDueDate = (() => {
+        if (dueDateFilter === "all") return true;
+        
+        if (dueDateFilter === "overdue") {
+          // For overdue filter, check if task is overdue and not completed
+          return isTaskOverdue(task);
+        }
+        
+        if (isCustomDueDateRange && dueDateRange?.from) {
           // For custom date range, check due date
-          isDateInRange(task.targetDate, 'custom', dueDateRange) :
-          // For preset filters, check due date
-          isDateInRange(task.targetDate, dueDateFilter);
+          return isDateInRange(task.targetDate, 'custom', dueDateRange);
+        }
+        
+        // For preset filters, check due date
+        return isDateInRange(task.targetDate, dueDateFilter);
+      })();
 
       const matchesCompletion =
         completionFilter === 'show' ||
@@ -746,7 +775,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     setIsCustomDueDateRange(false);
     setDueDateRange({ from: undefined, to: undefined });
     setSearchQuery("");
-    setCompletionFilter('all');
+    setCompletionFilter('hide');
   };
 
 
@@ -843,6 +872,27 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               {/* Search + Filters and Controls */}
               <div className="flex items-center space-x-4">
                 {/* <Filter className="w-4 h-4 text-gray-500" /> */}
+
+                {/* Overdue Filter Button */}
+                <Button
+                  variant={dueDateFilter === 'overdue' ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (dueDateFilter === 'overdue') {
+                      // If already showing overdue, reset to show all
+                      setDueDateFilter('all');
+                    } else {
+                      // Show overdue tasks
+                      setDueDateFilter('overdue');
+                    }
+                    setIsCustomDueDateRange(false);
+                    setDueDateRange({ from: undefined, to: undefined });
+                    setTempDueDateRange({ from: undefined, to: undefined });
+                  }}
+                  className={dueDateFilter === 'overdue' ? "bg-red-500 hover:bg-red-600 text-white border-red-500" : "border-red-500 text-red-500 hover:bg-red-50"}
+                >
+                  Overdue
+                </Button>
 
                 {/* Status Filter Multi-Select */}
                 <DropdownMenu>
@@ -983,7 +1033,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       className="px-3 py-2 flex items-center gap-1"
                     >
                       <CalendarRange className="w-4 h-4" />
-                      <span className="text-xs">Due</span>
+                      <span className="text-xs">
+                        {dueDateFilter === 'overdue' ? 'Overdue' : 'Due'}
+                      </span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4" align="center"
@@ -998,6 +1050,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium text-sm">Select Due Date Range</h4>
                       </div>
+                      
                       <CalendarComponent
                         mode="range"
                         defaultMonth={tempDueDateRange.from}
@@ -1115,7 +1168,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     </div>
                     <p className="text-gray-500 dark:text-gray-300 text-lg mb-2">No tasks found</p>
                     <p className="text-gray-400 dark:text-gray-500 mb-4">
-                      {searchQuery || filterStatuses.length > 0 || filterOwner !== "all" || createdDateFilter !== "all" || dueDateFilter !== "all"
+                      {searchQuery || filterStatuses.length > 0 || filterOwner !== "all" || createdDateFilter !== "all" || dueDateFilter !== "all" || completionFilter !== 'hide'
                         ? "Try adjusting your filters or search query"
                         : "Create your first task to get started"
                       }
@@ -1154,7 +1207,13 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           {currentPageTasks.map((task, idx) => (
                             <TableRow
                               key={idx}
-                              className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${task.status === 'completed' ? 'bg-gray-50/60 dark:bg-gray-800/60' : ''}`}
+                              className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${
+                                task.status === 'completed' 
+                                  ? 'bg-gray-50/60 dark:bg-gray-800/60' 
+                                  : isTaskOverdue(task) 
+                                    ? 'bg-red-50/60 dark:bg-red-900/20 border-l-4 border-red-500' 
+                                    : ''
+                              }`}
                             >
                               <TableCell className="p-2 text-center">
                                 <div
@@ -1401,7 +1460,14 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 <DateBadge date={task.startDate ? task.startDate : task.createdDate} className="text-xs bg-blue-100 text-blue-800" />
                               </TableCell>
                               <TableCell className="text-center">
-                                <DateBadge date={task.targetDate} className="text-xs bg-rose-100 text-rose-800" />
+                                <DateBadge 
+                                  date={task.targetDate} 
+                                  className={`text-xs ${
+                                    isTaskOverdue(task) 
+                                      ? 'bg-red-100 text-red-800 font-semibold border border-red-300' 
+                                      : 'bg-rose-100 text-rose-800'
+                                  }`} 
+                                />
                               </TableCell>
                               <TableCell className="text-center">
                                 <div className="flex justify-center">

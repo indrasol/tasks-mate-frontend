@@ -41,6 +41,33 @@ export type DashboardData = {
     status: string;
     project_id: string;
   }>;
+  top_contributors: Array<{
+    contributor_name: string;
+    completed_tasks: number;
+  }>;
+  bug_summary: {
+    open_bugs: number;
+    closed_bugs: number;
+    high_severity_bugs: number;
+  };
+  overdue_tasks: Array<{
+    task_id: string;
+    title: string;
+    assignee?: string;
+    due_date: string;
+  }>;
+  upcoming_deadlines: Array<{
+    task_id: string;
+    title: string;
+    assignee?: string;
+    due_date: string;
+  }>;
+  workload_distribution: Array<{
+    assignee_name: string;
+    tasks_total: number;
+    tasks_completed: number;
+    tasks_pending: number;
+  }>;
 };
 
 export const useDashboard = () => {
