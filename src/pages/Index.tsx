@@ -6,19 +6,34 @@ import ThemeToggle from "@/components/ui/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowRight, Check, FileText, MessageCircle, KanbanSquare, LayoutDashboard, Rocket, Sparkles, Lightbulb } from "lucide-react";
 import { useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const Index = () => {
   const { user } = useAuth();
-
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const orgId = searchParams.get("org_id");
   const navigate = useNavigate();
 
 
+  // useEffect(() => {
+  //   if (user) {
+  //     navigate("/org");
+  //   }
+  // }, [user]);
+
+  // Get the redirectTo from state (if any)
+  const redirectTo = location.state?.redirectTo;
+
   useEffect(() => {
     if (user) {
-      navigate("/org");
+      if (redirectTo) {
+        navigate(redirectTo, { replace: true });
+      } else {
+        navigate(orgId ? `/dashboard?org_id=${orgId}` : "/org", { replace: true });
+      }
     }
-  }, [user]);
+  }, [user, navigate, redirectTo, orgId]);
 
   const features = [
     {
