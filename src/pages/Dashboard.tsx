@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -13,34 +12,35 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import useDashboard from '@/hooks/useDashboard';
-import useUserDashboard from '@/hooks/useUserDashboard';
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import useUserDashboard from '@/hooks/useUserDashboard';
 import { deriveDisplayFromEmail, getStatusMeta } from '@/lib/projectUtils';
+import clearPersistedStateFor from "@/lib/storageUtils";
 import { BackendOrgMember } from "@/types/organization";
 import {
   Activity,
   AlertCircle,
+  AlertTriangle,
   BarChart3,
   Bug,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Crown,
   FolderOpen,
   Info,
   Loader2,
   PieChart as PieChartIcon,
+  Search,
   Target,
   Trophy,
-  Users,
-  AlertTriangle,
-  Search,
-  Filter,
-  ChevronLeft,
-  ChevronRight
+  Users
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from "react-router-dom";
@@ -56,7 +56,6 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
-import clearPersistedStateFor from "@/lib/storageUtils";
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
@@ -1117,7 +1116,7 @@ const Dashboard = () => {
         </div>
 
         {/* Dashboard Tabs */}
-        <div className="px-6 mb-4">
+        <div className="px-6 pb-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 max-w-md">
               <TabsTrigger value="org">Org Dashboard</TabsTrigger>
