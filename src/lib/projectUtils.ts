@@ -68,7 +68,7 @@ export function deriveDisplayFromEmail(emailOrUsername: string) {
 }
 
 
-export function capitalizeFirstLetter(opt: string): React.ReactNode {
+export function capitalizeFirstLetter(opt: string): string {
   // replace underscores with spaces
   opt = opt.replace(/_/g, ' ');
   // capitalize first letter of each word

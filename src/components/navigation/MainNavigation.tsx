@@ -1,7 +1,5 @@
-
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import ThemeToggle from '@/components/ui/theme-toggle';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { useAvatar } from '@/services/AvatarContext';
@@ -39,6 +38,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 // import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
 import type { SimpleOrg } from '@/hooks/useOrganizations';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import clearPersistedStateFor from '@/lib/storageUtils';
 
 interface MainNavigationProps {
   onNewTask?: () => void;
@@ -74,7 +74,24 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const { data: orgList } = useOrganizations();
   const userOrganizations = useMemo(() => (orgList ?? []) as SimpleOrg[], [orgList]);
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sidebar-collapsed');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    // Check for existing values and then only trigger or change things
+    const existingCollapsed = localStorage.getItem('sidebar-collapsed');
+    if (existingCollapsed !== null && JSON.parse(existingCollapsed) === isCollapsed) {
+      return;
+    }
+    localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
+  }, [isCollapsed]);
+
   const currentOrgName = useMemo(() => {
     if (!orgId) return '';
     const currentOrg = userOrganizations.find((org) => org.id === orgId);
@@ -99,6 +116,11 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
 
   // Broadcast sidebar collapse
   useEffect(() => {
+    // Check for existing values of  --sidebar-width and then only trigger or change things
+    const existingWidth = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width');
+    if (existingWidth === (isCollapsed ? '4rem' : '16rem')) {
+      return;
+    }
     window.dispatchEvent(new CustomEvent('sidebar-toggle', { detail: { collapsed: isCollapsed } }));
     document.documentElement.style.setProperty('--sidebar-width', isCollapsed ? '4rem' : '16rem');
   }, [isCollapsed]);
@@ -123,22 +145,27 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const handleOrganizationSwitch = (newOrgId: string) => {
     const newParams = new URLSearchParams(location.search);
     newParams.set('org_id', newOrgId);
-    navigate(`${location.pathname}?${newParams.toString()}`);
+
+    let newUrl = location.pathname;
+
+    // Navigate to Projects, if Current Page is Project Detail
+    if (location.pathname.startsWith('/projects/')) {
+      newUrl = '/projects';
+      clearPersistedStateFor('projects');
+    }
+    else if (location.pathname.startsWith('/tasks/') || location.pathname.startsWith('/tasks_catalog/')) {
+      newUrl = '/tasks_catalog';
+      clearPersistedStateFor('tasks');
+    }
+    else if (location.pathname.startsWith('/tester-zone/')) {
+      newUrl = '/tester-zone';
+      clearPersistedStateFor('tester');
+      clearPersistedStateFor('bugs');
+    }
+
+    navigate(`${newUrl}?${newParams.toString()}`);
   };
 
-  const clearPersistedStateFor = (page: 'projects' | 'tasks' | 'bugs' | 'tester') => {
-    try {
-      const prefix = `${page}:`;
-      // Remove all localStorage keys created by usePersistedParam for this page
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-          localStorage.removeItem(key);
-        }
-      }
-    } catch {}
-  };
-  
   const handleNavClick = (page: string) => {
     // clear page-specific state when switching sections
     if (page === 'Projects') clearPersistedStateFor('projects');
@@ -217,7 +244,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -238,7 +265,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
                   TasksMate
                 </span>
               </Link>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
