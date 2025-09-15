@@ -1747,7 +1747,12 @@ const TaskDetail = () => {
                           <div className="flex flex-col min-w-0 basis-full w-full mt-1">
                             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300 min-w-0">
                               <span className="font-bold">Title :</span>
-                              <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500' : ''}`}>
+                              <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer'}`}
+                              onClick={() => {
+                                const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                              }}
+                              >
                                 {dep.title ?? dep.name}
                               </span>
                             </div>
