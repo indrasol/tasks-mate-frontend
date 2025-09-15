@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -15,6 +16,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import useDashboard from '@/hooks/useDashboard';
+import useUserDashboard from '@/hooks/useUserDashboard';
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { deriveDisplayFromEmail, getStatusMeta } from '@/lib/projectUtils';
 import { BackendOrgMember } from "@/types/organization";
@@ -61,13 +63,19 @@ const Dashboard = () => {
   const currentOrgId = useCurrentOrgId();
   const [selectedPeriod, setSelectedPeriod] = useState("30d");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState("org");
   
   // Project Performance Summary filters and pagination
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
   const [projectStatusFilter, setProjectStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const projectsPerPage = 5;
+  
+  // My Projects pagination
+  const [myProjectsCurrentPage, setMyProjectsCurrentPage] = useState(1);
+  const myProjectsPerPage = 5;
   const { data: dashboardData, loading: dataLoading, error } = useDashboard();
+  const { data: userDashboardData, loading: userDataLoading, error: userError } = useUserDashboard();
 
   const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
   const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
@@ -740,6 +748,334 @@ const Dashboard = () => {
     }
   };
 
+  const renderUserDashboard = () => {
+    if (userDataLoading) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-tasksmate-green-end mr-2" />
+          <span className="text-gray-600 dark:text-gray-300">Loading your dashboard...</span>
+        </div>
+      );
+    }
+
+    if (userError || !userDashboardData) {
+      return (
+        <div className="text-center py-12">
+          <AlertCircle className="h-12 w-12 mb-4 text-red-500 mx-auto" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Unable to Load Dashboard</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">
+            {userError || 'No dashboard data available'}
+          </p>
+        </div>
+      );
+    }
+
+    const userKpis = userDashboardData.kpis;
+    const userProjects = userDashboardData.my_project_summary || [];
+    const userWorkload = userDashboardData.my_workload_distribution;
+    const userUpcoming = userDashboardData.my_upcoming_deadlines || [];
+    const userOverdue = userDashboardData.my_overdue_tasks || [];
+
+    return (
+      <>
+        {/* User KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow" 
+                onClick={() => {
+                  if (user?.id && currentOrgId) {
+                    navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}`);
+                  }
+                }}>
+            <CardContent className="p-6 space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">My Total Tasks</p>
+              <div className="flex items-center justify-between">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{userKpis.total_tasks}</p>
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => {
+                  if (user?.id && currentOrgId) {
+                    navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}&statuses=completed&completion=show`);
+                  }
+                }}>
+            <CardContent className="p-6 space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">My Completed Tasks</p>
+              <div className="flex items-center justify-between">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{userKpis.completed_tasks}</p>
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => {
+                  if (user?.id && currentOrgId) {
+                    navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}&statuses=in-progress,not_started,blocked,on_hold,archived`);
+                  }
+                }}>
+            <CardContent className="p-6 space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">My Pending Tasks</p>
+              <div className="flex items-center justify-between">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{userKpis.pending_tasks}</p>
+                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => {
+                  if (currentOrgId) {
+                    navigate(`/projects?org_id=${currentOrgId}&tab=mine`);
+                  }
+                }}>
+            <CardContent className="p-6 space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">My Projects</p>
+              <div className="flex items-center justify-between">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{userKpis.total_projects}</p>
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                  <FolderOpen className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* My Projects Summary */}
+        {userProjects.length > 0 && (
+          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                <Target className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                My Projects
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                  ({userProjects.length} total)
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                // Calculate pagination for My Projects
+                const startIndex = (myProjectsCurrentPage - 1) * myProjectsPerPage;
+                const endIndex = startIndex + myProjectsPerPage;
+                const paginatedMyProjects = userProjects.slice(startIndex, endIndex);
+                const totalMyProjectPages = Math.ceil(userProjects.length / myProjectsPerPage);
+
+                return (
+                  <div className="space-y-4">
+                    {/* Projects List */}
+                    <div className="space-y-4">
+                      {paginatedMyProjects.map((project, index) => (
+                        <div key={index} className="bg-white/60 dark:bg-gray-700/60 p-4 rounded-lg cursor-pointer hover:shadow-md dark:hover:shadow-gray-900/20 transition-shadow"
+                             onClick={() => handleProjectClick(project.project_id)}>
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-medium text-gray-900 dark:text-white">{project.project_name}</h3>
+                            <span className="text-sm font-semibold px-2 py-1 rounded-full bg-tasksmate-green-start/20 dark:bg-tasksmate-green-start/30 text-tasksmate-green-end dark:text-tasksmate-green-start">
+                              {project.progress_percent}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-3">
+                            <div
+                              className="h-2 rounded-full bg-tasksmate-gradient"
+                              style={{ width: `${project.progress_percent}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-300">
+                            <span>{project.tasks_total} total tasks</span>
+                            <span className="text-green-600 dark:text-green-400">{project.tasks_completed} completed</span>
+                            <span className="text-orange-600 dark:text-orange-400">{project.tasks_pending} pending</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalMyProjectPages > 1 && (
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-600">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Showing {startIndex + 1} to {Math.min(endIndex, userProjects.length)} of {userProjects.length} projects
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMyProjectsCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={myProjectsCurrentPage === 1}
+                            className="h-8 w-8 p-0"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          
+                          <div className="flex items-center space-x-1">
+                            {Array.from({ length: totalMyProjectPages }, (_, i) => i + 1).map((page) => (
+                              <Button
+                                key={page}
+                                variant={myProjectsCurrentPage === page ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setMyProjectsCurrentPage(page)}
+                                className="h-8 w-8 p-0"
+                              >
+                                {page}
+                              </Button>
+                            ))}
+                          </div>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMyProjectsCurrentPage(prev => Math.min(prev + 1, totalMyProjectPages))}
+                            disabled={myProjectsCurrentPage === totalMyProjectPages}
+                            className="h-8 w-8 p-0"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* My Workload and Task Status */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* My Workload Distribution */}
+          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                <Activity className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                My Workload
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="bg-white/60 dark:bg-gray-700/60 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-900 dark:text-white">Task Distribution</span>
+                    <span className="text-sm font-semibold px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                      {userWorkload.tasks_total > 0 ? Math.round((userWorkload.tasks_completed / userWorkload.tasks_total) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-3">
+                    <div
+                      className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600"
+                      style={{ width: `${userWorkload.tasks_total > 0 ? (userWorkload.tasks_completed / userWorkload.tasks_total) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-4 text-sm">
+                    <span className="text-gray-900 dark:text-white font-medium">{userWorkload.tasks_total} total</span>
+                    <span className="text-green-600 dark:text-green-400 font-medium">{userWorkload.tasks_completed} completed</span>
+                    <span className="text-orange-600 dark:text-orange-400 font-medium">{userWorkload.tasks_pending} pending</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* My Overdue Tasks */}
+          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => {
+                  if (user?.id && currentOrgId) {
+                    navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}&ddate=overdue`);
+                  }
+                }}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                <AlertTriangle className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                My Overdue Tasks
+                {userOverdue.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {userOverdue.length}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {userOverdue.length > 0 ? (
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                  {userOverdue.slice(0, 5).map((task, idx) => (
+                    <div key={idx} className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border-l-4 border-red-500">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                            {task.title}
+                          </h4>
+                        </div>
+                        <div className="text-right ml-3">
+                          <div className="flex items-center space-x-1 text-red-600 dark:text-red-400">
+                            <Clock className="w-3 h-3" />
+                            <span className="text-xs font-medium">
+                              {new Date(task.due_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <CheckCircle2 className="h-12 w-12 mb-4 text-tasksmate-green-end mx-auto" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No Overdue Tasks</h3>
+                  <p className="text-gray-500 dark:text-gray-400">Great! You're on top of your deadlines.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* My Upcoming Deadlines */}
+        {userUpcoming.length > 0 && (
+          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                <Calendar className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                My Upcoming Deadlines
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                  Next 5 Tasks
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                {userUpcoming.slice(0, 5).map((task, idx) => (
+                  <div key={idx} className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border-l-4 border-blue-500">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                          {task.title}
+                        </h4>
+                      </div>
+                      <div className="text-right ml-3">
+                        <div className="flex items-center space-x-1 text-blue-600 dark:text-blue-400">
+                          <Calendar className="w-3 h-3" />
+                          <span className="text-xs font-medium">
+                            {new Date(task.due_date).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
       <MainNavigation />
@@ -756,9 +1092,16 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="px-6 py-6">
-          <div className="w-full space-y-6">
+        {/* Dashboard Tabs */}
+        <div className="px-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2 max-w-md">
+              <TabsTrigger value="org">Org Dashboard</TabsTrigger>
+              <TabsTrigger value="my">My Dashboard</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="org" className="space-y-6">
+              <div className="w-full space-y-6">
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
@@ -1027,7 +1370,15 @@ const Dashboard = () => {
               <div></div>
             </div>
 
-          </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="my" className="space-y-6">
+              <div className="w-full space-y-6">
+                {renderUserDashboard()}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
