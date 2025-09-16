@@ -934,7 +934,7 @@ const Projects = () => {
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
               {/* Search Bar - Left side */}
-              <div className="relative w-80">
+              <div className="relative w-80 mr-auto">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search projects..."
@@ -945,7 +945,7 @@ const Projects = () => {
               </div>
 
               {/* Filters and Controls - Right side */}
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 ml-2">
                 {/* <Filter className="w-4 h-4 text-gray-500" /> */}
 
                 {/* Status Filter – Multi-select */}
@@ -1105,7 +1105,7 @@ const Projects = () => {
               error ?
                 (
                   <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                    <p className="text-red-500">Error loading projects <br></br> {error}</p>
+                    <p className="text-red-500 dark:text-red-400">Error loading projects <br></br> {error}</p>
                     <Button
                       className="bg-tasksmate-gradient hover:scale-105 transition-transform"
                       onClick={fetchProjects}
@@ -1119,15 +1119,15 @@ const Projects = () => {
                 (loadingProjects ? (
                   <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                     <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-500">Loading projects...</p>
+                    <p className="text-gray-500 dark:text-gray-400">Loading projects...</p>
                   </div>
                 ) : filteredProjects.length === 0 ?
-                  (<div className="text-center py-16 bg-white rounded-lg border">
-                    <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <FolderOpen className="w-12 h-12 text-green-600" />
+                  (<div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                    <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FolderOpen className="w-12 h-12 text-green-600 dark:text-green-400" />
                     </div>
-                    <p className="text-gray-500 text-lg mb-2">No projects found</p>
-                    <p className="text-gray-400 mb-4">
+                    <p className="text-gray-500 dark:text-gray-300 text-lg mb-2">No projects found</p>
+                    <p className="text-gray-400 dark:text-gray-500 mb-4">
                       {searchQuery || filterStatuses.length > 0 || filterPriorities.length > 0 || dateFilter !== "all" || filterProjectName !== "all"
                         ? "Try adjusting your filters or search query"
                         : "Create your first project to get started"
@@ -1208,7 +1208,7 @@ const Projects = () => {
                                 <TableCell className="font-medium">
                                   <div className="flex items-center">
                                     <div
-                                      className={`truncate ${project.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
+                                      className={`truncate ${project.status === 'completed' ? 'line-through text-gray-400 cursor-pointer' : 'hover:underline cursor-pointer'}`}
                                       ref={(el) => {
                                         if (el) {
                                           // Check if text is truncated

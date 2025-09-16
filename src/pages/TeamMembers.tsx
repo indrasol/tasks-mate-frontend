@@ -514,209 +514,104 @@ const TeamMembers = () => {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Team Members</h1>
             <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your organization's team members and their roles</p>
           </div>
+          <div className="grid grid-cols-1 gap-6">
 
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Team Members ({filteredTeamMembers.length})
-                </CardTitle>
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      placeholder="Filter by name/email..."
-                      value={searchQuery}
-                      onChange={(e) => handleFilterChange(e)}
-                      className="pl-10 w-64"
-                    />
-                  </div>
-                  <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="bg-green-500 hover:bg-green-600">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Invite Member
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Invite Team Member</DialogTitle>
-                      </DialogHeader>
-                      <form onSubmit={handleInviteTeamMember} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="inviteEmail">Email *</Label>
-                          <Input
-                            id="inviteEmail"
-                            type="email"
-                            value={inviteEmail}
-                            onChange={(e) => setInviteEmail(e.target.value)}
-                            placeholder="colleague@example.com"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="inviteRole">Role</Label>
-                          <Select value={inviteRole} onValueChange={setInviteRole}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {roleOptions.sort((a, b) => a.localeCompare(b)).map((role) => (
-                                <SelectItem key={role} value={role} disabled={role === 'owner' && currentUserOrgRole !== 'owner'}>
-                                  {capitalizeFirstLetter(role)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="inviteDesignation">Designation</Label>
-                          <Select value={inviteDesignation} onValueChange={setInviteDesignation}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {designationOptions.sort((a, b) => a.localeCompare(b)).map((designation) => (
-                                <SelectItem key={designation} value={designation}>
-                                  {capitalizeFirstLetter(designation)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button type="submit" className="w-full bg-green-500 hover:bg-green-600">
-                          Send Invite
+            <Card >
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Team Members ({filteredTeamMembers.length})
+                  </CardTitle>
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        placeholder="Filter by name/email..."
+                        value={searchQuery}
+                        onChange={(e) => handleFilterChange(e)}
+                        className="pl-10 w-64"
+                      />
+                    </div>
+                    <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="bg-green-500 hover:bg-green-600">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Invite Member
                         </Button>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Designation</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead>Remove</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTeamMembers.length > 0 ? filteredTeamMembers.map((member) => (
-                    <TableRow key={member.email}>
-                      {/* <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <Avatar>
-                            <AvatarImage src={member.avatar_url} />
-                            <AvatarFallback>
-                              {member.display_name?.charAt(0) || member.username.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">{member.display_name || member.username}</div>
-                            <div className="text-sm text-gray-500">@{member.username}</div>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Invite Team Member</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleInviteTeamMember} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="inviteEmail">Email *</Label>
+                            <Input
+                              id="inviteEmail"
+                              type="email"
+                              value={inviteEmail}
+                              onChange={(e) => setInviteEmail(e.target.value)}
+                              placeholder="colleague@example.com"
+                              required
+                            />
                           </div>
-                        </div>
-                      </TableCell> */}
-                      <TableCell>
-                        <Badge variant="outline" className={`transition-colors duration-300 text-xs bg-green-100 text-green-800`}>
-                          {member.email}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          defaultValue={member.role}
-                          disabled={(member.role === 'owner' && !hasMoreOwners) || (currentUserOrgRole !== 'owner' && member.role === 'owner') || updating}
-                          onValueChange={(val) => handleChangeRole(member.org_id, member.user_id, val)}
-                        >
-                          <SelectTrigger className={`w-24 ${updating ? 'opacity-50' : ''}`}>
-                            <SelectValue />
-                            {/* {updating && <span className="ml-2 animate-spin">⟳</span>} */}
-                          </SelectTrigger>
-                          <SelectContent>
-                            {roleOptions.sort((a, b) => a.localeCompare(b)).map(role => (
-                              <SelectItem
-                                key={role}
-                                value={role}
-                                disabled={(!hasMoreOwners && currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
-                              >
-                                {capitalizeFirstLetter(role)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
-                          value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue placeholder="Please set designation" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {designationOptions.sort((a, b) => a.localeCompare(b)).map(opt => (
-                              <SelectItem key={opt} value={opt}>{capitalizeFirstLetter(opt)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <DateBadge date={member.joined_at} className="text-xs bg-green-100 text-green-800" />
-                      </TableCell>
-                      <TableCell>
-                        {((currentUserOrgRole === 'owner' && hasMoreOwners && member.role === 'owner') || ((currentUserOrgRole === 'admin' || currentUserOrgRole === 'owner') && member.role !== 'owner')) && (
-                          <div className="flex w-10 items-center justify-center gap-2">
-                            <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => !updating && handleRemoveTeamMember(member.org_id, member.user_id)} />
+                          <div className="space-y-2">
+                            <Label htmlFor="inviteRole">Role</Label>
+                            <Select value={inviteRole} onValueChange={setInviteRole}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {roleOptions.sort((a, b) => a.localeCompare(b)).map((role) => (
+                                  <SelectItem key={role} value={role} disabled={role === 'owner' && currentUserOrgRole !== 'owner'}>
+                                    {capitalizeFirstLetter(role)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
-                        )}
-                      </TableCell>
-
-                    </TableRow>
-                  )) : <TableRow><TableCell colSpan={6} className="h-24 text-center">{teamMembersError ? (<span>{teamMembersError} <br></br> <Button onClick={fetchTeamMembers} variant="outline">Refresh</Button></span>) : loading ? 'Loading...' : 'No team members'}</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Pending Invitations ({filteredInvitedTeamMembers.length})
-                </CardTitle>
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      placeholder="Filter by name/email..."
-                      value={searchQueryInvited}
-                      onChange={(e) => handleFilterChangeInvited(e)}
-                      className="pl-10 w-64"
-                    />
+                          <div className="space-y-2">
+                            <Label htmlFor="inviteDesignation">Designation</Label>
+                            <Select value={inviteDesignation} onValueChange={setInviteDesignation}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {designationOptions.sort((a, b) => a.localeCompare(b)).map((designation) => (
+                                  <SelectItem key={designation} value={designation}>
+                                    {capitalizeFirstLetter(designation)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button type="submit" className="w-full bg-green-500 hover:bg-green-600">
+                            Send Invite
+                          </Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Designation</TableHead>
-                    <TableHead>Invited</TableHead>
-                    <TableHead>Cancel</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredInvitedTeamMembers.length > 0 ? filteredInvitedTeamMembers.map((member) => (
-                    <TableRow key={member.id}>
-                      {/* <TableCell>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
+                  <div className="min-w-max w-full">
+                    <Table className="w-full">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Designation</TableHead>
+                          <TableHead>Joined</TableHead>
+                          <TableHead>Remove</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredTeamMembers.length > 0 ? filteredTeamMembers.map((member) => (
+                          <TableRow key={member.email}>
+                            {/* <TableCell>
                         <div className="flex items-center space-x-3">
                           <Avatar>
                             <AvatarImage src={member.avatar_url} />
@@ -730,64 +625,180 @@ const TeamMembers = () => {
                           </div>
                         </div>
                       </TableCell> */}
-                      <TableCell>
-                        <Badge variant="outline" className={`transition-colors duration-300 text-xs bg-green-100 text-green-800`}>
-                          {member.email}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          defaultValue={member.role}
-                          disabled={(currentUserOrgRole !== 'owner' && member.role === 'owner') || updating}
-                          onValueChange={(val) => handleChangeRole(member.org_id, member.id, val, member.email, "invited")}
-                        >
-                          <SelectTrigger className={`w-24 ${updating ? 'opacity-50' : ''}`}>
-                            <SelectValue />
-                            {/* {updating && <span className="ml-2 animate-spin">⟳</span>} */}
-                          </SelectTrigger>
-                          <SelectContent>
-                            {roleOptions.sort((a, b) => a.localeCompare(b)).map(role => (
-                              <SelectItem
-                                key={role}
-                                value={role}
-                                disabled={(currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
+                            <TableCell>
+                              <Badge variant="outline" className={`transition-colors duration-300 text-xs bg-green-100 text-green-800`}>
+                                {member.email}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                defaultValue={member.role}
+                                disabled={(member.role === 'owner' && !hasMoreOwners) || (currentUserOrgRole !== 'owner' && member.role === 'owner') || updating}
+                                onValueChange={(val) => handleChangeRole(member.org_id, member.user_id, val)}
                               >
-                                {capitalizeFirstLetter(role)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
-                          value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue placeholder="Please set designation" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {designationOptions.sort((a, b) => a.localeCompare(b)).map(opt => (
-                              <SelectItem key={opt} value={opt}>{capitalizeFirstLetter(opt)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <DateBadge date={member.sent_at} className="text-xs bg-green-100 text-green-800" />
-                      </TableCell>
-                      <TableCell>
-                        {((currentUserOrgRole === 'owner') || (currentUserOrgRole === 'admin' && member.role !== 'owner')) && (
-                          <div className="flex w-10 items-center justify-center gap-2">
-                            <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => handleRemoveTeamMember(member.org_id, member.id, "invited")} />
+                                <SelectTrigger className={`w-24 ${updating ? 'opacity-50' : ''}`}>
+                                  <SelectValue />
+                                  {/* {updating && <span className="ml-2 animate-spin">⟳</span>} */}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {roleOptions.sort((a, b) => a.localeCompare(b)).map(role => (
+                                    <SelectItem
+                                      key={role}
+                                      value={role}
+                                      disabled={(!hasMoreOwners && currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
+                                    >
+                                      {capitalizeFirstLetter(role)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
+                                value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.user_id, val)}>
+                                <SelectTrigger className="w-48">
+                                  <SelectValue placeholder="Please set designation" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {designationOptions.sort((a, b) => a.localeCompare(b)).map(opt => (
+                                    <SelectItem key={opt} value={opt}>{capitalizeFirstLetter(opt)}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <DateBadge date={member.joined_at} className="text-xs bg-green-100 text-green-800" />
+                            </TableCell>
+                            <TableCell>
+                              {((currentUserOrgRole === 'owner' && hasMoreOwners && member.role === 'owner') || ((currentUserOrgRole === 'admin' || currentUserOrgRole === 'owner') && member.role !== 'owner')) && (
+                                <div className="flex w-10 items-center justify-center gap-2">
+                                  <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => !updating && handleRemoveTeamMember(member.org_id, member.user_id)} />
+                                </div>
+                              )}
+                            </TableCell>
+
+                          </TableRow>
+                        )) : <TableRow><TableCell colSpan={6} className="h-24 text-center">{teamMembersError ? (<span>{teamMembersError} <br></br> <Button onClick={fetchTeamMembers} variant="outline">Refresh</Button></span>) : loading ? 'Loading...' : 'No team members'}</TableCell></TableRow>}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Pending Invitations ({filteredInvitedTeamMembers.length})
+                  </CardTitle>
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        placeholder="Filter by name/email..."
+                        value={searchQueryInvited}
+                        onChange={(e) => handleFilterChangeInvited(e)}
+                        className="pl-10 w-64"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
+                  <div className="min-w-max w-full">
+                    <Table className="w-full">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Designation</TableHead>
+                          <TableHead>Invited</TableHead>
+                          <TableHead>Cancel</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredInvitedTeamMembers.length > 0 ? filteredInvitedTeamMembers.map((member) => (
+                          <TableRow key={member.id}>
+                            {/* <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <Avatar>
+                            <AvatarImage src={member.avatar_url} />
+                            <AvatarFallback>
+                              {member.display_name?.charAt(0) || member.username.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{member.display_name || member.username}</div>
+                            <div className="text-sm text-gray-500">@{member.username}</div>
                           </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )) : <TableRow><TableCell colSpan={6} className="h-24 text-center">{invitedTeamMembersError ? (<span>{invitedTeamMembersError} <br></br> <Button onClick={fetchInvitedTeamMembers} variant="outline">Refresh</Button></span>) : loadingInvited ? 'Loading...' : 'No invited members'}</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                        </div>
+                      </TableCell> */}
+                            <TableCell>
+                              <Badge variant="outline" className={`transition-colors duration-300 text-xs bg-green-100 text-green-800`}>
+                                {member.email}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                defaultValue={member.role}
+                                disabled={(currentUserOrgRole !== 'owner' && member.role === 'owner') || updating}
+                                onValueChange={(val) => handleChangeRole(member.org_id, member.id, val, member.email, "invited")}
+                              >
+                                <SelectTrigger className={`w-24 ${updating ? 'opacity-50' : ''}`}>
+                                  <SelectValue />
+                                  {/* {updating && <span className="ml-2 animate-spin">⟳</span>} */}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {roleOptions.sort((a, b) => a.localeCompare(b)).map(role => (
+                                    <SelectItem
+                                      key={role}
+                                      value={role}
+                                      disabled={(currentUserOrgRole !== 'owner' && role === 'owner') || (!(currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') && role === 'admin')}
+                                    >
+                                      {capitalizeFirstLetter(role)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                disabled={currentUserOrgRole !== 'owner' && member.role === 'owner'}
+                                value={member.designation ?? undefined} onValueChange={(val) => handleChangeDesignation(member.org_id, member.id, val, member.email, "invited")}>
+                                <SelectTrigger className="w-48">
+                                  <SelectValue placeholder="Please set designation" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {designationOptions.sort((a, b) => a.localeCompare(b)).map(opt => (
+                                    <SelectItem key={opt} value={opt}>{capitalizeFirstLetter(opt)}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <DateBadge date={member.sent_at} className="text-xs bg-green-100 text-green-800" />
+                            </TableCell>
+                            <TableCell>
+                              {((currentUserOrgRole === 'owner') || (currentUserOrgRole === 'admin' && member.role !== 'owner')) && (
+                                <div className="flex w-10 items-center justify-center gap-2">
+                                  <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => handleRemoveTeamMember(member.org_id, member.id, "invited")} />
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )) : <TableRow><TableCell colSpan={6} className="h-24 text-center">{invitedTeamMembersError ? (<span>{invitedTeamMembersError} <br></br> <Button onClick={fetchInvitedTeamMembers} variant="outline">Refresh</Button></span>) : loadingInvited ? 'Loading...' : 'No invited members'}</TableCell></TableRow>}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+          </div>
 
         </div>
       </div>

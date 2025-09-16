@@ -1,16 +1,10 @@
 import MainNavigation from '@/components/navigation/MainNavigation';
 import NewTaskModal from '@/components/tasks/NewTaskModal';
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from '@/components/ui/badge';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import CopyableIdBadge from '@/components/ui/copyable-id-badge';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Label } from '@/components/ui/label';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
@@ -21,19 +15,18 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
-import { deriveDisplayFromEmail, formatDate } from '@/lib/projectUtils';
+import { capitalizeFirstLetter, deriveDisplayFromEmail, formatDate } from '@/lib/projectUtils';
 import { api } from '@/services/apiService';
+import { BackendOrgMember } from '@/types/organization';
+import { TaskCreateInitialData } from '@/types/tasks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import imageCompression from "browser-image-compression";
 import { format } from 'date-fns';
-import { ArrowLeft, ChevronRight, Clock, Edit3, Loader2, Pencil, Save, Send, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Clock, Edit3, Loader2, Pencil, Save, Send, Trash2, Upload, X, File, FileText, Plus, } from 'lucide-react';
+import { Progress } from "@/components/ui/progress";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useNavigate } from 'react-router-dom';
-import { BackendOrgMember } from '@/types/organization';
-import CopyableIdBadge from '@/components/ui/copyable-id-badge';
-import { TaskCreateInitialData } from '@/types/tasks';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { bugService } from '@/services/bugService';
 
 interface BugComment {
   id: string;
@@ -273,6 +266,120 @@ const BugDetail = () => {
     enabled: !!bugId,
   });
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    // handleFileUpload(e.dataTransfer.files);
+    handleAttachmentUpload(e.dataTransfer.files);
+  };
+
+  const [fileUploadingProgress, setFileUploadingProgress] = useState(0);
+  const [fileUploadingTotal, setFileUploadingTotal] = useState(0);
+  const [fileUploadingPercentage, setFileUploadingPercentage] = useState(0);
+  const [fileUploadingName, setFileUploadingName] = useState("");
+
+  // Attachment upload
+  const handleAttachmentUpload = async (files: FileList | null) => {
+    if (!files || !bug?.project_id || !bug?.id) return;
+    try {
+      setFileUploadingTotal(files.length);
+      toast({
+        title: "Uploading attachments",
+        description: "Please wait...",
+      });
+      for (const file of Array.from(files)) {
+        setFileUploadingProgress((prev: number) => prev + 1);
+        setFileUploadingName(file.name);
+        const percentage = Math.round((fileUploadingProgress / fileUploadingTotal) * 100);
+        setFileUploadingPercentage(percentage);
+        if (file.type.startsWith("image/")) {
+          try {
+            // compress images
+            const compressed = await imageCompression(file, {
+              maxSizeMB: 1,
+              maxWidthOrHeight: 1920,
+              useWebWorker: true,
+              alwaysKeepResolution: true,
+              maxIteration: 2,
+            });
+
+            await bugService.uploadBugAttachmentForm(bug?.id, compressed, file.name, false);
+            refetchEvidence();
+          } catch (err: any) {
+            toast({
+              title: "Failed to compress image, uploading original file",
+              description: err.message,
+              variant: "destructive"
+            });
+            // other files - add as is
+            await bugService.uploadBugAttachmentForm(bug?.id, file, file.name, false);
+            refetchEvidence();
+          }
+        } else {
+          // other files - add as is
+          await bugService.uploadBugAttachmentForm(bug?.id, file, file.name, false);
+          refetchEvidence();
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Attachment(s) uploaded!",
+        variant: "default"
+      });
+
+    } catch (err: any) {
+      toast({
+        title: "Failed to upload attachment",
+        description: err.message,
+        variant: "destructive"
+      });
+    } finally {
+      setFileUploadingProgress(0);
+      setFileUploadingTotal(0);
+      setFileUploadingName("");
+      setFileUploadingPercentage(0);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+      if (!bug?.id) return;
+      try {
+        toast({
+          title: "Deleting attachment",
+          description: "Please wait...",
+        });
+        await bugService.deleteBugAttachment(attachmentId, bug?.id);
+        toast({
+          title: "Success",
+          description: "Attachment deleted!",
+          variant: "default"
+        });
+        refetchEvidence();
+      } catch (err: any) {
+        toast({
+          title: "Failed to delete attachment",
+          description: err.message,
+          variant: "destructive"
+        });
+      }
+    };
+
   // Mutation for updating description
   const updateBugDescription = useMutation({
     mutationFn: async ({ description }: { description: string }) => {
@@ -385,6 +492,34 @@ const BugDetail = () => {
     }
   });
 
+  // Mutation for updating bug assignee
+  const updateBugAssignee = useMutation({
+    mutationFn: async ({ assignee }: { assignee: string }) => {
+      toast({
+        title: "Updating assignee",
+        description: "Please wait...",
+      });
+      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { assignee });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bug', bugId] });
+      toast({
+        title: "Success",
+        description: "Bug assignee updated successfully!",
+        variant: "default"
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating bug assignee:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update bug assignee. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Mutation for adding a comment
   const addComment = useMutation({
     mutationFn: async (commentText: string) => {
@@ -424,7 +559,9 @@ const BugDetail = () => {
         title: "Updating comment",
         description: "Please wait...",
       });
-      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/comments/${commentId}`, { text });
+      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}/comments/${commentId}`, {
+        content: text
+      });
       return response.data;
     },
     onSuccess: () => {
@@ -454,7 +591,7 @@ const BugDetail = () => {
         title: "Deleting comment",
         description: "Please wait...",
       });
-      await api.del(`${API_ENDPOINTS.BUGS}/comments/${commentId}`);
+      await api.del(`${API_ENDPOINTS.BUGS}/${bugId}/comments/${commentId}`);
     },
     onSuccess: () => {
       refetchComments();
@@ -497,6 +634,10 @@ const BugDetail = () => {
 
   const handlePriorityChange = (newPriority: string) => {
     updateBugPriority.mutate({ priority: newPriority });
+  };
+
+  const handleAssigneeChange = (newAssignee: string) => {
+    updateBugAssignee.mutate({ assignee: newAssignee });
   };
 
   const handleSaveGuide = async () => {
@@ -650,70 +791,70 @@ const BugDetail = () => {
   };
 
   // Attachment upload
-  const handleAttachmentUpload = async (files: FileList | null) => {
-    if (!files || !bug?.project_id || !bugId) return;
-    try {
-      for (const file of Array.from(files)) {
-        if (file.type.startsWith("image/")) {
-          try {
-            // compress images
-            const compressed = await imageCompression(file, {
-              maxSizeMB: 1,
-              maxWidthOrHeight: 1920,
-              useWebWorker: true,
-              alwaysKeepResolution: true,
-              maxIteration: 2,
-            });
+  // const handleAttachmentUpload = async (files: FileList | null) => {
+  //   if (!files || !bug?.project_id || !bugId) return;
+  //   try {
+  //     for (const file of Array.from(files)) {
+  //       if (file.type.startsWith("image/")) {
+  //         try {
+  //           // compress images
+  //           const compressed = await imageCompression(file, {
+  //             maxSizeMB: 1,
+  //             maxWidthOrHeight: 1920,
+  //             useWebWorker: true,
+  //             alwaysKeepResolution: true,
+  //             maxIteration: 2,
+  //           });
 
-            // await taskService.uploadTaskAttachmentForm(task.project_id, taskId, compressed, file.name, false);
-          } catch (err: any) {
-            toast({
-              title: "Failed to compress image, uploading original file",
-              description: err.message,
-              variant: "destructive"
-            });
-            // other files - add as is
-            // await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, false);
-          }
-        } else {
-          // other files - add as is
-          // await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, false);
-        }
-      }
-      // const data: any[] = await taskService.getTaskAttachments(taskId);
-      // setAttachments(Array.isArray(data) ? data : []);
-      toast({
-        title: "Success",
-        description: "Attachment(s) uploaded!",
-        variant: "default"
-      });
-    } catch (err: any) {
-      toast({
-        title: "Failed to upload attachment",
-        description: err.message,
-        variant: "destructive"
-      });
-    }
-  };
+  //           // await taskService.uploadTaskAttachmentForm(task.project_id, taskId, compressed, file.name, false);
+  //         } catch (err: any) {
+  //           toast({
+  //             title: "Failed to compress image, uploading original file",
+  //             description: err.message,
+  //             variant: "destructive"
+  //           });
+  //           // other files - add as is
+  //           // await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, false);
+  //         }
+  //       } else {
+  //         // other files - add as is
+  //         // await taskService.uploadTaskAttachmentForm(task.project_id, taskId, file, file.name, false);
+  //       }
+  //     }
+  //     // const data: any[] = await taskService.getTaskAttachments(taskId);
+  //     // setAttachments(Array.isArray(data) ? data : []);
+  //     toast({
+  //       title: "Success",
+  //       description: "Attachment(s) uploaded!",
+  //       variant: "default"
+  //     });
+  //   } catch (err: any) {
+  //     toast({
+  //       title: "Failed to upload attachment",
+  //       description: err.message,
+  //       variant: "destructive"
+  //     });
+  //   }
+  // };
 
-  const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!bug?.project_id) return;
-    try {
-      // await taskService.deleteTaskAttachment(attachmentId, task.project_id);
-      // setAttachments(attachments.filter(a => a.attachment_id !== attachmentId));
-      toast({
-        title: "Success",
-        description: "Attachment deleted!",
-        variant: "default"
-      });
-    } catch (err: any) {
-      toast({
-        title: "Failed to delete attachment",
-        description: err.message,
-        variant: "destructive"
-      });
-    }
-  };
+  // const handleDeleteAttachment = async (attachmentId: string) => {
+  //   if (!bug?.project_id) return;
+  //   try {
+  //     // await taskService.deleteTaskAttachment(attachmentId, task.project_id);
+  //     // setAttachments(attachments.filter(a => a.attachment_id !== attachmentId));
+  //     toast({
+  //       title: "Success",
+  //       description: "Attachment deleted!",
+  //       variant: "default"
+  //     });
+  //   } catch (err: any) {
+  //     toast({
+  //       title: "Failed to delete attachment",
+  //       description: err.message,
+  //       variant: "destructive"
+  //     });
+  //   }
+  // };
 
   const handleSaveChanges = async (isPriorityChange?: string, isStatusChange?: string, isAssigneeChange?: string, isProjectChange?: string, isStartDateChange?: string, isTargetDateChange?: string, isTagsChange?: string[]) => {
     if (!bugId) return;
@@ -1200,6 +1341,21 @@ const BugDetail = () => {
                   className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
                   copyLabel="Bug"
                 />
+
+                <Select value={assignee} onValueChange={handleAssigneeChange}>
+                  <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
+                    <SelectValue placeholder="Assignee" />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    {orgMembers?.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => {
+                      return (
+                        <SelectItem key={m.user_id} value={String(m.name)}>
+                          {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
               <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
                 {bug?.title}
@@ -1394,7 +1550,83 @@ const BugDetail = () => {
             </Card> */}
 
             {/* Evidence Gallery */}
-            <Card>
+
+            <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
+              <CardHeader>
+                <CardTitle className="font-sora flex items-center space-x-2 text-gray-900 dark:text-white">
+                  <File className="h-4 w-4" />
+                  <span>Evidence & Screenshots ({evidence?.length ?? 0})</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600'
+                    } bg-gray-50/50 dark:bg-gray-700/50`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <div className="flex flex-col items-center space-y-2">
+                    <Upload className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                    <p className="text-gray-500 dark:text-gray-400">Drop files here or click to upload</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Max 5 files</p>
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => handleAttachmentUpload(e.target.files)}
+                    accept="*/*"
+                    disabled={!bug?.is_editable}
+                  />
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="absolute top-4 right-4"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={!bug?.is_editable}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {fileUploadingProgress > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">Uploading {fileUploadingProgress} of {fileUploadingTotal} files - {fileUploadingName}</h4>
+                    <Progress value={fileUploadingPercentage} />
+                  </div>
+                )}
+
+                {evidence.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">Uploaded Files:</h4>
+                    {evidence.map((file, index) => (
+                      <div key={file.id || index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center space-x-2">
+                          <FileText className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm underline text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400">
+                            {file.name}
+                          </a>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!bug?.is_editable}
+                          onClick={() => handleDeleteAttachment(file.id)}
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center justify-between">
                   Evidence & Screenshots
@@ -1430,7 +1662,7 @@ const BugDetail = () => {
                   ))}
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Comments Section */}
             <Card>

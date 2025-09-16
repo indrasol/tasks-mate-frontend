@@ -1,14 +1,14 @@
 import { api } from "./apiService";
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 
 import { API_ENDPOINTS } from "@/config";
 // Use a fallback for uuid if not installed
-function uuidv4() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
+// function uuidv4() {
+//   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+//     var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+//     return v.toString(16);
+//   });
+// }
 
 // Backend expects snake_case, frontend uses camelCase. Map as needed.
 
@@ -65,9 +65,9 @@ export const taskService = {
   async getTaskAttachments(taskId: string) {
     return api.get<any[]>(`${API_ENDPOINTS.TASK_ATTACHMENTS}?task_id=${taskId}`);
   },
-  async uploadTaskAttachment(projectId: string, data: any) {
-    return api.post(`${API_ENDPOINTS.TASK_ATTACHMENTS}?project_id=${projectId}`, data);
-  },
+  // async uploadTaskAttachment(projectId: string, data: any) {
+  //   return api.post(`${API_ENDPOINTS.TASK_ATTACHMENTS}?project_id=${projectId}`, data);
+  // },
 
   async uploadTaskAttachmentForm(projectId: string, taskId: string, file: File, title?: string, isInline?: boolean) {
     const form = new FormData();
@@ -102,25 +102,25 @@ export const taskService = {
     return api.post(`${API_ENDPOINTS.TASK_HISTORY}?project_id=${projectId}`, data);
   },
   // Supabase Storage: Task Inline Image
-  async uploadTaskInlineImageToStorage({ projectId, taskId, file }: { projectId: string, taskId: string, file: File }) {
-    const imageId = uuidv4();
-    const path = `${projectId}/${taskId}/${imageId}/${file.name}`;
-    const { error } = await supabase.storage.from('task-inline-images').upload(path, file, {  upsert: true,
-      cacheControl: '3600',
-      contentType: file.type });
-    if (error) throw error;
-    const { data } = supabase.storage.from('task-inline-images').getPublicUrl(path);
-    return { url: data.publicUrl, path, imageId };
-  },
-  // Supabase Storage: Project Resource
-  async uploadProjectResourceToStorage({ projectId, file }: { projectId: string, file: File }) {
-    const resourceId = uuidv4();
-    const path = `${projectId}/${resourceId}/${file.name}`;
-    const { error } = await supabase.storage.from('project-resources').upload(path, file, {  upsert: true,
-      cacheControl: '3600',
-      contentType: file.type });
-    if (error) throw error;
-    const { data } = supabase.storage.from('project-resources').getPublicUrl(path);
-    return { url: data.publicUrl, path, resourceId };
-  },
+  // async uploadTaskInlineImageToStorage({ projectId, taskId, file }: { projectId: string, taskId: string, file: File }) {
+  //   const imageId = uuidv4();
+  //   const path = `${projectId}/${taskId}/${imageId}/${file.name}`;
+  //   const { error } = await supabase.storage.from('task-inline-images').upload(path, file, {  upsert: true,
+  //     cacheControl: '3600',
+  //     contentType: file.type });
+  //   if (error) throw error;
+  //   const { data } = supabase.storage.from('task-inline-images').getPublicUrl(path);
+  //   return { url: data.publicUrl, path, imageId };
+  // },
+  // // Supabase Storage: Project Resource
+  // async uploadProjectResourceToStorage({ projectId, file }: { projectId: string, file: File }) {
+  //   const resourceId = uuidv4();
+  //   const path = `${projectId}/${resourceId}/${file.name}`;
+  //   const { error } = await supabase.storage.from('project-resources').upload(path, file, {  upsert: true,
+  //     cacheControl: '3600',
+  //     contentType: file.type });
+  //   if (error) throw error;
+  //   const { data } = supabase.storage.from('project-resources').getPublicUrl(path);
+  //   return { url: data.publicUrl, path, resourceId };
+  // },
 };

@@ -379,7 +379,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[600px] sm:max-w-[600px] bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
+      <SheetContent className="w-[600px] sm:max-w-full sm:max-w-full bg-white dark:bg-gray-900 flex flex-col p-0 max-h-screen">
         {/* Modern Header */}
         <div className="relative bg-tasksmate-gradient p-6 flex-shrink-0">
           <div className="absolute inset-0 bg-black/5"></div>
@@ -409,8 +409,8 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
         </div>
 
         {/* Scrollable Content */}
-        <ScrollArea className="flex-1 px-6">
-          <div className="py-6">
+        <ScrollArea className="flex-1 px-2">
+          <div className="px-4 py-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-3">
                 <Label htmlFor="name" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -470,6 +470,28 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-3">
+                  <Label htmlFor="owner" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    Owner *
+                  </Label>
+                  <Select value={formData.owner} onValueChange={(value) => handleInputChange("owner", value)}>
+                    <SelectTrigger className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                      <SelectValue placeholder="Select owner" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg z-50">
+
+                      {orgMembers.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => {
+                        return (
+                          <SelectItem key={m.user_id} value={String(m.name)}>
+                            {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
+                          </SelectItem>
+                        );
+                      })}
+
+                    </SelectContent>
+                  </Select>
+                </div>
 
               {/* Bugs dropdown removed to avoid mock data; integrate once backend endpoint is available */}
 
@@ -571,27 +593,7 @@ const NewTaskModal = ({ open, onOpenChange, onTaskCreated, defaultTags = [], isC
                   </Select>
                 </div>
 
-                <div className="space-y-3">
-                  <Label htmlFor="owner" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Owner *
-                  </Label>
-                  <Select value={formData.owner} onValueChange={(value) => handleInputChange("owner", value)}>
-                    <SelectTrigger className="h-12 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                      <SelectValue placeholder="Select owner" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg z-50">
-
-                      {orgMembers.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => {
-                        return (
-                          <SelectItem key={m.user_id} value={String(m.name)}>
-                            {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
-                          </SelectItem>
-                        );
-                      })}
-
-                    </SelectContent>
-                  </Select>
-                </div>
+                
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
