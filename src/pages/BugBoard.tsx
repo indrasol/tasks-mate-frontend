@@ -138,11 +138,13 @@ const BugBoard = () => {
   }, [completionFilter]);
 
   // Mock data - replace with actual data fetching
-  const testRun = {
-    id: id || 'TB-001',
-    name: 'Sprint 12 Testing',
-    project: 'TasksMate Web'
-  };
+  // const testRun = {
+  //   id: id || 'TB-001',
+  //   name: 'Sprint 12 Testing',
+  //   project: 'TasksMate Web'
+  // };
+
+  const [testRun, setTestRun] = useState<any>();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -190,7 +192,7 @@ const BugBoard = () => {
             date: bug.created_at || new Date().toISOString().split('T')[0],
             closedDate: closedDate,
             tracker_id: bug.tracker_id || '',
-            creator: bug.creator || '',
+            creator: bug.creator || bug.reporter || '',
           };
         });
 
@@ -229,7 +231,7 @@ const BugBoard = () => {
   ]);
 
   const isProjectTag = (tag: string) => {
-    return tag === testRun.project;
+    return tag === testRun?.project;
   };
 
   const getTagColor = (tag: string) => {
@@ -442,7 +444,7 @@ const BugBoard = () => {
     });
 
     return sortBugs(filtered);
-  }, [bugs, searchTerm, filterStatus, filterPriority, dateFilter, dateRange, isCustomDateRange, sortBy, sortDirection, completionFilter]);
+  }, [bugs, searchTerm, filterStatus, filterPriority, dateFilter, dateRange, isCustomDateRange, sortBy, sortDirection, completionFilter, tab]);
 
   // Handle date range selection
   const handleDateRangeSelect = (range: { from: Date | undefined; to: Date | undefined }) => {
@@ -468,9 +470,9 @@ const BugBoard = () => {
 
   const handleBugClick = (bugId: string) => {
     if (currentOrgId) {
-      navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}?org_id=${currentOrgId}`);
+      navigate(`/tester-zone/runs/${testRun?.id}/bugs/${bugId}?org_id=${currentOrgId}`);
     } else {
-      navigate(`/tester-zone/runs/${testRun.id}/bugs/${bugId}`);
+      navigate(`/tester-zone/runs/${testRun?.id}/bugs/${bugId}`);
     }
   };
 
@@ -676,7 +678,7 @@ const BugBoard = () => {
                 <TableCell className="font-medium w-80">
                   <div className="flex items-center">
                     <div
-                      className={`truncate max-w-[260px] ${bug?.closed ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
+                      className={`truncate max-w-[260px] ${bug?.closed ? 'line-through text-gray-400 cursor-pointer' : 'hover:underline cursor-pointer'}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleBugClick(bug.id);
@@ -827,7 +829,13 @@ const BugBoard = () => {
         </div> */}
 
         {/* Tracker Details and KPIs */}
-        <TestRunDetail />
+        <TestRunDetail outProjectDetails={(projectId: string, projectName: string) => {
+          setTestRun({
+            id: id,
+            project_id: projectId,
+            project: projectName
+          });
+        }} />
 
         {/* Tabs for Tasks / My Tasks with Search bar */}
         <div className="px-6 pt-4">
@@ -861,7 +869,7 @@ const BugBoard = () => {
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
               {/* Search Bar - Left side */}
-              <div className="relative w-80">
+              <div className="relative w-80 mr-auto">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by Bug ID, keywords..."
@@ -872,7 +880,7 @@ const BugBoard = () => {
               </div>
 
               {/* Filters and Controls - Right side */}
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 ml-2">
                 {/* <Filter className="w-4 h-4 text-gray-500" /> */}
 
                 {/* Status Filter Dropdown */}
@@ -1123,7 +1131,9 @@ const BugBoard = () => {
       <NewBugModal
         open={isNewBugModalOpen}
         onOpenChange={setIsNewBugModalOpen}
-        runId={testRun.id}
+        runId={testRun?.id}
+        projectId={testRun?.project_id}
+        projectName={testRun?.project}
       />
     </div>
   );

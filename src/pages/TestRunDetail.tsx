@@ -37,7 +37,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import NewBugModal from '@/components/tester/NewBugModal';
 
 
-const TestRunDetail = () => {
+const TestRunDetail = ({
+  outProjectDetails
+}) => {
 
   const { user, loading } = useAuth() || { user: null, loading: true } as const;
   const navigate = useNavigate();
@@ -90,6 +92,12 @@ const TestRunDetail = () => {
 
   const [isNewBugModalOpen, setIsNewBugModalOpen] = useState(false);
 
+  useEffect(() => {
+    if (testRun?.project_id && testRun?.project) {
+      outProjectDetails({ projectId: testRun.project_id, projectName: testRun.project });
+    }
+  }, [testRun?.project_id, testRun?.project]);
+
   const fetchTestRun = async (isRefresh?: boolean) => {
     if (!id) return;
     if (!isRefresh) {
@@ -102,6 +110,7 @@ const TestRunDetail = () => {
       const mapped: TestRunTrackDetail = {
         id: tracker.tracker_id,
         name: tracker.name,
+        project_id: tracker.project_id,
         project: tracker.project_name || tracker.project_id,
         creator: tracker.creator_name,
         status: tracker.status,
@@ -505,6 +514,8 @@ const TestRunDetail = () => {
         open={isNewBugModalOpen}
         onOpenChange={setIsNewBugModalOpen}
         runId={id}
+        projectId={testRun?.project_id}
+        projectName={testRun?.project}
       />
     </div>
   );

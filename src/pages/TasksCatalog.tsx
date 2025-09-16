@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -137,28 +138,28 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   });
 
   const [restoreCompletion, setRestoreCompletion] = useState<string | null>(null);
-  
-    useEffect(() => {
-      if (completionFilter === 'hide') {
-        setRestoreCompletion(completionFilter);
+
+  useEffect(() => {
+    if (completionFilter === 'hide') {
+      setRestoreCompletion(completionFilter);
+    }
+    if (filterStatuses.includes('completed')) {
+      setCompletionFilter('show');
+    } else {
+      if (restoreCompletion) {
+        setCompletionFilter(restoreCompletion);
+        setRestoreCompletion(null);
       }
+    }
+  }, [filterStatuses]);
+
+  useEffect(() => {
+    if (completionFilter === 'hide') {
       if (filterStatuses.includes('completed')) {
-        setCompletionFilter('show');
-      } else {
-        if (restoreCompletion) {
-          setCompletionFilter(restoreCompletion);
-          setRestoreCompletion(null);
-        }
+        setFilterStatuses(filterStatuses.filter(s => s !== 'completed'));
       }
-    }, [filterStatuses]);
-  
-    useEffect(() => {
-      if (completionFilter === 'hide') {
-        if(filterStatuses.includes('completed')) {
-          setFilterStatuses(filterStatuses.filter(s => s !== 'completed'));
-        }
-      }    
-    }, [completionFilter]);
+    }
+  }, [completionFilter]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -777,6 +778,11 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     setCompletionFilter('hide');
   };
 
+
+  const handleProjectNavigation = (projectId: string) => {
+    navigate(currentOrgId ? `/projects/${projectId}?org_id=${currentOrgId}` : `/projects/${projectId}`);
+  };
+
   // In the render, show loading/error states
   // if (loadingTasks) {
   //   return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div></div>;
@@ -853,7 +859,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
             <div className="flex items-center justify-between w-full">
               {/* Search bar moved above */}
 
-              <div className="relative w-full max-w-md mr-auto">
+              <div className="relative w-80 mr-auto">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by keyword or ID (e.g. T1234)"
@@ -864,7 +870,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
               </div>
 
               {/* Search + Filters and Controls */}
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 ml-2">
                 {/* <Filter className="w-4 h-4 text-gray-500" /> */}
 
                 {/* Overdue Filter Button */}
@@ -1234,7 +1240,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               <TableCell className="font-medium w-80">
                                 <div className="flex items-center">
                                   <div
-                                    className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400' : 'hover:underline cursor-pointer'}`}
+                                    className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400 cursor-pointer' : 'hover:underline cursor-pointer'}`}
                                     ref={(el) => {
                                       if (el) {
                                         // Check if text is truncated
@@ -1388,7 +1394,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 </div>
                               </TableCell>
                               <TableCell className="text-center">
-                                <div className="flex justify-center">
+                                <div className="flex justify-center" title={capitalizeFirstLetter(task.owner)}>
 
                                   <Select value={task.owner} onValueChange={(value) => {
                                     // Optimistic update
@@ -1426,7 +1432,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                       });
                                   }}>
                                     <SelectTrigger className="h-8 px-2 py-0 w-fit min-w-[5rem] border-0">
-                                      <SelectValue placeholder="Select owner" className="text-xs" >
+                                      <SelectValue placeholder="Select owner" className="text-xs text-left" >
                                         {(() => {
                                           const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
                                           return `👤 ${displayName}`;
@@ -1465,7 +1471,11 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               </TableCell>
                               <TableCell className="text-center">
                                 <div className="flex justify-center">
-                                  <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800">
+                                  <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800 cursor-pointer"
+                                    onClick={() => {
+                                      handleProjectNavigation((task as any).projectId);
+                                    }}
+                                  >
                                     {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
                                   </Badge>
                                 </div>
@@ -1499,9 +1509,22 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 <div className="flex justify-center">
                                   {orgMembers?.filter((m: any) => (m.name === task.createdBy))?.map((m, idx) => {
                                     return (
-                                      <Badge key={idx} variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                                        {m.displayName}
-                                      </Badge>
+                                      <HoverCard>
+                                        <HoverCardTrigger>
+                                          <Badge key={idx} variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                                            {m.displayName}
+                                          </Badge>
+                                        </HoverCardTrigger>
+                                        <HoverCardContent className="text-sm p-2">
+                                          <div className="flex flex-col items-center gap-2">
+                                            <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+                                              {m.displayName }
+                                            </Badge>
+                                            <p className="text-xs">{m.email}</p>
+                                            <p className="text-xs">{m.designation}</p>
+                                          </div>
+                                        </HoverCardContent>
+                                      </HoverCard>
                                     );
                                   })}
 

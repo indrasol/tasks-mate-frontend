@@ -716,6 +716,13 @@ const TaskDetail = () => {
     if (!newComment.trim()) return;
 
     try {
+
+      // Check for Matching UserNames from teamMembers List and assign the id's to an array
+      const matchingUserIds = orgMembers
+        .filter(member => newComment.replace(/ /g, '\u00A0').includes(member.displayName.replace(/ /g, '\u00A0')))
+        .map(member => { return { user_id: member.user_id, email: member.email, username: member.username } });
+
+
       // Create optimistic comment with temp ID
       const tempId = `temp-${Date.now()}`;
       const optimisticComment = {
@@ -735,6 +742,8 @@ const TaskDetail = () => {
         task_id: taskId,
         content: newComment,
         task_title: taskName || task?.name,
+        mentions: matchingUserIds,
+        org_id: currentOrgId
       };
 
       toast({
@@ -791,9 +800,19 @@ const TaskDetail = () => {
         description: "Please wait...",
       });
 
+      // Check for Matching UserNames from teamMembers List and assign the id's to an array
+      const matchingUserIdsEdit = orgMembers
+        .filter(member => editCommentText.replace(/ /g, '\u00A0').includes(member.displayName.replace(/ /g, '\u00A0')))
+        .map(member => { return { user_id: member.user_id, email: member.email, username: member.username } });
+
       const updated = await api.put(
         `${API_ENDPOINTS.TASK_COMMENTS}/${editingComment}?project_id=${task?.project_id}`,
-        { content: editCommentText, task_title: taskName || task?.name }
+        {
+          content: editCommentText,
+          task_title: taskName || task?.name,
+          mentions: matchingUserIdsEdit,
+          org_id: currentOrgId
+        }
       );
 
       setComments(prev => prev.map(c =>
@@ -1454,7 +1473,7 @@ const TaskDetail = () => {
                       </>
                     )}
                   </div>
-                 
+
                 </div>
 
                 {/* Right actions (Duplicate only) */}
@@ -1728,7 +1747,12 @@ const TaskDetail = () => {
                           <div className="flex flex-col min-w-0 basis-full w-full mt-1">
                             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300 min-w-0">
                               <span className="font-bold">Title :</span>
-                              <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500' : ''}`}>
+                              <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer'}`}
+                              onClick={() => {
+                                const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                              }}
+                              >
                                 {dep.title ?? dep.name}
                               </span>
                             </div>

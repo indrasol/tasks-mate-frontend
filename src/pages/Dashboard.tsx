@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -13,34 +12,35 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentOrgId } from "@/hooks/useCurrentOrgId";
 import useDashboard from '@/hooks/useDashboard';
-import useUserDashboard from '@/hooks/useUserDashboard';
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import useUserDashboard from '@/hooks/useUserDashboard';
 import { deriveDisplayFromEmail, getStatusMeta } from '@/lib/projectUtils';
+import clearPersistedStateFor from "@/lib/storageUtils";
 import { BackendOrgMember } from "@/types/organization";
 import {
   Activity,
   AlertCircle,
+  AlertTriangle,
   BarChart3,
   Bug,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Crown,
   FolderOpen,
   Info,
   Loader2,
   PieChart as PieChartIcon,
+  Search,
   Target,
   Trophy,
-  Users,
-  AlertTriangle,
-  Search,
-  Filter,
-  ChevronLeft,
-  ChevronRight
+  Users
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from "react-router-dom";
@@ -64,13 +64,13 @@ const Dashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("30d");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("org");
-  
+
   // Project Performance Summary filters and pagination
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
   const [projectStatusFilter, setProjectStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const projectsPerPage = 5;
-  
+
   // My Projects pagination
   const [myProjectsCurrentPage, setMyProjectsCurrentPage] = useState(1);
   const myProjectsPerPage = 5;
@@ -141,13 +141,13 @@ const Dashboard = () => {
   // Filtered and paginated projects
   const filteredProjects = useMemo(() => {
     if (!topProjects) return [];
-    
+
     let filtered = topProjects.filter((project: any) => {
       const matchesSearch = project.name.toLowerCase().includes(projectSearchTerm.toLowerCase());
       const matchesStatus = projectStatusFilter === "all" || project.status === projectStatusFilter;
       return matchesSearch && matchesStatus;
     });
-    
+
     return filtered;
   }, [topProjects, projectSearchTerm, projectStatusFilter]);
 
@@ -171,6 +171,28 @@ const Dashboard = () => {
     </div>
   );
 
+  const handleEmptyStateAction = (path: string) => {
+
+    if (path.startsWith('/project')) {
+      clearPersistedStateFor('projects');
+    }
+
+    if (path.startsWith('/task')) {
+      clearPersistedStateFor('tasks');
+    }
+
+    if (path.startsWith('/tester-zone')) {
+      clearPersistedStateFor('tester');
+      clearPersistedStateFor('bugs');
+    }
+
+    if (currentOrgId) {
+      path += `?org_id=${currentOrgId}`;
+    }
+
+    navigate(path);
+  };
+
   const renderEmptyState = (type: 'tasks' | 'projects' | 'team' | 'performance' | 'contributors' | 'overdue' | 'upcoming' | 'workload') => {
     const emptyStates = {
       tasks: {
@@ -178,56 +200,56 @@ const Dashboard = () => {
         message: 'No task completion data found for the selected period.',
         action: 'Create New Task',
         icon: <Activity className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
-        path: `/tasks_catalog?org_id=${currentOrgId}`
+        path: `/tasks_catalog`
       },
       projects: {
         title: 'No Projects Found',
         message: 'You don\'t have any projects yet. Create your first project to get started.',
         action: 'Create Project',
         icon: <FolderOpen className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
-        path: `/projects?org_id=${currentOrgId}`
+        path: `/projects`
       },
       team: {
         title: 'No Team Members',
         message: 'Add team members to track their productivity and progress.',
         action: 'Invite Member',
         icon: <Users className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
-        path: `/team-members?org_id=${currentOrgId}`
+        path: `/team-members`
       },
       performance: {
         title: 'No Performance Data',
         message: 'Performance metrics will appear once you complete some tasks.',
         action: 'View Tasks',
         icon: <BarChart3 className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
-        path: `/tasks_catalog?org_id=${currentOrgId}`
+        path: `/tasks_catalog`
       },
       contributors: {
         title: 'No Contributors Yet',
         message: 'Top contributors will appear once team members complete tasks.',
         action: 'View Team',
         icon: <Trophy className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
-        path: `/team-members?org_id=${currentOrgId}`
+        path: `/team-members`
       },
       overdue: {
         title: 'No Overdue Tasks',
         message: 'Great! You don\'t have any overdue tasks at the moment.',
         action: 'View All Tasks',
         icon: <CheckCircle2 className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
-        path: `/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`
+        path: `/tasks_catalog`
       },
       upcoming: {
         title: 'No Upcoming Deadlines',
         message: 'No tasks with upcoming deadlines found.',
         action: 'Create Task',
         icon: <Calendar className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
-        path: `/tasks_catalog?org_id=${currentOrgId}`
+        path: `/tasks_catalog`
       },
       workload: {
         title: 'No Workload Data',
         message: 'Workload distribution will appear once tasks are assigned to team members.',
         action: 'Assign Tasks',
         icon: <Users className="h-12 w-12 mb-4 text-tasksmate-green-end" />,
-        path: `/tasks_catalog?org_id=${currentOrgId}`
+        path: `/tasks_catalog`
       }
     };
 
@@ -241,7 +263,7 @@ const Dashboard = () => {
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">{title}</h3>
         <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md">{message}</p>
         <button
-          onClick={() => navigate(path)}
+          onClick={() => handleEmptyStateAction(path)}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-tasksmate-green-end hover:bg-tasksmate-green-start focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tasksmate-green-end transition-colors"
         >
           {action}
@@ -259,7 +281,7 @@ const Dashboard = () => {
         <LineChart data={taskCompletionData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="month" />
-          <YAxis 
+          <YAxis
             tickFormatter={(value) => Math.floor(value).toString()}
             domain={[0, 'dataMax']}
           />
@@ -307,7 +329,7 @@ const Dashboard = () => {
       <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
         {teamProductivityData.map((member: any, idx: number) => {
           const tasksPending = member.tasksTotal - member.tasksCompleted;
-          
+
           return (
             <div key={idx} className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg hover:shadow-md dark:hover:shadow-gray-900/20 transition-shadow">
               <div className="flex items-center justify-between mb-2">
@@ -429,7 +451,7 @@ const Dashboard = () => {
             <div className="text-sm text-gray-500 dark:text-gray-400">
               Showing {((currentPage - 1) * projectsPerPage) + 1} to {Math.min(currentPage * projectsPerPage, filteredProjects.length)} of {filteredProjects.length} results
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Button
                 variant="outline"
@@ -440,7 +462,7 @@ const Dashboard = () => {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              
+
               <div className="flex items-center space-x-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <Button
@@ -454,7 +476,7 @@ const Dashboard = () => {
                   </Button>
                 ))}
               </div>
-              
+
               <Button
                 variant="outline"
                 size="sm"
@@ -514,12 +536,12 @@ const Dashboard = () => {
     if (dataLoading) return renderLoadingState();
 
     const handleBugClick = () => {
-      navigate(`/bug_tracker${currentOrgId ? `?org_id=${currentOrgId}` : ''}`);
+      handleEmptyStateAction('/tester-zone');
     };
 
     return (
       <div className="grid grid-cols-1 gap-4">
-        <div 
+        <div
           className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-lg cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
           onClick={handleBugClick}
         >
@@ -537,7 +559,7 @@ const Dashboard = () => {
           </span>
         </div>
 
-        <div 
+        <div
           className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
           onClick={handleBugClick}
         >
@@ -555,7 +577,7 @@ const Dashboard = () => {
           </span>
         </div>
 
-        <div 
+        <div
           className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
           onClick={handleBugClick}
         >
@@ -652,7 +674,7 @@ const Dashboard = () => {
       <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
         {workloadDistribution.slice(0, 8).map((member: any, idx: number) => {
           const completionRate = member.tasks_total > 0 ? Math.round((member.tasks_completed / member.tasks_total) * 100) : 0;
-          
+
           return (
             <div key={idx} className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg hover:shadow-md dark:hover:shadow-gray-900/20 transition-shadow">
               <div className="flex items-center justify-between mb-2">
@@ -741,6 +763,7 @@ const Dashboard = () => {
   };
 
   const handleProjectClick = (projectId: string) => {
+    clearPersistedStateFor('projects');
     if (currentOrgId) {
       navigate(`/projects/${projectId}?org_id=${currentOrgId}`);
     } else {
@@ -780,12 +803,12 @@ const Dashboard = () => {
       <>
         {/* User KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow" 
-                onClick={() => {
-                  if (user?.id && currentOrgId) {
-                    navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}`);
-                  }
-                }}>
+          <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => {
+              if (user?.id && currentOrgId) {
+                navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}`);
+              }
+            }}>
             <CardContent className="p-6 space-y-3">
               <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">My Total Tasks</p>
               <div className="flex items-center justify-between">
@@ -798,11 +821,11 @@ const Dashboard = () => {
           </Card>
 
           <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => {
-                  if (user?.id && currentOrgId) {
-                    navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}&statuses=completed&completion=show`);
-                  }
-                }}>
+            onClick={() => {
+              if (user?.id && currentOrgId) {
+                navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}&statuses=completed&completion=show`);
+              }
+            }}>
             <CardContent className="p-6 space-y-3">
               <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">My Completed Tasks</p>
               <div className="flex items-center justify-between">
@@ -815,11 +838,11 @@ const Dashboard = () => {
           </Card>
 
           <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => {
-                  if (user?.id && currentOrgId) {
-                    navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}&statuses=in-progress,not_started,blocked,on_hold,archived`);
-                  }
-                }}>
+            onClick={() => {
+              if (user?.id && currentOrgId) {
+                navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}&statuses=in-progress,not_started,blocked,on_hold,archived`);
+              }
+            }}>
             <CardContent className="p-6 space-y-3">
               <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">My Pending Tasks</p>
               <div className="flex items-center justify-between">
@@ -832,11 +855,11 @@ const Dashboard = () => {
           </Card>
 
           <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => {
-                  if (currentOrgId) {
-                    navigate(`/projects?org_id=${currentOrgId}&tab=mine`);
-                  }
-                }}>
+            onClick={() => {
+              if (currentOrgId) {
+                navigate(`/projects?org_id=${currentOrgId}&tab=mine`);
+              }
+            }}>
             <CardContent className="p-6 space-y-3">
               <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">My Projects</p>
               <div className="flex items-center justify-between">
@@ -875,7 +898,7 @@ const Dashboard = () => {
                     <div className="space-y-4">
                       {paginatedMyProjects.map((project, index) => (
                         <div key={index} className="bg-white/60 dark:bg-gray-700/60 p-4 rounded-lg cursor-pointer hover:shadow-md dark:hover:shadow-gray-900/20 transition-shadow"
-                             onClick={() => handleProjectClick(project.project_id)}>
+                          onClick={() => handleProjectClick(project.project_id)}>
                           <div className="flex items-center justify-between mb-3">
                             <h3 className="font-medium text-gray-900 dark:text-white">{project.project_name}</h3>
                             <span className="text-sm font-semibold px-2 py-1 rounded-full bg-tasksmate-green-start/20 dark:bg-tasksmate-green-start/30 text-tasksmate-green-end dark:text-tasksmate-green-start">
@@ -903,7 +926,7 @@ const Dashboard = () => {
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                           Showing {startIndex + 1} to {Math.min(endIndex, userProjects.length)} of {userProjects.length} projects
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Button
                             variant="outline"
@@ -914,7 +937,7 @@ const Dashboard = () => {
                           >
                             <ChevronLeft className="h-4 w-4" />
                           </Button>
-                          
+
                           <div className="flex items-center space-x-1">
                             {Array.from({ length: totalMyProjectPages }, (_, i) => i + 1).map((page) => (
                               <Button
@@ -928,7 +951,7 @@ const Dashboard = () => {
                               </Button>
                             ))}
                           </div>
-                          
+
                           <Button
                             variant="outline"
                             size="sm"
@@ -985,11 +1008,11 @@ const Dashboard = () => {
 
           {/* My Overdue Tasks */}
           <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => {
-                  if (user?.id && currentOrgId) {
-                    navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}&ddate=overdue`);
-                  }
-                }}>
+            onClick={() => {
+              if (user?.id && currentOrgId) {
+                navigate(`/tasks_catalog?org_id=${currentOrgId}&tab=mine&owner=${encodeURIComponent(user.id)}&ddate=overdue`);
+              }
+            }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                 <AlertTriangle className="w-5 h-5 text-gray-700 dark:text-gray-300" />
@@ -1093,7 +1116,7 @@ const Dashboard = () => {
         </div>
 
         {/* Dashboard Tabs */}
-        <div className="px-6">
+        <div className="px-6 pb-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 max-w-md">
               <TabsTrigger value="org">Org Dashboard</TabsTrigger>
@@ -1103,71 +1126,71 @@ const Dashboard = () => {
             <TabsContent value="org" className="space-y-6">
               <div className="w-full space-y-6">
 
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
-                <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Total Tasks</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.total_tasks}</p>
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => handleEmptyStateAction('/tasks_catalog')}>
+                    <CardContent className="p-6 space-y-3">
+                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Total Tasks</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.total_tasks}</p>
+                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                          <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=in_progress,planning`)}>
-                <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1 font-medium whitespace-nowrap">Active Projects <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400 dark:text-gray-500" /></span></p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.active_projects}</p>
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                      <FolderOpen className="w-6 h-6 text-green-600 dark:text-green-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=in_progress,planning`)}>
+                    <CardContent className="p-6 space-y-3">
+                      <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1 font-medium whitespace-nowrap">Active Projects <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400 dark:text-gray-500" /></span></p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.active_projects}</p>
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                          <FolderOpen className="w-6 h-6 text-green-600 dark:text-green-400" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              {/* Completed Projects KPI */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=completed`)}>
-                <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Completed Projects</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.completed_projects}</p>
-                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  {/* Completed Projects KPI */}
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=completed`)}>
+                    <CardContent className="p-6 space-y-3">
+                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Completed Projects</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.completed_projects}</p>
+                        <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+                          <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              {/* Blocked Projects KPI */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=blocked`)}>
-                <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Blocked Projects</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.blocked_projects}</p>
-                    <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
-                      <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  {/* Blocked Projects KPI */}
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=blocked`)}>
+                    <CardContent className="p-6 space-y-3">
+                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Blocked Projects</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.blocked_projects}</p>
+                        <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                          <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/team-members${currentOrgId ? `?org_id=${currentOrgId}` : ''}`)}>
-                <CardContent className="p-6 space-y-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Team Members</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.team_members}</p>
-                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                      <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => handleEmptyStateAction(`/team-members`)}>
+                    <CardContent className="p-6 space-y-3">
+                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Team Members</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.team_members}</p>
+                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                          <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              {/* <Card className="glass border-0 shadow-tasksmate">
+                  {/* <Card className="glass border-0 shadow-tasksmate">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1184,191 +1207,176 @@ const Dashboard = () => {
                   </div>
                 </CardContent>
               </Card> */}
-            </div>
-
-            {/* Project Performance Summary */}
-            <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-              <CardHeader>
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <Target className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    Project Performance Summary
-                  </CardTitle>
-                  
-                  {/* Search and Filter Controls */}
-                  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                    {/* Search Bar with Animation */}
-                    <div className="relative group">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-tasksmate-green-end h-4 w-4 transition-colors duration-200" />
-                      <Input
-                        placeholder="Search projects..."
-                        value={projectSearchTerm}
-                        onChange={(e) => setProjectSearchTerm(e.target.value)}
-                        className="pl-10 h-9 w-[250px] focus:w-[320px] transition-all duration-300 ease-in-out focus:ring-2 focus:ring-tasksmate-green-end/20 focus:border-tasksmate-green-end"
-                      />
-                    </div>
-                    
-                    {/* Status Filter */}
-                    <div className="flex items-center">
-                      <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
-                        <SelectTrigger className="w-[140px] h-9 focus:ring-2 focus:ring-tasksmate-green-end/20 focus:border-tasksmate-green-end transition-all duration-200">
-                          <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Status</SelectItem>
-                          {topProjects && [...new Set(topProjects.map((project: any) => project.status))].map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {getStatusMeta(status)?.label || status}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {/* Results Count */}
-                    <div className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                      {filteredProjects.length} of {topProjects?.length || 0}
-                    </div>
-                  </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {renderTopProjects()}
-              </CardContent>
-            </Card>
 
-            {/* Top Row: Top Contributors + Team Productivity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Top Contributors Leaderboard */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <Trophy className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    Top Contributors
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {renderTopContributors()}
-                </CardContent>
-              </Card>
-
-              {/* Team Productivity */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <Activity className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    Team Productivity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {renderTeamProductivityTable()}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Bottom Row: Bug Insights + Overdue Tasks + Upcoming Deadlines */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Bug Insights */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <Bug className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    Bug Insights
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {renderBugInsights()}
-                </CardContent>
-              </Card>
-
-              {/* Overdue Tasks */}
-              <Card 
-                className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}&ddate=overdue` : '?ddate=overdue'}`)}
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <AlertTriangle className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    Overdue Tasks
-                    {overdueTasks?.length > 0 && (
-                      <Badge variant="destructive" className="ml-2">
-                        {overdueTasks.length}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {renderOverdueTasks()}
-                </CardContent>
-              </Card>
-
-              {/* Upcoming Deadlines */}
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <Calendar className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    Upcoming Deadlines
-                    <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-                      Top 5 Tasks
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {renderUpcomingDeadlines()}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Charts Section */}
-            <div className="space-y-6">
-              {/* Grid: Task Completion Trends + Project Status Distribution */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Task Completion Trends */}
+                {/* Project Performance Summary */}
                 <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                      <BarChart3 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                      Task Completion Trends
-                    </CardTitle>
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                        <Target className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                        Project Performance Summary
+                      </CardTitle>
+
+                      {/* Search and Filter Controls */}
+                      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                        {/* Search Bar with Animation */}
+                        <div className="relative group">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-tasksmate-green-end h-4 w-4 transition-colors duration-200" />
+                          <Input
+                            placeholder="Search projects..."
+                            value={projectSearchTerm}
+                            onChange={(e) => setProjectSearchTerm(e.target.value)}
+                            className="pl-10 h-9 w-[250px] focus:w-[320px] transition-all duration-300 ease-in-out focus:ring-2 focus:ring-tasksmate-green-end/20 focus:border-tasksmate-green-end"
+                          />
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="flex items-center">
+                          <Select value={projectStatusFilter} onValueChange={setProjectStatusFilter}>
+                            <SelectTrigger className="w-[140px] h-9 focus:ring-2 focus:ring-tasksmate-green-end/20 focus:border-tasksmate-green-end transition-all duration-200">
+                              <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Status</SelectItem>
+                              {topProjects && [...new Set(topProjects.map((project: any) => project.status))].map((status) => (
+                                <SelectItem key={status} value={status}>
+                                  {getStatusMeta(status)?.label || status}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Results Count */}
+                        <div className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          {filteredProjects.length} of {topProjects?.length || 0}
+                        </div>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    {renderTaskCompletionChart()}
+                    {renderTopProjects()}
                   </CardContent>
                 </Card>
 
-                {/* Project Status Distribution */}
-                <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                      <PieChartIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                      Project Status Distribution
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {renderProjectStatusChart()}
-                  </CardContent>
-                </Card>
-              </div>
+                {/* Top Row: Top Contributors + Team Productivity */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Top Contributors Leaderboard */}
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                        <Trophy className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                        Top Contributors
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {renderTopContributors()}
+                    </CardContent>
+                  </Card>
 
-            </div> {/* end space-y-6 charts section */}
+                  {/* Team Productivity */}
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                        <Activity className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                        Team Productivity
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {/* {renderTeamProductivityTable()} */}
+                      {renderWorkloadDistribution()}
+                    </CardContent>
+                  </Card>
+                </div>
 
-            {/* Workload Distribution - Half Width */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                    <Users className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    Workload Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {renderWorkloadDistribution()}
-                </CardContent>
-              </Card>
-              
-              {/* Empty space for future card or can be removed */}
-              <div></div>
-            </div>
+                {/* Bottom Row: Bug Insights + Overdue Tasks + Upcoming Deadlines */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Bug Insights */}
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                        <Bug className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                        Bug Insights
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {renderBugInsights()}
+                    </CardContent>
+                  </Card>
+
+                  {/* Overdue Tasks */}
+                  <Card
+                    className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => navigate(`/tasks_catalog${currentOrgId ? `?org_id=${currentOrgId}&ddate=overdue` : '?ddate=overdue'}`)}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                        <AlertTriangle className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                        Overdue Tasks
+                        {overdueTasks?.length > 0 && (
+                          <Badge variant="destructive" className="ml-2">
+                            {overdueTasks.length}
+                          </Badge>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {renderOverdueTasks()}
+                    </CardContent>
+                  </Card>
+
+                  {/* Upcoming Deadlines */}
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                        <Calendar className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                        Upcoming Deadlines
+                        <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                          Top 5 Tasks
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {renderUpcomingDeadlines()}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Charts Section */}
+                <div className="space-y-6">
+                  {/* Grid: Task Completion Trends + Project Status Distribution */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Task Completion Trends */}
+                    <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                          <BarChart3 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                          Task Completion Trends
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {renderTaskCompletionChart()}
+                      </CardContent>
+                    </Card>
+
+                    {/* Project Status Distribution */}
+                    <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                          <PieChartIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                          Project Status Distribution
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {renderProjectStatusChart()}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                </div> {/* end space-y-6 charts section */}
+
+
 
               </div>
             </TabsContent>
