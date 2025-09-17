@@ -35,6 +35,7 @@ import TasksCatalog from "./pages/TasksCatalog";
 import TeamMembers from "./pages/TeamMembers";
 import TesterZone from "./pages/TesterZone";
 import UserProfile from "./pages/UserProfile";
+import OrgReports from "./pages/OrgReports";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,7 @@ const App = () => (
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/docs" element={<Docs />} />
             <Route path="/feedback" element={<PrivateRoute><FeedbackForm /></PrivateRoute>} />
+            <Route path="/org-reports" element={<PrivateRoute><OrgReports /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </AvatarProvider>
