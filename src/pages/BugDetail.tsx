@@ -40,7 +40,7 @@ interface BugComment {
 }
 
 interface BugEvidence {
-  id: string;
+  attachment_id: string;
   type: string;
   name: string;
   url: string;
@@ -740,10 +740,10 @@ const BugDetail = () => {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'high': return 'bg-red-100 text-red-700 border-red-200';
-      case 'medium': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'low': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'high': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700';
+      case 'medium': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700';
+      case 'low': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700';
+      default: return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600';
     }
   };
 
@@ -1026,7 +1026,7 @@ const BugDetail = () => {
 
       // Add the mention with highlighting
       parts.push(
-        <span key={`mention-${match.index}`} className="bg-blue-100 text-blue-800 px-1 rounded">
+        <span key={`mention-${match.index}`} className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-1 rounded">
           {match[0]}
         </span>
       );
@@ -1308,7 +1308,7 @@ const BugDetail = () => {
 
   // Render the component with the bug data
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <MainNavigation />
 
       <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
@@ -1361,14 +1361,10 @@ const BugDetail = () => {
         </Breadcrumb> */}
 
         {/* Header */}
-        <div className="px-6 bg-white rounded-lg border shadow-sm p-6 mb-6">
+        <div className="px-6 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-sm p-6 mb-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
-                <Badge className={`${getSeverityColor(bug?.priority)} border text-sm font-medium`}>
-                  {bug?.priority?.toUpperCase()}
-                </Badge>
-
                 <CopyableIdBadge
                   id={bug?.id}
                   org_id={currentOrgId}
@@ -1378,14 +1374,18 @@ const BugDetail = () => {
                   copyLabel="Bug"
                 />
 
+                <Badge className={`${getSeverityColor(bug?.priority)} border text-sm font-medium`}>
+                  {bug?.priority?.toUpperCase()}
+                </Badge>
+
                 <Select value={assignee} onValueChange={handleAssigneeChange}>
-                  <SelectTrigger className="h-6 px-2 bg-transparent border border-gray-200 rounded-full text-xs w-auto min-w-[6rem]">
-                    <SelectValue placeholder="Assignee" />
+                  <SelectTrigger className="h-6 px-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full text-xs w-auto min-w-[6rem] text-gray-900 dark:text-white">
+                    <SelectValue placeholder="Assignee" className="text-gray-900 dark:text-white" />
                   </SelectTrigger>
-                  <SelectContent align="start">
+                  <SelectContent align="start" className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
                     {orgMembers?.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => {
                       return (
-                        <SelectItem key={m.user_id} value={String(m.name)}>
+                        <SelectItem key={m.user_id} value={String(m.name)} className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">
                           {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
                         </SelectItem>
                       );
@@ -1393,10 +1393,10 @@ const BugDetail = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 font-sora mb-2">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white font-sora mb-2">
                 {bug?.title}
               </h1>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                 <span className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
                   Created {formatDate(bug?.created_at)}
@@ -1423,7 +1423,7 @@ const BugDetail = () => {
           {/* Tags */}
           <div className="flex flex-wrap gap-2">
             {bug?.tags?.map((tag, index) => (
-              <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700">
+              <Badge key={index} variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700">
                 {tag}
               </Badge>
             ))}
@@ -1434,10 +1434,10 @@ const BugDetail = () => {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Description */}
-            <Card className="glass border-0 shadow-tasksmate">
+            <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <CardTitle className="font-sora">Description</CardTitle>
+                  <CardTitle className="font-sora text-gray-900 dark:text-white">Description</CardTitle>
                   {isDescriptionEditing ? (
                     <>
                       <Button
@@ -1484,13 +1484,13 @@ const BugDetail = () => {
                     onChange={(content) => setDescription(content)}
                     placeholder="Add a detailed description..."
                     onImageUpload={handleImageUpload}
-                    className="min-h-[175px]"
+                    className="min-h-[175px] bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white [&_.ProseMirror]:bg-white [&_.ProseMirror]:dark:bg-gray-800 [&_.ProseMirror]:text-gray-900 [&_.ProseMirror]:dark:text-white [&_.ProseMirror]:border-gray-300 [&_.ProseMirror]:dark:border-gray-600"
                   />
                 ) : (
                   <RichTextEditor
                     content={description}
                     hideToolbar
-                    className="min-h-[175px]"
+                    className="min-h-[175px] bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white [&_.ProseMirror]:bg-white [&_.ProseMirror]:dark:bg-gray-800 [&_.ProseMirror]:text-gray-900 [&_.ProseMirror]:dark:text-white"
                   />
 
                   // <div
@@ -1502,10 +1502,10 @@ const BugDetail = () => {
             </Card>
 
             {/* Recreate Guide */}
-            <Card className="glass border-0 shadow-tasksmate">
+            <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <CardTitle className="font-sora">Recreate Guide</CardTitle>
+                  <CardTitle className="font-sora text-gray-900 dark:text-white">Recreate Guide</CardTitle>
                   {isRecreateGuideEditing ? (
                     <>
                       <Button
@@ -1552,13 +1552,13 @@ const BugDetail = () => {
                     onChange={(content) => setRecreateGuide(content)}
                     placeholder="Add a detailed recreate guide..."
                     onImageUpload={handleImageUpload}
-                    className="min-h-[175px]"
+                    className="min-h-[175px] bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white [&_.ProseMirror]:bg-white [&_.ProseMirror]:dark:bg-gray-800 [&_.ProseMirror]:text-gray-900 [&_.ProseMirror]:dark:text-white [&_.ProseMirror]:border-gray-300 [&_.ProseMirror]:dark:border-gray-600"
                   />
                 ) : (
                   <RichTextEditor
                     content={recreateGuide}
                     hideToolbar
-                    className="min-h-[175px]"
+                    className="min-h-[175px] bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white [&_.ProseMirror]:bg-white [&_.ProseMirror]:dark:bg-gray-800 [&_.ProseMirror]:text-gray-900 [&_.ProseMirror]:dark:text-white"
                   />
 
                   // <div
@@ -1639,7 +1639,7 @@ const BugDetail = () => {
                   <div className="mt-4 space-y-2">
                     <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">Uploaded Files:</h4>
                     {evidence.map((file, index) => (
-                      <div key={file.id || index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <div key={file.attachment_id || index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                         <div className="flex items-center space-x-2">
                           <FileText className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                           <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm underline text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400">
@@ -1650,7 +1650,7 @@ const BugDetail = () => {
                           variant="ghost"
                           size="sm"
                           disabled={!bug?.is_editable}
-                          onClick={() => handleDeleteAttachment(file.id)}
+                          onClick={() => handleDeleteAttachment(file.attachment_id)}
                           className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                         >
                           <X className="h-3 w-3" />
@@ -1729,7 +1729,7 @@ const BugDetail = () => {
                               onChange={handleCommentChange}
                               onClick={() => setShowMentionPopover(false)}
                               placeholder="Add a comment... (Type @ to mention someone)"
-                              className="min-h-20 resize-none"
+                              className="min-h-20 resize-none bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                             />
 
                             {/* @mention popover */}
@@ -1823,7 +1823,7 @@ const BugDetail = () => {
                                     value={editCommentText}
                                     onChange={(e) => setEditCommentText(e.target.value)}
                                     placeholder="Edit your comment..."
-                                    className="min-h-20 resize-none"
+                                    className="min-h-20 resize-none bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                                     disabled={!bug?.is_editable}
                                   />
                                 </div>
@@ -1846,11 +1846,11 @@ const BugDetail = () => {
                                   </p>
                                   {
                                     (comment.updated_at || comment.created_at) &&
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                                       <Clock className="h-3 w-3" />
                                       {format(new Date(comment.updated_at || comment.created_at), 'MMM d, yyyy h:mm a')}
                                       {comment.updated_at && comment.updated_at !== comment.created_at && (
-                                        <span className="text-xs text-gray-400 ml-1">(edited)</span>
+                                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">(edited)</span>
                                       )}
 
                                     </p>
@@ -1910,33 +1910,33 @@ const BugDetail = () => {
             {/* Bug Properties */}
             <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
               <CardHeader>
-                <CardTitle className="text-lg">Bug Properties</CardTitle>
+                <CardTitle className="text-lg text-gray-900 dark:text-white">Bug Properties</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="severity">Status</Label>
+                  <Label htmlFor="severity" className="text-gray-700 dark:text-gray-300">Status</Label>
                   <Select value={bug?.status} onValueChange={handleStatusChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
+                    <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
+                      <SelectItem value="open" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">Open</SelectItem>
+                      <SelectItem value="in_progress" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">In Progress</SelectItem>
+                      <SelectItem value="resolved" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">Resolved</SelectItem>
+                      <SelectItem value="closed" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">Closed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="severity">Severity</Label>
+                  <Label htmlFor="severity" className="text-gray-700 dark:text-gray-300">Severity</Label>
                   <Select value={bug?.priority} onValueChange={handlePriorityChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
+                    <SelectContent className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
+                      <SelectItem value="high" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">High</SelectItem>
+                      <SelectItem value="medium" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">Medium</SelectItem>
+                      <SelectItem value="low" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">Low</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1981,7 +1981,7 @@ const BugDetail = () => {
                       <CopyableIdBadge id={String(depId)} org_id={currentOrgId} isCompleted={(dep.status ?? '') === 'completed'} />
 
                       {/* Owner, Status, Priority badges */}
-                      <Badge key='owner' variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                      <Badge key='owner' variant="secondary" className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
                         {(() => {
                           const { displayName } = deriveDisplayFromEmail((dep.assignee ?? '') as string);
                           return `👤 ${displayName}`;
@@ -1994,8 +1994,8 @@ const BugDetail = () => {
 
                       {/* Project and Start date removed as requested */}
                       <div className="inline-flex items-center gap-1">
-                        <span className="text-gray-600 text-xs">Due date:</span>
-                        <Badge key='due_date' variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                        <span className="text-gray-600 dark:text-gray-400 text-xs">Due date:</span>
+                        <Badge key='due_date' variant="secondary" className="text-xs bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300">
                           {dep.due_date ? formatDate(dep.due_date) : '—'}
                         </Badge>
                       </div>
@@ -2018,7 +2018,7 @@ const BugDetail = () => {
                       <div className="flex flex-col min-w-0 basis-full w-full mt-1">
                         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300 min-w-0">
                           <span className="font-bold">Title :</span>
-                          <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer'}`}
+                          <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer dark:hover:text-blue-300'}`}
                             onClick={() => {
                               const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
                               window.open(url, '_blank', 'noopener,noreferrer');
