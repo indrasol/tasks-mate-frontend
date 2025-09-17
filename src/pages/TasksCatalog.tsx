@@ -264,7 +264,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           createdBy: t.created_by,
           createdDate: t.created_at,
           // is_editable: userIdentifiers.includes(t.created_by) || userIdentifiers.includes(t.assignee)
-          is_editable: true
+          is_editable: true,
+          dependencies: t.dependencies,
+          bug_id: t.bug_id,
+          tracker_id: t.tracker_id
 
         }));
         setTasks(mapped);
@@ -293,12 +296,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   // Function to check if a task is overdue
   const isTaskOverdue = (task: Task) => {
     if (!task.targetDate || task.status === 'completed') return false;
-    
+
     const dueDate = new Date(task.targetDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Set to start of day for comparison
     dueDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
-    
+
     return dueDate < today;
   };
 
@@ -540,17 +543,17 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
       // Due date filter - Check targetDate
       const matchesDueDate = (() => {
         if (dueDateFilter === "all") return true;
-        
+
         if (dueDateFilter === "overdue") {
           // For overdue filter, check if task is overdue and not completed
           return isTaskOverdue(task);
         }
-        
+
         if (isCustomDueDateRange && dueDateRange?.from) {
           // For custom date range, check due date
           return isDateInRange(task.targetDate, 'custom', dueDateRange);
         }
-        
+
         // For preset filters, check due date
         return isDateInRange(task.targetDate, dueDateFilter);
       })();
@@ -780,7 +783,23 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
 
   const handleProjectNavigation = (projectId: string) => {
-    navigate(currentOrgId ? `/projects/${projectId}?org_id=${currentOrgId}` : `/projects/${projectId}`);
+    const url = `/projects/${projectId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleDependencyNavigation = (dependencyId: string) => {
+    const url = `/tasks/${dependencyId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleBugNavigation = (bugId: string) => {
+    const url = `/tester-zone/bugs/${bugId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleTrackerNavigation = (trackerId: string) => {
+    const url = `/tester-zone/runs/${trackerId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // In the render, show loading/error states
@@ -1050,7 +1069,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium text-sm">Select Due Date Range</h4>
                       </div>
-                      
+
                       <CalendarComponent
                         mode="range"
                         defaultMonth={tempDueDateRange.from}
@@ -1199,6 +1218,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                             <TableHead className="w-28 sm:w-32 md:w-40 text-center">Due Date</TableHead>
                             <TableHead className="w-24 sm:w-28 md:w-40 text-center">Project</TableHead>
                             <TableHead className="w-28 sm:w-32 md:w-40 text-center">Tags</TableHead>
+                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Dependencies</TableHead>
+                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Tracker</TableHead>
+                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Bug</TableHead>
+                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Created Date</TableHead>
                             <TableHead className="w-20 sm:w-24 text-center">Created By</TableHead>
                             <TableHead className="w-20 sm:w-24 text-center flex-shrink-0">Actions</TableHead>
                           </TableRow>
@@ -1207,13 +1230,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           {currentPageTasks.map((task, idx) => (
                             <TableRow
                               key={idx}
-                              className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${
-                                task.status === 'completed' 
-                                  ? 'bg-gray-50/60 dark:bg-gray-800/60' 
-                                  : isTaskOverdue(task) 
-                                    ? 'bg-red-50/60 dark:bg-red-900/20 border-l-4 border-red-500' 
-                                    : ''
-                              }`}
+                              className={`hover:bg-slate-50/60 dark:hover:bg-gray-700/60 transition-colors ${task.status === 'completed'
+                                ? 'bg-gray-50/60 dark:bg-gray-800/60'
+                                : isTaskOverdue(task)
+                                  ? 'bg-red-50/60 dark:bg-red-900/20 border-l-4 border-red-500'
+                                  : ''
+                                }`}
                             >
                               <TableCell className="p-2 text-center">
                                 <div
@@ -1460,13 +1482,12 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 <DateBadge date={task.startDate ? task.startDate : task.createdDate} className="text-xs bg-blue-100 text-blue-800" />
                               </TableCell>
                               <TableCell className="text-center">
-                                <DateBadge 
-                                  date={task.targetDate} 
-                                  className={`text-xs ${
-                                    isTaskOverdue(task) 
-                                      ? 'bg-red-100 text-red-800 font-semibold border border-red-300' 
-                                      : 'bg-rose-100 text-rose-800'
-                                  }`} 
+                                <DateBadge
+                                  date={task.targetDate}
+                                  className={`text-xs ${isTaskOverdue(task)
+                                    ? 'bg-red-100 text-red-800 font-semibold border border-red-300'
+                                    : 'bg-rose-100 text-rose-800'
+                                    }`}
                                 />
                               </TableCell>
                               <TableCell className="text-center">
@@ -1505,6 +1526,72 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                   </div>
                                 </div>
                               </TableCell>
+
+                              <TableCell className="text-center">
+                                <div className="flex justify-center">
+                                  {/* decrease scroll-bar height or width */}
+                                  <div className="max-w-[200px] overflow-x-auto whitespace-nowrap py-1"
+                                    style={{
+                                      scrollbarWidth: "thin",
+                                      scrollBehavior: "smooth",
+
+                                      // scrollbarColor: "#ccc #f1f1f1"
+                                    }}
+                                  >
+                                    <div className="inline-flex gap-1">
+                                      {task.dependencies?.length > 0 ? (
+                                        task.dependencies.map((dependency, idx) => (
+                                          <Badge key={idx} variant="outline"
+                                            className="text-xs font-mono cursor-pointer whitespace-nowrap bg-green-700 hover:bg-green-600 text-white"
+                                            onClick={() => {
+                                              handleDependencyNavigation(dependency);
+                                            }}
+                                          >
+                                            {dependency}
+                                          </Badge>
+                                        ))
+                                      ) : (
+                                        <span className="text-xs text-gray-400">—</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+
+                              <TableCell className="text-center">
+                                {task.tracker_id ? (
+                                  <Badge variant="outline"
+                                    className="text-xs bg-orange-600 hover:bg-orange-700 whitespace-nowrap text-white cursor-pointer"
+                                    onClick={() => {
+                                      handleTrackerNavigation(task.tracker_id);
+                                    }}
+                                  >
+                                    {task.tracker_id}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-gray-400">—</span>
+                                )}
+                              </TableCell>
+
+                              <TableCell className="text-center">
+                                {task.bug_id ? (
+                                  <Badge variant="outline" 
+                                  className="text-xs bg-red-600 hover:bg-red-700 whitespace-nowrap text-white cursor-pointer"
+                                    onClick={() => {
+                                      handleBugNavigation(task.bug_id);
+                                    }}
+                                  >
+                                    {task.bug_id}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-gray-400">—</span>
+                                )}
+                              </TableCell>
+
+                              <TableCell className="text-center">
+                                <DateBadge date={task.createdDate} className="text-xs bg-blue-100 text-blue-800" />
+                              </TableCell>
+
                               <TableCell className="text-center">
                                 <div className="flex justify-center">
                                   {orgMembers?.filter((m: any) => (m.name === task.createdBy))?.map((m, idx) => {
@@ -1518,7 +1605,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                         <HoverCardContent className="text-sm p-2">
                                           <div className="flex flex-col items-center gap-2">
                                             <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
-                                              {m.displayName }
+                                              {m.displayName}
                                             </Badge>
                                             <p className="text-xs">{m.email}</p>
                                             <p className="text-xs">{m.designation}</p>

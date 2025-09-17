@@ -240,6 +240,9 @@ const TaskDetail = () => {
           dependencies: data.dependencies ?? [],
           is_editable: true,
 
+          bug_id: data.bug_id,
+          tracker_id: data.tracker_id,
+
           // is_editable: (user?.id === data.assignee || user?.id === data.created_by)
           //   || (user?.user_metadata?.username === data.assignee || user?.user_metadata?.username === data.created_by),
         };
@@ -1285,6 +1288,16 @@ const TaskDetail = () => {
     }
   };
 
+  const handleBugNavigation = (bugId: string) => {
+    const url = `/tester-zone/bugs/${bugId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleTrackerNavigation = (trackerId: string) => {
+    const url = `/tester-zone/runs/${trackerId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   if (loading) {
     // return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-tasksmate-green-end"></div></div>;
 
@@ -1416,6 +1429,29 @@ const TaskDetail = () => {
                         ))}
                       </SelectContent>
                     </Select>
+
+                    {task?.tracker_id && (
+                      <Badge variant="outline"
+                        className="text-xs bg-orange-600 hover:bg-orange-700 whitespace-nowrap text-white cursor-pointer"
+                        onClick={() => {
+                          handleTrackerNavigation(task?.tracker_id);
+                        }}
+                      >
+                        {task.tracker_id}
+                      </Badge>
+                    )}
+
+                    {task?.bug_id && (
+                      <Badge variant="outline"
+                        className="text-xs bg-red-600 hover:bg-red-700 whitespace-nowrap text-white cursor-pointer"
+                        onClick={() => {
+                          handleBugNavigation(task?.bug_id);
+                        }}
+                      >
+                        {task.bug_id}
+                      </Badge>
+                    )}
+
                     {/* Edit icon removed as requested */}
                     {task?.is_editable && canDeleteTask && (
                       <Button
@@ -1436,7 +1472,7 @@ const TaskDetail = () => {
                         <Input
                           value={taskName}
                           onChange={(e) => setTaskName(e.target.value)}
-                          className={`text-2xl font-sora font-bold border-0 p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
+                          className={`text-2xl font-sora font-bold border bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
                         />
                         <>
                           <Button
@@ -1748,10 +1784,10 @@ const TaskDetail = () => {
                             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300 min-w-0">
                               <span className="font-bold">Title :</span>
                               <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer'}`}
-                              onClick={() => {
-                                const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
-                                window.open(url, '_blank', 'noopener,noreferrer');
-                              }}
+                                onClick={() => {
+                                  const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+                                  window.open(url, '_blank', 'noopener,noreferrer');
+                                }}
                               >
                                 {dep.title ?? dep.name}
                               </span>
