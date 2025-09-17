@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Check } from "lucide-react";
 import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
 import { taskService } from "@/services/taskService";
@@ -143,131 +144,132 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] sm:max-h-[80vh] flex flex-col">
-        <DialogHeader className="space-y-4 flex-shrink-0">
-          <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900">Add Dependency</DialogTitle>
-          <DialogDescription className="text-gray-600 text-sm sm:text-base">
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0 pb-4">
+          <DialogTitle className="text-2xl font-bold text-gray-900">Add Dependency</DialogTitle>
+          <DialogDescription className="text-gray-600">
             Search and select an existing task to add as a dependency.
           </DialogDescription>
         </DialogHeader>
+        
+        <div className="flex flex-col flex-1 min-h-0 space-y-4">
+          {/* Search Input */}
+          <div className="relative flex-shrink-0">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by task ID, name, or keywords..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="space-y-4 max-h-[70vh] sm:max-h-[60vh] overflow-y-auto">
-            <div className="flex flex-col gap-2">
-              {/* Search Input */}
-              <div className="flex items-center gap-2 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search by task ID, name, or keywords..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {/* Results */}
-              <div className="flex flex-col gap-2 overflow-y-auto max-h-[50vh] sm:max-h-[40vh]">
-                {loading ? (
-                  <div className="text-center py-8 text-gray-500">Loading tasks...</div>
-                ) : error ? (
-                  <div className="p-8 text-center text-red-500">{error}</div>
-                ) : filteredTasks.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    {searchQuery ? "No tasks found matching your search" : "No tasks available"}
-                  </div>
-                ) : (
-                  filteredTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="p-3 sm:p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => handleTaskSelect(task)}
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${task.status === 'completed'
+          {/* Results - Scrollable Container */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-full max-h-[50vh]">
+              <div className="pr-4 space-y-3">
+              {loading ? (
+                <div className="text-center py-8 text-gray-500">Loading tasks...</div>
+              ) : error ? (
+                <div className="p-8 text-center text-red-500">{error}</div>
+              ) : filteredTasks.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  {searchQuery ? "No tasks found matching your search" : "No tasks available"}
+                </div>
+              ) : (
+                filteredTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => handleTaskSelect(task)}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${task.status === 'completed'
                               ? 'bg-tasksmate-gradient border-transparent'
                               : 'border-gray-300'
-                              }`}
-                          >
-                            {task.status === 'completed' && <Check className="h-3 w-3 text-white" />}
-                          </div>
-                          <Badge className="text-xs font-mono bg-green-600 text-white">
-                            {task.id}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                            {(() => {
-                              const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
-                              return `👤 ${displayName}`;
-                            })()}
-                          </Badge>
+                            }`}
+                        >
+                          {task.status === 'completed' && <Check className="h-3 w-3 text-white" />}
                         </div>
-                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                          <Badge className={`text-xs ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        <Badge className="text-xs font-mono bg-green-600 text-white flex-shrink-0">
+                          {task.id}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800 flex-shrink-0">
+                          {(() => {
+                            const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                            return `👤 ${displayName}`;
+                          })()}
+                        </Badge>
+                        <Badge className={`text-xs flex-shrink-0 ${task.status === 'completed' ? 'bg-green-100 text-green-800' :
                             task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
                               task.status === 'blocked' ? 'bg-red-100 text-red-800' :
                                 task.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
                                   task.status === 'archived' ? 'bg-black text-white' :
                                     'bg-gray-100 text-gray-800'
-                            } hover:bg-transparent hover:text-inherit`}>
-                            {getStatusText(task.status)}
-                          </Badge>
-                          <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority ?? 'none')}`}>{(task.priority ?? 'none').toUpperCase()}</Badge>
-                        </div>
-                      </div>
-
-                      <h3 className="font-semibold text-gray-900 mb-2 text-sm sm:text-base">{task.name}</h3>
-
-                      {/* Tags */}
-                      {task.tags && task.tags.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1 mb-3">
-                          <span className="text-gray-600 text-xs mr-1">Tags:</span>
-                          {task.tags.slice(0, 3).map((tag, index) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="text-xs bg-purple-100 text-purple-800"
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                          {task.tags.length > 3 && (
-                            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                              +{task.tags.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Metadata */}
-                      <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-xs">
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-600">Start date:</span>
-                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                            {formatDate(task.startDate ?? task.createdDate)}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-600">Due date:</span>
-                          <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800">
-                            {task.targetDate ? formatDate(task.targetDate) : '—'}
-                          </Badge>
-                        </div>
+                          }`}>
+                          {getStatusText(task.status)}
+                        </Badge>
+                        <Badge variant="outline" className={`text-xs flex-shrink-0 ${getPriorityColor(task.priority ?? 'none')}`}>
+                          {(task.priority ?? 'none').toUpperCase()}
+                        </Badge>
                       </div>
                     </div>
-                  ))
-                )}
+
+                    <h3 className="font-semibold text-gray-900 mb-2 break-words">{task.name}</h3>
+
+                    {/* Tags */}
+                    {task.tags && task.tags.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1 mb-3">
+                        <span className="text-gray-600 text-xs mr-1 flex-shrink-0">Tags:</span>
+                        {task.tags.slice(0, 3).map((tag, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="text-xs bg-purple-100 text-purple-800 flex-shrink-0"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                        {task.tags.length > 3 && (
+                          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600 flex-shrink-0">
+                            +{task.tags.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Metadata */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-600 flex-shrink-0">Start:</span>
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 flex-shrink-0">
+                          {formatDate(task.startDate ?? task.createdDate)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-600 flex-shrink-0">Due:</span>
+                        <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-800 flex-shrink-0">
+                          {task.targetDate ? formatDate(task.targetDate) : '—'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
               </div>
-            </div>
+            </ScrollArea>
           </div>
         </div>
 
-        {/* Footer - now outside the scrollable area */}
-        <div className="flex flex-col sm:flex-row sm:justify-end sm:items-center gap-2 pt-4 border-t flex-shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
-            Cancel
-          </Button>
-          <Button onClick={() => setIsCreateNewOpen(true)} className="w-full sm:w-auto">+ Add New Dependency</Button>
+          {/* Footer */}
+          <div className="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => setIsCreateNewOpen(true)}>+ Add New Dependency</Button>
+          </div>
         </div>
       </DialogContent>
 
