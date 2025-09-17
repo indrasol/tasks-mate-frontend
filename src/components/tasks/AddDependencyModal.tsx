@@ -9,7 +9,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Check } from "lucide-react";
 import { deriveDisplayFromEmail, formatDate, getPriorityColor } from "@/lib/projectUtils";
 import { taskService } from "@/services/taskService";
@@ -143,16 +142,17 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
   if (!open) return null;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0 pb-4">
-          <DialogTitle className="text-2xl font-bold text-gray-900">Add Dependency</DialogTitle>
-          <DialogDescription className="text-gray-600">
-            Search and select an existing task to add as a dependency.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="flex flex-col flex-1 min-h-0 space-y-4">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0 pb-4">
+            <DialogTitle className="text-2xl font-bold text-gray-900">Add Dependency</DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Search and select an existing task to add as a dependency.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-col flex-1 min-h-0 space-y-4">
           {/* Search Input */}
           <div className="relative flex-shrink-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -165,19 +165,25 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
           </div>
 
           {/* Results - Scrollable Container */}
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <ScrollArea className="h-full max-h-[50vh]">
-              <div className="pr-4 space-y-3">
-              {loading ? (
-                <div className="text-center py-8 text-gray-500">Loading tasks...</div>
-              ) : error ? (
-                <div className="p-8 text-center text-red-500">{error}</div>
-              ) : filteredTasks.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  {searchQuery ? "No tasks found matching your search" : "No tasks available"}
-                </div>
-              ) : (
-                filteredTasks.map((task) => (
+          <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+            <div 
+              className="h-[50vh] w-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#d1d5db #f3f4f6'
+              }}
+            >
+              <div className="p-4 space-y-3">
+                {loading ? (
+                  <div className="text-center py-8 text-gray-500">Loading tasks...</div>
+                ) : error ? (
+                  <div className="p-8 text-center text-red-500">{error}</div>
+                ) : filteredTasks.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    {searchQuery ? "No tasks found matching your search" : "No tasks available"}
+                  </div>
+                ) : (
+                  filteredTasks.map((task) => (
                   <div
                     key={task.id}
                     className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
@@ -256,12 +262,11 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
                       </div>
                     </div>
                   </div>
-                ))
-              )}
+                  ))
+                )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
-        </div>
 
           {/* Footer */}
           <div className="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
@@ -272,14 +277,15 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
           </div>
         </div>
       </DialogContent>
-
-      {/* New Task Modal to create and auto-add as dependency */}
-      <NewTaskModal
-        open={isCreateNewOpen}
-        onOpenChange={setIsCreateNewOpen}
-        onTaskCreated={handleNewTaskCreated}
-      />
     </Dialog>
+
+    {/* New Task Modal to create and auto-add as dependency */}
+    <NewTaskModal
+      open={isCreateNewOpen}
+      onOpenChange={setIsCreateNewOpen}
+      onTaskCreated={handleNewTaskCreated}
+    />
+  </>
   );
 };
 
