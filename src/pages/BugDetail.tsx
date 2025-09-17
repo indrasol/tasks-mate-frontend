@@ -15,18 +15,21 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
 import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
-import { capitalizeFirstLetter, deriveDisplayFromEmail, formatDate } from '@/lib/projectUtils';
+import { capitalizeFirstLetter, deriveDisplayFromEmail, formatDate, getPriorityColor, getStatusMeta } from "@/lib/projectUtils";
 import { api } from '@/services/apiService';
 import { BackendOrgMember } from '@/types/organization';
 import { TaskCreateInitialData } from '@/types/tasks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import imageCompression from "browser-image-compression";
 import { format } from 'date-fns';
-import { ArrowLeft, Clock, Edit3, Loader2, Pencil, Save, Send, Trash2, Upload, X, File, FileText, Plus, } from 'lucide-react';
+import { ArrowLeft, Clock, Edit3, Loader2, Pencil, Save, Send, Trash2, Upload, X, File, FileText, Plus, MessageCircle, ChevronDown, Edit, Link2, CheckCircle, Circle, ExternalLink, } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { bugService } from '@/services/bugService';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
+import { taskService } from "@/services/taskService";
 
 interface BugComment {
   id: string;
@@ -59,7 +62,8 @@ interface BugDetails {
   project_id: string;
   project_name: string;
   is_editable: boolean;
-  tracker_id?: string
+  tracker_id?: string;
+  dependencies?: string[];
 }
 
 const BugDetail = () => {
@@ -76,6 +80,8 @@ const BugDetail = () => {
   const currentOrgId = useCurrentOrgId();
   const queryClient = useQueryClient();
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+
+  const [isCommentsOpen, setIsCommentsOpen] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
@@ -358,27 +364,27 @@ const BugDetail = () => {
   };
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-      if (!bug?.id) return;
-      try {
-        toast({
-          title: "Deleting attachment",
-          description: "Please wait...",
-        });
-        await bugService.deleteBugAttachment(attachmentId, bug?.id);
-        toast({
-          title: "Success",
-          description: "Attachment deleted!",
-          variant: "default"
-        });
-        refetchEvidence();
-      } catch (err: any) {
-        toast({
-          title: "Failed to delete attachment",
-          description: err.message,
-          variant: "destructive"
-        });
-      }
-    };
+    if (!bug?.id) return;
+    try {
+      toast({
+        title: "Deleting attachment",
+        description: "Please wait...",
+      });
+      await bugService.deleteBugAttachment(attachmentId, bug?.id);
+      toast({
+        title: "Success",
+        description: "Attachment deleted!",
+        variant: "default"
+      });
+      refetchEvidence();
+    } catch (err: any) {
+      toast({
+        title: "Failed to delete attachment",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
+  };
 
   // Mutation for updating description
   const updateBugDescription = useMutation({
@@ -1243,6 +1249,36 @@ const BugDetail = () => {
     setIsNewTaskModalOpen(true)
   }
 
+  // Fetch dependencies
+  const { data: dependencies = [], refetch: refetchDependencies } = useQuery<any[]>({
+    queryKey: ['bugDependencies', bugId],
+    queryFn: async () => {
+      try {
+        return await api.get(`${API_ENDPOINTS.BUGS}/${bugId}/dependencies`);
+      } catch (error) {
+        console.error('Error fetching bug dependencies:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch bug dependencies. Please try again.",
+          variant: "destructive"
+        });
+      }
+      return [];
+    },
+    enabled: !!bugId,
+  });
+
+  const [dependencyDetails, setDependencyDetails] = useState<any[]>([]);
+
+  // Fetch full dependency details
+  useEffect(() => {
+    if (!dependencies || !dependencies.length) { setDependencyDetails([]); return; }
+    console.log(dependencies);
+    Promise.all(dependencies.map((dep) => taskService.getTaskById(dep.task_id) as Promise<any>))
+      .then((details: any) => setDependencyDetails(details as any[]))
+      .catch(() => setDependencyDetails([]));
+  }, [bugId, dependencies]);
+
   // Loading state
   if (loading) {
     return (
@@ -1665,182 +1701,214 @@ const BugDetail = () => {
             </Card> */}
 
             {/* Comments Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Comments</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Add New Comment */}
-                <div className="flex gap-3 relative">
-                  <div className="flex-1 relative">
-                    <Textarea
-                      ref={commentInputRef}
-                      value={newComment}
-                      onChange={handleCommentChange}
-                      onKeyDown={handleTextareaKeyDown}
-                      onClick={() => setShowMentionPopover(false)}
-                      // onClick={handleTextareaClick}
-                      placeholder="Add a comment... (Type @ to mention someone)"
-                      rows={3}
-                      className="min-h-20 resize-none"
-                    />
-
-                    {/* @mention popover */}
-                    {showMentionPopover && (
-                      <div
-                        className="absolute z-50 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-y-auto w-64"
-                        style={{
-                          top: '100%',
-                          left: 0,
-                          marginTop: '0.25rem',
-                        }}
-                      >
-                        <div className="p-1">
-                          <div className="px-2 py-1 text-sm font-semibold border-b border-gray-100 mb-1 bg-blue-50 text-blue-800 rounded-t">
-                            @Mention Team Member
-                          </div>
-                          {filteredMembers.length === 0 ? (
-                            <div className="px-2 py-1 text-sm text-gray-500">No members found</div>
-                          ) : (
-                            filteredMembers.map((member, idx) => {
-                              const { displayName } = deriveDisplayFromEmail(member.email || '');
-
-                              return (
-                                <button
-                                  key={member.id || member.user_id}
-                                  className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded transition-colors ${idx === mentionActiveIndex ? 'bg-blue-100' : 'hover:bg-gray-100 hover:bg-blue-50 active:bg-blue-100'}`}
-                                  type="button"
-                                  onMouseDown={(e) => {
-                                    // Using onMouseDown instead of onClick to prevent focus issues
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleSelectMention(displayName);
-                                  }}
-                                >
-                                  <Avatar className="h-5 w-5">
-                                    <AvatarFallback className="text-[10px] bg-blue-100 text-blue-800">
-                                      {displayName.substring(0, 2).toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm font-medium">{displayName}</span>
-                                </button>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    onClick={handleAddComment}
-                    disabled={!newComment.trim()}
-                    className="bg-green-500 hover:bg-green-600 text-white self-start"
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    Comment
-                  </Button>
-                </div>
-
-                {/* Comments List */}
-                <div className="space-y-4">
-                  {comments?.map((comment: BugComment) => (
-                    <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Avatar className="w-8 h-8 border border-white">
-                              <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
-                                {(() => {
-                                  const creator = (comment.user_id || "") as string;
-                                  const { initials } = deriveDisplayFromEmail(creator || "u");
-                                  return initials || "U";
-                                })()}
-                              </AvatarFallback>
-                            </Avatar>
-                          </HoverCardTrigger>
-                          <HoverCardContent className="text-xs p-2">
-                            {(() => {
-                              const creator = (comment.user_id || "") as string;
-                              const { displayName } = deriveDisplayFromEmail(creator || "user");
-                              return displayName;
-                            })()}
-                          </HoverCardContent>
-                        </HoverCard>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditingComment(comment.id);
-                              setEditCommentText(comment.content);
-                            }}
-                          >
-                            <Edit3 className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteComment(comment.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {editingComment === comment.id ? (
-                        <div className="flex flex-col gap-2">
-                          <Textarea
-                            value={editCommentText}
-                            onChange={(e) => setEditCommentText(e.target.value)}
-                            placeholder="Edit your comment..."
-                            className="min-h-20 resize-none"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setEditingComment(null)}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveEdit(comment.id)}
-                              disabled={!editCommentText.trim()}
-                            >
-                              Save Changes
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-700">
-                          <p className="whitespace-pre-wrap">
-                            {renderCommentWithMentions(comment.content)}
-                          </p>
-                          {
-                            (comment.updated_at || comment.created_at) &&
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                              <Clock className="h-3 w-3" />
-                              {format(new Date(comment.updated_at || comment.created_at), 'MMM d, yyyy h:mm a')}
-                              {comment.updated_at && comment.updated_at !== comment.created_at && (
-                                <span className="text-xs text-gray-400 ml-1">(edited)</span>
-                              )}
-                            </p>
-                          }
-
-                        </div>
-                      )}
+            <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
+              <Collapsible open={isCommentsOpen} onOpenChange={setIsCommentsOpen}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="font-sora flex items-center space-x-2 text-gray-900 dark:text-white">
+                        <MessageCircle className="h-4 w-4" />
+                        <span>Comments ({comments.length})</span>
+                      </CardTitle>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${isCommentsOpen ? 'rotate-180' : ''}`} />
                     </div>
-                  ))}
-                </div>
-              </CardContent>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent>
+                    {/* Add new comment */}
+                    <div className="mb-6">
+                      <div className="flex">
+                        <div className="flex-1 space-y-2">
+                          <div className="relative">
+                            <Textarea
+                              onKeyDown={handleTextareaKeyDown}
+                              ref={commentInputRef}
+                              value={newComment}
+                              disabled={!bug?.is_editable}
+                              onChange={handleCommentChange}
+                              onClick={() => setShowMentionPopover(false)}
+                              placeholder="Add a comment... (Type @ to mention someone)"
+                              className="min-h-20 resize-none"
+                            />
+
+                            {/* @mention popover */}
+                            {showMentionPopover && (
+                              <div
+                                className="absolute z-50 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 max-h-60 overflow-y-auto w-64"
+                                style={{
+                                  top: 30, // Position below cursor
+                                  left: 10
+                                }}
+                              >
+                                <div className="p-1">
+                                  <div className="px-2 py-1 text-sm font-semibold border-b border-gray-100 dark:border-gray-600 mb-1 bg-blue-50 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-t">
+                                    @Mention Team Member
+                                  </div>
+                                  {filteredMembers.length === 0 ? (
+                                    <div className="px-2 py-1 text-sm text-gray-500 dark:text-gray-400">No members found</div>
+                                  ) : (
+                                    filteredMembers.map((member, idx) => {
+                                      // const { displayName } = deriveDisplayFromEmail(member.email || '');
+                                      return (
+                                        <button
+                                          key={member.id || member.user_id}
+                                          className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded transition-colors ${idx === mentionActiveIndex ? 'bg-blue-100 dark:bg-blue-900/50' : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 active:bg-blue-100 dark:active:bg-blue-900/50'}`}
+                                          type="button"
+                                          onMouseDown={(e) => {
+                                            // Using onMouseDown instead of onClick to prevent focus issues
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleSelectMention(member.displayName);
+                                          }}
+                                        >
+                                          <Avatar className="h-5 w-5">
+                                            <AvatarFallback className="text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
+                                              {member.displayName.substring(0, 2).toUpperCase()}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="text-sm font-medium text-gray-900 dark:text-white">{member.displayName}</span>
+                                        </button>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              onClick={handleAddComment}
+                              size="sm"
+                              className="bg-tasksmate-gradient"
+                              disabled={!newComment.trim() || !bug?.is_editable}
+                            >
+                              <Send className="h-4 w-4 mr-2" />
+                              Comment
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Comments list */}
+                    <div className="space-y-4">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="flex space-x-3 group">
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Avatar className="w-8 h-8 border border-white">
+                                <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+                                  {(() => {
+                                    const creator = (comment.user_id || "") as string;
+                                    const { initials } = deriveDisplayFromEmail(creator || "u");
+                                    return initials || "U";
+                                  })()}
+                                </AvatarFallback>
+                              </Avatar>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="text-xs p-2">
+                              {(() => {
+                                const creator = (comment.user_id || "") as string;
+                                const { displayName } = deriveDisplayFromEmail(creator || "user");
+                                return displayName;
+                              })()}
+                            </HoverCardContent>
+                          </HoverCard>
+                          <div className="flex-1">
+                            {editingComment === comment.id ? (
+                              <div className="space-y-2">
+                                <div className="relative">
+                                  <Textarea
+                                    value={editCommentText}
+                                    onChange={(e) => setEditCommentText(e.target.value)}
+                                    placeholder="Edit your comment..."
+                                    className="min-h-20 resize-none"
+                                    disabled={!bug?.is_editable}
+                                  />
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Button size="sm" onClick={() => handleSaveEdit(comment.id)}
+                                    disabled={!bug?.is_editable || !editCommentText?.trim()}
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="text-sm text-gray-700 dark:text-gray-300">
+                                  <p className="whitespace-pre-wrap">
+                                    {renderCommentWithMentions(comment.content)}
+                                  </p>
+                                  {
+                                    (comment.updated_at || comment.created_at) &&
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                      <Clock className="h-3 w-3" />
+                                      {format(new Date(comment.updated_at || comment.created_at), 'MMM d, yyyy h:mm a')}
+                                      {comment.updated_at && comment.updated_at !== comment.created_at && (
+                                        <span className="text-xs text-gray-400 ml-1">(edited)</span>
+                                      )}
+
+                                    </p>
+                                  }
+
+                                </div>
+                                {(() => {
+                                  const creator = String(comment.user_id || "").toLowerCase();
+                                  const me = new Set([
+                                    String(user?.id || "").toLowerCase(),
+                                    String(user?.email || "").toLowerCase(),
+                                    String(user?.user_metadata?.username || "").toLowerCase(),
+                                  ]);
+                                  const canEdit = creator && me.has(creator);
+                                  return (
+                                    <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition-opacity">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => {
+                                          setEditingComment(comment.id);
+                                          setEditCommentText(comment.content);
+                                        }}
+                                        disabled={!canEdit || !bug?.is_editable}
+                                        title={canEdit ? "Edit" : "Only author can edit"}
+                                      >
+                                        <Edit className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                        onClick={() => handleDeleteComment(comment.id)}
+                                        disabled={!canEdit || !bug?.is_editable}
+                                        title={canEdit ? "Delete" : "Only author can delete"}
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Bug Properties */}
-            <Card>
+            <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
               <CardHeader>
                 <CardTitle className="text-lg">Bug Properties</CardTitle>
               </CardHeader>
@@ -1878,6 +1946,94 @@ const BugDetail = () => {
                 </Button> */}
               </CardContent>
             </Card>
+
+            {/* Dependencies */}
+            <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-sora flex items-center space-x-2 text-gray-900 dark:text-white">
+                    <Link2 className="h-4 w-4" />
+                    <span>Tasks ({dependencyDetails?.length ?? 0})</span>
+                  </CardTitle>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="micro-lift"
+                    onClick={() => handleConvertToTask()}
+                    disabled={!bug?.is_editable}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Task
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {dependencyDetails.map((dep: any) => {
+                  const depId = dep.task_id ?? dep.id;
+                  return (
+                    <div key={depId} className="flex flex-wrap items-start gap-2 p-3 rounded-lg bg-white/50 dark:bg-gray-700/50 micro-lift group border border-gray-200 dark:border-gray-600">
+                      {/* Toggle */}
+                      {/* <Button variant="ghost" size="sm" className="p-0 h-auto">
+                        {(dep.status ?? '') === 'completed' ? <CheckCircle className="h-5 w-5 text-tasksmate-green-end" /> : <Circle className="h-5 w-5 text-gray-400" />}
+                      </Button> */}
+
+                      {/* Task ID */}
+                      <CopyableIdBadge id={String(depId)} org_id={currentOrgId} isCompleted={(dep.status ?? '') === 'completed'} />
+
+                      {/* Owner, Status, Priority badges */}
+                      <Badge key='owner' variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
+                        {(() => {
+                          const { displayName } = deriveDisplayFromEmail((dep.assignee ?? '') as string);
+                          return `👤 ${displayName}`;
+                        })()}
+                      </Badge>
+                      <Badge key='status' variant="secondary" className={`text-xs ${getStatusMeta((dep.status || 'not_started') as any).color}`}>
+                        {getStatusMeta((dep.status || 'not_started') as any).label}
+                      </Badge>
+                      <Badge key='priority' variant="outline" className={`text-xs ${getPriorityColor(dep.priority ?? 'none')}`}>{(dep.priority ?? 'none').toUpperCase()}</Badge>
+
+                      {/* Project and Start date removed as requested */}
+                      <div className="inline-flex items-center gap-1">
+                        <span className="text-gray-600 text-xs">Due date:</span>
+                        <Badge key='due_date' variant="secondary" className="text-xs bg-rose-100 text-rose-800">
+                          {dep.due_date ? formatDate(dep.due_date) : '—'}
+                        </Badge>
+                      </div>
+
+                      {/* Created date removed as requested */}
+
+                      {/* Tags removed as requested */}
+
+                      {/* Actions to the far right */}
+                      <div className="ml-auto flex items-center gap-1">
+                        <Button key='open_task' variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
+                          const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        }}>
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      {/* Content Column */}
+                      <div className="flex flex-col min-w-0 basis-full w-full mt-1">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300 min-w-0">
+                          <span className="font-bold">Title :</span>
+                          <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer'}`}
+                            onClick={() => {
+                              const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            }}
+                          >
+                            {dep.title ?? dep.name}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+
           </div>
         </div>
       </div>
@@ -1888,7 +2044,7 @@ const BugDetail = () => {
           setInitialData(null)
           setIsNewTaskModalOpen(open)
         }}
-        onTaskCreated={() => setInitialData(null)}
+        onTaskCreated={() => { setInitialData(null); refetchDependencies(); }}
         defaultTags={[bug?.id]}
         isConvertingFromBug={true}
         projectName={bug?.project_name}

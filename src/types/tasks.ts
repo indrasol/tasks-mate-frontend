@@ -15,6 +15,9 @@ export interface Task {
   createdDate?: string;
   projectId?: string;
   is_editable?: boolean;
+  dependencies?: string[];
+  bug_id?: string;
+  tracker_id?: string;
 }
 
 export interface BackendTask {
@@ -31,6 +34,9 @@ export interface BackendTask {
   tags?: string[];
   created_by?: string;
   created_at?: string;
+  dependencies?: string[];
+  bug_id?: string;
+  tracker_id?: string;
 }
 
 export interface TaskCreateInitialData {

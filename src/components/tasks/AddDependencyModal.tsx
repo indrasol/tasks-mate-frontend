@@ -151,7 +151,7 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
             Search and select an existing task to add as a dependency.
           </DialogDescription>
         </DialogHeader>
-
+        
         <div className="flex flex-col flex-1 min-h-0 space-y-4">
           {/* Search Input */}
           <div className="relative flex-shrink-0">
@@ -261,6 +261,7 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
               </div>
             </ScrollArea>
           </div>
+        </div>
 
           {/* Footer */}
           <div className="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
@@ -283,4 +284,3 @@ const AddDependencyModal = ({ open, onOpenChange, onDependencyAdded, excludeIds 
 };
 
 export default AddDependencyModal;
-

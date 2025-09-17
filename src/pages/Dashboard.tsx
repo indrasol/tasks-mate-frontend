@@ -1128,7 +1128,7 @@ const Dashboard = () => {
 
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => handleEmptyStateAction('/tasks_catalog')}>
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => handleEmptyStateAction('/tasks_catalog')}>
                     <CardContent className="p-6 space-y-3">
                       <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Total Tasks</p>
                       <div className="flex items-center justify-between">
@@ -1140,7 +1140,7 @@ const Dashboard = () => {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=in_progress,planning`)}>
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=in_progress,planning`)}>
                     <CardContent className="p-6 space-y-3">
                       <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1 font-medium whitespace-nowrap">Active Projects <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400 dark:text-gray-500" /></span></p>
                       <div className="flex items-center justify-between">
@@ -1153,7 +1153,7 @@ const Dashboard = () => {
                   </Card>
 
                   {/* Completed Projects KPI */}
-                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=completed`)}>
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=completed`)}>
                     <CardContent className="p-6 space-y-3">
                       <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Completed Projects</p>
                       <div className="flex items-center justify-between">
@@ -1166,7 +1166,7 @@ const Dashboard = () => {
                   </Card>
 
                   {/* Blocked Projects KPI */}
-                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=blocked`)}>
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=blocked`)}>
                     <CardContent className="p-6 space-y-3">
                       <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Blocked Projects</p>
                       <div className="flex items-center justify-between">
@@ -1178,7 +1178,7 @@ const Dashboard = () => {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate" onClick={() => handleEmptyStateAction(`/team-members`)}>
+                  <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => handleEmptyStateAction(`/team-members`)}>
                     <CardContent className="p-6 space-y-3">
                       <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Team Members</p>
                       <div className="flex items-center justify-between">
