@@ -116,16 +116,16 @@ const Reports = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <MainNavigation />
 
       <div className="ml-64 transition-all duration-300">
         {/* Page Header */}
-        <div className="px-6 py-6 bg-white/50 border-b border-gray-200">
+        <div className="px-6 py-6 bg-white/50 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-600">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div>
-              <h1 className="font-sora font-bold text-2xl text-gray-900 mb-2">Reports & Analytics</h1>
-              <p className="text-gray-600">Comprehensive insights into your projects, tasks, and meetings</p>
+              <h1 className="font-sora font-bold text-2xl text-gray-900 dark:text-gray-100 mb-2">Reports & Analytics</h1>
+              <p className="text-gray-600 dark:text-gray-300">Comprehensive insights into your projects, tasks, and meetings</p>
             </div>
             <div className="flex items-center space-x-2">
               <Button 
@@ -159,73 +159,73 @@ const Reports = () => {
             
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Total Tasks</p>
-                      <p className="text-2xl font-bold text-gray-900">247</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Total Tasks</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">247</p>
                       <div className="flex items-center mt-1">
                         <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-600 ml-1">+12% vs last month</span>
+                        <span className="text-sm text-green-600 dark:text-green-400 ml-1">+12% vs last month</span>
                       </div>
                     </div>
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-blue-600" />
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Active Projects</p>
-                      <p className="text-2xl font-bold text-gray-900">12</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Active Projects</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">12</p>
                       <div className="flex items-center mt-1">
                         <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-600 ml-1">+2 new projects</span>
+                        <span className="text-sm text-green-600 dark:text-green-400 ml-1">+2 new projects</span>
                       </div>
                     </div>
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <FolderOpen className="w-6 h-6 text-green-600" />
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/50 rounded-lg flex items-center justify-center">
+                      <FolderOpen className="w-6 h-6 text-green-600 dark:text-green-400" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Team Members</p>
-                      <p className="text-2xl font-bold text-gray-900">24</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Team Members</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">24</p>
                       <div className="flex items-center mt-1">
                         <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-600 ml-1">89% avg efficiency</span>
+                        <span className="text-sm text-green-600 dark:text-green-400 ml-1">89% avg efficiency</span>
                       </div>
                     </div>
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-6 h-6 text-purple-600" />
+                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center">
+                      <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Meeting Books</p>
-                      <p className="text-2xl font-bold text-gray-900">156</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Meeting Books</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">156</p>
                       <div className="flex items-center mt-1">
                         <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-600 ml-1">+8 this week</span>
+                        <span className="text-sm text-green-600 dark:text-green-400 ml-1">+8 this week</span>
                       </div>
                     </div>
-                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                      <BookOpen className="w-6 h-6 text-yellow-600" />
+                    <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg flex items-center justify-center">
+                      <BookOpen className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
                     </div>
                   </div>
                 </CardContent>
@@ -235,7 +235,7 @@ const Reports = () => {
             {/* Charts Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Task Completion Trends */}
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="w-5 h-5" />
@@ -243,7 +243,7 @@ const Reports = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
+                  <div className="h-[500px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={taskCompletionData}>
                         <CartesianGrid strokeDasharray="3 3" />
@@ -260,7 +260,7 @@ const Reports = () => {
               </Card>
 
               {/* Project Status Distribution */}
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <PieChartIcon className="w-5 h-5" />
@@ -268,7 +268,7 @@ const Reports = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
+                  <div className="h-[500px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -295,7 +295,7 @@ const Reports = () => {
             {/* Charts Row 2 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Meeting Books Analytics */}
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BookOpen className="w-5 h-5" />
@@ -303,7 +303,7 @@ const Reports = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
+                  <div className="h-[500px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={meetingData}>
                         <CartesianGrid strokeDasharray="3 3" />
@@ -321,7 +321,7 @@ const Reports = () => {
               </Card>
 
               {/* Team Productivity */}
-              <Card className="glass border-0 shadow-tasksmate">
+              <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="w-5 h-5" />
@@ -334,10 +334,10 @@ const Reports = () => {
                       <div key={index} className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium">{member.name}</span>
-                            <span className="text-sm text-gray-600">{member.tasksCompleted} tasks</span>
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{member.name}</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{member.tasksCompleted} tasks</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                             <div 
                               className="bg-tasksmate-gradient h-2 rounded-full transition-all duration-300"
                               style={{ width: `${member.efficiency}%` }}
@@ -363,7 +363,7 @@ const Reports = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
+                <div className="h-[500px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={projectProgressData} layout="horizontal">
                       <CartesianGrid strokeDasharray="3 3" />
@@ -399,20 +399,20 @@ const Reports = () => {
                   <TableBody>
                     {topProjects.map((project, index) => (
                       <TableRow key={index}>
-                        <TableCell className="font-medium">{project.name}</TableCell>
+                        <TableCell className="font-medium text-gray-900 dark:text-gray-100">{project.name}</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <div className="w-full bg-gray-200 rounded-full h-2 max-w-[100px]">
+                            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 max-w-[100px]">
                               <div 
                                 className="bg-tasksmate-gradient h-2 rounded-full"
                                 style={{ width: `${project.progress}%` }}
                               ></div>
                             </div>
-                            <span className="text-sm text-gray-600">{project.progress}%</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{project.progress}%</span>
                           </div>
                         </TableCell>
-                        <TableCell>{project.tasks} total</TableCell>
-                        <TableCell>{project.team} members</TableCell>
+                        <TableCell className="text-gray-900 dark:text-gray-100">{project.tasks} total</TableCell>
+                        <TableCell className="text-gray-900 dark:text-gray-100">{project.team} members</TableCell>
                         <TableCell>
                           <Badge 
                             className={
