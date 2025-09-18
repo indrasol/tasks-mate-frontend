@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { useAvatar } from '@/services/AvatarContext';
 import {
+  Activity,
   ArrowLeft,
   Bug,
   Building2,
@@ -187,7 +188,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       { name: 'Bug Tracker', path: '/tester-zone', icon: Bug },
       { name: 'Scratchpad', path: '/scratchpad', icon: Edit3 },
       { name: 'Members', path: '/team-members', icon: Users },
-      { name: 'Reports', path: '/org-reports', icon: BarChart2 },
+      { name: 'Pulse', path: '/org-reports', icon: Activity },
       { name: 'Settings', path: '/settings', icon: Settings },
       { name: 'Feedback', path: '/feedback', icon: MessageSquare },      
     ];
