@@ -78,7 +78,12 @@ const TasksCatalog = () => {
   // Handle authentication and loading BEFORE any other hooks
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/');
+      navigate('/', {
+                      state: {
+                          redirectTo: location.pathname + location.search
+                      },
+                      replace: true
+                  });
     }
   }, [user, loading, navigate]);
 

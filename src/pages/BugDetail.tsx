@@ -31,6 +31,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 import { taskService } from "@/services/taskService";
 import AddDependencyModal from '@/components/tasks/AddDependencyModal';
+import { Input } from '@/components/ui/input';
 
 interface BugComment {
   id: string;
@@ -386,6 +387,34 @@ const BugDetail = () => {
       });
     }
   };
+
+  // Mutation for updating description
+  const updateBugTitle = useMutation({
+    mutationFn: async ({ title }: { title: string }) => {
+      toast({
+        title: "Updating title",
+        description: "Please wait...",
+      });
+      const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}`, { title });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bug', bugId] });
+      toast({
+        title: "Success",
+        description: "Bug title updated successfully!",
+        variant: "default"
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating bug title:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update bug title. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
 
   // Mutation for updating description
   const updateBugDescription = useMutation({
@@ -1454,9 +1483,56 @@ const BugDetail = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white font-sora mb-2">
+              {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white font-sora mb-2">
                 {bug?.title}
-              </h1>
+              </h1> */}
+
+              {/* Title */}
+              <div className="mt-2 flex items-start gap-2">
+                {isTitleEditing ? (
+                  <div className="flex items-center gap-2 w-full">
+                    <Input
+                      value={bugName}
+                      onChange={(e) => setBugName(e.target.value)}
+                      className={`text-2xl font-sora font-bold border bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${status === 'completed' ? 'line-through text-gray-400' : ''}`}
+                    />
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 ml-2"
+                        onClick={async () => {
+                          updateBugTitle.mutate({ title: bugName });
+                          setIsTitleEditing(false);                          
+                        }}
+                        title="Save title"
+                      >
+                        <Save className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={async () => {
+                          setBugName(bug?.title);
+                          setIsTitleEditing(false);
+                        }}
+                        title="Cancel"
+                      >
+                        <X className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </>
+                  </div>
+                ) : (
+                  <>
+                    <span className={`text-2xl font-sora font-bold ${status === 'completed' ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>{bugName}</span>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsTitleEditing(true)} disabled={!bug?.is_editable}>
+                      <Pencil className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  </>
+                )}
+              </div>
+
               <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                 <span className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
@@ -1518,6 +1594,7 @@ const BugDetail = () => {
                         size="sm"
                         className="h-6 w-6 p-0"
                         onClick={() => {
+                          setDescription(bug?.description);
                           setIsDescriptionEditing(false);
                         }}
                         title="Cancel"
@@ -1586,6 +1663,7 @@ const BugDetail = () => {
                         size="sm"
                         className="h-6 w-6 p-0"
                         onClick={() => {
+                          setRecreateGuide(bug?.recreate_guide);
                           setIsRecreateGuideEditing(false);
                         }}
                         title="Cancel"

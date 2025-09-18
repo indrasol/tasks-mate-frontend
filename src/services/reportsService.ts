@@ -16,3 +16,7 @@ export type ReportsFilters = {
 export async function fetchOrgReports(payload: { filters: ReportsFilters }) {
     return api.post(`${API_ENDPOINTS.REPORTS}/org?org_id=${encodeURIComponent(payload.filters.org_id)}`, payload);  
 }
+
+export async function fetchOrgTimesheets(payload: { filters: ReportsFilters }) {
+    return api.post(`${API_ENDPOINTS.REPORTS}/timesheets?org_id=${encodeURIComponent(payload.filters.org_id)}`, payload);
+}

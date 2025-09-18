@@ -46,7 +46,12 @@ const TestRunDetail = ({
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/');
+      navigate('/', {
+                      state: {
+                          redirectTo: location.pathname + location.search
+                      },
+                      replace: true
+                  });
     }
   }, [user, loading, navigate]);
 
