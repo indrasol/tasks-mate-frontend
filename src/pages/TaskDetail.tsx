@@ -1498,6 +1498,7 @@ const TaskDetail = () => {
                             size="sm"
                             className="h-6 w-6 p-0"
                             onClick={async () => {
+                              setTaskName(task?.title);
                               setIsTitleEditing(false);
                             }}
                             title="Cancel"
@@ -1514,7 +1515,7 @@ const TaskDetail = () => {
                         </Button>
                       </>
                     )}
-                  </div>
+                  </div>                
 
                 </div>
 
@@ -1571,6 +1572,7 @@ const TaskDetail = () => {
                                 size="sm"
                                 className="h-6 w-6 p-0"
                                 onClick={async () => {
+                                  setDescription(task?.description);
                                   setIsDescriptionEditing(false);
                                 }}
                                 title="Cancel"
