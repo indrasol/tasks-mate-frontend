@@ -58,11 +58,7 @@ const TeamMembers = () => {
   const [hasMoreOwners, setHasMoreOwners] = useState(false);
 
 
-  useEffect(() => {
-    const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
-    window.addEventListener('sidebar-toggle', handler);
-    return () => window.removeEventListener('sidebar-toggle', handler);
-  }, []);
+  
 
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -71,6 +67,17 @@ const TeamMembers = () => {
   const { data: currentOrganization } = useCurrentOrganization(orgId);
 
   // console.log(currentOrganization,'currentOrganization');
+
+  // Sync with sidebar collapse/expand events
+    useEffect(() => {
+      const handler = (e: any) => setSidebarCollapsed(e.detail.collapsed);
+      window.addEventListener('sidebar-toggle', handler);
+      // Initialise based on current CSS var set by MainNavigation
+      setSidebarCollapsed(
+        getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '4rem'
+      );
+      return () => window.removeEventListener('sidebar-toggle', handler);
+    }, []);
 
   useEffect(() => {
     if (user && orgId) {
@@ -505,10 +512,10 @@ const TeamMembers = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <MainNavigation />
 
-      <div className="flex-1 transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
+      <div className="transition-all duration-300" style={{ marginLeft: sidebarCollapsed ? '4rem' : '16rem' }}>
         <div className="w-full px-6 py-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Team Members</h1>

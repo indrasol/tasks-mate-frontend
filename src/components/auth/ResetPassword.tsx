@@ -43,7 +43,7 @@ export default function ResetPassword() {
             // navigate("/");
         }
 
-        if(emailVal) {
+        if (emailVal) {
             setEmail(emailVal);
         }
     }, []);

@@ -97,7 +97,12 @@ const Dashboard = () => {
 
   React.useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/');
+      navigate('/', {
+        state: {
+            redirectTo: location.pathname + location.search
+        },
+        replace: true
+    });
     }
   }, [user, authLoading, navigate]);
 
