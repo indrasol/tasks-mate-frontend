@@ -19,10 +19,21 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/services/apiService';
-import { CalendarRange, Filter, FolderOpen, Loader2, RefreshCw, Users } from 'lucide-react';
+import { CalendarRange, Filter, FolderOpen, Loader2, RefreshCw, Users, Search, X, Plus, Clock, CheckCircle, AlertTriangle, Calendar, Timer } from 'lucide-react';
 
 const TASK_STATUSES = ['not_started', 'in_progress', 'blocked', 'on_hold', 'completed'];
 const TASK_PRIORITIES = ['critical', 'high', 'medium', 'low', 'none'];
@@ -98,7 +109,7 @@ const ProjectHoverCard = ({ project, orgId, orgMembers }: {
             <FolderOpen className="w-4 h-4 text-gray-500" />
             <h4 className="font-semibold text-sm">{project?.project_name}</h4>
           </div>
-          <CopyableIdBadge id={project?.project_id} org_id={orgId} copyLabel="Project" className="text-xs" />
+          <CopyableIdBadge id={project?.project_id} org_id={orgId} copyLabel="Project" className="text-xs bg-blue-600 hover:bg-blue-700 text-white" />
         </div>
 
         {/* <div className="flex items-center justify-between">
@@ -138,19 +149,26 @@ const ProjectHoverCard = ({ project, orgId, orgMembers }: {
 
 const OrgReports: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const orgId = useMemo(() => searchParams.get('org_id') || '', [searchParams]);
-
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const currentOrgId = useCurrentOrgId();
+  
+  // Use currentOrgId as fallback if orgId is not in URL
+  const orgId = useMemo(() => {
+    const urlOrgId = searchParams.get('org_id');
+    return urlOrgId || currentOrgId || '';
+  }, [searchParams, currentOrgId]);
 
-  // Handle authentication and loading BEFORE any other hooks
+  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
+
+  // Handle authentication and loading
   useEffect(() => {
     if (!loading && !user) {
       navigate('/');
     }
   }, [user, loading, navigate]);
 
-  // Early returns AFTER useEffect but BEFORE other hooks
+  // Early returns AFTER all hooks
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -162,17 +180,24 @@ const OrgReports: React.FC = () => {
   if (!user) {
     return null;
   }
-
-  const currentOrgId = useCurrentOrgId();
-  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
-  const orgMembers: BackendOrgMember[] = useMemo(() => (orgMembersRaw?.map((m: any) => ({
+  
+  const orgMembers: BackendOrgMember[] = useMemo(() => {
+    try {
+      if (!orgMembersRaw) return [];
+      
+      return orgMembersRaw.map((m: any) => ({
     ...m,
     name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
   })).map((m: any) => ({
     ...m,
     displayName: deriveDisplayFromEmail(m.name).displayName,
     initials: deriveDisplayFromEmail(m.name).initials,
-  })) ?? []) as BackendOrgMember[], [orgMembersRaw]);
+      })) as BackendOrgMember[];
+    } catch (error) {
+      console.error('Error processing orgMembers:', error);
+      return [];
+    }
+  }, [orgMembersRaw]);
 
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const fetchProjects = async () => {
@@ -202,6 +227,203 @@ const OrgReports: React.FC = () => {
   const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
   const [projectSort, setProjectSort] = useState<'name_asc' | 'name_desc' | 'members_desc' | 'id_asc' | 'id_desc'>('name_asc');
   const [memberSort, setMemberSort] = useState<'name_asc' | 'name_desc'>('name_asc');
+  const [activeTab, setActiveTab] = useState<'reports' | 'timesheets'>('reports');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  // Timesheets state
+  const [timesheetSearchQuery, setTimesheetSearchQuery] = useState('');
+  const [timesheetDateRange, setTimesheetDateRange] = useState<DateRange | undefined>(undefined);
+  const [tempTimesheetDateRange, setTempTimesheetDateRange] = useState<DateRange | undefined>(undefined);
+  const [isTimesheetDatePopoverOpen, setIsTimesheetDatePopoverOpen] = useState(false);
+  const [selectedTimesheetUsers, setSelectedTimesheetUsers] = useState<string[]>([]);
+  const [selectedTimesheetProjects, setSelectedTimesheetProjects] = useState<string[]>([]);
+  const [isAddEntryModalOpen, setIsAddEntryModalOpen] = useState(false);
+  const [selectedUserForEntry, setSelectedUserForEntry] = useState<string>('');
+
+  // Dummy timesheet data
+  const dummyTimesheetData = useMemo(() => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const twoDaysAgo = new Date(today);
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+    return {
+      users: [
+        {
+          user_id: 'user1',
+          name: 'Alice Johnson',
+          email: 'alice@company.com',
+          avatar_initials: 'AJ',
+          role: 'developer',
+          designation: 'Senior Frontend Developer',
+          total_hours_today: 7.5,
+          total_hours_week: 35.5,
+          in_progress: [
+            {
+              id: 'task1',
+              title: 'Implement user authentication flow',
+              project: 'TasksMate Frontend',
+              project_id: 'proj1',
+              hours_logged: 3.5,
+              status: 'in_progress',
+              priority: 'high',
+              started_at: '09:00',
+              description: 'Working on OAuth integration and token management'
+            },
+            {
+              id: 'task2',
+              title: 'Fix responsive design issues',
+              project: 'TasksMate Frontend',
+              project_id: 'proj1',
+              hours_logged: 2.0,
+              status: 'in_progress',
+              priority: 'medium',
+              started_at: '14:30',
+              description: 'Mobile layout adjustments for dashboard'
+            }
+          ],
+          completed: [
+            {
+              id: 'task3',
+              title: 'Code review for payment module',
+              project: 'E-commerce Platform',
+              project_id: 'proj2',
+              hours_logged: 1.5,
+              status: 'completed',
+              priority: 'medium',
+              completed_at: '11:30',
+              description: 'Reviewed and approved PR #234'
+            },
+            {
+              id: 'task4',
+              title: 'Update API documentation',
+              project: 'TasksMate Backend',
+              project_id: 'proj3',
+              hours_logged: 0.5,
+              status: 'completed',
+              priority: 'low',
+              completed_at: '16:00',
+              description: 'Added new endpoints documentation'
+            }
+          ],
+          blockers: [
+            {
+              id: 'task5',
+              title: 'Database migration script',
+              project: 'TasksMate Backend',
+              project_id: 'proj3',
+              hours_logged: 0,
+              status: 'blocked',
+              priority: 'critical',
+              blocked_reason: 'Waiting for DBA approval',
+              blocked_since: '10:00',
+              description: 'Migration script ready but needs database admin review'
+            }
+          ]
+        },
+        {
+          user_id: 'user2',
+          name: 'Bob Smith',
+          email: 'bob@company.com',
+          avatar_initials: 'BS',
+          role: 'designer',
+          designation: 'UI/UX Designer',
+          total_hours_today: 8.0,
+          total_hours_week: 40.0,
+          in_progress: [
+            {
+              id: 'task6',
+              title: 'Design new dashboard layout',
+              project: 'TasksMate Frontend',
+              project_id: 'proj1',
+              hours_logged: 4.0,
+              status: 'in_progress',
+              priority: 'high',
+              started_at: '09:30',
+              description: 'Creating wireframes and mockups for v2.0 dashboard'
+            }
+          ],
+          completed: [
+            {
+              id: 'task7',
+              title: 'User research analysis',
+              project: 'TasksMate Frontend',
+              project_id: 'proj1',
+              hours_logged: 2.5,
+              status: 'completed',
+              priority: 'medium',
+              completed_at: '12:00',
+              description: 'Analyzed user feedback and created improvement recommendations'
+            },
+            {
+              id: 'task8',
+              title: 'Icon set optimization',
+              project: 'Design System',
+              project_id: 'proj4',
+              hours_logged: 1.5,
+              status: 'completed',
+              priority: 'low',
+              completed_at: '15:30',
+              description: 'Optimized SVG icons for better performance'
+            }
+          ],
+          blockers: []
+        },
+        {
+          user_id: 'user3',
+          name: 'Carol Davis',
+          email: 'carol@company.com',
+          avatar_initials: 'CD',
+          role: 'developer',
+          designation: 'Backend Developer',
+          total_hours_today: 6.5,
+          total_hours_week: 32.5,
+          in_progress: [
+            {
+              id: 'task9',
+              title: 'API performance optimization',
+              project: 'TasksMate Backend',
+              project_id: 'proj3',
+              hours_logged: 5.0,
+              status: 'in_progress',
+              priority: 'high',
+              started_at: '08:00',
+              description: 'Optimizing database queries and adding caching layer'
+            }
+          ],
+          completed: [
+            {
+              id: 'task10',
+              title: 'Fix security vulnerabilities',
+              project: 'TasksMate Backend',
+              project_id: 'proj3',
+              hours_logged: 1.5,
+              status: 'completed',
+              priority: 'critical',
+              completed_at: '17:00',
+              description: 'Patched SQL injection vulnerabilities in user module'
+            }
+          ],
+          blockers: [
+            {
+              id: 'task11',
+              title: 'Third-party integration',
+              project: 'E-commerce Platform',
+              project_id: 'proj2',
+              hours_logged: 0,
+              status: 'blocked',
+              priority: 'medium',
+              blocked_reason: 'Waiting for API keys from vendor',
+              blocked_since: '14:00',
+              description: 'Integration with payment gateway pending vendor approval'
+            }
+          ]
+        }
+      ]
+    };
+  }, []);
 
   const now = new Date();
   const defaultFrom = useMemo(() => {
@@ -274,6 +496,60 @@ const OrgReports: React.FC = () => {
     setTempDateRange(undefined);
   };
 
+  const clearTimesheetFilters = () => {
+    setSelectedTimesheetUsers([]);
+    setSelectedTimesheetProjects([]);
+    setTimesheetDateRange(undefined);
+    setTempTimesheetDateRange(undefined);
+    setTimesheetSearchQuery('');
+  };
+
+  const filteredTimesheetUsers = useMemo(() => {
+    // If no filters are applied, return all users
+    if (!timesheetSearchQuery && selectedTimesheetUsers.length === 0 && selectedTimesheetProjects.length === 0) {
+      return dummyTimesheetData.users;
+    }
+    
+    return dummyTimesheetData.users.filter(user => {
+      // Search filter
+      if (timesheetSearchQuery) {
+        const query = timesheetSearchQuery.toLowerCase();
+        const matchesName = user.name.toLowerCase().includes(query);
+        const matchesEmail = user.email.toLowerCase().includes(query);
+        const matchesRole = user.role.toLowerCase().includes(query);
+        const matchesDesignation = user.designation.toLowerCase().includes(query);
+        if (!matchesName && !matchesEmail && !matchesRole && !matchesDesignation) return false;
+      }
+
+      // User filter
+      if (selectedTimesheetUsers.length > 0 && !selectedTimesheetUsers.includes(user.user_id)) {
+        return false;
+      }
+
+      // Project filter
+      if (selectedTimesheetProjects.length > 0) {
+        const userProjects = [
+          ...user.in_progress.map(t => t.project_id),
+          ...user.completed.map(t => t.project_id),
+          ...user.blockers.map(t => t.project_id)
+        ];
+        const hasMatchingProject = selectedTimesheetProjects.some(projId => userProjects.includes(projId));
+        if (!hasMatchingProject) return false;
+      }
+
+      return true;
+    });
+  }, [dummyTimesheetData.users, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetProjects]);
+
+  const getTaskIcon = (status: string) => {
+    switch (status) {
+      case 'in_progress': return <Clock className="w-4 h-4 text-blue-500" />;
+      case 'completed': return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'blocked': return <AlertTriangle className="w-4 h-4 text-red-500" />;
+      default: return <Clock className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
   const { data: report, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['reports', filters],
     enabled: !!orgId,
@@ -291,9 +567,12 @@ const OrgReports: React.FC = () => {
   const onExportCSV = () => {
     if (!report) return;
     const rows: string[] = [];
-    rows.push(['project_id', 'project_name', 'user_id', 'email', 'role', 'designation', 'category', 'key', 'count'].join(','));
+    rows.push(['project_id', 'project_name', 'user_name', 'email', 'role', 'designation', 'category', 'key', 'count'].join(','));
     for (const proj of (report as any)?.projects || []) {
       for (const m of (proj as any)?.members || []) {
+        // Get user display name from userDisplayMap or derive from email
+        const userName = userDisplayMap[m.user_id]?.displayName || deriveDisplayFromEmail(m.email || m.user_id).displayName;
+        
         const catMaps = [
           ['tasks_by_status', m.tasks_by_status],
           ['tasks_by_priority', m.tasks_by_priority],
@@ -306,7 +585,7 @@ const OrgReports: React.FC = () => {
             rows.push([
               proj.project_id,
               JSON.stringify(proj.project_name ?? ''),
-              m.user_id,
+              JSON.stringify(userName),
               JSON.stringify(m.email ?? ''),
               JSON.stringify(m.role ?? ''),
               JSON.stringify(m.designation ?? ''),
@@ -365,8 +644,10 @@ const OrgReports: React.FC = () => {
     );
   };
 
+
+  try {
   return (
-    <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
       <style>
         {`
         .thin-scroll {
@@ -387,18 +668,72 @@ const OrgReports: React.FC = () => {
         `}
       </style>
       <MainNavigation />
-      <div className="ml-[var(--sidebar-width,16rem)] w-full p-4 h-full overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold">Reports</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={onExportCSV} disabled={!report || isFetching}>Export CSV</Button>
-            <Button variant="outline" onClick={onExportJSON} disabled={!report || isFetching}>Export JSON</Button>
-            <Button variant="outline" onClick={clearFilters} title="Clear all filters">Clear</Button>
-            <Button onClick={() => refetch()} disabled={isFetching}>Run</Button>
-          </div>
+      <div className="ml-64 w-full p-4 h-full overflow-hidden flex flex-col bg-white dark:bg-gray-900">
+        {/* Header Section */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Pulse</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Insights into your organization's performance and team activity</p>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 h-full overflow-hidden">
+        <Tabs value={activeTab} onValueChange={v => setActiveTab(v as any)} className="flex flex-col flex-1 overflow-hidden">
+          {/* Tabs for Reports / Timesheets */}
+          <div className="px-0 pb-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                <TabsList>
+                  <TabsTrigger value="reports">Reports</TabsTrigger>
+                  <TabsTrigger value="timesheets">Timesheets</TabsTrigger>
+                </TabsList>
+                
+                {/* Search Bar - Always Expanded */}
+                <div className="flex items-center">
+                  <div className={`relative transition-all duration-300 ease-out ${
+                    isSearchFocused ? 'w-80' : 'w-64'
+                  }`}>
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search projects, members..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => setIsSearchFocused(true)}
+                      onBlur={() => setIsSearchFocused(false)}
+                      className={`w-full pl-10 pr-10 py-2 border rounded-lg text-sm transition-all duration-300 ease-out ${
+                        isSearchFocused 
+                          ? 'border-blue-500 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/20' 
+                          : 'border-gray-300 hover:border-gray-400 focus:outline-none'
+                      }`}
+                    />
+                    {searchQuery && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-1 top-1/2 transform -translate-y-1/2 w-8 h-8 p-0 rounded-full hover:bg-gray-100 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={onExportCSV} disabled={!report || isFetching} size="sm">
+                  Export CSV
+                </Button>
+                <Button variant="outline" onClick={onExportJSON} disabled={!report || isFetching} size="sm">
+                  Export JSON
+                </Button>
+                <Button onClick={() => refetch()} disabled={isFetching} size="sm">
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+          </div>
+          <TabsContent value="reports" className="flex flex-col md:flex-row gap-4 flex-1 overflow-hidden mt-0 h-0 min-h-full">
           {/* Filters Pane */}
           <div className="flex flex-col gap-4 smooth-transition">
             {!isFiltersPaneOpen && (<Button
@@ -414,17 +749,28 @@ const OrgReports: React.FC = () => {
 
             {isFiltersPaneOpen && (
               <div className="md:w-72 md:flex-shrink-0 smooth-transition">
-                <Card className="p-4 sticky top-4 space-y-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsFiltersPaneOpen(!isFiltersPaneOpen)}
-                    className="w-fit"
-                    title="Hide Filters"
-                  >
-                    <Filter className="w-4 h-4 mr-2" />
-                    {isFiltersPaneOpen ? 'Hide Filters' : 'Show Filters'}
-                  </Button>
+                <Card className="p-4 sticky top-4 space-y-4 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsFiltersPaneOpen(!isFiltersPaneOpen)}
+                      className="w-fit"
+                      title="Hide Filters"
+                    >
+                      <Filter className="w-4 h-4 mr-2" />
+                      Hide Filters
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={clearFilters} 
+                      title="Clear all filters"
+                      className="w-fit"
+                    >
+                      Clear
+                    </Button>
+                  </div>
                   {/* Date Range */}
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium">Date Range</div>
@@ -632,11 +978,11 @@ const OrgReports: React.FC = () => {
 
           {/* Results Pane */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <Card className="h-full">
+            <Card className="h-full flex flex-col bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
               {/* <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Organization Reports</CardTitle>
               </CardHeader> */}
-              <CardContent className="p-0 h-full overflow-y-auto">
+              <CardContent className="p-0 flex-1 overflow-hidden">
                 {isFetching && (
                   <div className="flex items-center justify-center py-10 text-gray-500">
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -690,10 +1036,21 @@ const OrgReports: React.FC = () => {
                 </div> */}
 
                 {/* Side-by-side grid layout for projects */}
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto h-full">
 
-                  <div className="flex flex-row gap-4 p-4 min-w-max w-full">
+                  <div className="flex flex-row gap-4 p-4 pb-8 min-w-max w-full h-full">
                     {([...((report as any)?.projects ?? [])] as any[])
+                      .filter((proj: any) => {
+                        if (!searchQuery) return true;
+                        const query = searchQuery.toLowerCase();
+                        // Search in project name
+                        if (String(proj.project_name || '').toLowerCase().includes(query)) return true;
+                        // Search in project members
+                        return proj.members?.some((m: any) => {
+                          const memberName = deriveDisplayFromEmail(m.email || m.user_id).displayName.toLowerCase();
+                          return memberName.includes(query) || (m.email || '').toLowerCase().includes(query);
+                        });
+                      })
                       .sort((a, b) => {
                         if (projectSort === 'name_asc') return String(a.project_name || '').localeCompare(String(b.project_name || ''));
                         if (projectSort === 'name_desc') return String(b.project_name || '').localeCompare(String(a.project_name || ''));
@@ -703,7 +1060,7 @@ const OrgReports: React.FC = () => {
                         return 0;
                       })
                       .map((proj: any) => (
-                        <Card key={proj.project_id} className="p-4 space-y-4 w-auto">
+                        <Card key={proj.project_id} className="p-4 space-y-4 w-auto flex flex-col bg-gradient-to-br from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-slate-200 dark:border-gray-600" style={{ height: 'calc(100% - 2rem)' }}>
                           <div className="flex items-center justify-between">
                             <HoverCard>
                               <HoverCardTrigger asChild>
@@ -713,8 +1070,8 @@ const OrgReports: React.FC = () => {
                                     window.open(navUrl, '_blank', 'noopener noreferrer');
                                   }}
                                 >
-                                  <FolderOpen className="w-4 h-4 text-gray-500" />
-                                  <h3 className="font-semibold text-lg break-words">{proj.project_name}</h3>
+                                  <FolderOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                  <h3 className="font-semibold text-lg break-words text-gray-900 dark:text-gray-100">{proj.project_name}</h3>
                                 </div>
                               </HoverCardTrigger>
                               <ProjectHoverCard project={proj} orgId={orgId} orgMembers={orgMembers} />
@@ -760,10 +1117,10 @@ const OrgReports: React.FC = () => {
                               </div>
                             </div> */}
 
-                            <CopyableIdBadge id={proj.project_id} org_id={orgId} copyLabel="Project" />
+                            <CopyableIdBadge id={proj.project_id} org_id={orgId} copyLabel="Project" className="bg-blue-600 hover:bg-blue-700 text-white" />
                           </div>
 
-                          <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1 thin-scroll scroll-smooth">
+                          <div className="space-y-3 flex-1 overflow-y-auto pr-1 thin-scroll scroll-smooth">
                             {([...((proj as any)?.members ?? [])] as any[])
                               .sort((a, b) => {
                                 const nameA = deriveDisplayFromEmail(a.email || a.user_id).displayName;
@@ -771,7 +1128,7 @@ const OrgReports: React.FC = () => {
                                 return memberSort === 'name_asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
                               })
                               .map((m: any) => (
-                                <Card key={m.user_id} className="p-3 bg-gray-50">
+                                <Card key={m.user_id} className="p-3 bg-white/70 dark:bg-gray-700/50 border-slate-200/50 dark:border-gray-600/50">
                                   <div className="flex items-center gap-3 mb-3">
                                     <Avatar className="w-8 h-8">
                                       <AvatarFallback className="text-sm">
@@ -779,10 +1136,10 @@ const OrgReports: React.FC = () => {
                                       </AvatarFallback>
                                     </Avatar>
                                     <div className="flex-1 min-w-0">
-                                      <div className="text-sm font-semibold break-words">
+                                      <div className="text-sm font-semibold break-words text-gray-900 dark:text-gray-100">
                                         {deriveDisplayFromEmail(m.email || m.user_id).displayName}
                                       </div>
-                                      <div className="text-xs text-gray-500">
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">
                                         {capitalizeFirstLetter(m.role)} {m.designation ? `• ${m.designation}` : ''}
                                       </div>
                                     </div>
@@ -790,60 +1147,60 @@ const OrgReports: React.FC = () => {
 
                                   <div className="grid grid-cols-2 gap-3 mb-3">
                                     <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700">Tasks by Status</div>
+                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Tasks by Status</div>
                                       <div className="space-y-1">
                                         {Object.entries(m.tasks_by_status || {}).length === 0 ? (
-                                          <div className="text-xs text-gray-500">None</div>
+                                          <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
                                         ) : (
                                           Object.entries(m.tasks_by_status || {}).map(([k, v]) => (
                                             <div key={k} className="flex items-center justify-between text-xs">
                                               <StatusBadge status={k} />
-                                              <span className="font-semibold">{String(v)}</span>
+                                              <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
                                             </div>
                                           ))
                                         )}
                                       </div>
                                     </div>
                                     <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700">Tasks by Priority</div>
+                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Tasks by Priority</div>
                                       <div className="space-y-1">
                                         {Object.entries(m.tasks_by_priority || {}).length === 0 ? (
-                                          <div className="text-xs text-gray-500">None</div>
+                                          <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
                                         ) : (
                                           Object.entries(m.tasks_by_priority || {}).map(([k, v]) => (
                                             <div key={k} className="flex items-center justify-between text-xs">
                                               <PriorityBadge priority={k} />
-                                              <span className="font-semibold">{String(v)}</span>
+                                              <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
                                             </div>
                                           ))
                                         )}
                                       </div>
                                     </div>
                                     <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700">Bugs by Status</div>
+                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Bugs by Status</div>
                                       <div className="space-y-1">
                                         {Object.entries(m.bugs_by_status || {}).length === 0 ? (
-                                          <div className="text-xs text-gray-500">None</div>
+                                          <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
                                         ) : (
                                           Object.entries(m.bugs_by_status || {}).map(([k, v]) => (
                                             <div key={k} className="flex items-center justify-between text-xs">
                                               <StatusBadge status={k} />
-                                              <span className="font-semibold">{String(v)}</span>
+                                              <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
                                             </div>
                                           ))
                                         )}
                                       </div>
                                     </div>
                                     <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700">Bugs by Priority</div>
+                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Bugs by Priority</div>
                                       <div className="space-y-1">
                                         {Object.entries(m.bugs_by_priority || {}).length === 0 ? (
-                                          <div className="text-xs text-gray-500">None</div>
+                                          <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
                                         ) : (
                                           Object.entries(m.bugs_by_priority || {}).map(([k, v]) => (
                                             <div key={k} className="flex items-center justify-between text-xs">
                                               <PriorityBadge priority={k} />
-                                              <span className="font-semibold">{String(v)}</span>
+                                              <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
                                             </div>
                                           ))
                                         )}
@@ -853,13 +1210,13 @@ const OrgReports: React.FC = () => {
 
                                   <div className="space-y-3">
                                     <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700">Recent Tasks</div>
+                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Recent Tasks</div>
                                       {(!m.tasks_items || m.tasks_items.length === 0) && (
-                                        <div className="text-xs text-gray-500">No tasks</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">No tasks</div>
                                       )}
                                       <div className="space-y-1 max-h-40 overflow-y-auto pr-1 thin-scroll scroll-smooth">
                                         {(m.tasks_items || []).map((t: any) => (
-                                          <div key={t.id} className="p-2 bg-white rounded border text-xs">
+                                          <div key={t.id} className="p-2 bg-white dark:bg-gray-600 rounded border border-gray-200 dark:border-gray-500 text-xs">
                                             <div className="flex items-center gap-2 mb-1">
                                               <div onClick={() => navigate(`/tasks/${t.id}?org_id=${currentOrgId}`)} className="cursor-pointer" title="Open task">
                                                 <CopyableIdBadge id={t.id} org_id={currentOrgId} isCompleted={(t.status || '') === 'completed'} />
@@ -869,7 +1226,7 @@ const OrgReports: React.FC = () => {
                                                 <PriorityBadge priority={t.priority || 'none'} />
                                               </div>
                                             </div>
-                                            <div className="font-medium truncate cursor-pointer mt-1" title={t.title || t.id}
+                                            <div className="font-medium truncate cursor-pointer mt-1 text-gray-900 dark:text-gray-100" title={t.title || t.id}
                                               onClick={() => {
                                                 const navUrl = `/tasks/${t.id}?org_id=${currentOrgId}`;
                                                 window.open(navUrl, '_blank', 'noopener,noreferrer');
@@ -881,13 +1238,13 @@ const OrgReports: React.FC = () => {
                                     </div>
 
                                     <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700">Recent Bugs</div>
+                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Recent Bugs</div>
                                       {(!m.bugs_items || m.bugs_items.length === 0) && (
-                                        <div className="text-xs text-gray-500">No bugs</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">No bugs</div>
                                       )}
                                       <div className="space-y-1 max-h-40 overflow-y-auto pr-1 thin-scroll scroll-smooth">
                                         {(m.bugs_items || []).map((b: any) => (
-                                          <div key={b.id} className="p-2 bg-white rounded border text-xs">
+                                          <div key={b.id} className="p-2 bg-white dark:bg-gray-600 rounded border border-gray-200 dark:border-gray-500 text-xs">
                                             <div className="flex items-center gap-2 mb-1">
                                               <div onClick={() => navigate(`/tester-zone/bugs/${b.id}?org_id=${currentOrgId}`)} className="cursor-pointer" title="Open bug">
                                                 <CopyableIdBadge id={b.id} org_id={currentOrgId} copyLabel="Bug" />
@@ -897,7 +1254,7 @@ const OrgReports: React.FC = () => {
                                                 <PriorityBadge priority={b.priority || 'low'} />
                                               </div>
                                             </div>
-                                            <div className="font-medium truncate mt-1 cursor-pointer" title={b.title || b.id}
+                                            <div className="font-medium truncate mt-1 cursor-pointer text-gray-900 dark:text-gray-100" title={b.title || b.id}
                                               onClick={() => {
                                                 const navUrl = `/tester-zone/bugs/${b.id}?org_id=${currentOrgId}`;
                                                 window.open(navUrl, '_blank', 'noopener,noreferrer');
@@ -918,10 +1275,109 @@ const OrgReports: React.FC = () => {
               </CardContent>
             </Card>
           </div>
-        </div>
+          </TabsContent>
+          
+          <TabsContent value="timesheets" className="flex flex-1 mt-0">
+            <div className="w-full p-4">
+              <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Team Timesheets</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredTimesheetUsers.map((user) => (
+                  <Card key={user.user_id} className="p-6 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Avatar className="w-12 h-12">
+                        <AvatarFallback className="bg-blue-600 text-white">
+                              {user.avatar_initials}
+                            </AvatarFallback>
+                          </Avatar>
+                      <div>
+                        <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{user.name}</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{user.designation}</p>
+                          </div>
+                        </div>
+                        
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{user.total_hours_today}h</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-300">Today</div>
+                      </div>
+                      <div className="bg-green-50 dark:bg-green-900/30 p-3 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">{user.total_hours_week}h</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-300">This Week</div>
+                      </div>
+                      </div>
+
+                    <div className="space-y-3">
+                        <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <Clock className="w-4 h-4 text-blue-500" />
+                          <span className="font-medium text-sm text-gray-900 dark:text-gray-100">In Progress ({user.in_progress.length})</span>
+                          </div>
+                        {user.in_progress.slice(0, 2).map((task) => (
+                          <div key={task.id} className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-sm">
+                            <div className="font-medium text-gray-900 dark:text-gray-100">{task.title}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">{task.hours_logged}h logged</div>
+                          </div>
+                        ))}
+                        </div>
+
+                        <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                          <span className="font-medium text-sm text-gray-900 dark:text-gray-100">Completed ({user.completed.length})</span>
+                          </div>
+                        {user.completed.slice(0, 2).map((task) => (
+                          <div key={task.id} className="bg-green-50 dark:bg-green-900/20 p-2 rounded text-sm">
+                            <div className="font-medium text-gray-900 dark:text-gray-100">{task.title}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">{task.hours_logged}h logged</div>
+                          </div>
+                        ))}
+                        </div>
+
+                      {user.blockers.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="w-4 h-4 text-red-500" />
+                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">Blockers ({user.blockers.length})</span>
+                          </div>
+                          {user.blockers.slice(0, 1).map((task) => (
+                            <div key={task.id} className="bg-red-50 dark:bg-red-900/20 p-2 rounded text-sm">
+                              <div className="font-medium text-gray-900 dark:text-gray-100">{task.title}</div>
+                              <div className="text-xs text-red-600 dark:text-red-400">{task.blocked_reason}</div>
+                            </div>
+                          ))}
+                                    </div>
+                                  )}
+                      </div>
+                    </Card>
+                  ))}
+              </div>
+
+                  {filteredTimesheetUsers.length === 0 && (
+                <div className="text-center py-12">
+                  <Timer className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-600 mb-2">No timesheets found</h3>
+                  <p className="text-gray-500">Adjust your filters or add some time entries</p>
+                    </div>
+                  )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
+  } catch (error) {
+    console.error('Error rendering OrgReports component:', error);
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h1>
+          <p className="text-gray-600 mb-4">There was an error rendering the reports page.</p>
+          <Button onClick={() => window.location.reload()}>Reload Page</Button>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default OrgReports;
