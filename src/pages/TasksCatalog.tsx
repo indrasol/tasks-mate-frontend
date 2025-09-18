@@ -1213,7 +1213,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                             <TableHead className="min-w-[200px] sm:min-w-[300px] md:w-80">Title</TableHead>
                             <TableHead className="w-24 sm:w-28 md:w-32 text-center">Status</TableHead>
                             <TableHead className="w-24 sm:w-28 md:w-32 text-center">Priority</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Assigned To</TableHead>
+                            <TableHead className="w-auto text-center">Assigned To</TableHead>
                             <TableHead className="w-28 sm:w-32 md:w-40 text-center">Start Date</TableHead>
                             <TableHead className="w-28 sm:w-32 md:w-40 text-center">Due Date</TableHead>
                             <TableHead className="w-24 sm:w-28 md:w-40 text-center">Project</TableHead>
@@ -1222,7 +1222,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                             <TableHead className="w-28 sm:w-32 md:w-40 text-center">Tracker</TableHead>
                             <TableHead className="w-28 sm:w-32 md:w-40 text-center">Bug</TableHead>
                             <TableHead className="w-28 sm:w-32 md:w-40 text-center">Created Date</TableHead>
-                            <TableHead className="w-20 sm:w-24 text-center">Created By</TableHead>
+                            <TableHead className="w-auto text-center">Created By</TableHead>
                             <TableHead className="w-20 sm:w-24 text-center flex-shrink-0">Actions</TableHead>
                           </TableRow>
                         </TableHeader>

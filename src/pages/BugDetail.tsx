@@ -30,6 +30,7 @@ import { bugService } from '@/services/bugService';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { taskService } from "@/services/taskService";
+import AddDependencyModal from '@/components/tasks/AddDependencyModal';
 
 interface BugComment {
   id: string;
@@ -1233,7 +1234,7 @@ const BugDetail = () => {
 
   const [initialData, setInitialData] = useState<TaskCreateInitialData>(null);
 
-  const handleConvertToTask = async () => {
+  const handleConvertToTask = async (mode: string = "task") => {
     if (!bug) return;
     const bugData: TaskCreateInitialData = {
       projectId: bug.project_id,
@@ -1246,7 +1247,8 @@ const BugDetail = () => {
       tracker_id: bug.tracker_id,
     }
     setInitialData(bugData)
-    setIsNewTaskModalOpen(true)
+    if (mode === "dependency") setIsAddDependencyOpen(true)
+    else setIsNewTaskModalOpen(true)
   }
 
   // Fetch dependencies
@@ -1278,6 +1280,65 @@ const BugDetail = () => {
       .then((details: any) => setDependencyDetails(details as any[]))
       .catch(() => setDependencyDetails([]));
   }, [bugId, dependencies]);
+
+  const [isAddDependencyOpen, setIsAddDependencyOpen] = useState(false);
+
+
+  // Dependencies handlers
+  const handleAddDependency = async (selectedTask: any) => {
+    if (!bugId) return;
+    try {
+      toast({
+        title: "Adding dependency",
+        description: "Please wait...",
+      });
+      console.log(selectedTask)
+      const bodyParams: any = {
+        task_id: selectedTask?.id,
+        tracker_id: bug?.tracker_id,
+      };
+      await bugService.addDependency(bugId, bodyParams);
+      // setTask((prev: any) => ({ ...prev, dependencies: [...(prev?.dependencies ?? []), selectedTask?.id] }));
+      // setDependencyDetails((prev: any[]) => [...prev, selectedTask]);
+      toast({
+        title: "Success",
+        description: `Dependency "${selectedTask?.name}" added successfully!`,
+        variant: "default"
+      });
+      refetchDependencies();
+    } catch (err: any) {
+      toast({
+        title: "Failed to add dependency",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteDependency = async (dependencyId: string) => {
+    if (!bugId) return;
+    try {
+      toast({
+        title: "Deleting dependency",
+        description: "Please wait...",
+      });
+      await bugService.removeDependency(bugId, dependencyId);
+      // setTask((prev: any) => ({ ...prev, dependencies: (prev?.dependencies ?? []).filter((id: string) => id !== dependencyId) }));
+      // setDependencyDetails((prev: any[]) => prev.filter((d: any) => (d.task_id ?? d.id) !== dependencyId));
+      toast({
+        title: "Success",
+        description: "Dependency removed successfully!",
+        variant: "default"
+      });
+      refetchDependencies();
+    } catch (err: any) {
+      toast({
+        title: "Failed to remove dependency",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
+  };
 
   // Loading state
   if (loading) {
@@ -1584,6 +1645,96 @@ const BugDetail = () => {
                 </Button>
               </CardContent>
             </Card> */}
+
+            {/* Dependencies */}
+            <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-sora flex items-center space-x-2 text-gray-900 dark:text-white">
+                    <Link2 className="h-4 w-4" />
+                    <span>Tasks ({dependencyDetails?.length ?? 0})</span>
+                  </CardTitle>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="micro-lift"
+                    onClick={() => handleConvertToTask("dependency")}
+                    disabled={!bug?.is_editable}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Task
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {dependencyDetails.map((dep: any) => {
+                  const depId = dep.task_id ?? dep.id;
+                  return (
+                    <div key={depId} className="flex flex-wrap items-start gap-2 p-3 rounded-lg bg-white/50 dark:bg-gray-700/50 micro-lift group border border-gray-200 dark:border-gray-600">
+                      {/* Toggle */}
+                      {/* <Button variant="ghost" size="sm" className="p-0 h-auto">
+                        {(dep.status ?? '') === 'completed' ? <CheckCircle className="h-5 w-5 text-tasksmate-green-end" /> : <Circle className="h-5 w-5 text-gray-400" />}
+                      </Button> */}
+
+                      {/* Task ID */}
+                      <CopyableIdBadge id={String(depId)} org_id={currentOrgId} isCompleted={(dep.status ?? '') === 'completed'} />
+
+                      {/* Owner, Status, Priority badges */}
+                      <Badge key='owner' variant="secondary" className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
+                        {(() => {
+                          const { displayName } = deriveDisplayFromEmail((dep.assignee ?? '') as string);
+                          return `👤 ${displayName}`;
+                        })()}
+                      </Badge>
+                      <Badge key='status' variant="secondary" className={`text-xs ${getStatusMeta((dep.status || 'not_started') as any).color}`}>
+                        {getStatusMeta((dep.status || 'not_started') as any).label}
+                      </Badge>
+                      <Badge key='priority' variant="outline" className={`text-xs ${getPriorityColor(dep.priority ?? 'none')}`}>{(dep.priority ?? 'none').toUpperCase()}</Badge>
+
+                      {/* Project and Start date removed as requested */}
+                      <div className="inline-flex items-center gap-1">
+                        <span className="text-gray-600 dark:text-gray-400 text-xs">Due date:</span>
+                        <Badge key='due_date' variant="secondary" className="text-xs bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300">
+                          {dep.due_date ? formatDate(dep.due_date) : '—'}
+                        </Badge>
+                      </div>
+
+                      {/* Created date removed as requested */}
+
+                      {/* Tags removed as requested */}
+
+                      {/* Actions to the far right */}
+                      <div className="ml-auto flex items-center gap-1">
+                        <Button key='open_task' variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
+                          const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        }}>
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                        <Button key='delete_task' variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" disabled={!bug?.is_editable} onClick={() => handleDeleteDependency(depId)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      {/* Content Column */}
+                      <div className="flex flex-col min-w-0 basis-full w-full mt-1">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300 min-w-0">
+                          {/* <span className="font-bold">Title :</span> */}
+                          <span className={`font-bold truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer dark:hover:text-blue-300'}`}
+                            onClick={() => {
+                              const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            }}
+                          >
+                            {dep.title ?? dep.name}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
 
             {/* Evidence Gallery */}
 
@@ -1947,93 +2098,6 @@ const BugDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Dependencies */}
-            <Card className="glass border-0 shadow-tasksmate bg-white/80 dark:bg-gray-800/80">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-sora flex items-center space-x-2 text-gray-900 dark:text-white">
-                    <Link2 className="h-4 w-4" />
-                    <span>Tasks ({dependencyDetails?.length ?? 0})</span>
-                  </CardTitle>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="micro-lift"
-                    onClick={() => handleConvertToTask()}
-                    disabled={!bug?.is_editable}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Task
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {dependencyDetails.map((dep: any) => {
-                  const depId = dep.task_id ?? dep.id;
-                  return (
-                    <div key={depId} className="flex flex-wrap items-start gap-2 p-3 rounded-lg bg-white/50 dark:bg-gray-700/50 micro-lift group border border-gray-200 dark:border-gray-600">
-                      {/* Toggle */}
-                      {/* <Button variant="ghost" size="sm" className="p-0 h-auto">
-                        {(dep.status ?? '') === 'completed' ? <CheckCircle className="h-5 w-5 text-tasksmate-green-end" /> : <Circle className="h-5 w-5 text-gray-400" />}
-                      </Button> */}
-
-                      {/* Task ID */}
-                      <CopyableIdBadge id={String(depId)} org_id={currentOrgId} isCompleted={(dep.status ?? '') === 'completed'} />
-
-                      {/* Owner, Status, Priority badges */}
-                      <Badge key='owner' variant="secondary" className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
-                        {(() => {
-                          const { displayName } = deriveDisplayFromEmail((dep.assignee ?? '') as string);
-                          return `👤 ${displayName}`;
-                        })()}
-                      </Badge>
-                      <Badge key='status' variant="secondary" className={`text-xs ${getStatusMeta((dep.status || 'not_started') as any).color}`}>
-                        {getStatusMeta((dep.status || 'not_started') as any).label}
-                      </Badge>
-                      <Badge key='priority' variant="outline" className={`text-xs ${getPriorityColor(dep.priority ?? 'none')}`}>{(dep.priority ?? 'none').toUpperCase()}</Badge>
-
-                      {/* Project and Start date removed as requested */}
-                      <div className="inline-flex items-center gap-1">
-                        <span className="text-gray-600 dark:text-gray-400 text-xs">Due date:</span>
-                        <Badge key='due_date' variant="secondary" className="text-xs bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300">
-                          {dep.due_date ? formatDate(dep.due_date) : '—'}
-                        </Badge>
-                      </div>
-
-                      {/* Created date removed as requested */}
-
-                      {/* Tags removed as requested */}
-
-                      {/* Actions to the far right */}
-                      <div className="ml-auto flex items-center gap-1">
-                        <Button key='open_task' variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700" onClick={() => {
-                          const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
-                          window.open(url, '_blank', 'noopener,noreferrer');
-                        }}>
-                          <ExternalLink className="h-3 w-3" />
-                        </Button>
-                      </div>
-
-                      {/* Content Column */}
-                      <div className="flex flex-col min-w-0 basis-full w-full mt-1">
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300 min-w-0">
-                          <span className="font-bold">Title :</span>
-                          <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer dark:hover:text-blue-300'}`}
-                            onClick={() => {
-                              const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
-                              window.open(url, '_blank', 'noopener,noreferrer');
-                            }}
-                          >
-                            {dep.title ?? dep.name}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-
           </div>
         </div>
       </div>
@@ -2050,6 +2114,23 @@ const BugDetail = () => {
         projectName={bug?.project_name}
         initialData={initialData}
       />
+
+      {/* Dependencies modal */}
+      {bug?.is_editable && (
+        <AddDependencyModal
+          open={isAddDependencyOpen}
+          onOpenChange={setIsAddDependencyOpen}
+          onDependencyAdded={handleAddDependency}
+          excludeIds={[
+            ...(Array.isArray(dependencies?.map((dep) => dep.task_id)) ? dependencies?.map((dep) => dep.task_id) : [])
+          ]}
+
+          defaultTags={[bug?.id]}
+          isConvertingFromBug={true}
+          projectName={bug?.project_name}
+          initialData={initialData}
+        />
+      )}
     </div>
   );
 };

@@ -30,7 +30,8 @@ import {
   MessageSquare,
   RefreshCw,
   Settings,
-  Users
+  Users,
+  BarChart2,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -186,8 +187,9 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       { name: 'Bug Tracker', path: '/tester-zone', icon: Bug },
       { name: 'Scratchpad', path: '/scratchpad', icon: Edit3 },
       { name: 'Members', path: '/team-members', icon: Users },
+      { name: 'Reports', path: '/org-reports', icon: BarChart2 },
       { name: 'Settings', path: '/settings', icon: Settings },
-      { name: 'Feedback', path: '/feedback', icon: MessageSquare },
+      { name: 'Feedback', path: '/feedback', icon: MessageSquare },      
     ];
 
 

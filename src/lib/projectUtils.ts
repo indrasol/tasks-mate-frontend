@@ -57,13 +57,13 @@ export function formatDate(dateStr?: string | null): string {
 // Helper to convert a username / email to display name & initials (same logic
 // used in NewProjectModal)
 export function deriveDisplayFromEmail(emailOrUsername: string) {
-  const usernamePart = emailOrUsername.split("@")[0];
-  const tokens = usernamePart.split(/[._-]+/).filter(Boolean);
-  const displayTokens = tokens.map((t) =>
-    t.length === 1 ? t.toUpperCase() : t.charAt(0).toUpperCase() + t.slice(1)
+  const usernamePart = emailOrUsername?.split("@")?.[0];
+  const tokens = usernamePart?.split(/[._-]+/)?.filter(Boolean);
+  const displayTokens = tokens?.map((t) =>
+    t?.length === 1 ? t?.toUpperCase() : t?.charAt(0)?.toUpperCase() + t?.slice(1)
   );
-  const displayName = displayTokens.join(" ");
-  const initials = displayTokens.slice(0, 2).map((t) => t[0]).join("").toUpperCase();
+  const displayName = displayTokens?.join(" ");
+  const initials = displayTokens?.slice(0, 2)?.map((t) => t?.charAt(0))?.join("")?.toUpperCase();
   return { displayName, initials };
 }
 
