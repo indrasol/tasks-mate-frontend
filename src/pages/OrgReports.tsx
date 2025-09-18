@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import CopyableIdBadge from '@/components/ui/copyable-id-badge';
 import { API_ENDPOINTS } from '@/config';
 import { fetchOrgReports, ReportsFilters } from '@/services/reportsService';
+import { fetchOrgTimesheets } from '@/services/reportsService';
 import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -173,7 +174,12 @@ const OrgReports: React.FC = () => {
   // Handle authentication and loading
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/');
+      navigate('/', {
+        state: {
+            redirectTo: location.pathname + location.search
+        },
+        replace: true
+    });
     }
   }, [user, loading, navigate]);
 
@@ -250,189 +256,20 @@ const OrgReports: React.FC = () => {
   const [isAddEntryModalOpen, setIsAddEntryModalOpen] = useState(false);
   const [selectedUserForEntry, setSelectedUserForEntry] = useState<string>('');
 
-  // Dummy timesheet data
-  const dummyTimesheetData = useMemo(() => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const twoDaysAgo = new Date(today);
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  // Real timesheets data
+  const timesheetsFilters: ReportsFilters = useMemo(() => ({
+    org_id: orgId,
+    project_ids: selectedTimesheetProjects.length ? selectedTimesheetProjects : undefined,
+    member_ids: selectedTimesheetUsers.length ? selectedTimesheetUsers : undefined,
+    date_from: timesheetDateRange?.from?.toISOString(),
+    date_to: timesheetDateRange?.to?.toISOString(),
+  }), [orgId, selectedTimesheetProjects, selectedTimesheetUsers, timesheetDateRange]);
 
-    return {
-      users: [
-        {
-          user_id: 'user1',
-          name: 'Alice Johnson',
-          email: 'alice@company.com',
-          avatar_initials: 'AJ',
-          role: 'developer',
-          designation: 'Senior Frontend Developer',
-          total_hours_today: 7.5,
-          total_hours_week: 35.5,
-          in_progress: [
-            {
-              id: 'task1',
-              title: 'Implement user authentication flow',
-              project: 'TasksMate Frontend',
-              project_id: 'proj1',
-              hours_logged: 3.5,
-              status: 'in_progress',
-              priority: 'high',
-              started_at: '09:00',
-              description: 'Working on OAuth integration and token management'
-            },
-            {
-              id: 'task2',
-              title: 'Fix responsive design issues',
-              project: 'TasksMate Frontend',
-              project_id: 'proj1',
-              hours_logged: 2.0,
-              status: 'in_progress',
-              priority: 'medium',
-              started_at: '14:30',
-              description: 'Mobile layout adjustments for dashboard'
-            }
-          ],
-          completed: [
-            {
-              id: 'task3',
-              title: 'Code review for payment module',
-              project: 'E-commerce Platform',
-              project_id: 'proj2',
-              hours_logged: 1.5,
-              status: 'completed',
-              priority: 'medium',
-              completed_at: '11:30',
-              description: 'Reviewed and approved PR #234'
-            },
-            {
-              id: 'task4',
-              title: 'Update API documentation',
-              project: 'TasksMate Backend',
-              project_id: 'proj3',
-              hours_logged: 0.5,
-              status: 'completed',
-              priority: 'low',
-              completed_at: '16:00',
-              description: 'Added new endpoints documentation'
-            }
-          ],
-          blockers: [
-            {
-              id: 'task5',
-              title: 'Database migration script',
-              project: 'TasksMate Backend',
-              project_id: 'proj3',
-              hours_logged: 0,
-              status: 'blocked',
-              priority: 'critical',
-              blocked_reason: 'Waiting for DBA approval',
-              blocked_since: '10:00',
-              description: 'Migration script ready but needs database admin review'
-            }
-          ]
-        },
-        {
-          user_id: 'user2',
-          name: 'Bob Smith',
-          email: 'bob@company.com',
-          avatar_initials: 'BS',
-          role: 'designer',
-          designation: 'UI/UX Designer',
-          total_hours_today: 8.0,
-          total_hours_week: 40.0,
-          in_progress: [
-            {
-              id: 'task6',
-              title: 'Design new dashboard layout',
-              project: 'TasksMate Frontend',
-              project_id: 'proj1',
-              hours_logged: 4.0,
-              status: 'in_progress',
-              priority: 'high',
-              started_at: '09:30',
-              description: 'Creating wireframes and mockups for v2.0 dashboard'
-            }
-          ],
-          completed: [
-            {
-              id: 'task7',
-              title: 'User research analysis',
-              project: 'TasksMate Frontend',
-              project_id: 'proj1',
-              hours_logged: 2.5,
-              status: 'completed',
-              priority: 'medium',
-              completed_at: '12:00',
-              description: 'Analyzed user feedback and created improvement recommendations'
-            },
-            {
-              id: 'task8',
-              title: 'Icon set optimization',
-              project: 'Design System',
-              project_id: 'proj4',
-              hours_logged: 1.5,
-              status: 'completed',
-              priority: 'low',
-              completed_at: '15:30',
-              description: 'Optimized SVG icons for better performance'
-            }
-          ],
-          blockers: []
-        },
-        {
-          user_id: 'user3',
-          name: 'Carol Davis',
-          email: 'carol@company.com',
-          avatar_initials: 'CD',
-          role: 'developer',
-          designation: 'Backend Developer',
-          total_hours_today: 6.5,
-          total_hours_week: 32.5,
-          in_progress: [
-            {
-              id: 'task9',
-              title: 'API performance optimization',
-              project: 'TasksMate Backend',
-              project_id: 'proj3',
-              hours_logged: 5.0,
-              status: 'in_progress',
-              priority: 'high',
-              started_at: '08:00',
-              description: 'Optimizing database queries and adding caching layer'
-            }
-          ],
-          completed: [
-            {
-              id: 'task10',
-              title: 'Fix security vulnerabilities',
-              project: 'TasksMate Backend',
-              project_id: 'proj3',
-              hours_logged: 1.5,
-              status: 'completed',
-              priority: 'critical',
-              completed_at: '17:00',
-              description: 'Patched SQL injection vulnerabilities in user module'
-            }
-          ],
-          blockers: [
-            {
-              id: 'task11',
-              title: 'Third-party integration',
-              project: 'E-commerce Platform',
-              project_id: 'proj2',
-              hours_logged: 0,
-              status: 'blocked',
-              priority: 'medium',
-              blocked_reason: 'Waiting for API keys from vendor',
-              blocked_since: '14:00',
-              description: 'Integration with payment gateway pending vendor approval'
-            }
-          ]
-        }
-      ]
-    };
-  }, []);
+  const { data: timesheets, isFetching: isTimesheetsFetching, isError: isTimesheetsError, error: timesheetsError, refetch: refetchTimesheets } = useQuery({
+    queryKey: ['timesheets', timesheetsFilters],
+    enabled: !!orgId,
+    queryFn: () => fetchOrgTimesheets({ filters: timesheetsFilters }),
+  });
 
   const now = new Date();
   const defaultFrom = useMemo(() => {
@@ -510,45 +347,21 @@ const OrgReports: React.FC = () => {
     setSelectedTimesheetProjects([]);
     setTimesheetDateRange(undefined);
     setTempTimesheetDateRange(undefined);
-    setTimesheetSearchQuery('');
+    // setTimesheetSearchQuery('');
   };
 
   const filteredTimesheetUsers = useMemo(() => {
-    // If no filters are applied, return all users
-    if (!timesheetSearchQuery && selectedTimesheetUsers.length === 0 && selectedTimesheetProjects.length === 0) {
-      return dummyTimesheetData.users;
-    }
-
-    return dummyTimesheetData.users.filter(user => {
-      // Search filter
-      if (timesheetSearchQuery) {
-        const query = timesheetSearchQuery.toLowerCase();
-        const matchesName = user.name.toLowerCase().includes(query);
-        const matchesEmail = user.email.toLowerCase().includes(query);
-        const matchesRole = user.role.toLowerCase().includes(query);
-        const matchesDesignation = user.designation.toLowerCase().includes(query);
-        if (!matchesName && !matchesEmail && !matchesRole && !matchesDesignation) return false;
-      }
-
-      // User filter
-      if (selectedTimesheetUsers.length > 0 && !selectedTimesheetUsers.includes(user.user_id)) {
-        return false;
-      }
-
-      // Project filter
-      if (selectedTimesheetProjects.length > 0) {
-        const userProjects = [
-          ...user.in_progress.map(t => t.project_id),
-          ...user.completed.map(t => t.project_id),
-          ...user.blockers.map(t => t.project_id)
-        ];
-        const hasMatchingProject = selectedTimesheetProjects.some(projId => userProjects.includes(projId));
-        if (!hasMatchingProject) return false;
-      }
-
-      return true;
+    const users = ((timesheets as any)?.users ?? []) as any[];
+    if (!timesheetSearchQuery) return users;
+    const q = timesheetSearchQuery.toLowerCase();
+    return users.filter((u) => {
+      const name = String(u.name || '').toLowerCase();
+      const email = String(u.email || '').toLowerCase();
+      const role = String(u.role || '').toLowerCase();
+      const designation = String(u.designation || '').toLowerCase();
+      return [name, email, role, designation].some(v => v.includes(q));
     });
-  }, [dummyTimesheetData.users, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetProjects]);
+  }, [timesheets, timesheetSearchQuery]);
 
   const getTaskIcon = (status: string) => {
     switch (status) {
@@ -696,7 +509,14 @@ const OrgReports: React.FC = () => {
             <p className="text-gray-600 dark:text-gray-300 mt-2">Insights into your organization's performance and team activity</p>
           </div>
 
-          <Tabs value={activeTab} onValueChange={v => setActiveTab(v as any)} className="flex flex-col flex-1 overflow-hidden">
+          <Tabs value={activeTab} onValueChange={v => {
+            setActiveTab(v as any);
+            if (v === 'reports') {
+              setSearchQuery(timesheetSearchQuery);
+            } else {
+              setTimesheetSearchQuery(searchQuery);
+            }
+          }} className="flex flex-col flex-1 overflow-hidden">
             {/* Tabs for Reports / Timesheets */}
             <div className="px-0 pb-4">
               <div className="flex items-center justify-between flex-wrap gap-4">
@@ -719,8 +539,10 @@ const OrgReports: React.FC = () => {
                       <input
                         type="text"
                         placeholder="Search projects, members..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        value={activeTab === 'reports' ? searchQuery : timesheetSearchQuery}
+                        onChange={(e) => 
+                          activeTab === 'reports' ? setSearchQuery(e.target.value) : setTimesheetSearchQuery(e.target.value)
+                        }
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         className={`w-full pl-10 pr-10 py-2 bg-white/80 dark:bg-gray-700/80 border rounded-lg text-sm transition-all duration-300 ease-out ${isSearchFocused
@@ -728,11 +550,11 @@ const OrgReports: React.FC = () => {
                           : 'border-gray-300 hover:border-gray-400 focus:outline-none'
                           }`}
                       />
-                      {searchQuery && (
+                      {(activeTab === 'reports' ? searchQuery : timesheetSearchQuery) && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setSearchQuery('')}
+                          onClick={() => activeTab === 'reports' ? setSearchQuery('') : setTimesheetSearchQuery('')}
                           className="absolute right-1 top-1/2 transform -translate-y-1/2 w-8 h-8 p-0 rounded-full hover:bg-gray-100 transition-colors"
                         >
                           <X className="w-3 h-3" />
@@ -746,10 +568,17 @@ const OrgReports: React.FC = () => {
                   <Button variant="outline" onClick={onExportJSON} disabled={!report || isFetching} size="sm">
                     Export JSON
                   </Button>
+                  { activeTab === 'reports' ? (
                   <Button onClick={() => refetch()} disabled={isFetching} size="sm">
                     <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
+                  ) : (
+                  <Button size="sm" onClick={() => refetchTimesheets()} disabled={isTimesheetsFetching}>
+                      <RefreshCw className={`w-4 h-4 mr-2 ${isTimesheetsFetching ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1335,28 +1164,149 @@ const OrgReports: React.FC = () => {
               <div className="w-full p-4">
                 {/* <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Team Timesheets</h2> */}
 
+                {/* Timesheets Filters */}
+                <div className="mb-4 flex flex-wrap gap-2 items-center">
+                  {/* Search */}
+                  {/* <div className="flex items-center">
+                    <div className={`relative transition-all duration-300 ease-out w-64`}>
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search users (name, email, role, designation)"
+                        value={timesheetSearchQuery}
+                        onChange={(e) => setTimesheetSearchQuery(e.target.value)}
+                        className={`w-full pl-10 pr-10 py-2 bg-white/80 dark:bg-gray-700/80 border rounded-lg text-sm border-gray-300 hover:border-gray-400 focus:outline-none`}
+                      />
+                      {timesheetSearchQuery && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setTimesheetSearchQuery('')}
+                          className="absolute right-1 top-1/2 transform -translate-y-1/2 w-8 h-8 p-0 rounded-full hover:bg-gray-100 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div> */}
+
+                  {/* Date Range */}
+                  <Popover open={isTimesheetDatePopoverOpen} onOpenChange={setIsTimesheetDatePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant={timesheetDateRange?.from ? 'default' : 'outline'} size="sm" className="h-8">
+                        <CalendarRange className="w-4 h-4 mr-1" />
+                        {timesheetDateRange?.from ? 'Date: Selected' : 'Date: Pick'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-3" align="start"
+                      onInteractOutside={(e) => {
+                        if ((e.target as HTMLElement).closest('.rdp')) e.preventDefault();
+                      }}
+                    >
+                      <div className="space-y-3">
+                        <CalendarComponent
+                          mode="range"
+                          defaultMonth={tempTimesheetDateRange?.from}
+                          selected={tempTimesheetDateRange}
+                          onSelect={(range) => setTempTimesheetDateRange(range ?? undefined)}
+                          numberOfMonths={2}
+                          className="rounded-md border"
+                        />
+                        <div className="flex justify-between">
+                          <Button size="sm" variant="outline" onClick={() => { setTimesheetDateRange(undefined); setTempTimesheetDateRange(undefined); setIsTimesheetDatePopoverOpen(false); }}>Reset</Button>
+                          <Button size="sm" onClick={() => { setTimesheetDateRange(tempTimesheetDateRange); setIsTimesheetDatePopoverOpen(false); }}>Apply</Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Projects */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8">
+                        <FolderOpen className="w-4 h-4 mr-2" />
+                        {selectedTimesheetProjects.length ? `${selectedTimesheetProjects.length} project(s)` : 'All projects'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
+                      {(projects || []).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+                        <DropdownMenuCheckboxItem
+                          key={p.id}
+                          checked={selectedTimesheetProjects.includes(p.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedTimesheetProjects(prev => checked ? [...prev, p.id] : prev.filter(x => x !== p.id));
+                          }}
+                          className="cursor-pointer"
+                        >
+                          {p.name}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Members */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8">
+                        <Users className="w-4 h-4 mr-2" />
+                        {selectedTimesheetUsers.length ? `${selectedTimesheetUsers.length} member(s)` : 'All members'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
+                      {(orgMembers || []).sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => (
+                        <DropdownMenuCheckboxItem
+                          key={m.user_id}
+                          checked={selectedTimesheetUsers.includes(String(m.user_id))}
+                          onCheckedChange={(checked) => {
+                            const id = String(m.user_id);
+                            setSelectedTimesheetUsers(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-6 h-6">
+                              <AvatarFallback className="text-xs">{m.initials}</AvatarFallback>
+                            </Avatar>
+                            {m.displayName}
+                          </div>
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <div className="ml-auto flex gap-2">
+                    <Button variant="outline" size="sm" onClick={clearTimesheetFilters}>Clear</Button>                    
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredTimesheetUsers.map((user) => (
+                  {isTimesheetsFetching && (
+                    <div className="col-span-full flex items-center justify-center py-10 text-gray-500">
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      Loading timesheets...
+                    </div>
+                  )}
+                  {!isTimesheetsFetching && filteredTimesheetUsers.map((user) => (
                     <Card key={user.user_id} className="p-6 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                       <div className="flex items-center gap-3 mb-4">
                         <Avatar className="w-12 h-12">
                           <AvatarFallback className="bg-blue-600 text-white">
-                            {user.avatar_initials}
+                            {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{user.name}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{user.designation}</p>
+                          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{user.designation || ''}</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg text-center">
-                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{user.total_hours_today}h</div>
+                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{user.total_hours_today ?? '—'}</div>
                           <div className="text-xs text-gray-600 dark:text-gray-300">Today</div>
                         </div>
                         <div className="bg-green-50 dark:bg-green-900/30 p-3 rounded-lg text-center">
-                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{user.total_hours_week}h</div>
+                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{user.total_hours_week ?? '—'}</div>
                           <div className="text-xs text-gray-600 dark:text-gray-300">This Week</div>
                         </div>
                       </div>
@@ -1365,12 +1315,14 @@ const OrgReports: React.FC = () => {
                         <div>
                           <div className="flex items-center gap-2 mb-2">
                             <Clock className="w-4 h-4 text-blue-500" />
-                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">In Progress ({user.in_progress.length})</span>
+                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">In Progress ({(user.in_progress || []).length})</span>
                           </div>
-                          {user.in_progress.slice(0, 2).map((task) => (
+                          {(user.in_progress || []).slice(0, 2).map((task) => (
                             <div key={task.id} className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-sm">
                               <div className="font-medium text-gray-900 dark:text-gray-100">{task.title}</div>
-                              <div className="text-xs text-gray-600 dark:text-gray-400">{task.hours_logged}h logged</div>
+                              {task.hours_logged != null && (
+                                <div className="text-xs text-gray-600 dark:text-gray-400">{task.hours_logged}h logged</div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1378,26 +1330,30 @@ const OrgReports: React.FC = () => {
                         <div>
                           <div className="flex items-center gap-2 mb-2">
                             <CheckCircle className="w-4 h-4 text-green-500" />
-                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">Completed ({user.completed.length})</span>
+                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">Completed ({(user.completed || []).length})</span>
                           </div>
-                          {user.completed.slice(0, 2).map((task) => (
+                          {(user.completed || []).slice(0, 2).map((task) => (
                             <div key={task.id} className="bg-green-50 dark:bg-green-900/20 p-2 rounded text-sm">
                               <div className="font-medium text-gray-900 dark:text-gray-100">{task.title}</div>
-                              <div className="text-xs text-gray-600 dark:text-gray-400">{task.hours_logged}h logged</div>
+                              {task.hours_logged != null && (
+                                <div className="text-xs text-gray-600 dark:text-gray-400">{task.hours_logged}h logged</div>
+                              )}
                             </div>
                           ))}
                         </div>
 
-                        {user.blockers.length > 0 && (
+                        {(user.blockers || []).length > 0 && (
                           <div>
                             <div className="flex items-center gap-2 mb-2">
                               <AlertTriangle className="w-4 h-4 text-red-500" />
-                              <span className="font-medium text-sm text-gray-900 dark:text-gray-100">Blockers ({user.blockers.length})</span>
+                              <span className="font-medium text-sm text-gray-900 dark:text-gray-100">Blockers ({(user.blockers || []).length})</span>
                             </div>
-                            {user.blockers.slice(0, 1).map((task) => (
+                            {(user.blockers || []).slice(0, 1).map((task) => (
                               <div key={task.id} className="bg-red-50 dark:bg-red-900/20 p-2 rounded text-sm">
                                 <div className="font-medium text-gray-900 dark:text-gray-100">{task.title}</div>
-                                <div className="text-xs text-red-600 dark:text-red-400">{task.blocked_reason}</div>
+                                {task.blocked_reason && (
+                                  <div className="text-xs text-red-600 dark:text-red-400">{task.blocked_reason}</div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -1407,11 +1363,11 @@ const OrgReports: React.FC = () => {
                   ))}
                 </div>
 
-                {filteredTimesheetUsers.length === 0 && (
+                {!isTimesheetsFetching && filteredTimesheetUsers.length === 0 && (
                   <div className="text-center py-12">
                     <Timer className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-gray-600 mb-2">No timesheets found</h3>
-                    <p className="text-gray-500">Adjust your filters or add some time entries</p>
+                    <p className="text-gray-500">Adjust your filters</p>
                   </div>
                 )}
               </div>
