@@ -110,6 +110,12 @@ const TaskDetail = () => {
   const [mentionAnchorPos, setMentionAnchorPos] = useState({ top: 0, left: 0 });
   const [cursorPosition, setCursorPosition] = useState(0);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const editCommentInputRef = useRef<HTMLTextAreaElement>(null);
+  const [editMentionSearchText, setEditMentionSearchText] = useState("");
+  const [showEditMentionPopover, setShowEditMentionPopover] = useState(false);
+  const [editMentionAnchorPos, setEditMentionAnchorPos] = useState({ top: 0, left: 0 });
+  const [editCursorPosition, setEditCursorPosition] = useState(0);
+  const [editMentionActiveIndex, setEditMentionActiveIndex] = useState(0);
   // Keyboard navigation for @mention suggestions
   const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
 
@@ -1782,8 +1788,8 @@ const TaskDetail = () => {
                           {/* Content Column */}
                           <div className="flex flex-col min-w-0 basis-full w-full mt-1">
                             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300 min-w-0">
-                              <span className="font-bold">Title :</span>
-                              <span className={`truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer'}`}
+                              {/* <span className="font-bold">Title :</span> */}
+                              <span className={`font-bold truncate max-w-[14rem] ${(dep.status ?? '') === 'completed' ? 'line-through text-gray-400 dark:text-gray-500 cursor-pointer' : 'hover:underline cursor-pointer'}`}
                                 onClick={() => {
                                   const url = `/tasks/${depId}${currentOrgId ? `?org_id=${currentOrgId}` : ''}`;
                                   window.open(url, '_blank', 'noopener,noreferrer');
@@ -2003,6 +2009,7 @@ const TaskDetail = () => {
                                   <div className="space-y-2">
                                     <div className="relative">
                                       <Textarea
+                                        ref={editCommentInputRef}
                                         value={editCommentText}
                                         onChange={(e) => {
                                           setEditCommentText(e.target.value);
