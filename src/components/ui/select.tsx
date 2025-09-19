@@ -1,8 +1,9 @@
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, ChevronDown, ChevronUp, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
 
 const Select = SelectPrimitive.Root
 
@@ -65,10 +66,58 @@ const SelectScrollDownButton = React.forwardRef<
 SelectScrollDownButton.displayName =
   SelectPrimitive.ScrollDownButton.displayName
 
+type SelectContentProps = React.ComponentPropsWithoutRef<
+  typeof SelectPrimitive.Content
+> & {
+  searchable?: boolean
+  searchPlaceholder?: string
+  showClear?: boolean
+  clearLabel?: string
+}
+
+function getTextFromNode(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(getTextFromNode).join(" ")
+  if (React.isValidElement(node)) return getTextFromNode(node.props.children)
+  return ""
+}
+
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = "popper", ...props }, ref) => (
+  SelectContentProps
+>(({ className, children, position = "popper", searchable = true, searchPlaceholder = "Search...", showClear = true, clearLabel = "Clear", ...props }, ref) => {
+  const [query, setQuery] = React.useState("")
+  const searchInputRef = React.useRef<HTMLInputElement>(null)
+  
+  // Maintain focus on search input when query changes
+  React.useEffect(() => {
+    if (query && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [query])
+
+  
+
+  const childrenArray = React.Children.toArray(children)
+  const filteredChildren = searchable && query
+    ? childrenArray.filter((child) => {
+        if (!React.isValidElement(child)) return true
+        const displayName = (child.type as any)?.displayName as string | undefined
+        if (displayName && (displayName.includes("Separator") || displayName.includes("Label"))) {
+          return true
+        }
+        const text = getTextFromNode(child.props.children)
+        return text.toLowerCase().includes(query.toLowerCase())
+      })
+    : childrenArray
+
+    React.useEffect(() => {
+      if (filteredChildren.length > 0 && searchInputRef.current) {
+        searchInputRef.current.focus()
+      }
+    }, [filteredChildren, query])
+
+  return (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
@@ -82,19 +131,70 @@ const SelectContent = React.forwardRef<
       {...props}
     >
       <SelectScrollUpButton />
+      {searchable && (
+        <div className="p-2 border-b">
+          <div className="relative">
+            <Input
+              ref={searchInputRef}
+              placeholder={searchPlaceholder}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pr-8"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              onFocus={(e) => e.stopPropagation()}
+              autoFocus
+            />
+            {query && (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setQuery("")
+                  // Refocus the input after clearing
+                  setTimeout(() => {
+                    searchInputRef.current?.focus()
+                  }, 0)
+                }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
-          "p-1",
+          "p-1 max-h-80 overflow-y-auto",
           position === "popper" &&
             "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
         )}
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'hsl(var(--muted-foreground)) hsl(var(--muted))'
+        }}
       >
-        {children}
+        {/* {showClear && (
+          <SelectItem value="__clear__" className="text-muted-foreground">
+            {clearLabel}
+          </SelectItem>
+        )} */}
+        {filteredChildren.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            No results.
+          </div>
+        ) : (
+          filteredChildren
+        )}
       </SelectPrimitive.Viewport>
       <SelectScrollDownButton />
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
-))
+  );
+});
 SelectContent.displayName = SelectPrimitive.Content.displayName
 
 const SelectLabel = React.forwardRef<

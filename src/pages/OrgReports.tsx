@@ -1,4 +1,5 @@
 import MainNavigation from '@/components/navigation/MainNavigation';
+import TimesheetTab from '@/components/TimesheetTab';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,13 +8,6 @@ import CopyableIdBadge from '@/components/ui/copyable-id-badge';
 import { API_ENDPOINTS } from '@/config';
 import { fetchOrgReports, ReportsFilters } from '@/services/reportsService';
 import { fetchOrgTimesheets } from '@/services/reportsService';
-import { 
-  getTeamTimesheetsSummary, 
-  createOrUpdateDailyTimesheet,
-  formatDateForAPI,
-  TeamTimesheetUser,
-  DailyTimesheetCreate
-} from '@/services/dailyTimesheetService';
 import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -151,7 +145,7 @@ const ProjectHoverCard = ({ project, orgId, orgMembers }: {
 };
 
 const OrgReports: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  
   const { user, loading } = useAuth();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -167,16 +161,7 @@ const OrgReports: React.FC = () => {
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
 
-  const navigate = useNavigate();
-  const currentOrgId = useCurrentOrgId();
-
-  // Use currentOrgId as fallback if orgId is not in URL
-  const orgId = useMemo(() => {
-    const urlOrgId = searchParams.get('org_id');
-    return urlOrgId || currentOrgId || '';
-  }, [searchParams, currentOrgId]);
-
-  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
+  const navigate = useNavigate();  
 
   // Handle authentication and loading
   useEffect(() => {
@@ -202,6 +187,17 @@ const OrgReports: React.FC = () => {
   if (!user) {
     return null;
   }
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentOrgId = useCurrentOrgId();
+
+  // Use currentOrgId as fallback if orgId is not in URL
+  const orgId = useMemo(() => {
+    const urlOrgId = searchParams.get('org_id');
+    return urlOrgId || currentOrgId || '';
+  }, [searchParams, currentOrgId]);
+
+  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
 
   // Real organization members (without dummy data) for dropdowns and filters
   const realOrgMembers: BackendOrgMember[] = useMemo(() => {
@@ -232,13 +228,14 @@ const OrgReports: React.FC = () => {
     }
   }, [realOrgMembers]);
 
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; members: string[] }[]>([]);
   const fetchProjects = async () => {
     if (!currentOrgId) return;
     try {
       const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}?show_all=true`);
-      const mapped = res.map((p: any) => ({ id: p.project_id, name: p.name }));
+      const mapped = res.map((p: any) => ({ id: p.project_id, name: p.name || p.project_name, members: p.team_members ?? [], owner: p.owner ?? "" }));
       setProjects(mapped);
+      console.log('projects', mapped);
     } catch (e) {
       console.error("Failed to fetch projects", e);
     }
@@ -264,86 +261,7 @@ const OrgReports: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-  // Timesheets state
-  const [timesheetSearchQuery, setTimesheetSearchQuery] = useState('');
-  const [timesheetDateRange, setTimesheetDateRange] = useState<DateRange | undefined>(undefined);
-  const [tempTimesheetDateRange, setTempTimesheetDateRange] = useState<DateRange | undefined>(undefined);
-  const [isTimesheetDatePopoverOpen, setIsTimesheetDatePopoverOpen] = useState(false);
-  const [selectedTimesheetUsers, setSelectedTimesheetUsers] = useState<string[]>([]);
-  const [selectedTimesheetProjects, setSelectedTimesheetProjects] = useState<string[]>([]);
-  const [isAddEntryModalOpen, setIsAddEntryModalOpen] = useState(false);
-  const [selectedUserForEntry, setSelectedUserForEntry] = useState<string>('');
-  
-  // Enhanced Timesheets UI state
-  const [showCompletedTasks, setShowCompletedTasks] = useState(true);
-  const [timesheetSort, setTimesheetSort] = useState<'productivity' | 'alphabetical' | 'hours'>('productivity');
-  const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
-  const [selectedTimesheetDate, setSelectedTimesheetDate] = useState<Date | undefined>(new Date());
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
-  // Auto-update to today's date daily
-  useEffect(() => {
-    const updateToToday = () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset time to start of day
-      
-      const currentSelected = selectedTimesheetDate ? new Date(selectedTimesheetDate) : null;
-      if (currentSelected) {
-        currentSelected.setHours(0, 0, 0, 0);
-      }
-      
-      // Only update if we're not already on today's date
-      if (!currentSelected || currentSelected.getTime() !== today.getTime()) {
-        setSelectedTimesheetDate(today);
-      }
-    };
-
-    // Update immediately
-    updateToToday();
-
-    // Set up daily auto-update at midnight
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    
-    const msUntilMidnight = tomorrow.getTime() - now.getTime();
-    
-    const timeoutId = setTimeout(() => {
-      updateToToday();
-      
-      // Set up recurring daily update
-      const intervalId = setInterval(updateToToday, 24 * 60 * 60 * 1000); // 24 hours
-      
-      return () => clearInterval(intervalId);
-    }, msUntilMidnight);
-
-    return () => clearTimeout(timeoutId);
-  }, [selectedTimesheetDate]);
-
-  // Real timesheets data
-  const timesheetsFilters: ReportsFilters = useMemo(() => {
-    // Use the existing date range filter from sidebar, not the selectedTimesheetDate
-    // The selectedTimesheetDate is just for display purposes to show "as of" date
-    return {
-    org_id: orgId,
-    project_ids: selectedTimesheetProjects.length ? selectedTimesheetProjects : undefined,
-    member_ids: selectedTimesheetUsers.length ? selectedTimesheetUsers : undefined,
-    date_from: timesheetDateRange?.from?.toISOString(),
-    date_to: timesheetDateRange?.to?.toISOString(),
-    };
-  }, [orgId, selectedTimesheetProjects, selectedTimesheetUsers, timesheetDateRange]);
-
-  // Real daily timesheets data using the new API
-  const { data: dailyTimesheets, isFetching: isTimesheetsFetching, isError: isTimesheetsError, error: timesheetsError, refetch: refetchTimesheets } = useQuery({
-    queryKey: ['daily-timesheets', orgId, selectedTimesheetDate, selectedTimesheetProjects],
-    enabled: !!orgId && !!selectedTimesheetDate,
-    queryFn: () => getTeamTimesheetsSummary(
-      orgId, 
-      formatDateForAPI(selectedTimesheetDate!),
-      selectedTimesheetProjects.length > 0 ? selectedTimesheetProjects : undefined
-    ),
-  });
 
   const now = new Date();
   const defaultFrom = useMemo(() => {
@@ -362,7 +280,7 @@ const OrgReports: React.FC = () => {
     task_priorities: taskPriorities.length ? taskPriorities : undefined,
     bug_statuses: bugStatuses.length ? bugStatuses : undefined,
     bug_priorities: bugPriorities.length ? bugPriorities : undefined,
-  }), [orgId, selectedProjects, selectedMembers, dateRange, taskStatuses, taskPriorities, bugStatuses, bugPriorities]);
+  }), [orgId, selectedProjects, selectedMembers, dateRange?.from, dateRange?.to, taskStatuses, taskPriorities, bugStatuses, bugPriorities, defaultFrom]);
 
   // Persist filters in URL search params
   useEffect(() => {
@@ -402,8 +320,7 @@ const OrgReports: React.FC = () => {
       setDateRange({ from: from ? new Date(from) : undefined, to: to ? new Date(to) : undefined });
       setTempDateRange({ from: from ? new Date(from) : undefined, to: to ? new Date(to) : undefined });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   const clearFilters = () => {
     setSelectedProjects([]);
@@ -416,87 +333,6 @@ const OrgReports: React.FC = () => {
     setTempDateRange(undefined);
   };
 
-  const clearTimesheetFilters = () => {
-    setSelectedTimesheetUsers([]);
-    setSelectedTimesheetProjects([]);
-    setTimesheetDateRange(undefined);
-    setTempTimesheetDateRange(undefined);
-    // Keep selectedTimesheetDate as is - it's just for display
-    // setTimesheetSearchQuery('');
-  };
-
-  const filteredTimesheetUsers = useMemo(() => {
-    // Get users from the real API response - support both old and new format
-    let users: TeamTimesheetUser[] = ((dailyTimesheets as any)?.users ?? []) as TeamTimesheetUser[];
-    
-    // If we have the new projects structure, we can use that too
-    const projects = ((dailyTimesheets as any)?.projects ?? []) as any[];
-    
-    // Log the data structure for debugging
-    if (dailyTimesheets) {
-      console.log('Daily timesheets data:', dailyTimesheets);
-      console.log('Users count:', users.length);
-      console.log('Projects count:', projects.length);
-    }
-    
-    // Check if selected date is today (for empty columns)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = selectedTimesheetDate ? new Date(selectedTimesheetDate) : today;
-    selectedDate.setHours(0, 0, 0, 0);
-    const isToday = selectedDate.getTime() === today.getTime();
-    
-    // If no real data and it's today, show some default users for the organization
-    if (users.length === 0 && isToday) {
-      // Get users from real org members for empty timesheet display
-      users = realOrgMembers.slice(0, 10).map(member => ({
-        user_id: String(member.user_id),
-        name: member.displayName,
-        email: member.email || '',
-        designation: member.designation,
-        avatar_initials: member.initials,
-        role: member.role || 'member',
-        total_hours_today: 0,
-        total_hours_week: 0,
-        in_progress: [],
-        completed: [],
-        blockers: []
-      }));
-    }
-    
-    // No longer adding dummy data since we now have real API data
-    
-    // For today's date, clear all task data to show empty columns for daily entry
-    if (isToday) {
-      users = users.map(user => ({
-        ...user,
-        total_hours_today: 0,
-        total_hours_week: 0,
-        in_progress: [],
-        completed: [],
-        blockers: []
-      }));
-    }
-    
-    // Apply member filter first
-    if (selectedTimesheetUsers.length > 0) {
-      users = users.filter(user => selectedTimesheetUsers.includes(String(user.user_id)));
-    }
-    
-    // Apply search filter
-    if (timesheetSearchQuery) {
-    const q = timesheetSearchQuery.toLowerCase();
-      users = users.filter((u) => {
-      const name = String(u.name || '').toLowerCase();
-      const email = String(u.email || '').toLowerCase();
-      const role = String(u.role || '').toLowerCase();
-      const designation = String(u.designation || '').toLowerCase();
-      return [name, email, role, designation].some(v => v.includes(q));
-    });
-    }
-    
-    return users;
-  }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetDate, realOrgMembers]);
 
   const getTaskIcon = (status: string) => {
     switch (status) {
@@ -508,8 +344,8 @@ const OrgReports: React.FC = () => {
   };
 
   const { data: report, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ['reports', filters],
-    enabled: !!orgId,
+    queryKey: ['reports', orgId, selectedProjects, selectedMembers, dateRange?.from, dateRange?.to, taskStatuses, taskPriorities, bugStatuses, bugPriorities],
+    enabled: !!orgId && orgId.length > 0,
     queryFn: () => fetchOrgReports({ filters }),
   });
 
@@ -574,32 +410,32 @@ const OrgReports: React.FC = () => {
     });
     return map;
   }, [orgMembers]);
-  const renderMemberAvatar = (memberId: string, idx: number) => {
-    const info = userDisplayMap[memberId];
-    return info && (
-      <HoverCard key={idx}>
-        <HoverCardTrigger asChild>
-          <Avatar className="w-8 h-8 border-2 border-white cursor-default">
-            <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
-              {info?.initials}
-            </AvatarFallback>
-          </Avatar>
-        </HoverCardTrigger>
-        <HoverCardContent className="text-sm p-2">
-          <div className="flex items-center gap-2">
-            <Avatar className="w-8 h-8 border-2 border-gray-200">
-              <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
-                {info.initials}
-              </AvatarFallback>
-            </Avatar>
-            <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
-              {info.displayName}
-            </Badge>
-          </div>
-        </HoverCardContent>
-      </HoverCard>
-    );
-  };
+  // const renderMemberAvatar = (memberId: string, idx: number) => {
+  //   const info = userDisplayMap[memberId];
+  //   return info && (
+  //     <HoverCard key={idx}>
+  //       <HoverCardTrigger asChild>
+  //         <Avatar className="w-8 h-8 border-2 border-white cursor-default">
+  //           <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+  //             {info?.initials}
+  //           </AvatarFallback>
+  //         </Avatar>
+  //       </HoverCardTrigger>
+  //       <HoverCardContent className="text-sm p-2">
+  //         <div className="flex items-center gap-2">
+  //           <Avatar className="w-8 h-8 border-2 border-gray-200">
+  //             <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+  //               {info.initials}
+  //             </AvatarFallback>
+  //           </Avatar>
+  //           <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+  //             {info.displayName}
+  //           </Badge>
+  //         </div>
+  //       </HoverCardContent>
+  //     </HoverCard>
+  //   );
+  // };
 
   // Function to check if a task is overdue
   const isTaskOverdue = (task: Task) => {
@@ -613,209 +449,6 @@ const OrgReports: React.FC = () => {
     return dueDate < today;
   };
 
-  // Enhanced timesheet helper functions
-  const calculateProductivityScore = (user: any) => {
-    const completed = (user.completed || []).length;
-    const inProgress = (user.in_progress || []).length;
-    const blockers = (user.blockers || []).length;
-    
-    return Math.max(0, Math.min(100, (completed * 3 + inProgress * 1 - blockers * 2)));
-  };
-
-  const getProductivityLevel = (score: number) => {
-    if (score >= 80) return { level: 'Excellent', color: 'text-green-600', bgColor: 'bg-green-100', icon: Trophy };
-    if (score >= 60) return { level: 'Good', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: Star };
-    if (score >= 40) return { level: 'Average', color: 'text-yellow-600', bgColor: 'bg-yellow-100', icon: Target };
-    return { level: 'Needs Focus', color: 'text-red-600', bgColor: 'bg-red-100', icon: AlertTriangle };
-  };
-
-
-  const sortedTimesheetUsers = useMemo(() => {
-    const users = [...(filteredTimesheetUsers || [])];
-    
-    switch (timesheetSort) {
-      case 'productivity':
-        return users.sort((a, b) => calculateProductivityScore(b) - calculateProductivityScore(a));
-      case 'alphabetical':
-        return users.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      case 'hours':
-        return users.sort((a, b) => (b.total_hours_today || 0) - (a.total_hours_today || 0));
-      default:
-        return users;
-    }
-  }, [filteredTimesheetUsers, timesheetSort]);
-
-  // Toggle project expansion
-  const toggleProject = (projectName: string) => {
-    setExpandedProjects(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(projectName)) {
-        newSet.delete(projectName);
-      } else {
-        newSet.add(projectName);
-      }
-      return newSet;
-    });
-  };
-
-  // Check if selected date is today
-  const isToday = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = selectedTimesheetDate ? new Date(selectedTimesheetDate) : today;
-    selectedDate.setHours(0, 0, 0, 0);
-    return selectedDate.getTime() === today.getTime();
-  }, [selectedTimesheetDate]);
-
-  // Organize users by their primary project
-  const usersByProject = useMemo(() => {
-    const projectGroups: Record<string, any[]> = {};
-    
-    sortedTimesheetUsers.forEach(user => {
-      // Determine user's primary project based on their tasks
-      let primaryProject = 'Unassigned';
-      
-      // Get all projects from user's tasks
-      const userProjects = new Set<string>();
-      [...(user.in_progress || []), ...(user.completed || []), ...(user.blockers || [])].forEach(task => {
-        if (task.project) {
-          userProjects.add(task.project);
-        }
-      });
-      
-      // Use the first project or assign based on user role/designation
-      if (userProjects.size > 0) {
-        primaryProject = Array.from(userProjects)[0];
-      } else if (user.designation?.includes('Frontend')) {
-        primaryProject = 'TasksMate Frontend';
-      } else if (user.designation?.includes('Backend')) {
-        primaryProject = 'TasksMate Backend';
-      } else if (user.designation?.includes('Design')) {
-        primaryProject = 'TasksMate Design';
-      } else if (user.designation?.includes('Lead')) {
-        primaryProject = 'TasksMate Platform';
-      }
-      
-      if (!projectGroups[primaryProject]) {
-        projectGroups[primaryProject] = [];
-      }
-      projectGroups[primaryProject].push(user);
-    });
-    
-    return projectGroups;
-  }, [sortedTimesheetUsers]);
-
-  // Toggle all projects
-  const toggleAllProjects = (expand: boolean) => {
-    if (expand) {
-      setExpandedProjects(new Set(Object.keys(usersByProject)));
-    } else {
-      setExpandedProjects(new Set());
-    }
-  };
-
-  // Get primary project ID for a user
-  const getUserPrimaryProject = (user: TeamTimesheetUser): string => {
-    // Try to get project from user's tasks
-    const allTasks = [...(user.in_progress || []), ...(user.completed || []), ...(user.blockers || [])];
-    if (allTasks.length > 0) {
-      // Find the most common project
-      const projectCounts: Record<string, number> = {};
-      allTasks.forEach(task => {
-        if (task.project) {
-          projectCounts[task.project] = (projectCounts[task.project] || 0) + 1;
-        }
-      });
-      
-      const mostCommonProject = Object.keys(projectCounts).reduce((a, b) => 
-        projectCounts[a] > projectCounts[b] ? a : b
-      );
-      
-      // Find the project ID by name
-      const project = projects.find(p => p.name === mostCommonProject);
-      if (project) return project.id;
-    }
-    
-    // Fallback: use first available project or create a default one
-    if (projects.length > 0) {
-      return projects[0].id;
-    }
-    
-    // Last resort: use a default project ID
-    return 'default-project';
-  };
-
-  // Save timesheet data
-  const saveTimesheetData = async (
-    userId: string,
-    field: 'in_progress' | 'completed' | 'blocked',
-    value: string
-  ) => {
-    if (!selectedTimesheetDate || !orgId) return;
-
-    // Find the user to get their primary project
-    const user = filteredTimesheetUsers.find(u => u.user_id === userId);
-    if (!user) return;
-
-    const projectId = getUserPrimaryProject(user);
-
-    try {
-      const timesheetData: DailyTimesheetCreate = {
-        org_id: orgId,
-        project_id: projectId,
-        user_id: userId,
-        entry_date: formatDateForAPI(selectedTimesheetDate),
-        [field]: value
-      };
-
-      await createOrUpdateDailyTimesheet(timesheetData);
-      
-      // Refetch the data to show updated information
-      refetchTimesheets();
-    } catch (error) {
-      console.error('Failed to save timesheet data:', error);
-      // Could add a toast notification here
-    }
-  };
-
-  // Organize all tasks by status across users
-  const organizedTasks = useMemo(() => {
-    const inProgressTasks: Array<any> = [];
-    const blockedTasks: Array<any> = [];
-    const completedTasks: Array<any> = [];
-
-    sortedTimesheetUsers.forEach(user => {
-      // Add user info to each task
-      const userInfo = {
-        user_id: user.user_id,
-        name: user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName,
-        avatar_initials: user.avatar_initials || String(user.name || user.user_id).slice(0,2).toUpperCase(),
-        designation: user.designation,
-        productivityScore: calculateProductivityScore(user),
-        productivityLevel: getProductivityLevel(calculateProductivityScore(user))
-      };
-
-      (user.in_progress || []).forEach(task => {
-        inProgressTasks.push({ ...task, user: userInfo });
-      });
-
-      (user.blockers || []).forEach(task => {
-        blockedTasks.push({ ...task, user: userInfo });
-      });
-
-      if (showCompletedTasks) {
-        (user.completed || []).forEach(task => {
-          completedTasks.push({ ...task, user: userInfo });
-        });
-      }
-    });
-
-    return {
-      inProgress: inProgressTasks,
-      blocked: blockedTasks,
-      completed: completedTasks
-    };
-  }, [sortedTimesheetUsers, showCompletedTasks]);
 
 
   try {
@@ -873,11 +506,9 @@ const OrgReports: React.FC = () => {
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input
                         type="text"
-                        placeholder={activeTab === 'reports' ? "Search projects, members..." : "Search team members, roles, projects..."}
-                        value={activeTab === 'reports' ? searchQuery : timesheetSearchQuery}
-                        onChange={(e) => 
-                          activeTab === 'reports' ? setSearchQuery(e.target.value) : setTimesheetSearchQuery(e.target.value)
-                        }
+                        placeholder="Search projects, members..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         className={`w-full pl-10 pr-10 py-2 bg-white/80 dark:bg-gray-700/80 border rounded-lg text-sm transition-all duration-300 ease-out ${isSearchFocused
@@ -885,11 +516,11 @@ const OrgReports: React.FC = () => {
                           : 'border-gray-300 hover:border-gray-400 focus:outline-none'
                           }`}
                       />
-                      {(activeTab === 'reports' ? searchQuery : timesheetSearchQuery) && (
+                      {searchQuery && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => activeTab === 'reports' ? setSearchQuery('') : setTimesheetSearchQuery('')}
+                          onClick={() => setSearchQuery('')}
                           className="absolute right-1 top-1/2 transform -translate-y-1/2 w-8 h-8 p-0 rounded-full hover:bg-gray-100 transition-colors"
                         >
                           <X className="w-3 h-3" />
@@ -907,17 +538,10 @@ const OrgReports: React.FC = () => {
                       </Button>
                     </>
                   )}
-                  { activeTab === 'reports' ? (
                   <Button onClick={() => refetch()} disabled={isFetching} size="sm">
                     <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
-                  ) : (
-                  <Button size="sm" onClick={() => refetchTimesheets()} disabled={isTimesheetsFetching}>
-                      <RefreshCw className={`w-4 h-4 mr-2 ${isTimesheetsFetching ? 'animate-spin' : ''}`} />
-                      Refresh
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
@@ -1500,667 +1124,12 @@ const OrgReports: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="timesheets" className={`flex flex-1 overflow-hidden mt-0 h-0 ${activeTab === 'timesheets' ? 'min-h-full' : ''}`}>
-              <div className="flex w-full h-full relative">
-                {/* Collapsible Filter Sidebar */}
-                <div className={`${isFilterSidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-shrink-0`}>
-                  <div className="p-4 space-y-4 h-full overflow-y-auto">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Filters & Settings</h3>
-                      <Button variant="ghost" size="sm" onClick={() => setIsFilterSidebarOpen(false)}>
-                        <X className="w-4 h-4" />
-                        </Button>
-                    </div>
-
-                  {/* Date Range */}
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Date Range</label>
-                  <Popover open={isTimesheetDatePopoverOpen} onOpenChange={setIsTimesheetDatePopoverOpen}>
-                    <PopoverTrigger asChild>
-                          <Button variant={timesheetDateRange?.from ? 'default' : 'outline'} className="w-full justify-start">
-                            <Calendar className="w-4 h-4 mr-2" />
-                            {timesheetDateRange?.from ? 'Custom Range' : 'All Time'}
-                      </Button>
-                    </PopoverTrigger>
-                        <PopoverContent className="w-auto p-3" align="start">
-                      <div className="space-y-3">
-                        <CalendarComponent
-                          mode="range"
-                          defaultMonth={tempTimesheetDateRange?.from}
-                          selected={tempTimesheetDateRange}
-                          onSelect={(range) => setTempTimesheetDateRange(range ?? undefined)}
-                          numberOfMonths={2}
-                          className="rounded-md border"
-                        />
-                        <div className="flex justify-between">
-                          <Button size="sm" variant="outline" onClick={() => { setTimesheetDateRange(undefined); setTempTimesheetDateRange(undefined); setIsTimesheetDatePopoverOpen(false); }}>Reset</Button>
-                          <Button size="sm" onClick={() => { setTimesheetDateRange(tempTimesheetDateRange); setIsTimesheetDatePopoverOpen(false); }}>Apply</Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                    </div>
-
-                    {/* Projects Filter */}
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Projects</label>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full justify-between">
-                            <div className="flex items-center">
-                        <FolderOpen className="w-4 h-4 mr-2" />
-                              {selectedTimesheetProjects.length ? `${selectedTimesheetProjects.length} Selected` : 'All Projects'}
-                            </div>
-                            <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
-                      {(projects || []).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
-                        <DropdownMenuCheckboxItem
-                          key={p.id}
-                          checked={selectedTimesheetProjects.includes(p.id)}
-                          onCheckedChange={(checked) => {
-                            setSelectedTimesheetProjects(prev => checked ? [...prev, p.id] : prev.filter(x => x !== p.id));
-                          }}
-                          className="cursor-pointer"
-                        >
-                          {p.name}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                    </div>
-
-                    {/* Members Filter */}
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Team Members</label>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full justify-between">
-                            <div className="flex items-center">
-                        <Users className="w-4 h-4 mr-2" />
-                              {selectedTimesheetUsers.length ? `${selectedTimesheetUsers.length} Selected` : 'All Members'}
-                            </div>
-                            <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
-                      {(realOrgMembers || []).sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => (
-                        <DropdownMenuCheckboxItem
-                          key={m.user_id}
-                          checked={selectedTimesheetUsers.includes(String(m.user_id))}
-                          onCheckedChange={(checked) => {
-                            const id = String(m.user_id);
-                            setSelectedTimesheetUsers(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Avatar className="w-6 h-6">
-                              <AvatarFallback className="text-xs">{m.initials}</AvatarFallback>
-                            </Avatar>
-                            {m.displayName}
-                          </div>
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                    </div>
-
-                    {/* Sort Options */}
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Sort Tasks By</label>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full justify-between">
-                            <div className="flex items-center">
-                              <TrendingUp className="w-4 h-4 mr-2" />
-                              {timesheetSort === 'productivity' ? 'Productivity' : timesheetSort === 'alphabetical' ? 'Alphabetical' : 'Hours'}
-                  </div>
-                            <ChevronRight className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuCheckboxItem checked={timesheetSort === 'productivity'} onCheckedChange={() => setTimesheetSort('productivity')}>
-                            <Trophy className="w-4 h-4 mr-2" />
-                            Productivity Score
-                          </DropdownMenuCheckboxItem>
-                          <DropdownMenuCheckboxItem checked={timesheetSort === 'alphabetical'} onCheckedChange={() => setTimesheetSort('alphabetical')}>
-                            <Users className="w-4 h-4 mr-2" />
-                            Alphabetical
-                          </DropdownMenuCheckboxItem>
-                          <DropdownMenuCheckboxItem checked={timesheetSort === 'hours'} onCheckedChange={() => setTimesheetSort('hours')}>
-                            <Clock className="w-4 h-4 mr-2" />
-                            Hours Today
-                          </DropdownMenuCheckboxItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                </div>
-
-                    {/* View Options */}
-                    <div className="space-y-3 pt-2 border-t">
-                      <Button
-                        variant={showCompletedTasks ? 'default' : 'outline'}
-                        onClick={() => setShowCompletedTasks(!showCompletedTasks)}
-                        className="w-full justify-start"
-                      >
-                        {showCompletedTasks ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
-                        Show Completed Tasks
-                      </Button>
-                      
-                      <Button variant="outline" onClick={clearTimesheetFilters} className="w-full">
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Clear All Filters
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Main Kanban Board */}
-                <div className="flex-1 flex flex-col h-full">
-                  {/* Top Bar */}
-                  <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center gap-2">
-                        <span>Team Members:</span>
-                        <Badge variant="secondary">{sortedTimesheetUsers.length}</Badge>
-                      </div>
-                        
-                        {/* Date Selector */}
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 border-indigo-200 dark:border-indigo-700 hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-800/40 dark:hover:to-purple-800/40 transition-all duration-200"
-                            >
-                              <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mr-2" />
-                              <span className="text-indigo-900 dark:text-indigo-100 font-medium">
-                                {selectedTimesheetDate ? selectedTimesheetDate.toLocaleDateString('en-US', { 
-                                  weekday: 'short',
-                                  month: 'short', 
-                                  day: 'numeric',
-                                  year: 'numeric'
-                                }) : 'Select Date'}
-                              </span>
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-3" align="start">
-                            <div className="space-y-3">
-                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                Select Display Date
-                              </div>
-                              <CalendarComponent
-                                mode="single"
-                                selected={selectedTimesheetDate}
-                                onSelect={(date) => setSelectedTimesheetDate(date ?? new Date())}
-                                className="rounded-md border"
-                                disabled={(date) => date > new Date()}
-                              />
-                              <div className="flex justify-between">
-                                <Button size="sm" variant="outline" onClick={() => setSelectedTimesheetDate(new Date())}>
-                                  Today
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => setSelectedTimesheetDate(undefined)}>
-                                  Clear
-                                </Button>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-
-                        {/* Team Members Filter */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-800/40 dark:hover:to-teal-800/40 transition-all duration-200"
-                            >
-                              <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mr-2" />
-                              <span className="text-emerald-900 dark:text-emerald-100 font-medium">
-                                {selectedTimesheetUsers.length === 0 
-                                  ? 'All Members'
-                                  : selectedTimesheetUsers.length === 1 
-                                    ? (() => {
-                                        const selectedMember = realOrgMembers.find(m => String(m.user_id) === selectedTimesheetUsers[0]);
-                                        return selectedMember?.displayName || 'Selected Member';
-                                      })()
-                                    : `${selectedTimesheetUsers.length} Members`
-                                }
-                              </span>
-                              <ChevronRight className="w-3 h-3 ml-1 text-emerald-600 dark:text-emerald-400" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="w-72 max-h-80 overflow-auto" align="start">
-                            <div className="p-2">
-                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                                Filter Team Members
-                              </div>
-                              <div className="space-y-1">
-                                {/* Select All / Clear All */}
-                                <div className="flex gap-2 mb-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setSelectedTimesheetUsers([])}
-                                    className="h-7 px-2 text-xs"
-                                  >
-                                    All Members
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setSelectedTimesheetUsers(realOrgMembers.map(m => String(m.user_id)))}
-                                    className="h-7 px-2 text-xs"
-                                  >
-                                    Select All
-                                  </Button>
-                                </div>
-                                
-                                {/* Member List */}
-                                {(realOrgMembers || []).sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => (
-                                  <DropdownMenuCheckboxItem
-                                    key={m.user_id}
-                                    checked={selectedTimesheetUsers.includes(String(m.user_id))}
-                                    onCheckedChange={(checked) => {
-                                      const id = String(m.user_id);
-                                      setSelectedTimesheetUsers(prev => 
-                                        checked 
-                                          ? [...prev, id] 
-                                          : prev.filter(x => x !== id)
-                                      );
-                                    }}
-                                    className="cursor-pointer"
-                                  >
-                                    <div className="flex items-center gap-3 w-full">
-                                      <Avatar className="w-7 h-7 flex-shrink-0">
-                                        <AvatarFallback className="text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
-                                          {m.initials}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="font-medium text-sm truncate">
-                                          {m.displayName}
-                                        </div>
-                                        <div className="text-xs text-gray-500 truncate">
-                                          {m.email}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </DropdownMenuCheckboxItem>
-                                ))}
-                              </div>
-                            </div>
-                          </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {/* Toggle All Projects */}
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleAllProjects(true)}
-                          className="h-8 px-2 text-xs bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-200 dark:border-blue-700 hover:from-blue-100 hover:to-indigo-100"
-                        >
-                          <FolderPlus className="w-3 h-3 mr-1 text-blue-600 dark:text-blue-400" />
-                          Expand All
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleAllProjects(false)}
-                          className="h-8 px-2 text-xs bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/30 dark:to-slate-900/30 border-gray-200 dark:border-gray-700 hover:from-gray-100 hover:to-slate-100"
-                        >
-                          <FolderMinus className="w-3 h-3 mr-1 text-gray-600 dark:text-gray-400" />
-                          Collapse All
-                        </Button>
-                      </div>
-
-                      <Button variant="outline" size="sm" onClick={() => refetchTimesheets()} disabled={isTimesheetsFetching}>
-                        <RefreshCw className={`w-4 h-4 mr-2 ${isTimesheetsFetching ? 'animate-spin' : ''}`} />
-                        Refresh
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Loading State */}
-                  {isTimesheetsFetching && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="text-center">
-                        <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-                        <p className="text-lg font-medium text-gray-600">Loading team insights...</p>
-                        <p className="text-sm text-gray-500">Organizing tasks by status</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Project-based Member Cards */}
-                  {!isTimesheetsFetching && (
-                    <div className="flex-1 overflow-hidden">
-                      <div className="h-full overflow-y-auto thin-scroll">
-                        <div className="p-4 pb-8 space-y-6">
-                          {Object.entries(usersByProject)
-                            .sort(([a], [b]) => a.localeCompare(b))
-                            .map(([projectName, projectUsers]) => (
-                              <div key={projectName} className="flex flex-col">
-                                {/* Project Header - Sticky when expanded */}
-                                <div className={`bg-gradient-to-r from-slate-100 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm ${expandedProjects.has(projectName) ? 'sticky top-0 z-10 mb-3' : 'mb-3'}`}>
-                                  <button
-                                    onClick={() => toggleProject(projectName)}
-                                    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded-lg"
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <div className="flex items-center gap-2">
-                                        {expandedProjects.has(projectName) ? (
-                                          <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                                        ) : (
-                                          <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                                        )}
-                                        <Folder className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                      </div>
-                                      <div className="text-left">
-                                        <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                                          {projectName}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                          {projectUsers.length} team member{projectUsers.length !== 1 ? 's' : ''}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-4">
-                                      {/* Date Badge */}
-                                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700">
-                                        <div className="flex items-center gap-2">
-                                          <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                          <div className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
-                                            {(selectedTimesheetDate || new Date()).toLocaleDateString('en-US', { 
-                                              weekday: 'short',
-                                              month: 'short', 
-                                              day: 'numeric',
-                                              year: 'numeric'
-                                            })}
-                                          </div>
-                                        </div>
-                                      </div>
-                                      
-                                      {/* Team Member Avatars with Hover Details */}
-                                      <div className="flex -space-x-2">
-                                        {projectUsers.slice(0, 3).map((user, idx) => (
-                                          <HoverCard key={idx}>
-                                            <HoverCardTrigger asChild>
-                                              <Avatar className="w-8 h-8 border-2 border-white dark:border-gray-800 cursor-pointer hover:scale-110 transition-transform">
-                                                <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                                                  {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
-                                                </AvatarFallback>
-                                              </Avatar>
-                                            </HoverCardTrigger>
-                                            <HoverCardContent className="w-72 p-4 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
-                                              <div className="flex items-center gap-3">
-                        <Avatar className="w-12 h-12">
-                                                  <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold">
-                            {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                                                <div className="flex-1">
-                                                  <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-                                                    {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                                                  </h4>
-                                                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                    {user.designation || 'Team Member'}
-                                                  </p>
-                                                  <p className="text-xs text-gray-500 dark:text-gray-500">
-                                                    {user.email || user.user_id}
-                                                  </p>
-                        </div>
-                      </div>
-                                            </HoverCardContent>
-                                          </HoverCard>
-                                        ))}
-                                        {projectUsers.length > 3 && (
-                                          <HoverCard>
-                                            <HoverCardTrigger asChild>
-                                              <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 border-2 border-white dark:border-gray-800 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
-                                                <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
-                                                  +{projectUsers.length - 3}
-                                                </span>
-                        </div>
-                                            </HoverCardTrigger>
-                                            <HoverCardContent className="w-72 p-3 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
-                                              <div className="space-y-2">
-                                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                                                  Additional Team Members ({projectUsers.length - 3})
-                        </div>
-                                                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto thin-scroll">
-                                                  {projectUsers.slice(3).map((user, idx) => (
-                                                    <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                                      <Avatar className="w-8 h-8 flex-shrink-0">
-                                                        <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                                                          {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
-                                                        </AvatarFallback>
-                                                      </Avatar>
-                                                      <div className="flex-1 min-w-0">
-                                                        <div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-                                                          {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                      </div>
-                                                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                                          {user.designation || 'Team Member'}
-                          </div>
-                                                      </div>
-                                                      <div className="flex items-center gap-1 text-xs">
-                                                        <span className="text-blue-600 font-medium">{(user.in_progress || []).length}</span>
-                                                        <span className="text-red-600 font-medium">{(user.blockers || []).length}</span>
-                                                        <span className="text-green-600 font-medium">{(user.completed || []).length}</span>
-                                                      </div>
-                            </div>
-                          ))}
-                        </div>
-                          </div>
-                                            </HoverCardContent>
-                                          </HoverCard>
-                              )}
-                            </div>
-                                    </div>
-                                  </button>
-                        </div>
-
-                                {/* Project Members - Scrollable Content */}
-                                {expandedProjects.has(projectName) && (
-                                  <div className="pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-                                    <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto thin-scroll pr-2">
-                                      {projectUsers
-                                        .filter((user: any) => {
-                                          if (!timesheetSearchQuery) return true;
-                                          const query = timesheetSearchQuery.toLowerCase();
-                                          const userName = String(user.name || '').toLowerCase();
-                                          const email = String(user.email || '').toLowerCase();
-                                          const designation = String(user.designation || '').toLowerCase();
-                                          return [userName, email, designation].some(v => v.includes(query));
-                                        })
-                                        .map((user: any) => {
-                                      const productivityScore = calculateProductivityScore(user);
-                                      const productivityLevel = getProductivityLevel(productivityScore);
-                                      const ProductivityIcon = productivityLevel.icon;
-
-                                      return (
-                                        <Card key={user.user_id} className="p-4 bg-gradient-to-br from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-slate-200 dark:border-gray-600 shadow-lg">
-                                          {/* Member Header */}
-                                          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                                            <div className="flex items-center gap-4">
-                                              <Avatar className="w-14 h-14 ring-2 ring-offset-2 ring-blue-500">
-                                                <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg">
-                                                  {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
-                                                </AvatarFallback>
-                                              </Avatar>
-                          <div>
-                                                <h3 className="font-semibold text-xl text-gray-900 dark:text-gray-100">
-                                                  {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                                                </h3>
-                                                <p className="text-sm text-gray-600 dark:text-gray-400">{user.designation || 'Team Member'}</p>
-                            </div>
-                              </div>
-                                          </div>
-
-                                          {/* 3-Column Kanban Layout */}
-                                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            {/* In Progress Column */}
-                                            <div className="bg-blue-50/70 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                                              <div className="p-3 border-b border-blue-200 dark:border-blue-700">
-                                                <div className="flex items-center gap-2">
-                                                  <Clock className="w-4 h-4 text-blue-600" />
-                                                  <span className="font-semibold text-sm text-blue-900 dark:text-blue-100">In Progress</span>
-                                                </div>
-                                              </div>
-                                              <div className="p-3">
-                                                <div className="bg-white dark:bg-gray-800 rounded-lg border-l-4 border-blue-500 shadow-sm hover:shadow-md transition-all duration-200 cursor-text">
-                                                  <textarea
-                                                    className="w-full h-32 p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                                                    placeholder={isToday ? "Add today's in-progress tasks and notes..." : "Add in-progress tasks and notes..."}
-                                                    defaultValue={(() => {
-                                                      let content = '';
-                                                      (user.in_progress || []).forEach((task: any) => {
-                                                        content += `• ${task.title}${task.project ? ` (${task.project})` : ''}${task.hours_logged ? ` - ${task.hours_logged}h` : ''}\n`;
-                                                      });
-                                                      return content.trim();
-                                                    })()}
-                                                    onFocus={(e) => {
-                                                      e.target.parentElement?.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-50');
-                                                    }}
-                                                    onBlur={(e) => {
-                                                      e.target.parentElement?.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-50');
-                                                      // Save the data when user finishes editing
-                                                      saveTimesheetData(user.user_id, 'in_progress', e.target.value);
-                                                    }}
-                                                  />
-                                                  <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-b-lg border-t border-blue-200 dark:border-blue-600">
-                                                    <div className="flex items-center justify-end text-xs">
-                                                      <Button variant="ghost" size="sm" className="h-5 px-2 text-xs text-blue-600 hover:bg-blue-100">
-                                                        <Save className="w-3 h-3 mr-1" />
-                                                        Save
-                                                      </Button>
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </div>
-
-                                            {/* Blocked Column */}
-                                            <div className="bg-red-50/70 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700">
-                                              <div className="p-3 border-b border-red-200 dark:border-red-700">
-                                                <div className="flex items-center gap-2">
-                                                  <AlertTriangle className="w-4 h-4 text-red-600" />
-                                                  <span className="font-semibold text-sm text-red-900 dark:text-red-100">Blocked</span>
-                                                </div>
-                                              </div>
-                                              <div className="p-3">
-                                                <div className="bg-white dark:bg-gray-800 rounded-lg border-l-4 border-red-500 shadow-sm hover:shadow-md transition-all duration-200 cursor-text">
-                                                  <textarea
-                                                    className="w-full h-32 p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                                                    placeholder={isToday ? "Add today's blocked tasks and reasons..." : "Add blocked tasks and reasons..."}
-                                                    defaultValue={(() => {
-                                                      let content = '';
-                                                      (user.blockers || []).forEach((task: any) => {
-                                                        content += `• ${task.title}${task.project ? ` (${task.project})` : ''}${task.blocked_reason ? ` - ${task.blocked_reason}` : ''}\n`;
-                                                      });
-                                                      return content.trim();
-                                                    })()}
-                                                    onFocus={(e) => {
-                                                      e.target.parentElement?.classList.add('ring-2', 'ring-red-500', 'ring-opacity-50');
-                                                    }}
-                                                    onBlur={(e) => {
-                                                      e.target.parentElement?.classList.remove('ring-2', 'ring-red-500', 'ring-opacity-50');
-                                                      // Save the data when user finishes editing
-                                                      saveTimesheetData(user.user_id, 'blocked', e.target.value);
-                                                    }}
-                                                  />
-                                                  <div className="px-3 py-2 bg-red-50 dark:bg-red-900/30 rounded-b-lg border-t border-red-200 dark:border-red-600">
-                                                    <div className="flex items-center justify-end text-xs">
-                                                      <Button variant="ghost" size="sm" className="h-5 px-2 text-xs text-red-600 hover:bg-red-100">
-                                                        <Save className="w-3 h-3 mr-1" />
-                                                        Save
-                                                      </Button>
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </div>
-
-                                            {/* Completed Column */}
-                                            {showCompletedTasks && (
-                                              <div className="bg-green-50/70 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                                                <div className="p-3 border-b border-green-200 dark:border-green-700">
-                                                  <div className="flex items-center gap-2">
-                                                    <CheckCircle className="w-4 h-4 text-green-600" />
-                                                    <span className="font-semibold text-sm text-green-900 dark:text-green-100">Completed</span>
-                                                  </div>
-                                                </div>
-                                                <div className="p-3">
-                                                  <div className="bg-white dark:bg-gray-800 rounded-lg border-l-4 border-green-500 shadow-sm hover:shadow-md transition-all duration-200 cursor-text">
-                                                    <textarea
-                                                      className="w-full h-32 p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                                                      placeholder={isToday ? "Add today's completed tasks and notes..." : "Add completed tasks and notes..."}
-                                                      defaultValue={(() => {
-                                                        let content = '';
-                                                        (user.completed || []).forEach((task: any) => {
-                                                          content += `• ${task.title}${task.project ? ` (${task.project})` : ''}${task.hours_logged ? ` - ${task.hours_logged}h` : ''}\n`;
-                                                        });
-                                                        return content.trim();
-                                                      })()}
-                                                      onFocus={(e) => {
-                                                        e.target.parentElement?.classList.add('ring-2', 'ring-green-500', 'ring-opacity-50');
-                                                      }}
-                                                      onBlur={(e) => {
-                                                        e.target.parentElement?.classList.remove('ring-2', 'ring-green-500', 'ring-opacity-50');
-                                                        // Save the data when user finishes editing
-                                                        saveTimesheetData(user.user_id, 'completed', e.target.value);
-                                                      }}
-                                                    />
-                                                    <div className="px-3 py-2 bg-green-50 dark:bg-green-900/30 rounded-b-lg border-t border-green-200 dark:border-green-600">
-                                                      <div className="flex items-center justify-end text-xs">
-                                                        <Button variant="ghost" size="sm" className="h-5 px-2 text-xs text-green-600 hover:bg-green-100">
-                                                          <Save className="w-3 h-3 mr-1" />
-                                                          Save
-                                                        </Button>
-                                                      </div>
-                                                    </div>
-                                                  </div>
-                                                </div>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                                      );
-                                    })}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                  ))}
-                </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Empty State */}
-                  {!isTimesheetsFetching && sortedTimesheetUsers.length === 0 && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="mx-auto w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
-                          <Timer className="w-12 h-12 text-gray-400" />
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">No Tasks Found</h3>
-                        <p className="text-gray-500 dark:text-gray-500 mb-6">Adjust your filters or check back later</p>
-                        <Button onClick={clearTimesheetFilters} className="bg-blue-600 hover:bg-blue-700 text-white">
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Reset Filters
-                        </Button>
-                      </div>
-                  </div>
-                )}
-                </div>
-              </div>
+              <TimesheetTab
+                orgId={orgId}
+                projectsFromParent={projects}
+                realOrgMembers={realOrgMembers}
+                fetchProjects={fetchProjects}
+              />
             </TabsContent>
           </Tabs>
         </div>

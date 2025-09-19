@@ -1,9 +1,10 @@
 
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { Check, ChevronRight, Circle } from "lucide-react"
+import { Check, ChevronRight, Circle, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 
@@ -55,22 +56,108 @@ const DropdownMenuSubContent = React.forwardRef<
 DropdownMenuSubContent.displayName =
   DropdownMenuPrimitive.SubContent.displayName
 
+function getTextFromNode(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(getTextFromNode).join(" ")
+  if (React.isValidElement(node)) return getTextFromNode(node.props.children)
+  return ""
+}
+
+type DropdownMenuContentProps = React.ComponentPropsWithoutRef<
+  typeof DropdownMenuPrimitive.Content
+> & {
+  searchable?: boolean
+  searchPlaceholder?: string
+}
+
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
+  DropdownMenuContentProps
+>(({ className, sideOffset = 4, searchable = true, searchPlaceholder = "Search...", children, ...props }, ref) => {
+  const [query, setQuery] = React.useState("")
+  const searchInputRef = React.useRef<HTMLInputElement>(null)
+  
+  // Maintain focus on search input when query changes
+  React.useEffect(() => {
+    if (query && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [query])
+
+  const childrenArray = React.Children.toArray(children)
+  const filteredChildren = searchable && query
+    ? childrenArray.filter((child) => {
+        if (!React.isValidElement(child)) return true
+        const displayName = (child.type as any)?.displayName as string | undefined
+        if (displayName && (displayName.includes("Separator") || displayName.includes("Label"))) {
+          return true
+        }
+        const text = getTextFromNode(child.props.children)
+        return text.toLowerCase().includes(query.toLowerCase())
+      })
+    : childrenArray
+
+  return (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        "z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
         className
       )}
       {...props}
-    />
+    >
+      {searchable && (
+        <div className="p-2 border-b">
+          <div className="relative">
+            <Input
+              ref={searchInputRef}
+              placeholder={searchPlaceholder}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pr-8"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              onFocus={(e) => e.stopPropagation()}
+              autoFocus
+            />
+            {query && (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setQuery("")
+                  // Refocus the input after clearing
+                  setTimeout(() => {
+                    searchInputRef.current?.focus()
+                  }, 0)
+                }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="max-h-80 overflow-y-auto p-1" style={{
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'hsl(var(--muted-foreground)) hsl(var(--muted))'
+      }}>
+        {filteredChildren.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            No results.
+          </div>
+        ) : (
+          filteredChildren
+        )}
+      </div>
+    </DropdownMenuPrimitive.Content>
   </DropdownMenuPrimitive.Portal>
-))
+  );
+});
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
 
 const DropdownMenuItem = React.forwardRef<
