@@ -186,9 +186,9 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       { name: 'Projects', path: '/projects', icon: Layers },
       { name: 'Tasks', path: '/tasks_catalog', icon: ClipboardList },
       { name: 'Bug Tracker', path: '/tester-zone', icon: Bug },
-      { name: 'Scratchpad', path: '/scratchpad', icon: Edit3 },
       { name: 'Members', path: '/team-members', icon: Users },
       { name: 'Pulse', path: '/org-reports', icon: Activity },
+      { name: 'Scratchpad', path: '/scratchpad', icon: Edit3 },
       { name: 'Settings', path: '/settings', icon: Settings },
       { name: 'Feedback', path: '/feedback', icon: MessageSquare },      
     ];
