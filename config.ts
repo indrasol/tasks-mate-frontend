@@ -36,4 +36,5 @@ export const API_ENDPOINTS = {
   FEEDBACK: `${API_BASE_URL}/feedback`,
   USERS: `${API_BASE_URL}/users/avatar`,
   REPORTS: `${API_BASE_URL}/reports`,
+  DAILY_TIMESHEETS: `${API_BASE_URL}/daily-timesheets`,
 };

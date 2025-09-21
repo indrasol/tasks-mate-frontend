@@ -616,6 +616,32 @@ const TaskDetail = () => {
     }
   };
 
+  const handleEditCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setEditCommentText(newText);
+
+    const curPos = getCursorPosition(e.target);
+    setEditCursorPosition(curPos);
+
+    // Get text before cursor
+    const textBeforeCursor = newText.substring(0, curPos);
+
+    // Show pop-over ONLY when the cursor is currently inside an @-mention that has no
+    // terminating regular space/punctuation yet (i.e. the mention is still being typed).
+    // NBSP (\u00A0) is treated as part of the mention so selecting a name will close it.
+    const inProgressMatch = textBeforeCursor.match(/(?:^|\s)@([^\s]*)$/);
+
+    if (inProgressMatch) {
+      // User is typing a mention → keep / open popover
+      setEditMentionSearchText(inProgressMatch[1] || "");
+      if (!showEditMentionPopover) setShowEditMentionPopover(true);
+      setEditMentionActiveIndex(0);
+    } else if (showEditMentionPopover) {
+      // Cursor is no longer within a mention → close popover
+      setShowEditMentionPopover(false);
+    }
+  };
+
   const handleSelectMention = useCallback((username: string) => {
     if (!commentInputRef.current) return;
 
@@ -658,11 +684,48 @@ const TaskDetail = () => {
     }
   }, []);
 
-  // Handle click outside to close mention popover
+  // Insert selected mention in EDIT mode
+  const handleEditSelectMention = useCallback((username: string) => {
+    if (!editCommentInputRef.current) return;
+
+    const textarea = editCommentInputRef.current;
+    const text = textarea.value;
+    const curPos = getCursorPosition(textarea);
+
+    // Find the position of the @ character
+    const textBeforeCursor = text.substring(0, curPos);
+    const atIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (atIndex !== -1) {
+      // Replace spaces in the selected username with NBSP to keep the token contiguous
+      const usernameSafe = username.replace(/ /g, '\u00A0');
+
+      // Build updated text
+      const newText =
+        text.substring(0, atIndex + 1) +
+        usernameSafe + ' ' +
+        text.substring(curPos);
+
+      setEditCommentText(newText);
+      setShowEditMentionPopover(false);
+
+      // Restore focus and caret
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = atIndex + username.length + 2; // +2 for @ and space
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 50);
+    }
+  }, []);
+
+  // Handle click outside to close mention popovers (new comment and edit comment)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (commentInputRef.current && !commentInputRef.current.contains(e.target as Node)) {
         setShowMentionPopover(false);
+      }
+      if (editCommentInputRef.current && !editCommentInputRef.current.contains(e.target as Node)) {
+        setShowEditMentionPopover(false);
       }
     };
 
@@ -683,6 +746,38 @@ const TaskDetail = () => {
       return usernameMatch || displayNameMatch;
     })
     : orgMembers).filter((member) => member.email !== user?.email);
+
+  // Filter organization members for EDIT mention popover based on editMentionSearchText
+  const filteredEditMembers = (editMentionSearchText
+    ? orgMembers.filter(member => {
+      const searchLower = editMentionSearchText.toLowerCase();
+      const usernameMatch = member.email?.toLowerCase().includes(searchLower);
+      const displayNameMatch = member.displayName.toLowerCase().includes(searchLower);
+
+      return usernameMatch || displayNameMatch;
+    })
+    : orgMembers).filter((member) => member.email !== user?.email);
+
+  // Keyboard navigation handler for the EDIT comment textarea when the mention popover is open
+  const handleEditTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!showEditMentionPopover || filteredEditMembers.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setEditMentionActiveIndex((prev) => (prev + 1) % filteredEditMembers.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setEditMentionActiveIndex((prev) => (prev - 1 + filteredEditMembers.length) % filteredEditMembers.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const member = filteredEditMembers[editMentionActiveIndex];
+      if (member) {
+        handleEditSelectMention(member.displayName);
+      }
+    } else if (e.key === 'Escape') {
+      setShowEditMentionPopover(false);
+    }
+  };
 
   // Function to render comment text with @mentions highlighted
   const renderCommentWithMentions = (text: string) => {
@@ -2013,13 +2108,48 @@ const TaskDetail = () => {
                                       <Textarea
                                         ref={editCommentInputRef}
                                         value={editCommentText}
-                                        onChange={(e) => {
-                                          setEditCommentText(e.target.value);
-                                          // You could implement @mention in edit mode too if needed
-                                        }}
+                                        onKeyDown={handleEditTextareaKeyDown}
+                                        onChange={handleEditCommentChange}
+                                        onClick={() => setShowEditMentionPopover(false)}
                                         disabled={!task?.is_editable}
                                         className="min-h-16 resize-none"
                                       />
+                                      {/* @mention popover for EDIT mode */}
+                                      {showEditMentionPopover && (
+                                        <div
+                                          className="absolute z-50 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 max-h-60 overflow-y-auto w-64"
+                                          style={{ top: 30, left: 10 }}
+                                        >
+                                          <div className="p-1">
+                                            <div className="px-2 py-1 text-sm font-semibold border-b border-gray-100 dark:border-gray-600 mb-1 bg-blue-50 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-t">
+                                              @Mention Team Member
+                                            </div>
+                                            {filteredEditMembers.length === 0 ? (
+                                              <div className="px-2 py-1 text-sm text-gray-500 dark:text-gray-400">No members found</div>
+                                            ) : (
+                                              filteredEditMembers.map((member, idx) => (
+                                                <button
+                                                  key={member.id || member.user_id}
+                                                  className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded transition-colors ${idx === editMentionActiveIndex ? 'bg-blue-100 dark:bg-blue-900/50' : 'hover:bg-gray-100 dark:hover:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 active:bg-blue-100 dark:active:bg-blue-900/50'}`}
+                                                  type="button"
+                                                  onMouseDown={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleEditSelectMention(member.displayName);
+                                                  }}
+                                                >
+                                                  <Avatar className="h-5 w-5">
+                                                    <AvatarFallback className="text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
+                                                      {member.displayName.substring(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                  </Avatar>
+                                                  <span className="text-sm font-medium text-gray-900 dark:text-white">{member.displayName}</span>
+                                                </button>
+                                              ))
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex items-center space-x-2">
                                       <Button size="sm" onClick={handleSaveEdit}

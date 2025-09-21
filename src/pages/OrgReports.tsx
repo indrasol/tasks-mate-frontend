@@ -1,4 +1,5 @@
 import MainNavigation from '@/components/navigation/MainNavigation';
+import TimesheetTab from '@/components/TimesheetTab';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { api } from '@/services/apiService';
-import { AlertTriangle, CalendarRange, CheckCircle, Clock, Filter, FolderOpen, Loader2, RefreshCw, Search, Timer, Users, X } from 'lucide-react';
+import { AlertTriangle, CalendarRange, CheckCircle, Clock, Filter, FolderOpen, Loader2, RefreshCw, Search, Timer, Users, X, Plus, Star, Trophy, Target, TrendingUp, Calendar, Edit3, Save, MoreVertical, Play, Pause, RotateCcw, Award, Flame, ChevronRight, Eye, EyeOff, BarChart3, PieChart, ChevronDown, ChevronUp, Folder, FolderMinus, FolderPlus } from 'lucide-react';
 
 const TASK_STATUSES = ['not_started', 'in_progress', 'blocked', 'on_hold', 'completed'];
 const TASK_PRIORITIES = ['critical', 'high', 'medium', 'low', 'none'];
@@ -144,7 +145,7 @@ const ProjectHoverCard = ({ project, orgId, orgMembers }: {
 };
 
 const OrgReports: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  
   const { user, loading } = useAuth();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -160,16 +161,7 @@ const OrgReports: React.FC = () => {
     return () => window.removeEventListener('sidebar-toggle', handler);
   }, []);
 
-  const navigate = useNavigate();
-  const currentOrgId = useCurrentOrgId();
-
-  // Use currentOrgId as fallback if orgId is not in URL
-  const orgId = useMemo(() => {
-    const urlOrgId = searchParams.get('org_id');
-    return urlOrgId || currentOrgId || '';
-  }, [searchParams, currentOrgId]);
-
-  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
+  const navigate = useNavigate();  
 
   // Handle authentication and loading
   useEffect(() => {
@@ -196,7 +188,19 @@ const OrgReports: React.FC = () => {
     return null;
   }
 
-  const orgMembers: BackendOrgMember[] = useMemo(() => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentOrgId = useCurrentOrgId();
+
+  // Use currentOrgId as fallback if orgId is not in URL
+  const orgId = useMemo(() => {
+    const urlOrgId = searchParams.get('org_id');
+    return urlOrgId || currentOrgId || '';
+  }, [searchParams, currentOrgId]);
+
+  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
+
+  // Real organization members (without dummy data) for dropdowns and filters
+  const realOrgMembers: BackendOrgMember[] = useMemo(() => {
     try {
       if (!orgMembersRaw) return [];
 
@@ -207,20 +211,31 @@ const OrgReports: React.FC = () => {
         ...m,
         displayName: deriveDisplayFromEmail(m.name).displayName,
         initials: deriveDisplayFromEmail(m.name).initials,
-      })) as BackendOrgMember[];
+      }));
     } catch (error) {
-      console.error('Error processing orgMembers:', error);
+      console.error('Error processing real orgMembers:', error);
       return [];
     }
   }, [orgMembersRaw]);
 
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  // Use real organization members only (no dummy data needed)
+  const orgMembers: BackendOrgMember[] = useMemo(() => {
+    try {
+      return realOrgMembers;
+    } catch (error) {
+      console.error('Error processing orgMembers:', error);
+      return [];
+    }
+  }, [realOrgMembers]);
+
+  const [projects, setProjects] = useState<{ id: string; name: string; members: string[] }[]>([]);
   const fetchProjects = async () => {
     if (!currentOrgId) return;
     try {
       const res = await api.get<any[]>(`${API_ENDPOINTS.PROJECTS}/${currentOrgId}?show_all=true`);
-      const mapped = res.map((p: any) => ({ id: p.project_id, name: p.name }));
+      const mapped = res.map((p: any) => ({ id: p.project_id, name: p.name || p.project_name, members: p.team_members ?? [], owner: p.owner ?? "" }));
       setProjects(mapped);
+      console.log('projects', mapped);
     } catch (e) {
       console.error("Failed to fetch projects", e);
     }
@@ -246,30 +261,7 @@ const OrgReports: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-  // Timesheets state
-  const [timesheetSearchQuery, setTimesheetSearchQuery] = useState('');
-  const [timesheetDateRange, setTimesheetDateRange] = useState<DateRange | undefined>(undefined);
-  const [tempTimesheetDateRange, setTempTimesheetDateRange] = useState<DateRange | undefined>(undefined);
-  const [isTimesheetDatePopoverOpen, setIsTimesheetDatePopoverOpen] = useState(false);
-  const [selectedTimesheetUsers, setSelectedTimesheetUsers] = useState<string[]>([]);
-  const [selectedTimesheetProjects, setSelectedTimesheetProjects] = useState<string[]>([]);
-  const [isAddEntryModalOpen, setIsAddEntryModalOpen] = useState(false);
-  const [selectedUserForEntry, setSelectedUserForEntry] = useState<string>('');
 
-  // Real timesheets data
-  const timesheetsFilters: ReportsFilters = useMemo(() => ({
-    org_id: orgId,
-    project_ids: selectedTimesheetProjects.length ? selectedTimesheetProjects : undefined,
-    member_ids: selectedTimesheetUsers.length ? selectedTimesheetUsers : undefined,
-    date_from: timesheetDateRange?.from?.toISOString(),
-    date_to: timesheetDateRange?.to?.toISOString(),
-  }), [orgId, selectedTimesheetProjects, selectedTimesheetUsers, timesheetDateRange]);
-
-  const { data: timesheets, isFetching: isTimesheetsFetching, isError: isTimesheetsError, error: timesheetsError, refetch: refetchTimesheets } = useQuery({
-    queryKey: ['timesheets', timesheetsFilters],
-    enabled: !!orgId,
-    queryFn: () => fetchOrgTimesheets({ filters: timesheetsFilters }),
-  });
 
   const now = new Date();
   const defaultFrom = useMemo(() => {
@@ -288,7 +280,7 @@ const OrgReports: React.FC = () => {
     task_priorities: taskPriorities.length ? taskPriorities : undefined,
     bug_statuses: bugStatuses.length ? bugStatuses : undefined,
     bug_priorities: bugPriorities.length ? bugPriorities : undefined,
-  }), [orgId, selectedProjects, selectedMembers, dateRange, taskStatuses, taskPriorities, bugStatuses, bugPriorities]);
+  }), [orgId, selectedProjects, selectedMembers, dateRange?.from, dateRange?.to, taskStatuses, taskPriorities, bugStatuses, bugPriorities, defaultFrom]);
 
   // Persist filters in URL search params
   useEffect(() => {
@@ -328,8 +320,7 @@ const OrgReports: React.FC = () => {
       setDateRange({ from: from ? new Date(from) : undefined, to: to ? new Date(to) : undefined });
       setTempDateRange({ from: from ? new Date(from) : undefined, to: to ? new Date(to) : undefined });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   const clearFilters = () => {
     setSelectedProjects([]);
@@ -342,26 +333,6 @@ const OrgReports: React.FC = () => {
     setTempDateRange(undefined);
   };
 
-  const clearTimesheetFilters = () => {
-    setSelectedTimesheetUsers([]);
-    setSelectedTimesheetProjects([]);
-    setTimesheetDateRange(undefined);
-    setTempTimesheetDateRange(undefined);
-    // setTimesheetSearchQuery('');
-  };
-
-  const filteredTimesheetUsers = useMemo(() => {
-    const users = ((timesheets as any)?.users ?? []) as any[];
-    if (!timesheetSearchQuery) return users;
-    const q = timesheetSearchQuery.toLowerCase();
-    return users.filter((u) => {
-      const name = String(u.name || '').toLowerCase();
-      const email = String(u.email || '').toLowerCase();
-      const role = String(u.role || '').toLowerCase();
-      const designation = String(u.designation || '').toLowerCase();
-      return [name, email, role, designation].some(v => v.includes(q));
-    });
-  }, [timesheets, timesheetSearchQuery]);
 
   const getTaskIcon = (status: string) => {
     switch (status) {
@@ -373,8 +344,8 @@ const OrgReports: React.FC = () => {
   };
 
   const { data: report, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ['reports', filters],
-    enabled: !!orgId,
+    queryKey: ['reports', orgId, selectedProjects, selectedMembers, dateRange?.from, dateRange?.to, taskStatuses, taskPriorities, bugStatuses, bugPriorities],
+    enabled: !!orgId && orgId.length > 0,
     queryFn: () => fetchOrgReports({ filters }),
   });
 
@@ -439,32 +410,32 @@ const OrgReports: React.FC = () => {
     });
     return map;
   }, [orgMembers]);
-  const renderMemberAvatar = (memberId: string, idx: number) => {
-    const info = userDisplayMap[memberId];
-    return info && (
-      <HoverCard key={idx}>
-        <HoverCardTrigger asChild>
-          <Avatar className="w-8 h-8 border-2 border-white cursor-default">
-            <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
-              {info?.initials}
-            </AvatarFallback>
-          </Avatar>
-        </HoverCardTrigger>
-        <HoverCardContent className="text-sm p-2">
-          <div className="flex items-center gap-2">
-            <Avatar className="w-8 h-8 border-2 border-gray-200">
-              <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
-                {info.initials}
-              </AvatarFallback>
-            </Avatar>
-            <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
-              {info.displayName}
-            </Badge>
-          </div>
-        </HoverCardContent>
-      </HoverCard>
-    );
-  };
+  // const renderMemberAvatar = (memberId: string, idx: number) => {
+  //   const info = userDisplayMap[memberId];
+  //   return info && (
+  //     <HoverCard key={idx}>
+  //       <HoverCardTrigger asChild>
+  //         <Avatar className="w-8 h-8 border-2 border-white cursor-default">
+  //           <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+  //             {info?.initials}
+  //           </AvatarFallback>
+  //         </Avatar>
+  //       </HoverCardTrigger>
+  //       <HoverCardContent className="text-sm p-2">
+  //         <div className="flex items-center gap-2">
+  //           <Avatar className="w-8 h-8 border-2 border-gray-200">
+  //             <AvatarFallback className="text-xs bg-tasksmate-gradient text-white">
+  //               {info.initials}
+  //             </AvatarFallback>
+  //           </Avatar>
+  //           <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+  //             {info.displayName}
+  //           </Badge>
+  //         </div>
+  //       </HoverCardContent>
+  //     </HoverCard>
+  //   );
+  // };
 
   // Function to check if a task is overdue
   const isTaskOverdue = (task: Task) => {
@@ -477,6 +448,7 @@ const OrgReports: React.FC = () => {
 
     return dueDate < today;
   };
+
 
 
   try {
@@ -511,11 +483,7 @@ const OrgReports: React.FC = () => {
 
           <Tabs value={activeTab} onValueChange={v => {
             setActiveTab(v as any);
-            if (v === 'reports') {
-              setSearchQuery(timesheetSearchQuery);
-            } else {
-              setTimesheetSearchQuery(searchQuery);
-            }
+            // Don't sync search queries between tabs - keep them separate
           }} className="flex flex-col flex-1 overflow-hidden">
             {/* Tabs for Reports / Timesheets */}
             <div className="px-0 pb-4">
@@ -539,10 +507,8 @@ const OrgReports: React.FC = () => {
                       <input
                         type="text"
                         placeholder="Search projects, members..."
-                        value={activeTab === 'reports' ? searchQuery : timesheetSearchQuery}
-                        onChange={(e) => 
-                          activeTab === 'reports' ? setSearchQuery(e.target.value) : setTimesheetSearchQuery(e.target.value)
-                        }
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setIsSearchFocused(false)}
                         className={`w-full pl-10 pr-10 py-2 bg-white/80 dark:bg-gray-700/80 border rounded-lg text-sm transition-all duration-300 ease-out ${isSearchFocused
@@ -550,11 +516,11 @@ const OrgReports: React.FC = () => {
                           : 'border-gray-300 hover:border-gray-400 focus:outline-none'
                           }`}
                       />
-                      {(activeTab === 'reports' ? searchQuery : timesheetSearchQuery) && (
+                      {searchQuery && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => activeTab === 'reports' ? setSearchQuery('') : setTimesheetSearchQuery('')}
+                          onClick={() => setSearchQuery('')}
                           className="absolute right-1 top-1/2 transform -translate-y-1/2 w-8 h-8 p-0 rounded-full hover:bg-gray-100 transition-colors"
                         >
                           <X className="w-3 h-3" />
@@ -562,23 +528,20 @@ const OrgReports: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <Button variant="outline" onClick={onExportCSV} disabled={!report || isFetching} size="sm">
-                    Export CSV
-                  </Button>
-                  <Button variant="outline" onClick={onExportJSON} disabled={!report || isFetching} size="sm">
-                    Export JSON
-                  </Button>
-                  { activeTab === 'reports' ? (
+                  {activeTab === 'reports' && (
+                    <>
+                      <Button variant="outline" onClick={onExportCSV} disabled={!report || isFetching} size="sm">
+                        Export CSV
+                      </Button>
+                      <Button variant="outline" onClick={onExportJSON} disabled={!report || isFetching} size="sm">
+                        Export JSON
+                      </Button>
+                    </>
+                  )}
                   <Button onClick={() => refetch()} disabled={isFetching} size="sm">
                     <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
-                  ) : (
-                  <Button size="sm" onClick={() => refetchTimesheets()} disabled={isTimesheetsFetching}>
-                      <RefreshCw className={`w-4 h-4 mr-2 ${isTimesheetsFetching ? 'animate-spin' : ''}`} />
-                      Refresh
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
@@ -695,7 +658,7 @@ const OrgReports: React.FC = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
-                            {(orgMembers || []).sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => (
+                            {(realOrgMembers || []).sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => (
                               <DropdownMenuCheckboxItem
                                 key={m.user_id}
                                 checked={selectedMembers.includes(String(m.user_id))}
@@ -1160,217 +1123,13 @@ const OrgReports: React.FC = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="timesheets" className={`flex flex-col md:flex-row gap-4 flex-1 overflow-hidden mt-0 h-0 ${activeTab === 'timesheets' ? 'min-h-full' : ''}`}>
-              <div className="w-full p-4">
-                {/* <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Team Timesheets</h2> */}
-
-                {/* Timesheets Filters */}
-                <div className="mb-4 flex flex-wrap gap-2 items-center">
-                  {/* Search */}
-                  {/* <div className="flex items-center">
-                    <div className={`relative transition-all duration-300 ease-out w-64`}>
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search users (name, email, role, designation)"
-                        value={timesheetSearchQuery}
-                        onChange={(e) => setTimesheetSearchQuery(e.target.value)}
-                        className={`w-full pl-10 pr-10 py-2 bg-white/80 dark:bg-gray-700/80 border rounded-lg text-sm border-gray-300 hover:border-gray-400 focus:outline-none`}
-                      />
-                      {timesheetSearchQuery && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setTimesheetSearchQuery('')}
-                          className="absolute right-1 top-1/2 transform -translate-y-1/2 w-8 h-8 p-0 rounded-full hover:bg-gray-100 transition-colors"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </div> */}
-
-                  {/* Date Range */}
-                  <Popover open={isTimesheetDatePopoverOpen} onOpenChange={setIsTimesheetDatePopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button variant={timesheetDateRange?.from ? 'default' : 'outline'} size="sm" className="h-8">
-                        <CalendarRange className="w-4 h-4 mr-1" />
-                        {timesheetDateRange?.from ? 'Date: Selected' : 'Date: Pick'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-3" align="start"
-                      onInteractOutside={(e) => {
-                        if ((e.target as HTMLElement).closest('.rdp')) e.preventDefault();
-                      }}
-                    >
-                      <div className="space-y-3">
-                        <CalendarComponent
-                          mode="range"
-                          defaultMonth={tempTimesheetDateRange?.from}
-                          selected={tempTimesheetDateRange}
-                          onSelect={(range) => setTempTimesheetDateRange(range ?? undefined)}
-                          numberOfMonths={2}
-                          className="rounded-md border"
-                        />
-                        <div className="flex justify-between">
-                          <Button size="sm" variant="outline" onClick={() => { setTimesheetDateRange(undefined); setTempTimesheetDateRange(undefined); setIsTimesheetDatePopoverOpen(false); }}>Reset</Button>
-                          <Button size="sm" onClick={() => { setTimesheetDateRange(tempTimesheetDateRange); setIsTimesheetDatePopoverOpen(false); }}>Apply</Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-
-                  {/* Projects */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8">
-                        <FolderOpen className="w-4 h-4 mr-2" />
-                        {selectedTimesheetProjects.length ? `${selectedTimesheetProjects.length} project(s)` : 'All projects'}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
-                      {(projects || []).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
-                        <DropdownMenuCheckboxItem
-                          key={p.id}
-                          checked={selectedTimesheetProjects.includes(p.id)}
-                          onCheckedChange={(checked) => {
-                            setSelectedTimesheetProjects(prev => checked ? [...prev, p.id] : prev.filter(x => x !== p.id));
-                          }}
-                          className="cursor-pointer"
-                        >
-                          {p.name}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* Members */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8">
-                        <Users className="w-4 h-4 mr-2" />
-                        {selectedTimesheetUsers.length ? `${selectedTimesheetUsers.length} member(s)` : 'All members'}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
-                      {(orgMembers || []).sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => (
-                        <DropdownMenuCheckboxItem
-                          key={m.user_id}
-                          checked={selectedTimesheetUsers.includes(String(m.user_id))}
-                          onCheckedChange={(checked) => {
-                            const id = String(m.user_id);
-                            setSelectedTimesheetUsers(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Avatar className="w-6 h-6">
-                              <AvatarFallback className="text-xs">{m.initials}</AvatarFallback>
-                            </Avatar>
-                            {m.displayName}
-                          </div>
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <div className="ml-auto flex gap-2">
-                    <Button variant="outline" size="sm" onClick={clearTimesheetFilters}>Clear</Button>                    
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {isTimesheetsFetching && (
-                    <div className="col-span-full flex items-center justify-center py-10 text-gray-500">
-                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                      Loading timesheets...
-                    </div>
-                  )}
-                  {!isTimesheetsFetching && filteredTimesheetUsers.map((user) => (
-                    <Card key={user.user_id} className="p-6 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center gap-3 mb-4">
-                        <Avatar className="w-12 h-12">
-                          <AvatarFallback className="bg-blue-600 text-white">
-                            {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{user.designation || ''}</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg text-center">
-                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{user.total_hours_today ?? '—'}</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-300">Today</div>
-                        </div>
-                        <div className="bg-green-50 dark:bg-green-900/30 p-3 rounded-lg text-center">
-                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{user.total_hours_week ?? '—'}</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-300">This Week</div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Clock className="w-4 h-4 text-blue-500" />
-                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">In Progress ({(user.in_progress || []).length})</span>
-                          </div>
-                          {(user.in_progress || []).slice(0, 2).map((task) => (
-                            <div key={task.id} className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-sm">
-                              <div className="font-medium text-gray-900 dark:text-gray-100">{task.title}</div>
-                              {task.hours_logged != null && (
-                                <div className="text-xs text-gray-600 dark:text-gray-400">{task.hours_logged}h logged</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">Completed ({(user.completed || []).length})</span>
-                          </div>
-                          {(user.completed || []).slice(0, 2).map((task) => (
-                            <div key={task.id} className="bg-green-50 dark:bg-green-900/20 p-2 rounded text-sm">
-                              <div className="font-medium text-gray-900 dark:text-gray-100">{task.title}</div>
-                              {task.hours_logged != null && (
-                                <div className="text-xs text-gray-600 dark:text-gray-400">{task.hours_logged}h logged</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-
-                        {(user.blockers || []).length > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <AlertTriangle className="w-4 h-4 text-red-500" />
-                              <span className="font-medium text-sm text-gray-900 dark:text-gray-100">Blockers ({(user.blockers || []).length})</span>
-                            </div>
-                            {(user.blockers || []).slice(0, 1).map((task) => (
-                              <div key={task.id} className="bg-red-50 dark:bg-red-900/20 p-2 rounded text-sm">
-                                <div className="font-medium text-gray-900 dark:text-gray-100">{task.title}</div>
-                                {task.blocked_reason && (
-                                  <div className="text-xs text-red-600 dark:text-red-400">{task.blocked_reason}</div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-
-                {!isTimesheetsFetching && filteredTimesheetUsers.length === 0 && (
-                  <div className="text-center py-12">
-                    <Timer className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No timesheets found</h3>
-                    <p className="text-gray-500">Adjust your filters</p>
-                  </div>
-                )}
-              </div>
+            <TabsContent value="timesheets" className={`flex flex-1 overflow-hidden mt-0 h-0 ${activeTab === 'timesheets' ? 'min-h-full' : ''}`}>
+              <TimesheetTab
+                orgId={orgId}
+                projectsFromParent={projects}
+                realOrgMembers={realOrgMembers}
+                fetchProjects={fetchProjects}
+              />
             </TabsContent>
           </Tabs>
         </div>
