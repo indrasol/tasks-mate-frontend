@@ -31,6 +31,7 @@ import {
   Folder,
   FolderMinus,
   FolderPlus,
+  Loader2,
   RefreshCw,
   RotateCcw,
   Save,
@@ -141,7 +142,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const getProjectRole = useCallback((projectId: string) => {
     if (!user) return null;
 
-    const project = projects?.find(p => p.id === projectId);
+    const project = projects?.find(p => p.id === projectId || p.project_id === projectId);
     if (!project) return null;
 
     // Check if user is the project owner
@@ -175,6 +176,43 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const role = getProjectRole(projectId);
     return role === 'admin' || role === 'owner';
   }, [getProjectRole]);
+
+  // User-specific role checking functions (for checking other users' roles)
+  const getUserProjectRole = useCallback((userId: string, projectId: string) => {
+    const project = projects?.find(p => p.id === projectId);
+    if (!project) return null;
+
+    // Check if user is the project owner
+    if (project?.owner === userId) {
+      return 'owner';
+    }
+
+    // Check if user is a project member
+    if (project?.members?.includes(userId)) {
+      return 'member';
+    }
+
+    // Note: We don't check org admin/owner for other users here
+    // as that would require additional context about their org role
+    return null;
+  }, [projects]);
+
+  const isUserProjectMember = useCallback((userId: string, projectId: string) => {
+    const role = getUserProjectRole(userId, projectId);
+    return role === 'member' || role === 'owner';
+  }, [getUserProjectRole]);
+
+  const isUserProjectAdmin = useCallback((userId: string, projectId: string) => {
+    // For other users, we only check direct project roles
+    // Since getUserProjectRole doesn't return 'admin' for other users,
+    // we only check for 'owner' (owners have admin-like permissions)
+    const role = getUserProjectRole(userId, projectId);
+    return role === 'owner';
+  }, [getUserProjectRole]);
+
+  const isUserProjectOwner = useCallback((userId: string, projectId: string) => {
+    return getUserProjectRole(userId, projectId) === 'owner';
+  }, [getUserProjectRole]);
 
   // Helper function to get user's role in a specific project (legacy - use getProjectRole instead)
   const getUserProjectRoleForProject = useMemo(() => {
@@ -364,19 +402,19 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const badges = [];
 
     if (effectiveProjectRole === 'owner') {
-      badges.push(
+      badges?.push(
         <Badge key="owner" variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
           Project Owner
         </Badge>
       );
     } else if (effectiveProjectRole === 'admin') {
-      badges.push(
+      badges?.push(
         <Badge key="admin" variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
           Project Admin
         </Badge>
       );
     } else if (effectiveProjectRole === 'member') {
-      badges.push(
+      badges?.push(
         <Badge key="member" variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
           Project Member
         </Badge>
@@ -384,7 +422,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
 
     if (effectiveProjectRole === 'member' && isDateRestrictedForEditing) {
-      badges.push(
+      badges?.push(
         <Badge key="restricted" variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
           Future Dates Restricted
         </Badge>
@@ -725,14 +763,26 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           if (!projectGroups[projectName]) {
             projectGroups[projectName] = [];
           }
-          projectGroups[projectName].push(user);
+
+          // check for duplicate users
+          if (!projectGroups[projectName]?.some(u => u.user_id === user.user_id)) {
+            projectGroups[projectName]?.push(user);
+          }
         }
       } else {
-        // If user has no timesheet data, add them to projects they have access to
+        // If user has no timesheet data, add them to projects they have role-based access to
         projects?.forEach(project => {
-          if (canViewProjectTimesheets(project.id) && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
-            console.log(`Adding user to accessible project: ${project.name}`);
-            projectGroups[project.name].push(user);
+          // Check if this specific user has access to this project (using user-specific functions)
+          // Note: isUserProjectAdmin and isUserProjectOwner both check for 'owner' role,
+          // so we only need one of them. isUserProjectMember checks for 'member' or 'owner'.
+          const userHasProjectAccess = isUserProjectMember(user.user_id, project.id);
+          
+          if (userHasProjectAccess && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
+            console.log(`Adding user ${user.name} to project they have access to: ${project.name}`);
+            // check for duplicate users
+            if (!projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
+              projectGroups[project.name]?.push(user);
+            }
           }
         });
       }
@@ -740,7 +790,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
     console.log('Final projectGroups:', projectGroups);
     return projectGroups;
-  }, [sortedTimesheetUsers, projects, canViewProjectTimesheets, selectedTimesheetProjects]);
+  }, [sortedTimesheetUsers, projects, canViewProjectTimesheets, selectedTimesheetProjects, isUserProjectMember]);
 
 
 
@@ -1071,10 +1121,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         {/* Top Bar */}
         <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <span>Team Members:</span>
               <Badge variant="secondary">{sortedTimesheetUsers.length}</Badge>
-            </div>
+            </div> */}
 
             {/* Role Indicator */}
             {/* {currentUserOrgRole && (
@@ -1310,15 +1360,14 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         </div>
 
         {/* Loading State */}
-        {/* {isTimesheetsFetching && (
+        {isTimesheetsFetching && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-lg font-medium text-gray-600">Loading team insights...</p>
-              <p className="text-sm text-gray-500">Organizing tasks by status</p>
+              <p className="text-lg font-medium text-gray-600">Loading updates...</p>
             </div>
           </div>
-        )} */}
+        )}
 
         {/* Project-based Member Cards */}
         {(
@@ -1326,7 +1375,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             <div className="h-full overflow-y-auto thin-scroll">
               <div className="p-4 pb-8 space-y-6">
                 {/* Loading State for Projects */}
-                {isProjectsLoading && (
+                {/* {isProjectsLoading && (
                   <div className="flex items-center justify-center py-8">
                     <div className="flex items-center gap-3">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -1335,7 +1384,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                   </div>
                 )}
 
-                {/* No Projects State */}
                 {!isProjectsLoading && projects.length === 0 && (
                   <div className="flex items-center justify-center py-8">
                     <div className="text-center">
@@ -1355,10 +1403,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                       </Button>
                     </div>
                   </div>
-                )}
+                )} */}
 
                 {/* Projects List */}
-                {!isProjectsLoading && projects.length > 0 && Object.entries(usersByProject)
+                {!isTimesheetsFetching && Object.entries(usersByProject)
                   ?.sort(([a], [b]) => a?.localeCompare(b))
                   ?.map(([projectName, projectUsers]) => {
                     // Get the actual project ID from the project name

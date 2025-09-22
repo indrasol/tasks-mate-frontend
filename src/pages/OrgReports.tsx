@@ -126,7 +126,7 @@ const OrgReports: React.FC = () => {
     fetchProjects();
   }, [currentOrgId]);
 
-  const [activeTab, setActiveTab] = useState<'reports' | 'timesheets'>('reports');
+  const [activeTab, setActiveTab] = useState<'reports' | 'timesheets'>('timesheets');
 
   // Memoize projects and realOrgMembers to prevent unnecessary ReportsTab re-renders
   const memoizedProjects = useMemo(() => projects, [projects]);
@@ -186,8 +186,9 @@ const OrgReports: React.FC = () => {
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">
                   <TabsList>
+                    <TabsTrigger value="timesheets">Work Summary</TabsTrigger>
                     <TabsTrigger value="reports">Reports</TabsTrigger>
-                    <TabsTrigger value="timesheets">Timesheets</TabsTrigger>
+
                   </TabsList>
 
 
