@@ -7,7 +7,8 @@ const STATIC_ASSETS = [
   "/index.html",
   "/manifest.json",
   "/icons/logo-192x192.png",
-  "/icons/logo-512x512.png"
+  "/icons/logo-512x512.png",
+  "/icons/logo-180x180.png"
 ];
 
 // Your API base
