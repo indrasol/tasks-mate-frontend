@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   // Load env file based on `mode`
   // Use '' to load from process.env
   const env = loadEnv(mode, process.cwd(), '');
+  const buildId = Date.now().toString();
   
   console.log(`Running in ${mode} mode`);
   
@@ -25,6 +26,9 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
+    },
+    define: {
+      'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId),
     },
     build: {
       // Ensure proper asset handling
