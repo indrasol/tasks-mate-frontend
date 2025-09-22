@@ -1,6 +1,6 @@
 {
     "short_name": "TasksMate",
-    "name": "TasksMate - A simple, intuitive companion that keeps every project ticking",
+    "name": "TasksMate - A simple, intuitive companion..",
     "icons": [
       {
         "src": "/icons/logo-192x192.png",
@@ -21,7 +21,7 @@
     ],
     "start_url": "/",
     "display": "standalone",
-    "theme_color": "#0d6efd",
+    "theme_color": "#ffffff",
     "background_color": "#ffffff"
   }
   
