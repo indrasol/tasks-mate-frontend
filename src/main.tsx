@@ -54,6 +54,37 @@ rootElement.innerHTML = `
   </style>
 `;
 
+
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/service-worker.js')
+      .then((registration) => {
+        console.log('Service Worker registered with scope:', registration.scope);
+
+        // 🔹 Listen for updates
+        registration.onupdatefound = () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.onstatechange = () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // At this point, a new version is available
+                console.log('New content available, please refresh.');
+                // 👉 Replace console.log with a toast/snackbar/modal prompt
+              }
+            };
+          }
+        };
+      })
+      .catch((error) => {
+        console.error('Service Worker registration failed:', error);
+      });
+  });
+}
+
+
+
 root.render(
   <ErrorBoundary>
     <App />
