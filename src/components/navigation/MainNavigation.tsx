@@ -130,13 +130,13 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   // Avoid duplicate fetches
 
 
-  useEffect(() => {
-    // Only fetch if user is logged in and orgId is set, and if the orgId has changed
+  // useEffect(() => {
+  //   // Only fetch if user is logged in and orgId is set, and if the orgId has changed
 
-    if (!user || !orgId) {
-      return;
-    }
-  }, [user, orgId]);
+  //   if (!user || !orgId) {
+  //     return;
+  //   }
+  // }, [user, orgId]);
 
 
 
