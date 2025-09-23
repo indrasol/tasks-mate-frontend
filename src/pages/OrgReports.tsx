@@ -186,7 +186,7 @@ const OrgReports: React.FC = () => {
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">
                   <TabsList>
-                    <TabsTrigger value="timesheets">Work Summary</TabsTrigger>
+                    <TabsTrigger value="timesheets">Daily Status Updates</TabsTrigger>
                     <TabsTrigger value="reports">Reports</TabsTrigger>
 
                   </TabsList>

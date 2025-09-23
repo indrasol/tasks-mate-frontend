@@ -1,6 +1,6 @@
 // React and hooks
 import { useQuery } from '@tanstack/react-query';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DateRange } from 'react-day-picker';
 
 // UI Components
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Card } from '@/components/ui/card';
+import CopyableBadge from '@/components/ui/copyable-badge';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -255,7 +256,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     type,
     color,
     tasks,
-    placeholder
+    placeholder,
+    selectedDate
   }: {
     user: any;
     projectId: string;
@@ -263,22 +265,52 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     color: 'blue' | 'red' | 'green';
     tasks: any[];
     placeholder: string;
+    selectedDate: Date | undefined;
   }) => {
     const canEdit = canEditUserTimesheet(user.user_id, projectId);
     const isRestricted = isDateRestrictedForEditing && currentUserOrgRole === 'member';
-
-    const getDefaultValue = () => {
-      let content = '';
-      tasks?.forEach((task: any) => {
-        content += `• ${task.title}${task.project ? ` (${task.project})` : ''}`;
-        if (type === 'blocked' && task.blocked_reason) {
-          content += ` - ${task.blocked_reason}`;
-        } else if ((type === 'in_progress' || type === 'completed') && task.hours_logged) {
-          content += ` - ${task.hours_logged}h`;
-        }
-        content += '\n';
-      });
-      return content.trim();
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    
+    // Get initial value from saved timesheet data (clean user content)
+    const getInitialValue = () => {
+      // Look for saved timesheet content in the user's data
+      // Handle different possible field names for the content types
+      let savedContent = '';
+      
+      if (type === 'in_progress') {
+        savedContent = user.in_progress || user.inProgress || '';
+      } else if (type === 'blocked') {
+        savedContent = user.blocked || user.blockers || '';
+      } else if (type === 'completed') {
+        savedContent = user.completed || '';
+      }
+      
+      // If it's an array (task objects format), extract the content
+      if (Array.isArray(savedContent)) {
+        // For arrays, we'll extract just the raw text without formatting
+        return savedContent.map(item => {
+          if (typeof item === 'string') return item;
+          if (typeof item === 'object') {
+            // Try different possible content fields
+            return item.title || item.content || item.description || item.text || '';
+          }
+          return '';
+        }).filter(Boolean).join('\n');
+      }
+      
+      // If it's a string (direct content format), return as is
+      if (typeof savedContent === 'string') {
+        return savedContent;
+      }
+      
+      // If it's an object with a single field, try to extract content
+      if (typeof savedContent === 'object' && savedContent !== null) {
+        const contentObj = savedContent as any;
+        return contentObj.content || contentObj.text || contentObj.description || '';
+      }
+      
+      // Default to empty string for new entries
+      return '';
     };
 
     const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -290,8 +322,39 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
       if (canEdit) {
         e.target.parentElement?.classList.remove('ring-2', `ring-${color}-500`, 'ring-opacity-50');
-        saveTimesheetData(user.user_id, type, e.target.value, projectId);
       }
+    };
+
+    const handleSave = async () => {
+      if (!canEdit) {
+        // Check if it's a date restriction issue
+        if (isRestricted) {
+          toast({
+            title: 'Date Restricted',
+            description: 'Project members cannot edit future dates',
+            variant: 'destructive'
+          });
+        } else {
+          toast({
+            title: 'Access Denied',
+            description: 'You do not have permission to edit this project\'s timesheet data',
+            variant: 'destructive'
+          });
+        }
+        return;
+      }
+
+      const value = textareaRef.current?.value || '';
+      if (!value || value.trim().length === 0) {
+        toast({
+          title: 'Empty Content',
+          description: 'Please add some content before saving',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      await saveTimesheetData(user.user_id, type, value, projectId);
     };
 
     const getPlaceholder = () => {
@@ -307,10 +370,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     return (
       <div className={`bg-white dark:bg-gray-800 rounded-lg border-${color}-500 shadow-sm hover:shadow-md transition-all duration-200 ${canEdit ? 'cursor-text' : 'cursor-not-allowed opacity-60'}`}>
         <textarea
+          key={`${user.user_id}-${projectId}-${type}-${selectedDate?.toISOString()}-${JSON.stringify(
+            type === 'in_progress' ? (user.in_progress || user.inProgress) :
+            type === 'blocked' ? (user.blocked || user.blockers) :
+            type === 'completed' ? user.completed : ''
+          )}`}
+          ref={textareaRef}
           className={`w-full h-32 p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${!canEdit ? 'cursor-not-allowed' : ''}`}
           placeholder={getPlaceholder()}
           readOnly={!canEdit}
-          defaultValue={getDefaultValue()}
+          defaultValue={getInitialValue()}
           onFocus={handleFocus}
           onBlur={handleBlur}
         />
@@ -319,8 +388,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             <Button
               variant="ghost"
               size="sm"
-              className={`h-5 px-2 text-xs text-${color}-600 hover:bg-${color}-100 dark:text-${color}-400 dark:hover:bg-${color}-900/50`}
-              onClick={() => {/* Future enhancement */ }}
+              className={`h-5 px-2 text-xs text-${color}-600 hover:bg-${color}-100 dark:text-${color}-400 dark:hover:bg-${color}-900/50 ${!canEdit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-80'}`}
+              onClick={handleSave}
+              disabled={!canEdit}
             >
               <Save className="w-3 h-3 mr-1" />
               Save
@@ -900,11 +970,15 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       const response = await createOrUpdateDailyTimesheet(timesheetData);
       if (response.success) {
         toast({
-          title: 'Timesheet data saved successfully',
-          description: 'Timesheet data saved successfully',
+          title: 'Daily Status updated successfully',
+          description: 'Daily Status updated successfully',
           variant: 'default'
         });
-        //   // Refetch the data to show updated information
+        
+        // Note: With uncontrolled components, we don't need to clear state
+        // The textarea will be refreshed when the data is refetched
+        
+        // Refetch the data to show updated information
         refetchTimesheets();
       } else {
         toast({
@@ -1431,9 +1505,20 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                 <Folder className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                               </div>
                               <div className="text-left">
-                                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                                  {projectName}
-                                </h3>
+                                <div className="flex items-center gap-3 mb-1">
+                                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+                                    {projectName}
+                                  </h3>
+                                  {/* Copyable Project ID Badge */}
+                                  <CopyableBadge 
+                                    copyText={projectId} 
+                                    org_id={orgId ?? ''} 
+                                    variant="default" 
+                                    className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white"
+                                  >
+                                    {projectId}
+                                  </CopyableBadge>
+                                </div>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                   {projectUsers.length} team member{projectUsers.length !== 1 ? 's' : ''}
                                 </p>
@@ -1586,6 +1671,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                             color="blue"
                                             tasks={user.in_progress || []}
                                             placeholder={isToday ? "Add today's in-progress tasks and notes..." : "Add in-progress tasks and notes..."}
+                                            selectedDate={selectedTimesheetDate}
                                           />
                                         </div>
                                       </div>
@@ -1606,6 +1692,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                             color="red"
                                             tasks={user.blockers || []}
                                             placeholder={isToday ? "Add today's blocked tasks and reasons..." : "Add blocked tasks and reasons..."}
+                                            selectedDate={selectedTimesheetDate}
                                           />
                                         </div>
                                       </div>
@@ -1627,6 +1714,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                               color="green"
                                               tasks={user.completed || []}
                                               placeholder={isToday ? "Add today's completed tasks and notes..." : "Add completed tasks and notes..."}
+                                              selectedDate={selectedTimesheetDate}
                                             />
                                           </div>
                                         </div>
