@@ -919,15 +919,17 @@ const ProjectDetail = () => {
         filteredToAdd.forEach(uid => {
           if (existing.has(uid)) return;
           const found = orgMembers.find(m => m.user_id === uid);
-          const email = found?.email ?? uid;
-          const display = deriveDisplayFromEmail(email).displayName;
+          // Use the same logic as in the useEffect for membersData processing
+          const identifier = found?.username || found?.email || uid;
+          const display = deriveDisplayFromEmail(identifier).displayName;
+          const initials = display ? display.charAt(0).toUpperCase() : "?";
           additions.push({
-            initials: display.charAt(0).toUpperCase(),
+            initials,
             name: uid,
             role: "member",
             designation: found?.designation || "",
             displayName: display,
-            email
+            email: found?.email
           });
         });
         return [...prev, ...additions];
