@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>TasksMate — Offline</title>
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root { --bg:#fff; --fg:#111827; --muted:#6b7280; --primary:#3b82f6; }
+      html, body { height:100%; }
+      body { margin:0; background:var(--bg); color:var(--fg); font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      .page { min-height:100%; display:flex; align-items:center; justify-content:center; padding:24px; }
+      .card { width:100%; max-width:420px; text-align:center; }
+      .logo { width:56px; height:56px; margin:0 auto 12px; }
+      .title { font-size:20px; font-weight:700; margin:8px 0 6px; }
+      .desc { color:var(--muted); font-size:14px; margin-bottom:16px; }
+      .actions { display:flex; gap:8px; justify-content:center; }
+      .btn { padding:8px 14px; border-radius:8px; border:1px solid #e5e7eb; background:#f9fafb; color:var(--fg); cursor:pointer; }
+      .btn-primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+      .small { color:var(--muted); font-size:12px; margin-top:10px; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="card">
+        <img class="logo" src="/icons/logo-192x192.png" alt="TasksMate logo"/>
+        <div class="title">You’re offline</div>
+        <div class="desc">Some features may be unavailable. We’ll reconnect when you’re back online.</div>
+        <div class="actions">
+          <button class="btn" onclick="location.href='/'">Go Home</button>
+          <button class="btn btn-primary" onclick="location.reload()">Try Again</button>
+        </div>
+        <div class="small">Tip: Most recently viewed pages still work offline.</div>
+      </div>
+    </div>
+  </body>
+  
+</html>
+
+
+

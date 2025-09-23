@@ -1,14 +1,14 @@
 // React and hooks
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DateRange } from 'react-day-picker';
 
 // UI Components
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -19,44 +19,44 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 // Icons
-import { 
-  AlertTriangle, 
-  Calendar, 
-  CheckCircle, 
-  Clock, 
-  Folder, 
-  FolderMinus, 
-  FolderPlus, 
-  ChevronRight, 
-  ChevronDown, 
-  Eye, 
-  EyeOff, 
-  RefreshCw, 
-  RotateCcw, 
-  Save, 
-  Timer, 
-  Users, 
-  X, 
+import {
+  AlertTriangle,
+  Calendar,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Eye,
+  EyeOff,
+  Folder,
+  FolderMinus,
+  FolderPlus,
   Loader2,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Star,
+  Target,
+  Timer,
   TrendingUp,
   Trophy,
-  Star,
-  Target
+  Users,
+  X
 } from 'lucide-react';
 
 // Services and utilities
-import { 
-  getTeamTimesheetsSummary, 
-  createOrUpdateDailyTimesheet,
-  formatDateForAPI,
-  TeamTimesheetUser,
-  DailyTimesheetCreate
-} from '@/services/dailyTimesheetService';
-import { BackendOrgMember } from '@/types/organization';
-import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useProjectMembers, BackendProjectMember } from '@/hooks/useProjectMembers';
+import { deriveDisplayFromEmail } from '@/lib/projectUtils';
+import {
+  createOrUpdateDailyTimesheet,
+  DailyTimesheetCreate,
+  formatDateForAPI,
+  getTeamTimesheetsSummary,
+  TeamTimesheetUser
+} from '@/services/dailyTimesheetService';
+import { BackendOrgMember } from '@/types/organization';
+// import { useProjectMembers, BackendProjectMember } from '@/hooks/useProjectMembers';
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -67,6 +67,13 @@ interface TimesheetTabProps {
   projectsFromParent: any[];
   realOrgMembers: BackendOrgMember[];
   fetchProjects: () => void;
+  // Props similar to ReportsTab for unified header controls
+  // searchQuery: string;
+  // setSearchQuery: (query: string) => void;
+  // isSearchFocused: boolean;
+  // setIsSearchFocused: (focused: boolean) => void;
+  // // Signal from parent to refresh timesheets
+  // refreshSignal: number;
 }
 
 type TimesheetSortType = 'productivity' | 'alphabetical' | 'hours';
@@ -79,16 +86,22 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   orgId,
   projectsFromParent,
   realOrgMembers,
-  fetchProjects
+  fetchProjects,
+  // unified header controls from parent (not directly used here yet)
+  // searchQuery: _searchQuery,
+  // setSearchQuery: _setSearchQuery,
+  // isSearchFocused: _isSearchFocused,
+  // setIsSearchFocused: _setIsSearchFocused,
+  // refreshSignal
 }) => {
   // ============================================================================
   // AUTHENTICATION AND ROLE MANAGEMENT
   // ============================================================================
-  
+
   const { user } = useAuth();
   const [projects, setProjects] = useState<any[]>([]);
   const [isProjectsLoading, setIsProjectsLoading] = useState<boolean>(false);
-  
+
   // Determine current user's role in the organization
   const currentUserOrgRole = useMemo(() => {
     if (!user || !realOrgMembers) return null;
@@ -116,7 +129,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const isOrgAdmin = currentUserOrgRole === 'admin';
     const isOrgMember = currentUserOrgRole === 'member';
     const isOrgAdminOrOwner = isOrgAdmin || isOrgOwner;
-    
+
     return {
       isOrgOwner,
       isOrgAdmin,
@@ -128,25 +141,25 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Project-specific role detection functions
   const getProjectRole = useCallback((projectId: string) => {
     if (!user) return null;
-    
-    const project = projects?.find(p => p.id === projectId);
+
+    const project = projects?.find(p => p.id === projectId || p.project_id === projectId);
     if (!project) return null;
-    
+
     // Check if user is the project owner
     if (project?.owner === user.id) {
       return 'owner';
     }
-    
+
     // Check if user is a project member
     if (project?.members?.includes(user.id)) {
       return 'member';
     }
-    
+
     // If user is org admin/owner, they have admin access to all projects
     if (roleChecks?.isOrgAdminOrOwner) {
       return 'admin';
     }
-    
+
     return null;
   }, [user, projects, roleChecks.isOrgAdminOrOwner]);
 
@@ -164,6 +177,43 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     return role === 'admin' || role === 'owner';
   }, [getProjectRole]);
 
+  // User-specific role checking functions (for checking other users' roles)
+  const getUserProjectRole = useCallback((userId: string, projectId: string) => {
+    const project = projects?.find(p => p.id === projectId);
+    if (!project) return null;
+
+    // Check if user is the project owner
+    if (project?.owner === userId) {
+      return 'owner';
+    }
+
+    // Check if user is a project member
+    if (project?.members?.includes(userId)) {
+      return 'member';
+    }
+
+    // Note: We don't check org admin/owner for other users here
+    // as that would require additional context about their org role
+    return null;
+  }, [projects]);
+
+  const isUserProjectMember = useCallback((userId: string, projectId: string) => {
+    const role = getUserProjectRole(userId, projectId);
+    return role === 'member' || role === 'owner';
+  }, [getUserProjectRole]);
+
+  const isUserProjectAdmin = useCallback((userId: string, projectId: string) => {
+    // For other users, we only check direct project roles
+    // Since getUserProjectRole doesn't return 'admin' for other users,
+    // we only check for 'owner' (owners have admin-like permissions)
+    const role = getUserProjectRole(userId, projectId);
+    return role === 'owner';
+  }, [getUserProjectRole]);
+
+  const isUserProjectOwner = useCallback((userId: string, projectId: string) => {
+    return getUserProjectRole(userId, projectId) === 'owner';
+  }, [getUserProjectRole]);
+
   // Helper function to get user's role in a specific project (legacy - use getProjectRole instead)
   const getUserProjectRoleForProject = useMemo(() => {
     return (projectId: string) => {
@@ -177,19 +227,19 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const canViewProjectTimesheets = useMemo(() => {
     return (projectId: string) => {
       if (!user) return false;
-      
+
       // Get user's effective role in this specific project
       const projectRole = getUserProjectRoleForProject(projectId);
       // Use pre-computed role check
-      
+
       // Determine effective project role: Org Admin/Owner = Project Admin/Owner
       const effectiveProjectRole = roleChecks.isOrgAdminOrOwner ? 'admin' : projectRole;
-      
+
       // Project Owner/Admin/Member: Can view timesheets for projects they have roles in
       if (effectiveProjectRole === 'owner' || effectiveProjectRole === 'admin' || effectiveProjectRole === 'member') {
         return true;
       }
-      
+
       // No project role: No access to view project timesheets
       return false;
     };
@@ -199,13 +249,13 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // ============================================================================
 
   // Reusable Timesheet Textarea Component
-  const TimesheetTextarea = ({ 
-    user, 
-    projectId, 
-    type, 
-    color, 
-    tasks, 
-    placeholder 
+  const TimesheetTextarea = ({
+    user,
+    projectId,
+    type,
+    color,
+    tasks,
+    placeholder
   }: {
     user: any;
     projectId: string;
@@ -216,7 +266,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   }) => {
     const canEdit = canEditUserTimesheet(user.user_id, projectId);
     const isRestricted = isDateRestrictedForEditing && currentUserOrgRole === 'member';
-    
+
     const getDefaultValue = () => {
       let content = '';
       tasks?.forEach((task: any) => {
@@ -270,7 +320,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
               variant="ghost"
               size="sm"
               className={`h-5 px-2 text-xs text-${color}-600 hover:bg-${color}-100 dark:text-${color}-400 dark:hover:bg-${color}-900/50`}
-              onClick={() => {/* Future enhancement */}}
+              onClick={() => {/* Future enhancement */ }}
             >
               <Save className="w-3 h-3 mr-1" />
               Save
@@ -284,27 +334,27 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Reusable Member Filtering Logic
   const getFilteredMembers = useCallback(() => {
     if (!realOrgMembers) return [];
-    
+
     // Check if user has any project roles
     const hasAnyProjectRole = projects?.some(project => getProjectRole(project.id) !== null);
     const isAnyProjectOwner = projects?.some(project => isProjectOwner(project.id));
-    
+
     return realOrgMembers?.filter(member => {
       // Org Admins/Owners: Can see all members (they are project admins/owners in all projects)
       if (roleChecks.isOrgAdminOrOwner) {
         return true;
       }
-      
+
       // Project Owners: Can see all members in their projects
       if (isAnyProjectOwner) {
         return true;
       }
-      
+
       // Project Members: Can see all members in projects they're part of
       if (hasAnyProjectRole) {
         return true;
       }
-      
+
       // Non-project members: Can only see themselves
       return member.user_id === user?.id;
     })?.sort((a, b) => a.displayName?.localeCompare(b.displayName));
@@ -333,13 +383,13 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Check if current date is restricted for editing (members can edit today and previous days, but not future dates)
   const isDateRestrictedForEditing = useMemo(() => {
     if (!selectedTimesheetDate) return false;
-    
+
     // Members can edit today and previous days, but not future dates
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const selectedDate = new Date(selectedTimesheetDate);
     selectedDate.setHours(0, 0, 0, 0);
-    
+
     // Restrict only future dates (dates after today)
     return selectedDate > today;
   }, [selectedTimesheetDate]);
@@ -348,37 +398,37 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const getProjectBadges = useCallback((projectId: string) => {
     const projectRole = getUserProjectRoleForProject(projectId);
     const effectiveProjectRole = roleChecks.isOrgAdminOrOwner ? 'admin' : projectRole;
-    
+
     const badges = [];
-    
+
     if (effectiveProjectRole === 'owner') {
-      badges.push(
+      badges?.push(
         <Badge key="owner" variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
           Project Owner
         </Badge>
       );
     } else if (effectiveProjectRole === 'admin') {
-      badges.push(
+      badges?.push(
         <Badge key="admin" variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
           Project Admin
         </Badge>
       );
     } else if (effectiveProjectRole === 'member') {
-      badges.push(
+      badges?.push(
         <Badge key="member" variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
           Project Member
         </Badge>
       );
     }
-    
+
     if (effectiveProjectRole === 'member' && isDateRestrictedForEditing) {
-      badges.push(
+      badges?.push(
         <Badge key="restricted" variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
           Future Dates Restricted
         </Badge>
       );
     }
-    
+
     return badges;
   }, [getUserProjectRoleForProject, roleChecks.isOrgAdminOrOwner, isDateRestrictedForEditing]);
 
@@ -386,19 +436,19 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const canEditUserTimesheet = useMemo(() => {
     return (targetUserId: string, projectId?: string) => {
       if (!user || !projectId) return false;
-      
+
       // Get user's effective role in this specific project
       const projectRole = getUserProjectRoleForProject(projectId);
       // Use pre-computed role check
-      
+
       // Determine effective project role: Org Admin/Owner = Project Admin/Owner
       const effectiveProjectRole = roleChecks.isOrgAdminOrOwner ? 'admin' : projectRole;
-      
+
       // Project Owner/Admin: Can edit all users' timesheets in this project (no date restrictions)
       if (effectiveProjectRole === 'owner' || effectiveProjectRole === 'admin') {
         return true;
       }
-      
+
       // Project Member: Can only edit their own timesheet, but with date restrictions
       if (effectiveProjectRole === 'member' && targetUserId === user.id) {
         // Check date restrictions for members
@@ -407,7 +457,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         }
         return true; // Members can edit their own previous day timesheets
       }
-      
+
       // No project role or unknown role: No access
       return false;
     };
@@ -426,7 +476,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const completed = (user.completed || []).length;
     const inProgress = (user.in_progress || []).length;
     const blockers = (user.blockers || []).length;
-    
+
     return Math.max(0, Math.min(100, (completed * 3 + inProgress * 1 - blockers * 2)));
   };
 
@@ -441,10 +491,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // HOOKS AND DATA FETCHING
   // ============================================================================
 
-// useEffect(() => {
-//   console.log('projects', projectsFromParent, projects);
-//   setProjects(projectsFromParent);
-// }, [projectsFromParent,projects]);
+  // useEffect(() => {
+  //   console.log('projects', projectsFromParent, projects);
+  //   setProjects(projectsFromParent);
+  // }, [projectsFromParent,projects]);
 
 
   // Auto-update to today's date daily
@@ -452,12 +502,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const updateToToday = () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Reset time to start of day
-      
+
       const currentSelected = selectedTimesheetDate ? new Date(selectedTimesheetDate) : null;
       if (currentSelected) {
         currentSelected.setHours(0, 0, 0, 0);
       }
-      
+
       // Only update if we're not already on today's date
       if (!currentSelected || currentSelected.getTime() !== today.getTime()) {
         setSelectedTimesheetDate(today);
@@ -472,47 +522,63 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
-    
+
     const msUntilMidnight = tomorrow.getTime() - now.getTime();
-    
+
     const timeoutId = setTimeout(() => {
       updateToToday();
-      
+
       // Set up recurring daily update
       const intervalId = setInterval(updateToToday, 24 * 60 * 60 * 1000); // 24 hours
-      
+
       return () => clearInterval(intervalId);
     }, msUntilMidnight);
 
     return () => clearTimeout(timeoutId);
   }, []);
 
+  // Memoize date string and project array to prevent unstable queryKey references
+  const memoizedSelectedTimesheetDate = useMemo(() => {
+    return selectedTimesheetDate?.toISOString() || '';
+  }, [selectedTimesheetDate]);
+
+  const memoizedSelectedTimesheetProjects = useMemo(() => {
+    return selectedTimesheetProjects;
+  }, [selectedTimesheetProjects]);
+
   // Fetch daily timesheets data
-  const { 
-    data: dailyTimesheets, 
-    isFetching: isTimesheetsFetching, 
-    isError: isTimesheetsError, 
-    error: timesheetsError, 
-    refetch: refetchTimesheets 
+  const {
+    data: dailyTimesheets,
+    isFetching: isTimesheetsFetching,
+    isError: isTimesheetsError,
+    error: timesheetsError,
+    refetch: refetchTimesheets
   } = useQuery({
-    queryKey: ['daily-timesheets', orgId, selectedTimesheetDate?.toISOString(), selectedTimesheetProjects],
+    queryKey: ['daily-timesheets', orgId, memoizedSelectedTimesheetDate, memoizedSelectedTimesheetProjects],
     enabled: !!orgId && orgId.length > 0 && !!selectedTimesheetDate,
     queryFn: () => getTeamTimesheetsSummary(
-      orgId, 
+      orgId,
       formatDateForAPI(selectedTimesheetDate!),
-      selectedTimesheetProjects.length > 0 ? selectedTimesheetProjects : undefined
+      memoizedSelectedTimesheetProjects.length > 0 ? memoizedSelectedTimesheetProjects : undefined
     ),
   });
+
+  // Trigger refetch when parent signals a refresh
+  // useEffect(() => {
+  //   if (refreshSignal > 0) {
+  //     refetchTimesheets();
+  //   }
+  // }, [refreshSignal]);
 
   // Update projects state when dailyTimesheets data changes
   useEffect(() => {
     if (dailyTimesheets?.projects && dailyTimesheets.projects.length > 0) {
       console.log('Setting projects from dailyTimesheets:', dailyTimesheets.projects);
-      setProjects(dailyTimesheets.projects.map((project: any) => ({ 
-        id: project.project_id, 
-        name: project.name || project.project_name, 
-        members: project.team_members ?? [], 
-        owner: project.owner ?? "" 
+      setProjects(dailyTimesheets.projects.map((project: any) => ({
+        id: project.project_id,
+        name: project.name || project.project_name,
+        members: project.team_members ?? [],
+        owner: project.owner ?? ""
       })));
       setIsProjectsLoading(false);
     } else if (projectsFromParent && projectsFromParent.length > 0) {
@@ -531,14 +597,14 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Handle loading timeout - prevent infinite loading states
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
-    
+
     if (isProjectsLoading) {
       timeoutId = setTimeout(() => {
         console.warn('Projects loading timeout - setting loading to false');
         setIsProjectsLoading(false);
       }, 10000); // 10 second timeout
     }
-    
+
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -554,29 +620,29 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const filteredTimesheetUsers = useMemo(() => {
     // Get users from the real API response - support both old and new format
     let users: TeamTimesheetUser[] = ((dailyTimesheets as any)?.users ?? []) as TeamTimesheetUser[];
-    
+
     // If we have the new projects structure, we can use that too
     const projectsTimesheet = ((dailyTimesheets as any)?.projects ?? []) as any[];
-    
+
     // Log the data structure for debugging
     if (dailyTimesheets) {
       console.log('Daily timesheets data:', dailyTimesheets);
       console.log('Users count:', users.length);
       console.log('Projects count:', projectsTimesheet.length);
     }
-    
+
     // Check if selected date is today (for empty columns)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const selectedDate = selectedTimesheetDate ? new Date(selectedTimesheetDate) : today;
     selectedDate.setHours(0, 0, 0, 0);
     const isToday = selectedDate.getTime() === today.getTime();
-    
+
     // If no real data and it's today, show some default users for the organization
     if (users.length === 0 && isToday) {
       // Get users from real org members for empty timesheet display
       let availableMembers = realOrgMembers;
-      
+
       // Apply role-based filtering for available members
       if (currentUserOrgRole === 'member') {
         // Org Members can only see themselves
@@ -591,7 +657,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         // No role or unknown role - show no members
         availableMembers = [];
       }
-      
+
       users = availableMembers.slice(0, 10)?.map(member => ({
         user_id: String(member.user_id),
         name: member.displayName,
@@ -606,31 +672,31 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         blockers: []
       }));
     }
-    
+
     // Apply project-specific role-based filtering to existing users
     // Note: This filtering will be further refined per project in usersByProject
     // For now, we show all users and let project-specific filtering handle the details
     users = users;
-    
+
     // Apply member filter first
     if (selectedTimesheetUsers.length > 0) {
       users = users?.filter(user => selectedTimesheetUsers?.includes(String(user.user_id)));
     }
-    
+
     // Apply search filter
     if (timesheetSearchQuery) {
-    const q = timesheetSearchQuery.toLowerCase();
+      const q = timesheetSearchQuery.toLowerCase();
       users = users?.filter((u) => {
-      const name = String(u.name || '').toLowerCase();
-      const email = String(u.email || '').toLowerCase();
-      const role = String(u.role || '').toLowerCase();
-      const designation = String(u.designation || '').toLowerCase();
-      return [name, email, role, designation]?.some(v => v?.includes(q));
-    });
+        const name = String(u.name || '').toLowerCase();
+        const email = String(u.email || '').toLowerCase();
+        const role = String(u.role || '').toLowerCase();
+        const designation = String(u.designation || '').toLowerCase();
+        return [name, email, role, designation]?.some(v => v?.includes(q));
+      });
     }
-    
+
     return users;
-  }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetDate?.getTime(), realOrgMembers, currentUserOrgRole, user, projects]);
+  }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetDate, realOrgMembers, currentUserOrgRole, user, projects, memoizedSelectedTimesheetProjects]);
 
   // Check if selected date is today
   const isToday = useMemo(() => {
@@ -644,7 +710,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Sort timesheet users based on selected criteria
   const sortedTimesheetUsers = useMemo(() => {
     const users = [...(filteredTimesheetUsers || [])];
-    
+
     switch (timesheetSort) {
       case 'productivity':
         return users?.sort((a, b) => calculateProductivityScore(b) - calculateProductivityScore(a));
@@ -660,24 +726,24 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Organize users by their primary project with role-based filtering
   const usersByProject = useMemo(() => {
     const projectGroups: Record<string, any[]> = {};
-    
+
     console.log('usersByProject - projects:', projects);
     console.log('usersByProject - sortedTimesheetUsers:', sortedTimesheetUsers);
-    
+
     // First, ensure all projects the current user has access to are included
     projects?.forEach(project => {
       console.log('Processing project:', project);
       if (canViewProjectTimesheets(project.id)) {
         // Apply project filter: if projects are selected, only show those projects
         // if (selectedTimesheetProjects.length === 0 || selectedTimesheetProjects?.includes(project.id)) {
-          // Initialize project group even if no users have timesheet data yet
-          if (!projectGroups[project.name]) {
-            projectGroups[project.name] = [];
-          }
+        // Initialize project group even if no users have timesheet data yet
+        if (!projectGroups[project.name]) {
+          projectGroups[project.name] = [];
+        }
         // }
       }
     });
-    
+
     // Then, add users to their respective projects based on timesheet data
     sortedTimesheetUsers?.forEach(user => {
       // Get all projects from user's tasks
@@ -687,9 +753,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           userProjects.add(task.project);
         }
       });
-      
+
       console.log(`User ${user.name} has projects:`, Array.from(userProjects));
-      
+
       // If user has timesheet data, add them to those projects
       if (userProjects.size > 0) {
         for (const projectName of userProjects) {
@@ -697,24 +763,36 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           if (!projectGroups[projectName]) {
             projectGroups[projectName] = [];
           }
-          projectGroups[projectName].push(user);
+
+          // check for duplicate users
+          if (!projectGroups[projectName]?.some(u => u.user_id === user.user_id)) {
+            projectGroups[projectName]?.push(user);
+          }
         }
       } else {
-        // If user has no timesheet data, add them to projects they have access to
+        // If user has no timesheet data, add them to projects they have role-based access to
         projects?.forEach(project => {
-          if (canViewProjectTimesheets(project.id) && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
-            console.log(`Adding user to accessible project: ${project.name}`);
-            projectGroups[project.name].push(user);
+          // Check if this specific user has access to this project (using user-specific functions)
+          // Note: isUserProjectAdmin and isUserProjectOwner both check for 'owner' role,
+          // so we only need one of them. isUserProjectMember checks for 'member' or 'owner'.
+          const userHasProjectAccess = isUserProjectMember(user.user_id, project.id);
+          
+          if (userHasProjectAccess && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
+            console.log(`Adding user ${user.name} to project they have access to: ${project.name}`);
+            // check for duplicate users
+            if (!projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
+              projectGroups[project.name]?.push(user);
+            }
           }
         });
       }
     });
-    
+
     console.log('Final projectGroups:', projectGroups);
     return projectGroups;
-  }, [sortedTimesheetUsers, projects, canViewProjectTimesheets, selectedTimesheetProjects]);
+  }, [sortedTimesheetUsers, projects, canViewProjectTimesheets, selectedTimesheetProjects, isUserProjectMember]);
 
-  
+
 
   // Project Management Functions
   const toggleProject = (projectName: string) => {
@@ -748,21 +826,21 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           projectCounts[task.project] = (projectCounts[task.project] || 0) + 1;
         }
       });
-      
-      const mostCommonProject = Object.keys(projectCounts).reduce((a, b) => 
+
+      const mostCommonProject = Object.keys(projectCounts).reduce((a, b) =>
         projectCounts[a] > projectCounts[b] ? a : b
       );
-      
+
       // Find the project ID by name
       const project = projects?.find(p => p.name === mostCommonProject);
       if (project) return project.id;
     }
-    
+
     // Fallback: use first available project or create a default one
     if (projects.length > 0) {
       return projects[0].id;
     }
-    
+
     // Last resort: use a default project ID
     return 'default-project';
   };
@@ -810,7 +888,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         user_id: userId,
         entry_date: formatDateForAPI(selectedTimesheetDate),
         [field]: value
-      };    
+      };
 
       toast({
         title: 'Saving timesheet data...',
@@ -818,23 +896,23 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         variant: 'default'
       });
 
-    // Get Response and include as soft update instead of refetch
-    const response = await createOrUpdateDailyTimesheet(timesheetData);
-    if (response.success) {
+      // Get Response and include as soft update instead of refetch
+      const response = await createOrUpdateDailyTimesheet(timesheetData);
+      if (response.success) {
         toast({
-            title: 'Timesheet data saved successfully',
-            description: 'Timesheet data saved successfully',
-            variant: 'default'
+          title: 'Timesheet data saved successfully',
+          description: 'Timesheet data saved successfully',
+          variant: 'default'
         });
         //   // Refetch the data to show updated information
         refetchTimesheets();
-    } else {
+      } else {
         toast({
-            title: 'Failed to save timesheet data',
-            description: 'Please try again',
-            variant: 'destructive'
+          title: 'Failed to save timesheet data',
+          description: 'Please try again',
+          variant: 'destructive'
         });
-    }
+      }
     } catch (error) {
       console.error('Failed to save timesheet data:', error);
       toast({
@@ -920,10 +998,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                     <span className="text-sm text-gray-600 dark:text-gray-400">Loading projects...</span>
                   </div>
                 )}
-                
+
                 {/* Projects List */}
                 {!isProjectsLoading && (projects || [])
-                 ?.filter(project => {
+                  ?.filter(project => {
                     // Apply role-based filtering for timesheet visibility
                     if (currentUserOrgRole === 'owner') {
                       return true; // Owners can see all project timesheets
@@ -937,17 +1015,17 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                   })
                   ?.sort((a, b) => a.name?.localeCompare(b.name))
                   ?.map((p) => (
-                  <DropdownMenuCheckboxItem
-                    key={p.id}
-                    checked={selectedTimesheetProjects?.includes(p.id)}
-                    onCheckedChange={(checked) => {
-                      setSelectedTimesheetProjects(checked ? [...selectedTimesheetProjects, p.id] : selectedTimesheetProjects?.filter(x => x !== p.id));
-                    }}
-                    className="cursor-pointer"
-                  >
-                    {p.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
+                    <DropdownMenuCheckboxItem
+                      key={p.id}
+                      checked={selectedTimesheetProjects?.includes(p.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedTimesheetProjects(checked ? [...selectedTimesheetProjects, p.id] : selectedTimesheetProjects?.filter(x => x !== p.id));
+                      }}
+                      className="cursor-pointer"
+                    >
+                      {p.name}
+                    </DropdownMenuCheckboxItem>
+                  ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -968,23 +1046,23 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
               <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
                 {getFilteredMembers()
                   ?.map((m) => (
-                  <DropdownMenuCheckboxItem
-                    key={m.user_id}
-                    checked={selectedTimesheetUsers?.includes(String(m.user_id))}
-                    onCheckedChange={(checked) => {
-                      const id = String(m.user_id);
-                      setSelectedTimesheetUsers(checked ? [...selectedTimesheetUsers, id] : selectedTimesheetUsers?.filter(x => x !== id));
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Avatar className="w-6 h-6">
-                        <AvatarFallback className="text-xs">{m.initials}</AvatarFallback>
-                      </Avatar>
-                      {m.displayName}
-                    </div>
-                  </DropdownMenuCheckboxItem>
-                ))}
+                    <DropdownMenuCheckboxItem
+                      key={m.user_id}
+                      checked={selectedTimesheetUsers?.includes(String(m.user_id))}
+                      onCheckedChange={(checked) => {
+                        const id = String(m.user_id);
+                        setSelectedTimesheetUsers(checked ? [...selectedTimesheetUsers, id] : selectedTimesheetUsers?.filter(x => x !== id));
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Avatar className="w-6 h-6">
+                          <AvatarFallback className="text-xs">{m.initials}</AvatarFallback>
+                        </Avatar>
+                        {m.displayName}
+                      </div>
+                    </DropdownMenuCheckboxItem>
+                  ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -1029,7 +1107,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
               {showCompletedTasks ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
               Show Completed Tasks
             </Button>
-            
+
             <Button variant="outline" onClick={clearTimesheetFilters} className="w-full">
               <RotateCcw className="w-4 h-4 mr-2" />
               Clear All Filters
@@ -1043,11 +1121,11 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         {/* Top Bar */}
         <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <span>Team Members:</span>
               <Badge variant="secondary">{sortedTimesheetUsers.length}</Badge>
-            </div>
-            
+            </div> */}
+
             {/* Role Indicator */}
             {/* {currentUserOrgRole && (
               <div className="flex items-center gap-2">
@@ -1060,7 +1138,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 </Badge>
               </div>
             )} */}
-            
+
             {/* Projects Status & Refresh */}
             {/* <div className="flex items-center gap-3">
               {isProjectsLoading && (
@@ -1123,20 +1201,20 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 </div>
               </div>
             )} */}
-              
+
             {/* Date Selector */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 border-indigo-200 dark:border-indigo-700 hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-800/40 dark:hover:to-purple-800/40 transition-all duration-200"
                 >
                   <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mr-2" />
                   <span className="text-indigo-900 dark:text-indigo-100 font-medium">
-                    {selectedTimesheetDate ? selectedTimesheetDate.toLocaleDateString('en-US', { 
+                    {selectedTimesheetDate ? selectedTimesheetDate.toLocaleDateString('en-US', {
                       weekday: 'short',
-                      month: 'short', 
+                      month: 'short',
                       day: 'numeric',
                       year: 'numeric'
                     }) : 'Select Date'}
@@ -1170,20 +1248,20 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             {/* Team Members Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-800/40 dark:hover:to-teal-800/40 transition-all duration-200"
                 >
                   <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mr-2" />
                   <span className="text-emerald-900 dark:text-emerald-100 font-medium">
-                    {selectedTimesheetUsers.length === 0 
+                    {selectedTimesheetUsers.length === 0
                       ? 'All Members'
-                      : selectedTimesheetUsers.length === 1 
+                      : selectedTimesheetUsers.length === 1
                         ? (() => {
-                            const selectedMember = realOrgMembers?.find(m => String(m.user_id) === selectedTimesheetUsers[0]);
-                            return selectedMember?.displayName || 'Selected Member';
-                          })()
+                          const selectedMember = realOrgMembers?.find(m => String(m.user_id) === selectedTimesheetUsers[0]);
+                          return selectedMember?.displayName || 'Selected Member';
+                        })()
                         : `${selectedTimesheetUsers.length} Members`
                     }
                   </span>
@@ -1215,36 +1293,36 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                         Select All
                       </Button>
                     </div>
-                    
+
                     {/* Member List */}
                     {getFilteredMembers()
                       ?.map((m) => (
-                      <DropdownMenuCheckboxItem
-                        key={m.user_id}
-                        checked={selectedTimesheetUsers?.includes(String(m.user_id))}
-                        onCheckedChange={(checked) => {
-                          const id = String(m.user_id);
-                          setSelectedTimesheetUsers(checked ? [...selectedTimesheetUsers, id] : selectedTimesheetUsers?.filter(x => x !== id));
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3 w-full">
-                          <Avatar className="w-7 h-7 flex-shrink-0">
-                            <AvatarFallback className="text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
-                              {m.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">
-                              {m.displayName}
-                            </div>
-                            <div className="text-xs text-gray-500 truncate">
-                              {m.email}
+                        <DropdownMenuCheckboxItem
+                          key={m.user_id}
+                          checked={selectedTimesheetUsers?.includes(String(m.user_id))}
+                          onCheckedChange={(checked) => {
+                            const id = String(m.user_id);
+                            setSelectedTimesheetUsers(checked ? [...selectedTimesheetUsers, id] : selectedTimesheetUsers?.filter(x => x !== id));
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3 w-full">
+                            <Avatar className="w-7 h-7 flex-shrink-0">
+                              <AvatarFallback className="text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+                                {m.initials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">
+                                {m.displayName}
+                              </div>
+                              <div className="text-xs text-gray-500 truncate">
+                                {m.email}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </DropdownMenuCheckboxItem>
-                    ))}
+                        </DropdownMenuCheckboxItem>
+                      ))}
                   </div>
                 </div>
               </DropdownMenuContent>
@@ -1282,15 +1360,14 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         </div>
 
         {/* Loading State */}
-        {/* {isTimesheetsFetching && (
+        {isTimesheetsFetching && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-lg font-medium text-gray-600">Loading team insights...</p>
-              <p className="text-sm text-gray-500">Organizing tasks by status</p>
+              <p className="text-lg font-medium text-gray-600">Loading updates...</p>
             </div>
           </div>
-        )} */}
+        )}
 
         {/* Project-based Member Cards */}
         {(
@@ -1298,7 +1375,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             <div className="h-full overflow-y-auto thin-scroll">
               <div className="p-4 pb-8 space-y-6">
                 {/* Loading State for Projects */}
-                {isProjectsLoading && (
+                {/* {isProjectsLoading && (
                   <div className="flex items-center justify-center py-8">
                     <div className="flex items-center gap-3">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -1306,8 +1383,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                     </div>
                   </div>
                 )}
-                
-                {/* No Projects State */}
+
                 {!isProjectsLoading && projects.length === 0 && (
                   <div className="flex items-center justify-center py-8">
                     <div className="text-center">
@@ -1316,7 +1392,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                       <p className="text-gray-600 dark:text-gray-400 mb-4">
                         No projects are available for timesheet management.
                       </p>
-                      <Button 
+                      <Button
                         onClick={fetchProjects}
                         variant="outline"
                         size="sm"
@@ -1327,242 +1403,242 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                       </Button>
                     </div>
                   </div>
-                )}
-                
+                )} */}
+
                 {/* Projects List */}
-                {!isProjectsLoading && projects.length > 0 && Object.entries(usersByProject)
+                {!isTimesheetsFetching && Object.entries(usersByProject)
                   ?.sort(([a], [b]) => a?.localeCompare(b))
                   ?.map(([projectName, projectUsers]) => {
                     // Get the actual project ID from the project name
                     const project = projects?.find(p => p.name === projectName);
                     const projectId = project?.id || '';
-                    
+
                     return (
-                    <div key={projectName} className="flex flex-col">
-                      {/* Project Header - Sticky when expanded */}
-                      <div className={`bg-gradient-to-r from-slate-100 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm ${expandedProjects.has(projectName) ? 'sticky top-0 z-10 mb-3' : 'mb-3'}`}>
-                        <button
-                          onClick={() => toggleProject(projectName)}
-                          className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded-lg"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
-                              {expandedProjects.has(projectName) ? (
-                                <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                              ) : (
-                                <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                              )}
-                              <Folder className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <div className="text-left">
-                              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                                {projectName}
-                              </h3>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {projectUsers.length} team member{projectUsers.length !== 1 ? 's' : ''}
-                              </p>
-                              {/* Project-specific restriction badges */}
-                              <div className="flex gap-1 mt-1">
-                                {getProjectBadges(projectId)}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-4">
-                            {/* Date Badge */}
-                            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                      <div key={projectName} className="flex flex-col">
+                        {/* Project Header - Sticky when expanded */}
+                        <div className={`bg-gradient-to-r from-slate-100 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm ${expandedProjects.has(projectName) ? 'sticky top-0 z-10 mb-3' : 'mb-3'}`}>
+                          <button
+                            onClick={() => toggleProject(projectName)}
+                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
                               <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                <div className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
-                                  {(selectedTimesheetDate || new Date()).toLocaleDateString('en-US', { 
-                                    weekday: 'short',
-                                    month: 'short', 
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                  })}
+                                {expandedProjects.has(projectName) ? (
+                                  <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                ) : (
+                                  <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                )}
+                                <Folder className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                              </div>
+                              <div className="text-left">
+                                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+                                  {projectName}
+                                </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  {projectUsers.length} team member{projectUsers.length !== 1 ? 's' : ''}
+                                </p>
+                                {/* Project-specific restriction badges */}
+                                <div className="flex gap-1 mt-1">
+                                  {getProjectBadges(projectId)}
                                 </div>
                               </div>
                             </div>
-                            
-                            {/* Team Member Avatars with Hover Details */}
-                            <div className="flex -space-x-2">
-                              {projectUsers.slice(0, 3)?.map((user, idx) => (
-                                <HoverCard key={idx}>
-                                  <HoverCardTrigger asChild>
-                                    <Avatar className="w-8 h-8 border-2 border-white dark:border-gray-800 cursor-pointer hover:scale-110 transition-transform">
-                                      <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                                        {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                  </HoverCardTrigger>
-                                  <HoverCardContent className="w-72 p-4 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
-                                    <div className="flex items-center gap-3">
-                                      <Avatar className="w-12 h-12">
-                                        <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold">
-                                          {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div className="flex-1">
-                                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-                                          {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                                        </h4>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                          {user.designation || 'Team Member'}
-                                        </p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-500">
-                                          {user.email || user.user_id}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </HoverCardContent>
-                                </HoverCard>
-                              ))}
-                              {projectUsers.length > 3 && (
-                                <HoverCard>
-                                  <HoverCardTrigger asChild>
-                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 border-2 border-white dark:border-gray-800 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
-                                      <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
-                                        +{projectUsers.length - 3}
-                                      </span>
-                                    </div>
-                                  </HoverCardTrigger>
-                                  <HoverCardContent className="w-72 p-3 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
-                                    <div className="space-y-2">
-                                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                                        Additional Team Members ({projectUsers.length - 3})
-                                      </div>
-                                      <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto thin-scroll">
-                                        {projectUsers.slice(3)?.map((user, idx) => (
-                                          <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                            <Avatar className="w-8 h-8 flex-shrink-0">
-                                              <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                                                {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
-                                              </AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex-1 min-w-0">
-                                              <div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-                                                {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                                              </div>
-                                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                                {user.designation || 'Team Member'}
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center gap-1 text-xs">
-                                              <span className="text-blue-600 font-medium">{(user.in_progress || []).length}</span>
-                                              <span className="text-red-600 font-medium">{(user.blockers || []).length}</span>
-                                              <span className="text-green-600 font-medium">{(user.completed || []).length}</span>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </HoverCardContent>
-                                </HoverCard>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      </div>
 
-                      {/* Project Members - Scrollable Content */}
-                      {expandedProjects.has(projectName) && (
-                        <div className="pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-                          <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto thin-scroll pr-2">
-                            {projectUsers?.map((user: any) => {
-                              const productivityScore = calculateProductivityScore(user);
-                              const productivityLevel = getProductivityLevel(productivityScore);
-                              const ProductivityIcon = productivityLevel.icon;
-
-                              return (
-                                <Card key={user.user_id} className="p-4 bg-gradient-to-br from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-slate-200 dark:border-gray-600 shadow-lg">
-                                  {/* Member Header */}
-                                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                                    <div className="flex items-center gap-4">
-                                      <Avatar className="w-14 h-14 ring-2 ring-offset-2 ring-blue-500">
-                                        <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg">
-                                          {(user.avatar_initials || String(user.name || user.user_id).slice(0,2)).toUpperCase()}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div>
-                                        <h3 className="font-semibold text-xl text-gray-900 dark:text-gray-100">
-                                          {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">{user.designation || 'Team Member'}</p>
-                                      </div>
-                                    </div>
+                            <div className="flex items-center gap-4">
+                              {/* Date Badge */}
+                              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                  <div className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
+                                    {(selectedTimesheetDate || new Date()).toLocaleDateString('en-US', {
+                                      weekday: 'short',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
                                   </div>
+                                </div>
+                              </div>
 
-                                  {/* 3-Column Kanban Layout */}
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {/* In Progress Column */}
-                                    <div className="bg-blue-50/70 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                                      <div className="p-3 border-b border-blue-200 dark:border-blue-700">
-                                        <div className="flex items-center gap-2">
-                                          <Clock className="w-4 h-4 text-blue-600" />
-                                          <span className="font-semibold text-sm text-blue-900 dark:text-blue-100">In Progress</span>
+                              {/* Team Member Avatars with Hover Details */}
+                              <div className="flex -space-x-2">
+                                {projectUsers.slice(0, 3)?.map((user, idx) => (
+                                  <HoverCard key={idx}>
+                                    <HoverCardTrigger asChild>
+                                      <Avatar className="w-8 h-8 border-2 border-white dark:border-gray-800 cursor-pointer hover:scale-110 transition-transform">
+                                        <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+                                          {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                    </HoverCardTrigger>
+                                    <HoverCardContent className="w-72 p-4 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
+                                      <div className="flex items-center gap-3">
+                                        <Avatar className="w-12 h-12">
+                                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold">
+                                            {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex-1">
+                                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                                            {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
+                                          </h4>
+                                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            {user.designation || 'Team Member'}
+                                          </p>
+                                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                                            {user.email || user.user_id}
+                                          </p>
                                         </div>
                                       </div>
-                                      <div className="p-3">
-                                        <TimesheetTextarea
-                                          user={user}
-                                          projectId={projectId}
-                                          type="in_progress"
-                                          color="blue"
-                                          tasks={user.in_progress || []}
-                                          placeholder={isToday ? "Add today's in-progress tasks and notes..." : "Add in-progress tasks and notes..."}
-                                        />
+                                    </HoverCardContent>
+                                  </HoverCard>
+                                ))}
+                                {projectUsers.length > 3 && (
+                                  <HoverCard>
+                                    <HoverCardTrigger asChild>
+                                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 border-2 border-white dark:border-gray-800 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
+                                        <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+                                          +{projectUsers.length - 3}
+                                        </span>
+                                      </div>
+                                    </HoverCardTrigger>
+                                    <HoverCardContent className="w-72 p-3 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
+                                      <div className="space-y-2">
+                                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                                          Additional Team Members ({projectUsers.length - 3})
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto thin-scroll">
+                                          {projectUsers.slice(3)?.map((user, idx) => (
+                                            <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                              <Avatar className="w-8 h-8 flex-shrink-0">
+                                                <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+                                                  {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                                                  {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
+                                                </div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                                  {user.designation || 'Team Member'}
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center gap-1 text-xs">
+                                                <span className="text-blue-600 font-medium">{(user.in_progress || []).length}</span>
+                                                <span className="text-red-600 font-medium">{(user.blockers || []).length}</span>
+                                                <span className="text-green-600 font-medium">{(user.completed || []).length}</span>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </HoverCardContent>
+                                  </HoverCard>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+
+                        {/* Project Members - Scrollable Content */}
+                        {expandedProjects.has(projectName) && (
+                          <div className="pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                            <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto thin-scroll pr-2">
+                              {projectUsers?.map((user: any) => {
+                                const productivityScore = calculateProductivityScore(user);
+                                const productivityLevel = getProductivityLevel(productivityScore);
+                                const ProductivityIcon = productivityLevel.icon;
+
+                                return (
+                                  <Card key={user.user_id} className="p-4 bg-gradient-to-br from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-slate-200 dark:border-gray-600 shadow-lg">
+                                    {/* Member Header */}
+                                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+                                      <div className="flex items-center gap-4">
+                                        <Avatar className="w-14 h-14 ring-2 ring-offset-2 ring-blue-500">
+                                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg">
+                                            {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                          <h3 className="font-semibold text-xl text-gray-900 dark:text-gray-100">
+                                            {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
+                                          </h3>
+                                          <p className="text-sm text-gray-600 dark:text-gray-400">{user.designation || 'Team Member'}</p>
+                                        </div>
                                       </div>
                                     </div>
 
-                                    {/* Blocked Column */}
-                                    <div className="bg-red-50/70 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700">
-                                      <div className="p-3 border-b border-red-200 dark:border-red-700">
-                                        <div className="flex items-center gap-2">
-                                          <AlertTriangle className="w-4 h-4 text-red-600" />
-                                          <span className="font-semibold text-sm text-red-900 dark:text-red-100">Blocked</span>
-                                        </div>
-                                      </div>
-                                      <div className="p-3">
-                                        <TimesheetTextarea
-                                          user={user}
-                                          projectId={projectId}
-                                          type="blocked"
-                                          color="red"
-                                          tasks={user.blockers || []}
-                                          placeholder={isToday ? "Add today's blocked tasks and reasons..." : "Add blocked tasks and reasons..."}
-                                        />
-                                      </div>
-                                    </div>
-
-                                    {/* Completed Column */}
-                                    {showCompletedTasks && (
-                                      <div className="bg-green-50/70 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                                        <div className="p-3 border-b border-green-200 dark:border-green-700">
+                                    {/* 3-Column Kanban Layout */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                      {/* In Progress Column */}
+                                      <div className="bg-blue-50/70 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                                        <div className="p-3 border-b border-blue-200 dark:border-blue-700">
                                           <div className="flex items-center gap-2">
-                                            <CheckCircle className="w-4 h-4 text-green-600" />
-                                            <span className="font-semibold text-sm text-green-900 dark:text-green-100">Completed</span>
+                                            <Clock className="w-4 h-4 text-blue-600" />
+                                            <span className="font-semibold text-sm text-blue-900 dark:text-blue-100">In Progress</span>
                                           </div>
                                         </div>
                                         <div className="p-3">
                                           <TimesheetTextarea
                                             user={user}
                                             projectId={projectId}
-                                            type="completed"
-                                            color="green"
-                                            tasks={user.completed || []}
-                                            placeholder={isToday ? "Add today's completed tasks and notes..." : "Add completed tasks and notes..."}
+                                            type="in_progress"
+                                            color="blue"
+                                            tasks={user.in_progress || []}
+                                            placeholder={isToday ? "Add today's in-progress tasks and notes..." : "Add in-progress tasks and notes..."}
                                           />
                                         </div>
                                       </div>
-                                    )}
-                                  </div>
-                                </Card>
-                              );
-                            })}
+
+                                      {/* Blocked Column */}
+                                      <div className="bg-red-50/70 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700">
+                                        <div className="p-3 border-b border-red-200 dark:border-red-700">
+                                          <div className="flex items-center gap-2">
+                                            <AlertTriangle className="w-4 h-4 text-red-600" />
+                                            <span className="font-semibold text-sm text-red-900 dark:text-red-100">Blocked</span>
+                                          </div>
+                                        </div>
+                                        <div className="p-3">
+                                          <TimesheetTextarea
+                                            user={user}
+                                            projectId={projectId}
+                                            type="blocked"
+                                            color="red"
+                                            tasks={user.blockers || []}
+                                            placeholder={isToday ? "Add today's blocked tasks and reasons..." : "Add blocked tasks and reasons..."}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      {/* Completed Column */}
+                                      {showCompletedTasks && (
+                                        <div className="bg-green-50/70 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                                          <div className="p-3 border-b border-green-200 dark:border-green-700">
+                                            <div className="flex items-center gap-2">
+                                              <CheckCircle className="w-4 h-4 text-green-600" />
+                                              <span className="font-semibold text-sm text-green-900 dark:text-green-100">Completed</span>
+                                            </div>
+                                          </div>
+                                          <div className="p-3">
+                                            <TimesheetTextarea
+                                              user={user}
+                                              projectId={projectId}
+                                              type="completed"
+                                              color="green"
+                                              tasks={user.completed || []}
+                                              placeholder={isToday ? "Add today's completed tasks and notes..." : "Add completed tasks and notes..."}
+                                            />
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </Card>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
                     );
                   })}
               </div>
