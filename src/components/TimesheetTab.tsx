@@ -409,30 +409,22 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const getFilteredMembers = useCallback(() => {
     if (!realOrgMembers) return [];
 
-    // Check if user has any project roles
-    const hasAnyProjectRole = projects?.some(project => getProjectRole(project.id) !== null);
-    const isAnyProjectOwner = projects?.some(project => isProjectOwner(project.id));
-
     return realOrgMembers?.filter(member => {
-      // Org Admins/Owners: Can see all members (they are project admins/owners in all projects)
+      // Org Admins/Owners: Can see all members
       if (roleChecks.isOrgAdminOrOwner) {
         return true;
       }
 
-      // Project Owners: Can see all members in their projects
-      if (isAnyProjectOwner) {
+      // Regular Members: Can see all organization members for timesheet purposes
+      // This promotes transparency and collaboration while editing permissions are still controlled
+      if (currentUserOrgRole === 'member') {
         return true;
       }
 
-      // Project Members: Can see all members in projects they're part of
-      if (hasAnyProjectRole) {
-        return true;
-      }
-
-      // Non-project members: Can only see themselves
+      // Unknown role or no role: Show only themselves as fallback
       return member.user_id === user?.id;
     })?.sort((a, b) => a.displayName?.localeCompare(b.displayName));
-  }, [realOrgMembers, roleChecks.isOrgAdminOrOwner, projects, getProjectRole, isProjectOwner, user?.id]);
+  }, [realOrgMembers, roleChecks.isOrgAdminOrOwner, currentUserOrgRole, user?.id]);
 
 
   // ============================================================================
@@ -456,6 +448,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const [activeEmployeeTab, setActiveEmployeeTab] = useState<string>('');
   const [viewMode, setViewMode] = useState<'calendar' | 'detail'>('calendar');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(undefined);
+
+  // Tabs scrolling state
+  const [showLeftScroll, setShowLeftScroll] = useState(false);
+  const [showRightScroll, setShowRightScroll] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const tabsScrollRef = useRef<HTMLDivElement>(null);
 
   // Local state to track timesheet status for calendar dates
   const [timesheetStatus, setTimesheetStatus] = useState<Record<string, { hasData: boolean; userId: string }>>({});
@@ -719,15 +717,17 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     selectedDate.setHours(0, 0, 0, 0);
     const isToday = selectedDate.getTime() === today.getTime();
 
-    // If no real data and it's today, show some default users for the organization
+    // If no real data and it's today, show all organization members for empty timesheet display
     if (users.length === 0 && isToday) {
-      // Get users from real org members for empty timesheet display
+      // Since the backend now returns all org members, we trust that data
+      // But as a fallback for empty backend response, show all org members with role-based access
       let availableMembers = realOrgMembers;
 
-      // Apply role-based filtering for available members
+      // Apply minimal role-based filtering - most roles can see all members for timesheet purposes
       if (currentUserOrgRole === 'member') {
-        // Org Members can only see themselves
-        availableMembers = realOrgMembers?.filter(member => member.user_id === user?.id);
+        // Regular members can see all members (for timesheet visibility)
+        // This allows collaboration and transparency while editing is still restricted by backend
+        availableMembers = realOrgMembers;
       } else if (currentUserOrgRole === 'admin') {
         // Admins can see all members
         availableMembers = realOrgMembers;
@@ -735,11 +735,11 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         // Owners can see all members
         availableMembers = realOrgMembers;
       } else {
-        // No role or unknown role - show no members
-        availableMembers = [];
+        // No role or unknown role - show only themselves as fallback
+        availableMembers = realOrgMembers?.filter(member => member.user_id === user?.id) || [];
       }
 
-      users = availableMembers.slice(0, 10)?.map(member => ({
+      users = availableMembers?.map(member => ({
         user_id: String(member.user_id),
         name: member.displayName,
         email: member.email || '',
@@ -846,6 +846,68 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     if (sortedTimesheetUsers.length > 0 && !activeEmployeeTab) {
       setActiveEmployeeTab(sortedTimesheetUsers[0].user_id);
     }
+  }, [sortedTimesheetUsers, activeEmployeeTab]);
+
+  // Handle scroll events and check scroll button visibility
+  useEffect(() => {
+    const scrollContainer = tabsScrollRef.current;
+    if (scrollContainer) {
+      const handleScroll = () => {
+        checkScrollButtons();
+      };
+
+      const handleResize = () => {
+        checkScrollButtons();
+      };
+
+      // Initial check
+      checkScrollButtons();
+
+      // Add event listeners
+      scrollContainer.addEventListener('scroll', handleScroll);
+      window.addEventListener('resize', handleResize);
+
+      // Cleanup
+      return () => {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('resize', handleResize);
+      };
+    }
+  }, [sortedTimesheetUsers]);
+
+  // Scroll to active tab when it changes
+  useEffect(() => {
+    if (activeEmployeeTab) {
+      // Use timeout to ensure DOM is updated
+      setTimeout(() => {
+        scrollToActiveTab();
+      }, 100);
+    }
+  }, [activeEmployeeTab]);
+
+  // Keyboard navigation for tabs
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!sortedTimesheetUsers.length || !activeEmployeeTab) return;
+
+      const currentIndex = sortedTimesheetUsers.findIndex(user => user.user_id === activeEmployeeTab);
+      let newIndex = currentIndex;
+
+      if (event.key === 'ArrowLeft' && event.ctrlKey) {
+        event.preventDefault();
+        newIndex = Math.max(0, currentIndex - 1);
+      } else if (event.key === 'ArrowRight' && event.ctrlKey) {
+        event.preventDefault();
+        newIndex = Math.min(sortedTimesheetUsers.length - 1, currentIndex + 1);
+      }
+
+      if (newIndex !== currentIndex) {
+        setActiveEmployeeTab(sortedTimesheetUsers[newIndex].user_id);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [sortedTimesheetUsers, activeEmployeeTab]);
 
   // Get active employee data
@@ -1009,6 +1071,60 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     nextDay.setDate(nextDay.getDate() + 1);
     setSelectedTimesheetDate(nextDay);
     setSelectedCalendarDate(nextDay);
+  };
+
+  // Tabs Scrolling Functions
+  const checkScrollButtons = () => {
+    const scrollContainer = tabsScrollRef.current;
+    if (scrollContainer) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
+      setShowLeftScroll(scrollLeft > 0);
+      setShowRightScroll(scrollLeft < scrollWidth - clientWidth - 1);
+      
+      // Calculate scroll progress (0 to 100)
+      const maxScrollLeft = scrollWidth - clientWidth;
+      const progress = maxScrollLeft > 0 ? (scrollLeft / maxScrollLeft) * 100 : 0;
+      setScrollProgress(progress);
+    }
+  };
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    const scrollContainer = tabsScrollRef.current;
+    if (scrollContainer) {
+      const scrollAmount = 200; // Pixels to scroll
+      const newScrollLeft = direction === 'left' 
+        ? scrollContainer.scrollLeft - scrollAmount
+        : scrollContainer.scrollLeft + scrollAmount;
+      
+      scrollContainer.scrollTo({
+        left: newScrollLeft,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollToActiveTab = () => {
+    const scrollContainer = tabsScrollRef.current;
+    const activeTab = scrollContainer?.querySelector('[data-state="active"]') as HTMLElement;
+    
+    if (scrollContainer && activeTab) {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const tabRect = activeTab.getBoundingClientRect();
+      
+      // Check if tab is fully visible
+      const isTabVisible = 
+        tabRect.left >= containerRect.left && 
+        tabRect.right <= containerRect.right;
+      
+      if (!isTabVisible) {
+        // Scroll to center the active tab
+        const scrollLeft = activeTab.offsetLeft - (scrollContainer.clientWidth / 2) + (activeTab.clientWidth / 2);
+        scrollContainer.scrollTo({
+          left: scrollLeft,
+          behavior: 'smooth'
+        });
+      }
+    }
   };
 
   // Calendar View Functions
@@ -1444,42 +1560,83 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
           <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0">
             <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
-              <div className="overflow-x-auto scrollbar-hide">
-                <TabsList className="h-auto p-0 bg-transparent gap-1 justify-start min-w-max flex">
-                  {sortedTimesheetUsers?.map((user) => {
-                    const productivityScore = calculateProductivityScore(user);
-                    const productivityLevel = getProductivityLevel(productivityScore);
-                    const employeeProjects = getEmployeeProjects(user);
-                    
-                    return (
-                      <TabsTrigger
-                        key={user.user_id}
-                        value={user.user_id}
-                        className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:border-blue-200 data-[state=active]:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 whitespace-nowrap"
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <Avatar className="w-6 h-6 sm:w-8 sm:h-8 ring-2 ring-offset-1 ring-blue-500">
-                            <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs">
-                              {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="text-left min-w-0">
-                            <div className="font-medium text-xs sm:text-sm truncate whitespace-nowrap">
-                              {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate whitespace-nowrap">
-                              {employeeProjects.length > 0 ? `${employeeProjects.length} project${employeeProjects.length !== 1 ? 's' : ''}` : 'No projects'}
+              <div className="relative flex items-center">
+                {/* Left Scroll Button */}
+                {showLeftScroll && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => scrollTabs('left')}
+                    className="absolute left-0 z-10 h-full px-2 bg-gradient-to-r from-white to-transparent dark:from-gray-800 dark:to-transparent hover:from-gray-50 dark:hover:from-gray-700 border-0 rounded-none shadow-lg"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                )}
+
+                {/* Scrollable Tabs Container */}
+                <div 
+                  ref={tabsScrollRef}
+                  className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth scrollbar-hide"
+                  onScroll={checkScrollButtons}
+                >
+                  <TabsList className="h-auto p-0 bg-transparent gap-1 justify-start min-w-max flex">
+                    {sortedTimesheetUsers?.map((user) => {
+                      const productivityScore = calculateProductivityScore(user);
+                      const productivityLevel = getProductivityLevel(productivityScore);
+                      const employeeProjects = getEmployeeProjects(user);
+                      
+                      return (
+                        <TabsTrigger
+                          key={user.user_id}
+                          value={user.user_id}
+                          className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:border-blue-200 data-[state=active]:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 whitespace-nowrap"
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <Avatar className="w-6 h-6 sm:w-8 sm:h-8 ring-2 ring-offset-1 ring-blue-500">
+                              <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs">
+                                {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="text-left min-w-0">
+                              <div className="font-medium text-xs sm:text-sm truncate whitespace-nowrap">
+                                {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate whitespace-nowrap">
+                                {employeeProjects.length > 0 ? `${employeeProjects.length} project${employeeProjects.length !== 1 ? 's' : ''}` : 'No projects'}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </TabsTrigger>
-                    );
-                  })}
-                </TabsList>
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+                </div>
+
+                {/* Right Scroll Button */}
+                {showRightScroll && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => scrollTabs('right')}
+                    className="absolute right-0 z-10 h-full px-2 bg-gradient-to-l from-white to-transparent dark:from-gray-800 dark:to-transparent hover:from-gray-50 dark:hover:from-gray-700 border-0 rounded-none shadow-lg"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                )}
+
+                {/* Scroll Progress Indicator */}
+                {(showLeftScroll || showRightScroll) && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-200 dark:bg-gray-600">
+                    <div 
+                      className="h-full bg-blue-500 transition-all duration-300 ease-out"
+                      style={{ width: `${scrollProgress}%` }}
+                    />
+                  </div>
+                )}
               </div>
             </Tabs>
-                </div>
-              )}
+          </div>
+        )}
               
         {/* Loading State */}
         {isTimesheetsFetching && (
