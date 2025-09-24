@@ -706,7 +706,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     // Log the data structure for debugging
     if (dailyTimesheets) {
       console.log('Daily timesheets data:', dailyTimesheets);
-      console.log('Users count:', users.length);
+      console.log('Real users count:', users.length);
       console.log('Projects count:', projectsTimesheet.length);
     }
 
@@ -717,33 +717,17 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     selectedDate.setHours(0, 0, 0, 0);
     const isToday = selectedDate.getTime() === today.getTime();
 
-    // If no real data and it's today, show all organization members for empty timesheet display
-    if (users.length === 0 && isToday) {
-      // Since the backend now returns all org members, we trust that data
-      // But as a fallback for empty backend response, show all org members with role-based access
-      let availableMembers = realOrgMembers;
+    // If no real timesheet data exists, show organization members for empty timesheet display
+    if (users.length === 0) {
+      // Get available members based on role-based filtering
+      let availableMembers = getFilteredMembers();
 
-      // Apply minimal role-based filtering - most roles can see all members for timesheet purposes
-      if (currentUserOrgRole === 'member') {
-        // Regular members can see all members (for timesheet visibility)
-        // This allows collaboration and transparency while editing is still restricted by backend
-        availableMembers = realOrgMembers;
-      } else if (currentUserOrgRole === 'admin') {
-        // Admins can see all members
-        availableMembers = realOrgMembers;
-      } else if (currentUserOrgRole === 'owner') {
-        // Owners can see all members
-        availableMembers = realOrgMembers;
-      } else {
-        // No role or unknown role - show only themselves as fallback
-        availableMembers = realOrgMembers?.filter(member => member.user_id === user?.id) || [];
-      }
-
+      // Convert org members to timesheet user format for display
       users = availableMembers?.map(member => ({
         user_id: String(member.user_id),
         name: member.displayName,
         email: member.email || '',
-        designation: member.designation,
+        designation: member.designation || 'Team Member',
         avatar_initials: member.initials,
         role: member.role || 'member',
         total_hours_today: 0,
@@ -751,13 +735,13 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         in_progress: [],
         completed: [],
         blockers: []
-      }));
+      })) || [];
+
+      console.log('No timesheet data found, showing org members:', users.length);
     }
 
-    // Apply project-specific role-based filtering to existing users
-    // Note: This filtering will be further refined per project in usersByProject
-    // For now, we show all users and let project-specific filtering handle the details
-    users = users;
+    // Apply additional role-based filtering if needed
+    // Users are already filtered by the backend or converted from org members above
 
     // Apply member filter first
     if (selectedTimesheetUsers.length > 0) {
@@ -776,6 +760,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       });
     }
 
+    console.log('filteredTimesheetUsers - Final users count:', users.length);
+    console.log('filteredTimesheetUsers - Final users:', users.map(u => ({ id: u.user_id, name: u.name })));
     return users;
   }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetDate, realOrgMembers, currentUserOrgRole, user, projects, memoizedSelectedTimesheetProjects]);
 
@@ -828,6 +814,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Sort timesheet users based on selected criteria
   const sortedTimesheetUsers = useMemo(() => {
     const users = [...(filteredTimesheetUsers || [])];
+    console.log('sortedTimesheetUsers - filteredTimesheetUsers count:', filteredTimesheetUsers?.length);
+    console.log('sortedTimesheetUsers - users to sort:', users.length);
 
     switch (timesheetSort) {
       case 'productivity':
@@ -844,9 +832,21 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Set active employee tab to first user if not set
   useEffect(() => {
     if (sortedTimesheetUsers.length > 0 && !activeEmployeeTab) {
+      console.log('Setting active employee tab to:', sortedTimesheetUsers[0].user_id, sortedTimesheetUsers[0].name);
       setActiveEmployeeTab(sortedTimesheetUsers[0].user_id);
     }
   }, [sortedTimesheetUsers, activeEmployeeTab]);
+
+  // Check scroll buttons when users change
+  useEffect(() => {
+    if (sortedTimesheetUsers.length > 0) {
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        console.log('Checking scroll buttons after users loaded, count:', sortedTimesheetUsers.length);
+        checkScrollButtons();
+      }, 100);
+    }
+  }, [sortedTimesheetUsers.length]);
 
   // Handle scroll events and check scroll button visibility
   useEffect(() => {
@@ -1078,13 +1078,22 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const scrollContainer = tabsScrollRef.current;
     if (scrollContainer) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
-      setShowLeftScroll(scrollLeft > 0);
-      setShowRightScroll(scrollLeft < scrollWidth - clientWidth - 1);
+      console.log('checkScrollButtons - scrollLeft:', scrollLeft, 'scrollWidth:', scrollWidth, 'clientWidth:', clientWidth);
+      
+      const shouldShowLeft = scrollLeft > 0;
+      const shouldShowRight = scrollLeft < scrollWidth - clientWidth - 1;
+      
+      console.log('checkScrollButtons - shouldShowLeft:', shouldShowLeft, 'shouldShowRight:', shouldShowRight);
+      
+      setShowLeftScroll(shouldShowLeft);
+      setShowRightScroll(shouldShowRight);
       
       // Calculate scroll progress (0 to 100)
       const maxScrollLeft = scrollWidth - clientWidth;
       const progress = maxScrollLeft > 0 ? (scrollLeft / maxScrollLeft) * 100 : 0;
       setScrollProgress(progress);
+    } else {
+      console.log('checkScrollButtons - no scroll container found');
     }
   };
 
@@ -1375,7 +1384,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // ============================================================================
 
   return (
-    <div className="flex w-full h-full relative overflow-hidden">
+    <div className="flex w-full h-full relative overflow-hidden min-w-0">
       {/* Collapsible Filter Sidebar */}
       <div className={`${isFilterSidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-shrink-0`}>
         <div className="p-4 space-y-4 h-full overflow-y-auto">
@@ -1555,14 +1564,20 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full min-h-0">
+      <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
         {/* Employee Tabs Header */}
-        {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
-          <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0">
+        {(() => {
+          console.log('Render check - isTimesheetsFetching:', isTimesheetsFetching, 'sortedTimesheetUsers.length:', sortedTimesheetUsers.length);
+          return !isTimesheetsFetching && sortedTimesheetUsers.length > 0;
+        })() && (
+          <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0 max-w-full">
             <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
               <div className="relative flex items-center">
                 {/* Left Scroll Button */}
-                {showLeftScroll && (
+                {(() => {
+                  console.log('Left scroll button - showLeftScroll:', showLeftScroll);
+                  return showLeftScroll;
+                })() && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1576,11 +1591,15 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 {/* Scrollable Tabs Container */}
                 <div 
                   ref={tabsScrollRef}
-                  className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth scrollbar-hide px-8"
+                  className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth scrollbar-hide px-6 sm:px-8"
                   onScroll={checkScrollButtons}
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  style={{ 
+                    scrollbarWidth: 'none', 
+                    msOverflowStyle: 'none',
+                    maxWidth: '100%'
+                  }}
                 >
-                  <TabsList className="h-auto p-0 bg-transparent gap-1 justify-start min-w-max flex pr-4">
+                  <TabsList className="h-auto p-0 bg-transparent gap-0.5 sm:gap-1 justify-start flex pr-4" style={{ width: 'max-content', minWidth: 'max-content' }}>
                     {sortedTimesheetUsers?.map((user) => {
                       const productivityScore = calculateProductivityScore(user);
                       const productivityLevel = getProductivityLevel(productivityScore);
@@ -1590,20 +1609,21 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                         <TabsTrigger
                           key={user.user_id}
                           value={user.user_id}
-                          className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:border-blue-200 data-[state=active]:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 whitespace-nowrap"
+                          className="flex-shrink-0 px-2 sm:px-3 py-2 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:border-blue-200 data-[state=active]:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 whitespace-nowrap"
+                          style={{ minWidth: '100px', maxWidth: '140px' }}
                         >
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <Avatar className="w-6 h-6 sm:w-8 sm:h-8 ring-2 ring-offset-1 ring-blue-500">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Avatar className="w-5 h-5 sm:w-6 sm:h-6 ring-1 ring-offset-1 ring-blue-500">
                               <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs">
                                 {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
-                            <div className="text-left min-w-0">
-                              <div className="font-medium text-xs sm:text-sm truncate whitespace-nowrap">
+                            <div className="text-left min-w-0 flex-1">
+                              <div className="font-medium text-xs truncate whitespace-nowrap">
                                 {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
                               </div>
                               <div className="text-xs text-gray-500 dark:text-gray-400 truncate whitespace-nowrap">
-                                {employeeProjects.length > 0 ? `${employeeProjects.length} project${employeeProjects.length !== 1 ? 's' : ''}` : 'No projects'}
+                                {employeeProjects.length > 0 ? `${employeeProjects.length} projects` : '0 projects'}
                               </div>
                             </div>
                           </div>
@@ -1614,7 +1634,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 </div>
 
                 {/* Right Scroll Button */}
-                {showRightScroll && (
+                {(() => {
+                  console.log('Right scroll button - showRightScroll:', showRightScroll);
+                  return showRightScroll;
+                })() && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1650,19 +1673,23 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         )}
 
         {/* Employee Content Area */}
-        {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
-          <div className="flex-1 overflow-hidden min-h-0">
+        {!isTimesheetsFetching && (
+          <div className="flex-1 overflow-auto min-h-0 min-w-0">
             <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
 
               {/* Active Employee Content */}
               <div className="flex-1 overflow-hidden min-h-0">
-                {sortedTimesheetUsers?.map((user) => (
+                {(() => {
+                  console.log('Rendering tabs - sortedTimesheetUsers.length:', sortedTimesheetUsers.length, 'activeEmployeeTab:', activeEmployeeTab);
+                  console.log('Users:', sortedTimesheetUsers.map(u => ({ id: u.user_id, name: u.name })));
+                  return sortedTimesheetUsers.length > 0;
+                })() ? sortedTimesheetUsers?.map((user) => (
                   <TabsContent
                     key={user.user_id}
                     value={user.user_id}
-                    className="h-full overflow-y-auto thin-scroll m-0 p-0"
+                    className="h-full overflow-auto thin-scroll m-0 p-0"
                   >
-                    <div className="p-2 sm:p-4 space-y-2 sm:space-y-4 h-full flex flex-col">
+                    <div className="p-2 sm:p-3 space-y-2 sm:space-y-3 h-full flex flex-col">
                       {/* Employee Header Strip */}
                       <div className="bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border border-slate-200 dark:border-gray-600 rounded-lg p-2 sm:p-3 shadow-sm flex-shrink-0">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
@@ -1721,19 +1748,25 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
                           {/* View Mode Indicator */}
                           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                            {viewMode === 'detail' && (
-                <Button
-                  variant="outline"
-                  size="sm"
+                            {(() => {
+                              console.log('Back to Calendar button - viewMode:', viewMode);
+                              return viewMode === 'detail';
+                            })() && (
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={backToCalendar}
                                 className="flex items-center gap-2"
                               >
                                 <ArrowLeft className="w-4 h-4" />
                                 <span className="hidden sm:inline">Back to Calendar</span>
                                 <span className="sm:hidden">Back</span>
-                </Button>
+                              </Button>
                             )}
-                            {viewMode === 'calendar' && (
+                            {(() => {
+                              console.log('Header calendar indicator - viewMode:', viewMode);
+                              return viewMode === 'calendar'; // Only show when in calendar mode
+                            })() && (
                               <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700">
                                 <div className="flex items-center gap-1 sm:gap-2">
                                   <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -1760,8 +1793,11 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             </div>
 
                       {/* Calendar View */}
-                      {viewMode === 'calendar' && (
-                        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex-1 min-h-0 flex flex-col overflow-auto">
+                      {(() => {
+                        console.log('Calendar view rendering - viewMode:', viewMode, 'activeEmployeeTab:', activeEmployeeTab, 'user.user_id:', user.user_id);
+                        return viewMode === 'calendar'; // Only show when in calendar mode
+                      })() && (
+                        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
                           {/* Month Navigation Header */}
                           <div className="flex items-center justify-between p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                             <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
@@ -1775,21 +1811,24 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                             <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                               <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
                             </button>
-                    </div>
+                          </div>
                           
-                          {/* Calendar Grid */}
-                          <div className="p-2 sm:p-3 flex-1 flex flex-col min-h-0 overflow-auto">
+                          {/* Calendar Grid Container */}
+                          <div className="flex-1 px-2 sm:px-3 pb-1 sm:pb-2 pt-1 sm:pt-1 flex flex-col min-h-0">
                             {/* Week Headers */}
-                            <div className="grid grid-cols-7 mb-1 flex-shrink-0">
+                            <div className="grid grid-cols-7 mb-1 flex-shrink-0 h-6">
                               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                                <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1">
+                                <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center">
                                   {day}
-                    </div>
+                                </div>
                               ))}
-                  </div>
+                            </div>
                             
-                            {/* Calendar Weeks */}
-                            <div className="grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden mb-4 min-h-0" style={{gridTemplateRows: `repeat(${getCurrentMonthCalendar().weeks.length}, minmax(60px, 1fr))`}}>
+                            {/* Calendar Weeks - Responsive Grid */}
+                            <div className="grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden flex-1" style={{
+                              gridTemplateRows: `repeat(${getCurrentMonthCalendar().weeks.length}, 1fr)`,
+                              minHeight: `${getCurrentMonthCalendar().weeks.length * 50}px`
+                            }}>
                               {getCurrentMonthCalendar().weeks.map((week, weekIndex) => (
                                 week.map((date, dayIndex) => {
                                   const isToday = date.toDateString() === new Date().toDateString();
@@ -1806,7 +1845,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                       key={`${weekIndex}-${dayIndex}`}
                                       onClick={() => isCurrentMonth && !isFutureDate && handleDateClick(date)}
                                       className={`
-                                        relative w-full h-full min-h-[60px] 
+                                        relative w-full h-full min-h-[50px] 
                                         flex items-center justify-center transition-all duration-200
                                         ${!isLastColumn ? 'border-r border-gray-200 dark:border-gray-600' : ''}
                                         ${!isLastRow ? 'border-b border-gray-200 dark:border-gray-600' : ''}
@@ -1847,12 +1886,15 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                 })
                               ))}
                               </div>
-                                </div>
-                                </div>
+                            </div>
+                          </div>
                       )}
 
                       {/* Detail View */}
-                      {viewMode === 'detail' && (
+                      {(() => {
+                        console.log('Detail view rendering - viewMode:', viewMode);
+                        return viewMode === 'detail';
+                      })() && (
                         <>
                           {/* Spreadsheet-Style Columnar Layout */}
                           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -1945,26 +1987,148 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                         )}
                       </div>
                   </TabsContent>
-                ))}
+                )) : (
+                  // Fallback: Show calendar view when no users are available
+                  <div className="h-full overflow-auto thin-scroll m-0 p-0">
+                    <div className="p-2 sm:p-3 space-y-2 sm:space-y-3 h-full flex flex-col">
+                      {/* Header for no users state */}
+                      <div className="bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border border-slate-200 dark:border-gray-600 rounded-lg p-2 sm:p-3 shadow-sm flex-shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                            </div>
+                            <div>
+                              <h2 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">
+                                Team Calendar View
+                              </h2>
+                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                No timesheet data available for the selected date
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                <div className="text-xs sm:text-sm font-medium text-indigo-900 dark:text-indigo-100">
+                                  <div className="flex items-center gap-2 sm:gap-4">
+                                    <span className="hidden sm:inline">Status:</span>
+                                    <div className="flex items-center gap-2 sm:gap-3">
+                                      <div className="flex items-center gap-1 sm:gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                                        <span className="text-xs">Not Started</span>
+                                      </div>
+                                      <div className="flex items-center gap-1 sm:gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                        <span className="text-xs">Completed</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Calendar View - Fallback Always Show */}
+                      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+                        {/* Month Navigation Header */}
+                        <div className="flex items-center justify-between p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                          <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
+                          </button>
+                          
+                          <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                          </h2>
+                          
+                          <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
+                          </button>
+                        </div>
+                        
+                        {/* Calendar Grid Container */}
+                        <div className="flex-1 px-2 sm:px-3 pb-1 sm:pb-2 pt-1 sm:pt-1 flex flex-col min-h-0">
+                          {/* Week Headers */}
+                          <div className="grid grid-cols-7 mb-1 flex-shrink-0 h-6">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                              <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center">
+                                {day}
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Calendar Weeks - Responsive Grid */}
+                          <div className="grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden flex-1" style={{
+                            gridTemplateRows: `repeat(${getCurrentMonthCalendar().weeks.length}, 1fr)`,
+                            minHeight: `${getCurrentMonthCalendar().weeks.length * 50}px`
+                          }}>
+                            {getCurrentMonthCalendar().weeks.map((week, weekIndex) => (
+                              week.map((date, dayIndex) => {
+                                const isToday = date.toDateString() === new Date().toDateString();
+                                const isSelected = selectedCalendarDate && date.toDateString() === selectedCalendarDate.toDateString();
+                                const isCurrentMonth = date.getMonth() === getCurrentMonthCalendar().currentMonth;
+                                const isFutureDate = date > new Date();
+                                const dayNumber = date.getDate();
+                                const isLastColumn = dayIndex === 6;
+                                const isLastRow = weekIndex === getCurrentMonthCalendar().weeks.length - 1;
+
+                                return (
+                                  <button
+                                    key={`${weekIndex}-${dayIndex}`}
+                                    onClick={() => isCurrentMonth && !isFutureDate && handleDateClick(date)}
+                                    className={`
+                                      relative w-full h-full min-h-[50px] 
+                                      flex items-center justify-center transition-all duration-200
+                                      ${!isLastColumn ? 'border-r border-gray-200 dark:border-gray-600' : ''}
+                                      ${!isLastRow ? 'border-b border-gray-200 dark:border-gray-600' : ''}
+                                      ${isSelected 
+                                        ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm' 
+                                        : isToday && isCurrentMonth
+                                          ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
+                                          : isCurrentMonth && !isFutureDate
+                                            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+                                            : isCurrentMonth && isFutureDate
+                                              ? 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
+                                              : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-default'
+                                      }
+                                    `}
+                                    disabled={!isCurrentMonth || isFutureDate}
+                                  >
+                                    {/* Day Number */}
+                                    <span className={`text-xs font-medium ${
+                                      isSelected 
+                                        ? 'text-green-800 font-semibold' 
+                                        : isToday && isCurrentMonth
+                                          ? 'text-green-600 dark:text-green-400 font-semibold' 
+                                          : isCurrentMonth && !isFutureDate
+                                            ? 'text-gray-900 dark:text-gray-100'
+                                            : 'text-gray-400 dark:text-gray-500'
+                                    }`}>
+                                      {dayNumber}
+                                    </span>
+                                    
+                                    {/* Status Indicator - Show gray dot for no data */}
+                                    {isCurrentMonth && !isFutureDate && (
+                                      <div className="absolute bottom-1 right-1">
+                                        <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Tabs>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isTimesheetsFetching && sortedTimesheetUsers.length === 0 && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="mx-auto w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
-                <Timer className="w-12 h-12 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">No Tasks Found</h3>
-              <p className="text-gray-500 dark:text-gray-500 mb-6">Adjust your filters or check back later</p>
-              <Button onClick={clearTimesheetFilters} className="bg-blue-600 hover:bg-blue-700 text-white">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Reset Filters
-              </Button>
-            </div>
           </div>
         )}
       </div>
