@@ -18,13 +18,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Icons
 import {
   AlertTriangle,
+  ArrowLeft,
   Calendar,
   CheckCircle,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Clock,
   Eye,
@@ -33,6 +36,7 @@ import {
   FolderMinus,
   FolderPlus,
   Loader2,
+  Plus,
   RefreshCw,
   RotateCcw,
   Save,
@@ -345,12 +349,11 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       }
 
       const value = textareaRef.current?.value || '';
+      
+      // Allow saving empty content to clear fields
       if (!value || value.trim().length === 0) {
-        toast({
-          title: 'Empty Content',
-          description: 'Please add some content before saving',
-          variant: 'destructive'
-        });
+        // Save empty content and check if all fields are empty
+        await saveTimesheetData(user.user_id, type, '', projectId);
         return;
       }
 
@@ -368,7 +371,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     };
 
     return (
-      <div className={`bg-white dark:bg-gray-800 rounded-lg border-${color}-500 shadow-sm hover:shadow-md transition-all duration-200 ${canEdit ? 'cursor-text' : 'cursor-not-allowed opacity-60'}`}>
+      <div className="h-full flex flex-col">
+        <div className={`flex-1 bg-white dark:bg-gray-800 rounded-lg border border-${color}-200 dark:border-${color}-600 shadow-sm hover:shadow-md transition-all duration-200 ${canEdit ? 'cursor-text' : 'cursor-not-allowed opacity-60'} mb-2`}>
         <textarea
           key={`${user.user_id}-${projectId}-${type}-${selectedDate?.toISOString()}-${JSON.stringify(
             type === 'in_progress' ? (user.in_progress || user.inProgress) :
@@ -376,26 +380,26 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             type === 'completed' ? user.completed : ''
           )}`}
           ref={textareaRef}
-          className={`w-full h-32 p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${!canEdit ? 'cursor-not-allowed' : ''}`}
+            className={`w-full h-full p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg ${!canEdit ? 'cursor-not-allowed' : ''}`}
           placeholder={getPlaceholder()}
           readOnly={!canEdit}
           defaultValue={getInitialValue()}
           onFocus={handleFocus}
           onBlur={handleBlur}
+            style={{ minHeight: '150px' }}
         />
-        <div className={`px-3 py-2 bg-${color}-50 dark:bg-${color}-900/30 rounded-b-lg border-t border-${color}-200 dark:border-${color}-600`}>
-          <div className="flex items-center justify-end text-xs">
+        </div>
+        <div className="flex justify-center">
             <Button
-              variant="ghost"
+            variant="outline"
               size="sm"
-              className={`h-5 px-2 text-xs text-${color}-600 hover:bg-${color}-100 dark:text-${color}-400 dark:hover:bg-${color}-900/50 ${!canEdit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-80'}`}
+            className={`text-xs text-${color}-700 border-${color}-200 hover:bg-${color}-50 dark:text-${color}-400 dark:border-${color}-600 dark:hover:bg-${color}-900/20 ${!canEdit ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={handleSave}
               disabled={!canEdit}
             >
               <Save className="w-3 h-3 mr-1" />
               Save
             </Button>
-          </div>
         </div>
       </div>
     );
@@ -449,6 +453,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const [timesheetSort, setTimesheetSort] = useState<TimesheetSortType>('productivity');
   const [selectedTimesheetDate, setSelectedTimesheetDate] = useState<Date | undefined>(new Date());
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [activeEmployeeTab, setActiveEmployeeTab] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'calendar' | 'detail'>('calendar');
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(undefined);
+
+  // Local state to track timesheet status for calendar dates
+  const [timesheetStatus, setTimesheetStatus] = useState<Record<string, { hasData: boolean; userId: string }>>({});
 
   // Check if current date is restricted for editing (members can edit today and previous days, but not future dates)
   const isDateRestrictedForEditing = useMemo(() => {
@@ -682,6 +692,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     };
   }, [isProjectsLoading]);
 
+
   // ============================================================================
   // COMPUTED VALUES (useMemo)
   // ============================================================================
@@ -768,6 +779,43 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     return users;
   }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetDate, realOrgMembers, currentUserOrgRole, user, projects, memoizedSelectedTimesheetProjects]);
 
+  // Initialize timesheet status from loaded data
+  useEffect(() => {
+    if (dailyTimesheets && selectedTimesheetDate) {
+      const dateKey = formatDateForAPI(selectedTimesheetDate);
+      const newStatus: Record<string, { hasData: boolean; userId: string }> = {};
+      
+      // Check each user's data for the selected date
+      filteredTimesheetUsers?.forEach(user => {
+        const userDateKey = `${dateKey}-${user.user_id}`;
+        
+        // Check if user has any data in any field
+        const inProgressData = user.in_progress || [];
+        const blockedData = user.blockers || [];
+        const completedData = user.completed || [];
+        
+        const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 : 
+                             (typeof inProgressData === 'string' && (inProgressData as string).trim().length > 0);
+        const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 : 
+                          (typeof blockedData === 'string' && (blockedData as string).trim().length > 0);
+        const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 : 
+                            (typeof completedData === 'string' && (completedData as string).trim().length > 0);
+        
+        const hasData = hasInProgress || hasBlocked || hasCompleted;
+        
+        newStatus[userDateKey] = { hasData, userId: user.user_id };
+      });
+      
+      // Update status only if there are changes
+      setTimesheetStatus(prev => {
+        const hasChanges = Object.keys(newStatus).some(key => 
+          !prev[key] || prev[key].hasData !== newStatus[key].hasData
+        );
+        return hasChanges ? { ...prev, ...newStatus } : prev;
+      });
+    }
+  }, [dailyTimesheets, selectedTimesheetDate, filteredTimesheetUsers]);
+
   // Check if selected date is today
   const isToday = useMemo(() => {
     const today = new Date();
@@ -792,6 +840,37 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         return users;
     }
   }, [filteredTimesheetUsers, timesheetSort]);
+
+  // Set active employee tab to first user if not set
+  useEffect(() => {
+    if (sortedTimesheetUsers.length > 0 && !activeEmployeeTab) {
+      setActiveEmployeeTab(sortedTimesheetUsers[0].user_id);
+    }
+  }, [sortedTimesheetUsers, activeEmployeeTab]);
+
+  // Get active employee data
+  const activeEmployee = useMemo(() => {
+    return sortedTimesheetUsers?.find(user => user.user_id === activeEmployeeTab);
+  }, [sortedTimesheetUsers, activeEmployeeTab]);
+
+  // Get employee's project involvement
+  const getEmployeeProjects = useCallback((employee: TeamTimesheetUser) => {
+    const employeeProjects = new Set<string>();
+    [...(employee.in_progress || []), ...(employee.completed || []), ...(employee.blockers || [])]?.forEach(task => {
+      if (task.project) {
+        employeeProjects.add(task.project);
+      }
+    });
+
+    // Also check projects where user is a member based on role
+    projects?.forEach(project => {
+      if (isUserProjectMember(employee.user_id, project.id)) {
+        employeeProjects.add(project.name);
+      }
+    });
+
+    return Array.from(employeeProjects);
+  }, [projects, isUserProjectMember]);
 
   // Organize users by their primary project with role-based filtering
   const usersByProject = useMemo(() => {
@@ -915,14 +994,173 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     return 'default-project';
   };
 
+  // Date Navigation Functions
+  const navigateToPreviousDay = () => {
+    const currentDate = selectedTimesheetDate || new Date();
+    const previousDay = new Date(currentDate);
+    previousDay.setDate(previousDay.getDate() - 1);
+    setSelectedTimesheetDate(previousDay);
+    setSelectedCalendarDate(previousDay);
+  };
+
+  const navigateToNextDay = () => {
+    const currentDate = selectedTimesheetDate || new Date();
+    const nextDay = new Date(currentDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    setSelectedTimesheetDate(nextDay);
+    setSelectedCalendarDate(nextDay);
+  };
+
+  // Calendar View Functions
+  const handleDateClick = (date: Date) => {
+    setSelectedTimesheetDate(date);
+    setSelectedCalendarDate(date);
+    setViewMode('detail');
+  };
+
+  const backToCalendar = () => {
+    setViewMode('calendar');
+  };
+
+  // Generate calendar grid with weeks
+  const getCurrentMonthCalendar = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    
+    // Get first day of month and last day of month
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    // Get the first Sunday of the calendar view
+    const startDate = new Date(firstDay);
+    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    startDate.setDate(firstDay.getDate() - startDayOfWeek);
+    
+    // Get the last Saturday of the calendar view
+    const endDate = new Date(lastDay);
+    const endDayOfWeek = lastDay.getDay();
+    endDate.setDate(lastDay.getDate() + (6 - endDayOfWeek));
+    
+    // Generate all dates for the calendar grid
+    const weeks = [];
+    let currentWeek = [];
+    
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      currentWeek.push(new Date(date));
+      
+      // If it's Saturday (day 6), complete the week
+      if (date.getDay() === 6) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+    }
+    
+    // Add any remaining days to the last week
+    if (currentWeek.length > 0) {
+      weeks.push(currentWeek);
+    }
+    
+    return { weeks, currentMonth: month };
+  };
+
+  // Get timesheet summary for date tabs
+  const getDateSummary = (date: Date, user: any) => {
+    const dateKey = `${date.toISOString().split('T')[0]}-${user?.user_id}`;
+    
+    // Check local timesheet status first
+    if (timesheetStatus[dateKey]) {
+      return {
+        hasData: timesheetStatus[dateKey].hasData,
+        inProgressCount: timesheetStatus[dateKey].hasData ? 1 : 0,
+        blockedCount: 0,
+        completedCount: 0
+      };
+    }
+    
+    // Check if this is the currently selected date with loaded data
+    const isCurrentDate = selectedTimesheetDate && 
+      date.toDateString() === selectedTimesheetDate.toDateString();
+    
+    if (isCurrentDate && user) {
+      // Check for string content (saved data) or array content (task data)
+      const inProgressData = user.in_progress || user.inProgress || [];
+      const blockedData = user.blocked || user.blockers || [];
+      const completedData = user.completed || [];
+      
+      // Check if data exists - either as non-empty strings or non-empty arrays
+      const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 : 
+                           (typeof inProgressData === 'string' && inProgressData.trim().length > 0);
+      const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 : 
+                        (typeof blockedData === 'string' && blockedData.trim().length > 0);
+      const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 : 
+                          (typeof completedData === 'string' && completedData.trim().length > 0);
+      
+      const hasData = hasInProgress || hasBlocked || hasCompleted;
+      
+      return {
+        hasData,
+        inProgressCount: hasInProgress ? 1 : 0,
+        blockedCount: hasBlocked ? 1 : 0,
+        completedCount: hasCompleted ? 1 : 0
+      };
+    }
+    
+    return { hasData: false, inProgressCount: 0, blockedCount: 0, completedCount: 0 };
+  };
+
+  // Get status icon for calendar date
+  const getDateStatusIcon = (date: Date, user: any) => {
+    const summary = getDateSummary(date, user);
+    
+    if (!summary.hasData) {
+      // No data filled yet - show "Not Started" icon
+      return (
+        <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
+      );
+    } else {
+      // Has data - show "Completed" icon
+      return (
+        <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
+      );
+    }
+  };
+
   // Data Management Functions
+  // Helper function to check if all timesheet fields are empty for a user
+  const checkAllFieldsEmpty = async (userId: string, currentField: 'in_progress' | 'completed' | 'blocked', currentValue: string) => {
+    // Get current user data
+    const currentUser = filteredTimesheetUsers?.find(u => u.user_id === userId);
+    if (!currentUser) return true;
+
+    // Check the values of all three fields, using the current value for the field being saved
+    const inProgressValue = currentField === 'in_progress' ? currentValue : 
+                           (typeof currentUser.in_progress === 'string' ? currentUser.in_progress : 
+                            Array.isArray(currentUser.in_progress) ? currentUser.in_progress.join('') : '');
+    
+    const blockedValue = currentField === 'blocked' ? currentValue : 
+                        (typeof currentUser.blockers === 'string' ? currentUser.blockers :
+                         Array.isArray(currentUser.blockers) ? currentUser.blockers.join('') : '');
+    
+    const completedValue = currentField === 'completed' ? currentValue : 
+                          (typeof currentUser.completed === 'string' ? currentUser.completed : 
+                           Array.isArray(currentUser.completed) ? currentUser.completed.join('') : '');
+
+    // Check if all fields are empty or whitespace-only
+    const allEmpty = (!inProgressValue || inProgressValue.trim().length === 0) &&
+                    (!blockedValue || blockedValue.trim().length === 0) &&
+                    (!completedValue || completedValue.trim().length === 0);
+
+    return allEmpty;
+  };
+
   const saveTimesheetData = async (
     userId: string,
     field: 'in_progress' | 'completed' | 'blocked',
     value: string,
     projectId?: string
   ) => {
-    if (!selectedTimesheetDate || !orgId || orgId.length === 0 || !userId || userId.trim().length === 0 || !field || field.trim().length === 0 || !value || value.trim().length === 0) return;
+    if (!selectedTimesheetDate || !orgId || orgId.length === 0 || !userId || userId.trim().length === 0 || !field || field.trim().length === 0) return;
 
     // If no projectId provided, find the user to get their primary project
     let actualProjectId = projectId;
@@ -975,6 +1213,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           variant: 'default'
         });
         
+        // Check if all fields are empty after this save to determine status
+        const allFieldsEmpty = await checkAllFieldsEmpty(userId, field, value);
+        
+        // Update local timesheet status for calendar view
+        const dateKey = `${formatDateForAPI(selectedTimesheetDate)}-${userId}`;
+        setTimesheetStatus(prev => ({
+          ...prev,
+          [dateKey]: { hasData: !allFieldsEmpty, userId }
+        }));
+        
         // Note: With uncontrolled components, we don't need to clear state
         // The textarea will be refreshed when the data is refetched
         
@@ -1011,7 +1259,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // ============================================================================
 
   return (
-    <div className="flex w-full h-full relative">
+    <div className="flex w-full h-full relative overflow-hidden">
       {/* Collapsible Filter Sidebar */}
       <div className={`${isFilterSidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-shrink-0`}>
         <div className="p-4 space-y-4 h-full overflow-y-auto">
@@ -1190,249 +1438,47 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         </div>
       </div>
 
-      {/* Main Kanban Board */}
-      <div className="flex-1 flex flex-col h-full">
-        {/* Top Bar */}
-        <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-            {/* <div className="flex items-center gap-2">
-              <span>Team Members:</span>
-              <Badge variant="secondary">{sortedTimesheetUsers.length}</Badge>
-            </div> */}
-
-            {/* Role Indicator */}
-            {/* {currentUserOrgRole && (
-              <div className="flex items-center gap-2">
-                <span>Your Role:</span>
-                <Badge 
-                  variant={currentUserOrgRole === 'owner' ? 'default' : currentUserOrgRole === 'admin' ? 'secondary' : 'outline'}
-                  className={currentUserOrgRole === 'owner' ? 'bg-purple-600 text-white' : currentUserOrgRole === 'admin' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}
-                >
-                  {currentUserOrgRole.charAt(0).toUpperCase() + currentUserOrgRole.slice(1)}
-                </Badge>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-full min-h-0">
+        {/* Employee Tabs Header */}
+        {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
+          <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0">
+            <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
+              <TabsList className="h-auto p-0 bg-transparent gap-1 flex-wrap justify-start w-full max-w-none overflow-x-auto">
+                {sortedTimesheetUsers?.map((user) => {
+                  const productivityScore = calculateProductivityScore(user);
+                  const productivityLevel = getProductivityLevel(productivityScore);
+                  const employeeProjects = getEmployeeProjects(user);
+                  
+                  return (
+                    <TabsTrigger
+                      key={user.user_id}
+                      value={user.user_id}
+                      className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:border-blue-200 data-[state=active]:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <Avatar className="w-6 h-6 sm:w-8 sm:h-8 ring-2 ring-offset-1 ring-blue-500">
+                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs">
+                            {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="text-left min-w-0">
+                          <div className="font-medium text-xs sm:text-sm truncate">
+                            {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
               </div>
-            )} */}
-
-            {/* Projects Status & Refresh */}
-            {/* <div className="flex items-center gap-3">
-              {isProjectsLoading && (
-                <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Loading projects...</span>
-                </div>
-              )}
-              
-              {!isProjectsLoading && projects.length === 0 && (
-                <Button 
-                  onClick={fetchProjects}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                  Load Projects
-                </Button>
-              )}
-              
-              {!isProjectsLoading && projects.length > 0 && (
-                <Button 
-                  onClick={fetchProjects}
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                  Refresh Projects
-                </Button>
-              )}
-            </div> */}
-
-            {/* Permission Summary */}
-            {/* {currentUserOrgRole && (
-              <div className="flex items-center gap-2">
-                <span>Timesheet Permissions:</span>
-                <div className="flex gap-1">
-                  {roleChecks.isOrgAdminOrOwner && (
-                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                      Project Admin/Owner (All Projects)
-                    </Badge>
-                  )}
-                  {roleChecks.isOrgMember && projects?.some(project => isProjectOwner(project.id)) && (
-                    <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                      Project Owner (Specific Projects)
-                    </Badge>
-                  )}
-                  {roleChecks.isOrgMember && !projects?.some(project => isProjectOwner(project.id)) && projects?.some(project => isProjectMember(project.id)) && (
-                    <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
-                      Project Member
-                    </Badge>
-                  )}
-                  {roleChecks.isOrgMember && !projects?.some(project => isProjectOwner(project.id)) && !projects?.some(project => isProjectMember(project.id)) && (
-                    <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200">
-                      No Project Access
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            )} */}
-
-            {/* Date Selector */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 border-indigo-200 dark:border-indigo-700 hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-800/40 dark:hover:to-purple-800/40 transition-all duration-200"
-                >
-                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mr-2" />
-                  <span className="text-indigo-900 dark:text-indigo-100 font-medium">
-                    {selectedTimesheetDate ? selectedTimesheetDate.toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    }) : 'Select Date'}
-                  </span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-3" align="start">
-                <div className="space-y-3">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    Select Display Date
-                  </div>
-                  <CalendarComponent
-                    mode="single"
-                    selected={selectedTimesheetDate}
-                    onSelect={(date) => setSelectedTimesheetDate(date ?? new Date())}
-                    className="rounded-md border"
-                    disabled={(date) => date > new Date()}
-                  />
-                  <div className="flex justify-between">
-                    <Button size="sm" variant="outline" onClick={() => setSelectedTimesheetDate(new Date())}>
-                      Today
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setSelectedTimesheetDate(undefined)}>
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Team Members Filter */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-800/40 dark:hover:to-teal-800/40 transition-all duration-200"
-                >
-                  <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mr-2" />
-                  <span className="text-emerald-900 dark:text-emerald-100 font-medium">
-                    {selectedTimesheetUsers.length === 0
-                      ? 'All Members'
-                      : selectedTimesheetUsers.length === 1
-                        ? (() => {
-                          const selectedMember = realOrgMembers?.find(m => String(m.user_id) === selectedTimesheetUsers[0]);
-                          return selectedMember?.displayName || 'Selected Member';
-                        })()
-                        : `${selectedTimesheetUsers.length} Members`
-                    }
-                  </span>
-                  <ChevronRight className="w-3 h-3 ml-1 text-emerald-600 dark:text-emerald-400" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-72 max-h-80 overflow-auto" align="start">
-                <div className="p-2">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    Filter Team Members
-                  </div>
-                  <div className="space-y-1">
-                    {/* Select All / Clear All */}
-                    <div className="flex gap-2 mb-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedTimesheetUsers([])}
-                        className="h-7 px-2 text-xs"
-                      >
-                        All Members
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedTimesheetUsers(realOrgMembers?.map(m => String(m.user_id)))}
-                        className="h-7 px-2 text-xs"
-                      >
-                        Select All
-                      </Button>
-                    </div>
-
-                    {/* Member List */}
-                    {getFilteredMembers()
-                      ?.map((m) => (
-                        <DropdownMenuCheckboxItem
-                          key={m.user_id}
-                          checked={selectedTimesheetUsers?.includes(String(m.user_id))}
-                          onCheckedChange={(checked) => {
-                            const id = String(m.user_id);
-                            setSelectedTimesheetUsers(checked ? [...selectedTimesheetUsers, id] : selectedTimesheetUsers?.filter(x => x !== id));
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3 w-full">
-                            <Avatar className="w-7 h-7 flex-shrink-0">
-                              <AvatarFallback className="text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
-                                {m.initials}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm truncate">
-                                {m.displayName}
-                              </div>
-                              <div className="text-xs text-gray-500 truncate">
-                                {m.email}
-                              </div>
-                            </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {employeeProjects.length > 0 ? `${employeeProjects.length} project${employeeProjects.length !== 1 ? 's' : ''}` : 'No projects'}
                           </div>
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                  </div>
+                        </div>
+                      </div>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </Tabs>
                 </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Toggle All Projects */}
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toggleAllProjects(true)}
-                className="h-8 px-2 text-xs bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-200 dark:border-blue-700 hover:from-blue-100 hover:to-indigo-100"
-              >
-                <FolderPlus className="w-3 h-3 mr-1 text-blue-600 dark:text-blue-400" />
-                Expand All
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toggleAllProjects(false)}
-                className="h-8 px-2 text-xs bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/30 dark:to-slate-900/30 border-gray-200 dark:border-gray-700 hover:from-gray-100 hover:to-slate-100"
-              >
-                <FolderMinus className="w-3 h-3 mr-1 text-gray-600 dark:text-gray-400" />
-                Collapse All
-              </Button>
-            </div>
-
-            <Button variant="outline" size="sm" onClick={() => refetchTimesheets()} disabled={isTimesheetsFetching}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${isTimesheetsFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-        </div>
-
+              )}
+              
         {/* Loading State */}
         {isTimesheetsFetching && (
           <div className="flex-1 flex items-center justify-center">
@@ -1443,294 +1489,282 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           </div>
         )}
 
-        {/* Project-based Member Cards */}
-        {(
-          <div className="flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto thin-scroll">
-              <div className="p-4 pb-8 space-y-6">
-                {/* Loading State for Projects */}
-                {/* {isProjectsLoading && (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="flex items-center gap-3">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                      <span className="text-gray-600 dark:text-gray-400">Loading projects...</span>
-                    </div>
-                  </div>
-                )}
+        {/* Employee Content Area */}
+        {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
+          <div className="flex-1 overflow-hidden min-h-0">
+            <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
 
-                {!isProjectsLoading && projects.length === 0 && (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <FolderMinus className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No Projects Found</h3>
-                      <p className="text-gray-600 dark:text-gray-400 mb-4">
-                        No projects are available for timesheet management.
-                      </p>
-                      <Button
-                        onClick={fetchProjects}
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                      >
-                        <FolderPlus className="w-4 h-4" />
-                        Refresh Projects
-                      </Button>
-                    </div>
-                  </div>
-                )} */}
-
-                {/* Projects List */}
-                {!isTimesheetsFetching && Object.entries(usersByProject)
-                  ?.sort(([a], [b]) => a?.localeCompare(b))
-                  ?.map(([projectName, projectUsers]) => {
-                    // Get the actual project ID from the project name
-                    const project = projects?.find(p => p.name === projectName);
-                    const projectId = project?.id || '';
-
-                    return (
-                      <div key={projectName} className="flex flex-col">
-                        {/* Project Header - Sticky when expanded */}
-                        <div className={`bg-gradient-to-r from-slate-100 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm ${expandedProjects.has(projectName) ? 'sticky top-0 z-10 mb-3' : 'mb-3'}`}>
-                          <button
-                            onClick={() => toggleProject(projectName)}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded-lg"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-2">
-                                {expandedProjects.has(projectName) ? (
-                                  <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                                ) : (
-                                  <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                                )}
-                                <Folder className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                              </div>
-                              <div className="text-left">
-                                <div className="flex items-center gap-3 mb-1">
-                                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                                    {projectName}
-                                  </h3>
-                                  {/* Copyable Project ID Badge */}
-                                  <CopyableBadge 
-                                    copyText={projectId} 
-                                    org_id={orgId ?? ''} 
-                                    variant="default" 
-                                    className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white"
-                                  >
-                                    {projectId}
-                                  </CopyableBadge>
-                                </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {projectUsers.length} team member{projectUsers.length !== 1 ? 's' : ''}
+              {/* Active Employee Content */}
+              <div className="flex-1 overflow-hidden min-h-0">
+                {sortedTimesheetUsers?.map((user) => (
+                  <TabsContent
+                    key={user.user_id}
+                    value={user.user_id}
+                    className="h-full overflow-y-auto thin-scroll m-0 p-0"
+                  >
+                    <div className="p-2 sm:p-4 space-y-2 sm:space-y-4 h-full flex flex-col">
+                      {/* Employee Header Strip */}
+                      <div className="bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border border-slate-200 dark:border-gray-600 rounded-lg p-2 sm:p-3 shadow-sm flex-shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 ring-2 ring-offset-1 ring-blue-500">
+                              <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs sm:text-sm">
+                                {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h2 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">
+                                {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
+                              </h2>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                  {user.designation || 'Team Member'} • {user.email || user.user_id}
+                                  {getEmployeeProjects(user).length > 0 && (
+                                    <span> • Projects:</span>
+                                  )}
                                 </p>
-                                {/* Project-specific restriction badges */}
-                                <div className="flex gap-1 mt-1">
-                                  {getProjectBadges(projectId)}
-                                </div>
+                                {getEmployeeProjects(user).length > 0 && (
+                                  <>
+                                    {getEmployeeProjects(user)?.map((projectName, idx) => (
+                                      <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                        <Folder className="w-3 h-3 mr-1" />
+                                        {projectName}
+                    </Badge>
+                                    ))}
+                                  </>
+                  )}
+                </div>
+              </div>
+                  </div>
+
+                          {/* View Mode Indicator */}
+                          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                            {viewMode === 'detail' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                                onClick={backToCalendar}
+                                className="flex items-center gap-2"
+                              >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span className="hidden sm:inline">Back to Calendar</span>
+                                <span className="sm:hidden">Back</span>
+                </Button>
+                            )}
+                            {viewMode === 'calendar' && (
+                              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                                <div className="flex items-center gap-1 sm:gap-2">
+                                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                  <div className="text-xs sm:text-sm font-medium text-indigo-900 dark:text-indigo-100">
+                                    <div className="flex items-center gap-2 sm:gap-4">
+                                      <span className="hidden sm:inline">Status:</span>
+                                      <div className="flex items-center gap-2 sm:gap-3">
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                          <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                                          <span className="text-xs">Not Started</span>
+                  </div>
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                          <span className="text-xs">Completed</span>
+                    </div>
+                              </div>
                               </div>
                             </div>
+                          </div>
+                  </div>
+                            )}
+                </div>
+          </div>
+            </div>
 
-                            <div className="flex items-center gap-4">
-                              {/* Date Badge */}
-                              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700">
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                  <div className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
+                      {/* Calendar View */}
+                      {viewMode === 'calendar' && (
+                        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex-1 min-h-0 flex flex-col overflow-auto">
+                          {/* Month Navigation Header */}
+                          <div className="flex items-center justify-between p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                            <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
+                            </button>
+                            
+                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                              {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                            </h2>
+                            
+                            <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
+                            </button>
+                    </div>
+                          
+                          {/* Calendar Grid */}
+                          <div className="p-2 sm:p-3 flex-1 flex flex-col min-h-0 overflow-auto">
+                            {/* Week Headers */}
+                            <div className="grid grid-cols-7 mb-1 flex-shrink-0">
+                              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                                <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1">
+                                  {day}
+                    </div>
+                              ))}
+                  </div>
+                            
+                            {/* Calendar Weeks */}
+                            <div className="grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden mb-4 min-h-0" style={{gridTemplateRows: `repeat(${getCurrentMonthCalendar().weeks.length}, minmax(60px, 1fr))`}}>
+                              {getCurrentMonthCalendar().weeks.map((week, weekIndex) => (
+                                week.map((date, dayIndex) => {
+                                  const isToday = date.toDateString() === new Date().toDateString();
+                                  const isSelected = selectedCalendarDate && date.toDateString() === selectedCalendarDate.toDateString();
+                                  const isCurrentMonth = date.getMonth() === getCurrentMonthCalendar().currentMonth;
+                                  const isFutureDate = date > new Date();
+                                  const summary = getDateSummary(date, user);
+                                  const dayNumber = date.getDate();
+
+                    return (
+                          <button
+                                      key={`${weekIndex}-${dayIndex}`}
+                                      onClick={() => isCurrentMonth && !isFutureDate && handleDateClick(date)}
+                                      className={`
+                                        relative w-full h-full min-h-[60px] border-r border-b border-gray-200 dark:border-gray-600 
+                                        flex items-center justify-center transition-all duration-200
+                                        ${(dayIndex === 6) ? 'border-r-0' : ''}
+                                        ${(weekIndex === getCurrentMonthCalendar().weeks.length - 1 || 
+                                           (weekIndex === getCurrentMonthCalendar().weeks.length - 2 && dayIndex >= week.length - (7 - week.length))) ? 'border-b-0' : ''}
+                                        ${isSelected 
+                                          ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm' 
+                                          : isToday && isCurrentMonth
+                                            ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
+                                            : isCurrentMonth && !isFutureDate
+                                              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+                                              : isCurrentMonth && isFutureDate
+                                                ? 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
+                                                : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-default'
+                                        }
+                                      `}
+                                      disabled={!isCurrentMonth || isFutureDate}
+                                    >
+                                      {/* Day Number */}
+                                      <span className={`text-xs font-medium ${
+                                        isSelected 
+                                          ? 'text-green-800 font-semibold' 
+                                          : isToday && isCurrentMonth
+                                            ? 'text-green-600 dark:text-green-400 font-semibold' 
+                                            : isCurrentMonth && !isFutureDate
+                                              ? 'text-gray-900 dark:text-gray-100'
+                                              : 'text-gray-400 dark:text-gray-500'
+                                      }`}>
+                                        {dayNumber}
+                                      </span>
+                                      
+                                      {/* Status Indicator - Show for all valid dates (current month, non-future) */}
+                                      {isCurrentMonth && !isFutureDate && (
+                                        <div className="absolute bottom-1 right-1">
+                                          {getDateStatusIcon(date, user)}
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                })
+                              ))}
+                              </div>
+                                </div>
+                                </div>
+                      )}
+
+                      {/* Detail View */}
+                      {viewMode === 'detail' && (
+                        <>
+                          {/* Spreadsheet-Style Columnar Layout */}
+                          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                            {/* Table Header */}
+                            <div className="grid grid-cols-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                              <div className="p-4 font-semibold text-sm text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-600 flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                Date
+                              </div>
+                              <div className="p-4 font-semibold text-sm text-blue-700 dark:text-blue-300 border-r border-gray-200 dark:border-gray-600 flex items-center gap-2">
+                                <Clock className="w-4 h-4" />
+                                In Progress
+                              </div>
+                              <div className="p-4 font-semibold text-sm text-red-700 dark:text-red-300 border-r border-gray-200 dark:border-gray-600 flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4" />
+                                Blocked
+                              </div>
+                              {showCompletedTasks && (
+                                <div className="p-4 font-semibold text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
+                                  <CheckCircle className="w-4 h-4" />
+                                  Completed
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Table Row */}
+                            <div className="grid grid-cols-4 min-h-[250px]">
+                              {/* Date Column */}
+                              <div className="p-4 border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center">
+                                <div className="text-center">
+                                  <div className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
                                     {(selectedTimesheetDate || new Date()).toLocaleDateString('en-US', {
                                       weekday: 'short',
                                       month: 'short',
                                       day: 'numeric',
                                       year: 'numeric'
                                     })}
-                                  </div>
-                                </div>
                               </div>
 
-                              {/* Team Member Avatars with Hover Details */}
-                              <div className="flex -space-x-2">
-                                {projectUsers.slice(0, 3)?.map((user, idx) => (
-                                  <HoverCard key={idx}>
-                                    <HoverCardTrigger asChild>
-                                      <Avatar className="w-8 h-8 border-2 border-white dark:border-gray-800 cursor-pointer hover:scale-110 transition-transform">
-                                        <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                                          {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                    </HoverCardTrigger>
-                                    <HoverCardContent className="w-72 p-4 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
-                                      <div className="flex items-center gap-3">
-                                        <Avatar className="w-12 h-12">
-                                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold">
-                                            {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1">
-                                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-                                            {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                                          </h4>
-                                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            {user.designation || 'Team Member'}
-                                          </p>
-                                          <p className="text-xs text-gray-500 dark:text-gray-500">
-                                            {user.email || user.user_id}
-                                          </p>
+                                  {/* Additional date info */}
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {isToday ? 'Today' : 'Historical'}
                                         </div>
                                       </div>
-                                    </HoverCardContent>
-                                  </HoverCard>
-                                ))}
-                                {projectUsers.length > 3 && (
-                                  <HoverCard>
-                                    <HoverCardTrigger asChild>
-                                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 border-2 border-white dark:border-gray-800 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
-                                        <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
-                                          +{projectUsers.length - 3}
-                                        </span>
-                                      </div>
-                                    </HoverCardTrigger>
-                                    <HoverCardContent className="w-72 p-3 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
-                                      <div className="space-y-2">
-                                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                                          Additional Team Members ({projectUsers.length - 3})
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto thin-scroll">
-                                          {projectUsers.slice(3)?.map((user, idx) => (
-                                            <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                              <Avatar className="w-8 h-8 flex-shrink-0">
-                                                <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                                                  {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
-                                                </AvatarFallback>
-                                              </Avatar>
-                                              <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-                                                  {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                                                </div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                                  {user.designation || 'Team Member'}
-                                                </div>
-                                              </div>
-                                              <div className="flex items-center gap-1 text-xs">
-                                                <span className="text-blue-600 font-medium">{(user.in_progress || []).length}</span>
-                                                <span className="text-red-600 font-medium">{(user.blockers || []).length}</span>
-                                                <span className="text-green-600 font-medium">{(user.completed || []).length}</span>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    </HoverCardContent>
-                                  </HoverCard>
-                                )}
-                              </div>
-                            </div>
-                          </button>
                         </div>
 
-                        {/* Project Members - Scrollable Content */}
-                        {expandedProjects.has(projectName) && (
-                          <div className="pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-                            <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto thin-scroll pr-2">
-                              {projectUsers?.map((user: any) => {
-                                const productivityScore = calculateProductivityScore(user);
-                                const productivityLevel = getProductivityLevel(productivityScore);
-                                const ProductivityIcon = productivityLevel.icon;
-
-                                return (
-                                  <Card key={user.user_id} className="p-4 bg-gradient-to-br from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-slate-200 dark:border-gray-600 shadow-lg">
-                                    {/* Member Header */}
-                                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                                      <div className="flex items-center gap-4">
-                                        <Avatar className="w-14 h-14 ring-2 ring-offset-2 ring-blue-500">
-                                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg">
-                                            {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                          <h3 className="font-semibold text-xl text-gray-900 dark:text-gray-100">
-                                            {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-                                          </h3>
-                                          <p className="text-sm text-gray-600 dark:text-gray-400">{user.designation || 'Team Member'}</p>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* 3-Column Kanban Layout */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                       {/* In Progress Column */}
-                                      <div className="bg-blue-50/70 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                                        <div className="p-3 border-b border-blue-200 dark:border-blue-700">
-                                          <div className="flex items-center gap-2">
-                                            <Clock className="w-4 h-4 text-blue-600" />
-                                            <span className="font-semibold text-sm text-blue-900 dark:text-blue-100">In Progress</span>
-                                          </div>
-                                        </div>
-                                        <div className="p-3">
+                              <div className="p-4 border-r border-gray-200 dark:border-gray-600 bg-blue-50/30 dark:bg-blue-900/10 flex flex-col">
                                           <TimesheetTextarea
                                             user={user}
-                                            projectId={projectId}
+                                  projectId={getUserPrimaryProject(user)}
                                             type="in_progress"
                                             color="blue"
                                             tasks={user.in_progress || []}
-                                            placeholder={isToday ? "Add today's in-progress tasks and notes..." : "Add in-progress tasks and notes..."}
+                                  placeholder={isToday ? "What are you working on today?" : "What were you working on?"}
                                             selectedDate={selectedTimesheetDate}
                                           />
-                                        </div>
                                       </div>
 
                                       {/* Blocked Column */}
-                                      <div className="bg-red-50/70 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700">
-                                        <div className="p-3 border-b border-red-200 dark:border-red-700">
-                                          <div className="flex items-center gap-2">
-                                            <AlertTriangle className="w-4 h-4 text-red-600" />
-                                            <span className="font-semibold text-sm text-red-900 dark:text-red-100">Blocked</span>
-                                          </div>
-                                        </div>
-                                        <div className="p-3">
+                              <div className="p-4 border-r border-gray-200 dark:border-gray-600 bg-red-50/30 dark:bg-red-900/10 flex flex-col">
                                           <TimesheetTextarea
                                             user={user}
-                                            projectId={projectId}
+                                  projectId={getUserPrimaryProject(user)}
                                             type="blocked"
                                             color="red"
                                             tasks={user.blockers || []}
-                                            placeholder={isToday ? "Add today's blocked tasks and reasons..." : "Add blocked tasks and reasons..."}
+                                  placeholder={isToday ? "Any blockers or issues today?" : "Were there any blockers?"}
                                             selectedDate={selectedTimesheetDate}
                                           />
-                                        </div>
                                       </div>
 
                                       {/* Completed Column */}
                                       {showCompletedTasks && (
-                                        <div className="bg-green-50/70 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                                          <div className="p-3 border-b border-green-200 dark:border-green-700">
-                                            <div className="flex items-center gap-2">
-                                              <CheckCircle className="w-4 h-4 text-green-600" />
-                                              <span className="font-semibold text-sm text-green-900 dark:text-green-100">Completed</span>
-                                            </div>
-                                          </div>
-                                          <div className="p-3">
+                                <div className="p-4 bg-green-50/30 dark:bg-green-900/10 flex flex-col">
                                             <TimesheetTextarea
                                               user={user}
-                                              projectId={projectId}
+                                    projectId={getUserPrimaryProject(user)}
                                               type="completed"
                                               color="green"
                                               tasks={user.completed || []}
-                                              placeholder={isToday ? "Add today's completed tasks and notes..." : "Add completed tasks and notes..."}
+                                    placeholder={isToday ? "What did you complete today?" : "What did you complete?"}
                                               selectedDate={selectedTimesheetDate}
                                             />
-                                          </div>
                                         </div>
                                       )}
                                     </div>
-                                  </Card>
-                                );
-                              })}
                             </div>
-                          </div>
+                        </>
                         )}
                       </div>
-                    );
-                  })}
+                  </TabsContent>
+                ))}
               </div>
-            </div>
+            </Tabs>
           </div>
         )}
 
