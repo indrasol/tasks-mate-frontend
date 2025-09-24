@@ -1,6 +1,6 @@
 // React and hooks
 import { useQuery } from '@tanstack/react-query';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, memo } from 'react';
 import { DateRange } from 'react-day-picker';
 import { useSearchParams } from 'react-router-dom';
 
@@ -79,25 +79,25 @@ type MemberSortType = 'name_asc' | 'name_desc';
 // UTILITY COMPONENTS
 // ============================================================================
 
-const StatusBadge = ({ status }: { status: string }) => {
+const StatusBadge = memo(({ status }: { status: string }) => {
   const meta = getStatusMeta(status);
   return (
     <Badge variant="secondary" className={`text-xs ${meta.color}`}>
       {meta.label}
     </Badge>
   );
-};
+});
 
-const PriorityBadge = ({ priority }: { priority: string }) => {
+const PriorityBadge = memo(({ priority }: { priority: string }) => {
   const colorClass = getPriorityColor(priority);
   return (
     <Badge variant="secondary" className={`text-xs ${colorClass}`}>
       {capitalizeFirstLetter(priority)}
     </Badge>
   );
-};
+});
 
-const ProjectHoverCard = ({ project, orgId, orgMembers }: {
+const ProjectHoverCard = memo(({ project, orgId, orgMembers }: {
   project: any;
   orgId: string;
   orgMembers: BackendOrgMember[];
@@ -159,7 +159,238 @@ const ProjectHoverCard = ({ project, orgId, orgMembers }: {
       </div>
     </HoverCardContent>
   );
-};
+});
+
+// Memoized Project Card Component
+const ProjectCard = memo(({ project, orgId, realOrgMembers, memberSort, isTaskOverdue }: {
+  project: any;
+  orgId: string;
+  realOrgMembers: BackendOrgMember[];
+  memberSort: MemberSortType;
+  isTaskOverdue: (task: any) => boolean;
+}) => {
+  const sortedMembers = useMemo(() => 
+    ([...(project?.members ?? [])] as any[])
+      .sort((a, b) => {
+        const nameA = deriveDisplayFromEmail(a.email || a.user_id).displayName;
+        const nameB = deriveDisplayFromEmail(b.email || b.user_id).displayName;
+        return memberSort === 'name_asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      }), [project?.members, memberSort]
+  );
+
+  return (
+    <Card className="p-4 space-y-4 w-auto flex flex-col bg-gradient-to-br from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-slate-200 dark:border-gray-600" style={{ height: 'calc(100% - 2rem)' }}>
+      <div className="flex items-center justify-between">
+        <HoverCard>
+          <HoverCardTrigger asChild>
+            <div className="flex items-center gap-2 cursor-pointer hover:underline"
+              onClick={() => {
+                const navUrl = `/projects/${project.project_id}?org_id=${orgId}`;
+                window.open(navUrl, '_blank', 'noopener noreferrer');
+              }}
+            >
+              <FolderOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <h3 className="font-semibold text-lg break-words text-gray-900 dark:text-gray-100 mr-2">{project.project_name}</h3>
+            </div>
+          </HoverCardTrigger>
+          <ProjectHoverCard project={project} orgId={orgId} orgMembers={realOrgMembers} />
+        </HoverCard>
+
+        <CopyableIdBadge id={project.project_id} org_id={orgId} copyLabel="Project" className="bg-blue-600 hover:bg-blue-700 text-white" />
+      </div>
+
+      <div className="space-y-3 flex-1 overflow-y-auto pr-1 thin-scroll scroll-smooth">
+        {sortedMembers.map((m: any) => (
+          <MemberCard 
+            key={m.user_id} 
+            member={m} 
+            orgId={orgId} 
+            isTaskOverdue={isTaskOverdue} 
+          />
+        ))}
+      </div>
+    </Card>
+  );
+});
+
+// Memoized Member Card Component
+const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
+  member: any;
+  orgId: string;
+  isTaskOverdue: (task: any) => boolean;
+}) => {
+  const memberName = deriveDisplayFromEmail(member.email || member.user_id).displayName;
+  const memberInitials = deriveDisplayFromEmail(member.email || member.user_id).initials;
+  
+  return (
+    <Card className="p-3 bg-white/70 dark:bg-gray-700/50 border-slate-200/50 dark:border-gray-600/50">
+      <div className="flex items-center gap-3 mb-3">
+        <Avatar className="w-8 h-8">
+          <AvatarFallback className="text-sm">
+            {memberInitials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold break-words text-gray-900 dark:text-gray-100">
+            {memberName}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {capitalizeFirstLetter(member.role)} {member.designation ? `• ${member.designation}` : ''}
+          </div>
+        </div>
+      </div>
+
+      {(!member.tasks_items || member.tasks_items.length === 0) && (!member.bugs_items || member.bugs_items.length === 0) ? (
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <div className="space-y-1">
+              <div className="text-xs text-gray-500 dark:text-gray-400">No tasks or bugs found</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Tasks by Status</div>
+              <div className="space-y-1">
+                {Object.entries(member.tasks_by_status || {}).length === 0 ? (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
+                ) : (
+                  Object.entries(member.tasks_by_status || {}).map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between text-xs">
+                      <StatusBadge status={k} />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Tasks by Priority</div>
+              <div className="space-y-1">
+                {Object.entries(member.tasks_by_priority || {}).length === 0 ? (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
+                ) : (
+                  Object.entries(member.tasks_by_priority || {}).map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between text-xs">
+                      <PriorityBadge priority={k} />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Bugs by Status</div>
+              <div className="space-y-1">
+                {Object.entries(member.bugs_by_status || {}).length === 0 ? (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
+                ) : (
+                  Object.entries(member.bugs_by_status || {}).map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between text-xs">
+                      <StatusBadge status={k} />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Bugs by Priority</div>
+              <div className="space-y-1">
+                {Object.entries(member.bugs_by_priority || {}).length === 0 ? (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
+                ) : (
+                  Object.entries(member.bugs_by_priority || {}).map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between text-xs">
+                      <PriorityBadge priority={k} />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Recent Tasks</div>
+              {(!member.tasks_items || member.tasks_items.length === 0) && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">No tasks</div>
+              )}
+              <div className="space-y-1 max-h-40 overflow-y-auto pr-1 thin-scroll scroll-smooth">
+                {(member.tasks_items || []).map((t: any) => (
+                  <div key={t.id} className={`p-2 rounded border border-gray-200 dark:border-gray-500 text-xs
+                  ${t.status === 'completed'
+                      ? 'bg-gray-50/60 dark:bg-gray-800/60'
+                      : isTaskOverdue(t)
+                        ? 'bg-red-50/60 dark:bg-red-900/20 border-l-4 border-red-500'
+                        : ''
+                    }
+                `}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div onClick={() => {
+                        const navUrl = `/tasks/${t.id}?org_id=${orgId}`;
+                        window.open(navUrl, '_blank', 'noopener,noreferrer');
+                      }} className="cursor-pointer" title="Open task">
+                        <CopyableIdBadge id={t.id} org_id={orgId} isCompleted={(t.status || '') === 'completed'} />
+                      </div>
+                      <div className="flex gap-1">
+                        <StatusBadge status={t.status || 'not_started'} />
+                        <PriorityBadge priority={t.priority || 'none'} />
+                      </div>
+                    </div>
+                    <div className="font-medium font-bold truncate cursor-pointer m-2 text-gray-900 dark:text-gray-100" title={t.title || t.id}
+                      onClick={() => {
+                        const navUrl = `/tasks/${t.id}?org_id=${orgId}`;
+                        window.open(navUrl, '_blank', 'noopener,noreferrer');
+                      }}
+                    >{t.title || t.id}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Recent Bugs</div>
+              {(!member.bugs_items || member.bugs_items.length === 0) && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">No bugs</div>
+              )}
+              <div className="space-y-1 max-h-40 overflow-y-auto pr-1 thin-scroll scroll-smooth">
+                {(member.bugs_items || []).map((b: any) => (
+                  <div key={b.id} className="p-2 bg-white dark:bg-gray-600 rounded border border-gray-200 dark:border-gray-500 text-xs">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div onClick={() => {
+                        const navUrl = `/tester-zone/bugs/${b.id}?org_id=${orgId}`;
+                        window.open(navUrl, '_blank', 'noopener,noreferrer');
+                      }} className="cursor-pointer" title="Open bug">
+                        <CopyableIdBadge id={b.id} org_id={orgId} isCompleted={b?.closed || b?.status === 'closed'}
+                          tracker_id={b?.tracker_id || b?.run_id}
+                          className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                          copyLabel="Bug" />
+                      </div>
+                      <div className="flex gap-1">
+                        <StatusBadge status={b.status || 'open'} />
+                        <PriorityBadge priority={b.priority || 'low'} />
+                      </div>
+                    </div>
+                    <div className="font-medium font-bold truncate m-2 cursor-pointer text-gray-900 dark:text-gray-100" title={b.title || b.id}
+                      onClick={() => {
+                        const navUrl = `/tester-zone/bugs/${b.id}?org_id=${orgId}`;
+                        window.open(navUrl, '_blank', 'noopener,noreferrer');
+                      }}
+                    >{b.title || b.id}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+});
 
 // ============================================================================
 // MAIN COMPONENT
@@ -328,13 +559,54 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
   //   }
   // };
 
+
+  // useEffect(() => {
+  //   if (exportCSV) {
+  //     onExportCSV();
+  //   }
+  // }, [exportCSV, onExportCSV]);
+
+  // useEffect(() => {
+  //   if (exportJSON) {
+  //     onExportJSON();
+  //   }
+  // }, [exportJSON, onExportJSON]);
+
+  // ============================================================================
+  // MEMOIZED VALUES
+  // ============================================================================
+
+  const userDisplayMap = React.useMemo(() => {
+    const map: Record<string, { displayName: string; initials: string; isOwner: boolean }> = {};
+    (realOrgMembers || []).forEach(m => {
+      map[m.user_id] = {
+        displayName: m.displayName,
+        initials: m.initials,
+        isOwner: m.role === 'owner',
+      };
+    });
+    return map;
+  }, [realOrgMembers]);
+
+  const isTaskOverdue = useCallback((task: Task) => {
+    if (!task.targetDate || task.status === 'completed') return false;
+
+    const dueDate = new Date(task.targetDate);
+    const today = new Date();
+    // Set both dates to midnight for accurate comparison
+    dueDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    return dueDate < today;
+  }, []);
+
+  // Export functions (moved after userDisplayMap declaration)
   const onExportJSON = useCallback(() => {
     const blob = new Blob([JSON.stringify(report ?? {}, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'org-reports.json'; a.click();
     URL.revokeObjectURL(url);
-    // setExportJSON(false); // Reset export state after export
   }, [report]);
 
   const onExportCSV = useCallback(() => {
@@ -374,48 +646,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
     const a = document.createElement('a');
     a.href = url; a.download = 'org-reports.csv'; a.click();
     URL.revokeObjectURL(url);
-    // setExportCSV(false); // Reset export state after export
-  }, [report]);
-
-  // useEffect(() => {
-  //   if (exportCSV) {
-  //     onExportCSV();
-  //   }
-  // }, [exportCSV, onExportCSV]);
-
-  // useEffect(() => {
-  //   if (exportJSON) {
-  //     onExportJSON();
-  //   }
-  // }, [exportJSON, onExportJSON]);
-
-  const isTaskOverdue = useCallback((task: Task) => {
-    if (!task.targetDate || task.status === 'completed') return false;
-
-    const dueDate = new Date(task.targetDate);
-    const today = new Date();
-    // Set both dates to midnight for accurate comparison
-    dueDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-
-    return dueDate < today;
-  }, []);
-
-  // ============================================================================
-  // MEMOIZED VALUES
-  // ============================================================================
-
-  const userDisplayMap = React.useMemo(() => {
-    const map: Record<string, { displayName: string; initials: string; isOwner: boolean }> = {};
-    (realOrgMembers || []).forEach(m => {
-      map[m.user_id] = {
-        displayName: m.displayName,
-        initials: m.initials,
-        isOwner: m.role === 'owner',
-      };
-    });
-    return map;
-  }, [realOrgMembers]);
+  }, [report, userDisplayMap]);
 
   // Memoize sorted arrays for dropdowns
   const sortedProjects = useMemo(() =>
@@ -482,15 +713,6 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
 
 
 
-  // useEffect(() => {
-  //   console.log('=== ReportsTab State Changes ===');
-  //   console.log('projects:', projects);
-  //   console.log('filters:', filters);
-  //   console.log('dateRange:', dateRange);
-  //   console.log('isFetching:', isFetching);
-  //   console.log('report:', report);
-  //   console.log('================================');
-  // }, [projects, filters, dateRange, isFetching, report]);
 
   // ============================================================================
   // RENDER
@@ -811,203 +1033,14 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
               <div className="overflow-x-auto h-full">
                 <div className="flex flex-row gap-4 p-4 pb-8 min-w-max w-full h-full">
                   {(filteredAndSortedProjects || []).map((proj: any) => (
-                    <Card key={proj.project_id} className="p-4 space-y-4 w-auto flex flex-col bg-gradient-to-br from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-slate-200 dark:border-gray-600" style={{ height: 'calc(100% - 2rem)' }}>
-                      <div className="flex items-center justify-between">
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <div className="flex items-center gap-2 cursor-pointer hover:underline"
-                              onClick={() => {
-                                const navUrl = `/projects/${proj.project_id}?org_id=${orgId}`;
-                                window.open(navUrl, '_blank', 'noopener noreferrer');
-                              }}
-                            >
-                              <FolderOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                              <h3 className="font-semibold text-lg break-words text-gray-900 dark:text-gray-100 mr-2">{proj.project_name}</h3>
-                            </div>
-                          </HoverCardTrigger>
-                          <ProjectHoverCard project={proj} orgId={orgId} orgMembers={realOrgMembers} />
-                        </HoverCard>
-
-                        <CopyableIdBadge id={proj.project_id} org_id={orgId} copyLabel="Project" className="bg-blue-600 hover:bg-blue-700 text-white" />
-                      </div>
-
-                      <div className="space-y-3 flex-1 overflow-y-auto pr-1 thin-scroll scroll-smooth">
-                        {([...((proj as any)?.members ?? [])] as any[])
-                          .sort((a, b) => {
-                            const nameA = deriveDisplayFromEmail(a.email || a.user_id).displayName;
-                            const nameB = deriveDisplayFromEmail(b.email || b.user_id).displayName;
-                            return memberSort === 'name_asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-                          })
-                          .map((m: any) => (
-                            <Card key={m.user_id} className="p-3 bg-white/70 dark:bg-gray-700/50 border-slate-200/50 dark:border-gray-600/50">
-                              <div className="flex items-center gap-3 mb-3">
-                                <Avatar className="w-8 h-8">
-                                  <AvatarFallback className="text-sm">
-                                    {deriveDisplayFromEmail(m.email || m.user_id).initials}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-semibold break-words text-gray-900 dark:text-gray-100">
-                                    {deriveDisplayFromEmail(m.email || m.user_id).displayName}
-                                  </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    {capitalizeFirstLetter(m.role)} {m.designation ? `• ${m.designation}` : ''}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {(!m.tasks_items || m.tasks_items.length === 0) && (!m.bugs_items || m.bugs_items.length === 0) ? (
-                                <div className="grid grid-cols-2 gap-3 mb-3">
-                                  <div>
-                                    <div className="space-y-1">
-                                      <div className="text-xs text-gray-500 dark:text-gray-400">No tasks or bugs found</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="grid grid-cols-2 gap-3 mb-3">
-                                    <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Tasks by Status</div>
-                                      <div className="space-y-1">
-                                        {Object.entries(m.tasks_by_status || {}).length === 0 ? (
-                                          <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
-                                        ) : (
-                                          Object.entries(m.tasks_by_status || {}).map(([k, v]) => (
-                                            <div key={k} className="flex items-center justify-between text-xs">
-                                              <StatusBadge status={k} />
-                                              <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
-                                            </div>
-                                          ))
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Tasks by Priority</div>
-                                      <div className="space-y-1">
-                                        {Object.entries(m.tasks_by_priority || {}).length === 0 ? (
-                                          <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
-                                        ) : (
-                                          Object.entries(m.tasks_by_priority || {}).map(([k, v]) => (
-                                            <div key={k} className="flex items-center justify-between text-xs">
-                                              <PriorityBadge priority={k} />
-                                              <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
-                                            </div>
-                                          ))
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Bugs by Status</div>
-                                      <div className="space-y-1">
-                                        {Object.entries(m.bugs_by_status || {}).length === 0 ? (
-                                          <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
-                                        ) : (
-                                          Object.entries(m.bugs_by_status || {}).map(([k, v]) => (
-                                            <div key={k} className="flex items-center justify-between text-xs">
-                                              <StatusBadge status={k} />
-                                              <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
-                                            </div>
-                                          ))
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Bugs by Priority</div>
-                                      <div className="space-y-1">
-                                        {Object.entries(m.bugs_by_priority || {}).length === 0 ? (
-                                          <div className="text-xs text-gray-500 dark:text-gray-400">None</div>
-                                        ) : (
-                                          Object.entries(m.bugs_by_priority || {}).map(([k, v]) => (
-                                            <div key={k} className="flex items-center justify-between text-xs">
-                                              <PriorityBadge priority={k} />
-                                              <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
-                                            </div>
-                                          ))
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-3">
-                                    <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Recent Tasks</div>
-                                      {(!m.tasks_items || m.tasks_items.length === 0) && (
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">No tasks</div>
-                                      )}
-                                      <div className="space-y-1 max-h-40 overflow-y-auto pr-1 thin-scroll scroll-smooth">
-                                        {(m.tasks_items || []).map((t: any) => (
-                                          <div key={t.id} className={`p-2 rounded border border-gray-200 dark:border-gray-500 text-xs
-                                          ${t.status === 'completed'
-                                              ? 'bg-gray-50/60 dark:bg-gray-800/60'
-                                              : isTaskOverdue(t)
-                                                ? 'bg-red-50/60 dark:bg-red-900/20 border-l-4 border-red-500'
-                                                : ''
-                                            }
-                                        `}>
-                                            <div className="flex items-center gap-2 mb-1">
-                                              <div onClick={() => {
-                                                const navUrl = `/tasks/${t.id}?org_id=${orgId}`;
-                                                window.open(navUrl, '_blank', 'noopener,noreferrer');
-                                              }} className="cursor-pointer" title="Open task">
-                                                <CopyableIdBadge id={t.id} org_id={orgId} isCompleted={(t.status || '') === 'completed'} />
-                                              </div>
-                                              <div className="flex gap-1">
-                                                <StatusBadge status={t.status || 'not_started'} />
-                                                <PriorityBadge priority={t.priority || 'none'} />
-                                              </div>
-                                            </div>
-                                            <div className="font-medium font-bold truncate cursor-pointer m-2 text-gray-900 dark:text-gray-100" title={t.title || t.id}
-                                              onClick={() => {
-                                                const navUrl = `/tasks/${t.id}?org_id=${orgId}`;
-                                                window.open(navUrl, '_blank', 'noopener,noreferrer');
-                                              }}
-                                            >{t.title || t.id}</div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-
-                                    <div>
-                                      <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Recent Bugs</div>
-                                      {(!m.bugs_items || m.bugs_items.length === 0) && (
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">No bugs</div>
-                                      )}
-                                      <div className="space-y-1 max-h-40 overflow-y-auto pr-1 thin-scroll scroll-smooth">
-                                        {(m.bugs_items || []).map((b: any) => (
-                                          <div key={b.id} className="p-2 bg-white dark:bg-gray-600 rounded border border-gray-200 dark:border-gray-500 text-xs">
-                                            <div className="flex items-center gap-2 mb-1">
-                                              <div onClick={() => {
-                                                const navUrl = `/tester-zone/bugs/${b.id}?org_id=${orgId}`;
-                                                window.open(navUrl, '_blank', 'noopener,noreferrer');
-                                              }} className="cursor-pointer" title="Open bug">
-                                                <CopyableIdBadge id={b.id} org_id={orgId} isCompleted={b?.closed || b?.status === 'closed'}
-                                                  tracker_id={b?.tracker_id || b?.run_id}
-                                                  className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
-                                                  copyLabel="Bug" />
-                                              </div>
-                                              <div className="flex gap-1">
-                                                <StatusBadge status={b.status || 'open'} />
-                                                <PriorityBadge priority={b.priority || 'low'} />
-                                              </div>
-                                            </div>
-                                            <div className="font-medium font-bold truncate m-2 cursor-pointer text-gray-900 dark:text-gray-100" title={b.title || b.id}
-                                              onClick={() => {
-                                                const navUrl = `/tester-zone/bugs/${b.id}?org_id=${orgId}`;
-                                                window.open(navUrl, '_blank', 'noopener,noreferrer');
-                                              }}
-                                            >{b.title || b.id}</div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                            </Card>
-                          ))}
-                      </div>
-                    </Card>
+                    <ProjectCard 
+                      key={proj.project_id} 
+                      project={proj} 
+                      orgId={orgId} 
+                      realOrgMembers={realOrgMembers} 
+                      memberSort={memberSort} 
+                      isTaskOverdue={isTaskOverdue} 
+                    />
                   ))}
                 </div>
               </div>
