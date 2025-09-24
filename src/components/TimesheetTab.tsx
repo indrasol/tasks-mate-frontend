@@ -1444,36 +1444,38 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
           <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0">
             <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
-              <TabsList className="h-auto p-0 bg-transparent gap-1 flex-wrap justify-start w-full max-w-none overflow-x-auto">
-                {sortedTimesheetUsers?.map((user) => {
-                  const productivityScore = calculateProductivityScore(user);
-                  const productivityLevel = getProductivityLevel(productivityScore);
-                  const employeeProjects = getEmployeeProjects(user);
-                  
-                  return (
-                    <TabsTrigger
-                      key={user.user_id}
-                      value={user.user_id}
-                      className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:border-blue-200 data-[state=active]:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
-                    >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <Avatar className="w-6 h-6 sm:w-8 sm:h-8 ring-2 ring-offset-1 ring-blue-500">
-                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs">
-                            {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="text-left min-w-0">
-                          <div className="font-medium text-xs sm:text-sm truncate">
-                            {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
-              </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {employeeProjects.length > 0 ? `${employeeProjects.length} project${employeeProjects.length !== 1 ? 's' : ''}` : 'No projects'}
+              <TabsList className="h-auto p-0 bg-transparent gap-1 justify-start w-full max-w-none overflow-x-auto scrollbar-hide">
+                <div className="flex gap-1 min-w-max">
+                  {sortedTimesheetUsers?.map((user) => {
+                    const productivityScore = calculateProductivityScore(user);
+                    const productivityLevel = getProductivityLevel(productivityScore);
+                    const employeeProjects = getEmployeeProjects(user);
+                    
+                    return (
+                      <TabsTrigger
+                        key={user.user_id}
+                        value={user.user_id}
+                        className="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:border-blue-200 data-[state=active]:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <Avatar className="w-6 h-6 sm:w-8 sm:h-8 ring-2 ring-offset-1 ring-blue-500">
+                            <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs">
+                              {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="text-left min-w-0">
+                            <div className="font-medium text-xs sm:text-sm truncate whitespace-nowrap">
+                              {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate whitespace-nowrap">
+                              {employeeProjects.length > 0 ? `${employeeProjects.length} project${employeeProjects.length !== 1 ? 's' : ''}` : 'No projects'}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </TabsTrigger>
-                  );
-                })}
+                      </TabsTrigger>
+                    );
+                  })}
+                </div>
               </TabsList>
             </Tabs>
                 </div>
@@ -1524,14 +1526,36 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                   )}
                                 </p>
                                 {getEmployeeProjects(user).length > 0 && (
-                                  <>
-                                    {getEmployeeProjects(user)?.map((projectName, idx) => (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {getEmployeeProjects(user).slice(0, 3)?.map((projectName, idx) => (
                                       <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                                         <Folder className="w-3 h-3 mr-1" />
                                         {projectName}
-                    </Badge>
+                                      </Badge>
                                     ))}
-                                  </>
+                                    {getEmployeeProjects(user).length > 3 && (
+                                      <HoverCard>
+                                        <HoverCardTrigger asChild>
+                                          <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200 cursor-pointer">
+                                            +{getEmployeeProjects(user).length - 3} more
+                                          </Badge>
+                                        </HoverCardTrigger>
+                                        <HoverCardContent className="w-80">
+                                          <div className="space-y-2">
+                                            <h4 className="text-sm font-semibold">All Projects</h4>
+                                            <div className="flex flex-wrap gap-1">
+                                              {getEmployeeProjects(user)?.map((projectName, idx) => (
+                                                <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                                  <Folder className="w-3 h-3 mr-1" />
+                                                  {projectName}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </HoverCardContent>
+                                      </HoverCard>
+                                    )}
+                                  </div>
                   )}
                 </div>
               </div>
