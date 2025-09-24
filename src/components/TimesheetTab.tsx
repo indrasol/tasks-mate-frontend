@@ -1444,8 +1444,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
           <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0">
             <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
-              <TabsList className="h-auto p-0 bg-transparent gap-1 justify-start w-full max-w-none overflow-x-auto scrollbar-hide">
-                <div className="flex gap-1 min-w-max">
+              <div className="overflow-x-auto scrollbar-hide">
+                <TabsList className="h-auto p-0 bg-transparent gap-1 justify-start min-w-max flex">
                   {sortedTimesheetUsers?.map((user) => {
                     const productivityScore = calculateProductivityScore(user);
                     const productivityLevel = getProductivityLevel(productivityScore);
@@ -1475,8 +1475,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                       </TabsTrigger>
                     );
                   })}
-                </div>
-              </TabsList>
+                </TabsList>
+              </div>
             </Tabs>
                 </div>
               )}
@@ -1640,17 +1640,18 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                   const isFutureDate = date > new Date();
                                   const summary = getDateSummary(date, user);
                                   const dayNumber = date.getDate();
+                                  const isLastColumn = dayIndex === 6;
+                                  const isLastRow = weekIndex === getCurrentMonthCalendar().weeks.length - 1;
 
                     return (
                           <button
                                       key={`${weekIndex}-${dayIndex}`}
                                       onClick={() => isCurrentMonth && !isFutureDate && handleDateClick(date)}
                                       className={`
-                                        relative w-full h-full min-h-[60px] border-r border-b border-gray-200 dark:border-gray-600 
+                                        relative w-full h-full min-h-[60px] 
                                         flex items-center justify-center transition-all duration-200
-                                        ${(dayIndex === 6) ? 'border-r-0' : ''}
-                                        ${(weekIndex === getCurrentMonthCalendar().weeks.length - 1 || 
-                                           (weekIndex === getCurrentMonthCalendar().weeks.length - 2 && dayIndex >= week.length - (7 - week.length))) ? 'border-b-0' : ''}
+                                        ${!isLastColumn ? 'border-r border-gray-200 dark:border-gray-600' : ''}
+                                        ${!isLastRow ? 'border-b border-gray-200 dark:border-gray-600' : ''}
                                         ${isSelected 
                                           ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm' 
                                           : isToday && isCurrentMonth
