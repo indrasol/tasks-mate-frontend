@@ -1,6 +1,6 @@
 // React and hooks
 import { useQuery } from '@tanstack/react-query';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import { DateRange } from 'react-day-picker';
 
 // UI Components
@@ -253,8 +253,89 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // REUSABLE COMPONENTS
   // ============================================================================
 
-  // Reusable Timesheet Textarea Component
-  const TimesheetTextarea = ({
+  // Memoized Calendar Grid Component
+  const CalendarGrid = memo(({ 
+    user, 
+    currentMonth, 
+    weeks, 
+    selectedCalendarDate, 
+    onDateClick,
+    getDateSummary,
+    getDateStatusIcon 
+  }: {
+    user: any;
+    currentMonth: number;
+    weeks: Date[][];
+    selectedCalendarDate: Date | undefined;
+    onDateClick: (date: Date) => void;
+    getDateSummary: (date: Date, user: any) => any;
+    getDateStatusIcon: (date: Date, user: any) => JSX.Element;
+  }) => (
+    <div className="grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden" style={{
+      gridTemplateRows: `repeat(${weeks.length}, 1fr)`,
+      height: `${weeks.length * 60}px`,
+      minHeight: `${weeks.length * 60}px`
+    }}>
+      {weeks.map((week, weekIndex) => (
+        week.map((date, dayIndex) => {
+          const isToday = date.toDateString() === new Date().toDateString();
+          const isSelected = selectedCalendarDate && date.toDateString() === selectedCalendarDate.toDateString();
+          const isCurrentMonth = date.getMonth() === currentMonth;
+          const isFutureDate = date > new Date();
+          const dayNumber = date.getDate();
+          const isLastColumn = dayIndex === 6;
+          const isLastRow = weekIndex === weeks.length - 1;
+
+          return (
+            <button
+              key={`${weekIndex}-${dayIndex}`}
+              onClick={() => isCurrentMonth && !isFutureDate && onDateClick(date)}
+              className={`
+                relative w-full h-full min-h-[60px] 
+                flex items-center justify-center transition-all duration-200
+                ${!isLastColumn ? 'border-r border-gray-200 dark:border-gray-600' : ''}
+                ${!isLastRow ? 'border-b border-gray-200 dark:border-gray-600' : ''}
+                ${isSelected 
+                  ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm' 
+                  : isToday && isCurrentMonth
+                    ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
+                    : isCurrentMonth && !isFutureDate
+                      ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+                      : isCurrentMonth && isFutureDate
+                        ? 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
+                        : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-default'
+                }
+              `}
+              disabled={!isCurrentMonth || isFutureDate}
+            >
+              {/* Day Number */}
+              <span className={`text-xs font-medium ${
+                isSelected 
+                  ? 'text-green-800 font-semibold' 
+                  : isToday && isCurrentMonth
+                    ? 'text-green-600 dark:text-green-400 font-semibold' 
+                    : isCurrentMonth && !isFutureDate
+                      ? 'text-gray-900 dark:text-gray-100'
+                      : 'text-gray-400 dark:text-gray-500'
+              }`}>
+                {dayNumber}
+              </span>
+              
+              {/* Status Indicator - Show for all valid dates (current month, non-future) */}
+              {isCurrentMonth && !isFutureDate && (
+                <div className="absolute bottom-1 right-1">
+                  {getDateStatusIcon(date, user)}
+                </div>
+              )}
+            </button>
+          );
+        })
+      ))}
+    </div>
+  ));
+
+  // Memoized Reusable Timesheet Textarea Component
+  const TimesheetTextarea = memo(({
     user,
     projectId,
     type,
@@ -403,7 +484,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         </div>
       </div>
     );
-  };
+  });
 
   // Reusable Member Filtering Logic
   const getFilteredMembers = useCallback(() => {
@@ -651,7 +732,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Update projects state when dailyTimesheets data changes
   useEffect(() => {
     if (dailyTimesheets?.projects && dailyTimesheets.projects.length > 0) {
-      console.log('Setting projects from dailyTimesheets:', dailyTimesheets.projects);
       setProjects(dailyTimesheets.projects.map((project: any) => ({
         id: project.project_id,
         name: project.name || project.project_name,
@@ -661,12 +741,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       setIsProjectsLoading(false);
     } else if (projectsFromParent && projectsFromParent.length > 0) {
       // Fallback to projects from parent if no projects in timesheet data
-      console.log('Setting projects from parent:', projectsFromParent);
       setProjects(projectsFromParent);
       setIsProjectsLoading(false);
     } else if (!isProjectsLoading && projects.length === 0) {
       // Only fetch if we're not already loading and have no projects
-      console.log('No projects found, fetching...');
       setIsProjectsLoading(true);
       fetchProjects();
     }
@@ -703,13 +781,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     // If we have the new projects structure, we can use that too
     const projectsTimesheet = ((dailyTimesheets as any)?.projects ?? []) as any[];
 
-    // Log the data structure for debugging
-    if (dailyTimesheets) {
-      console.log('Daily timesheets data:', dailyTimesheets);
-      console.log('Real users count:', users.length);
-      console.log('Projects count:', projectsTimesheet.length);
-    }
-
     // Check if selected date is today (for empty columns)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -736,8 +807,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         completed: [],
         blockers: []
       })) || [];
-
-      console.log('No timesheet data found, showing org members:', users.length);
     }
 
     // Apply additional role-based filtering if needed
@@ -760,8 +829,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       });
     }
 
-    console.log('filteredTimesheetUsers - Final users count:', users.length);
-    console.log('filteredTimesheetUsers - Final users:', users.map(u => ({ id: u.user_id, name: u.name })));
     return users;
   }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetDate, realOrgMembers, currentUserOrgRole, user, projects, memoizedSelectedTimesheetProjects]);
 
@@ -814,8 +881,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Sort timesheet users based on selected criteria
   const sortedTimesheetUsers = useMemo(() => {
     const users = [...(filteredTimesheetUsers || [])];
-    console.log('sortedTimesheetUsers - filteredTimesheetUsers count:', filteredTimesheetUsers?.length);
-    console.log('sortedTimesheetUsers - users to sort:', users.length);
 
     switch (timesheetSort) {
       case 'productivity':
@@ -832,7 +897,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Set active employee tab to first user if not set
   useEffect(() => {
     if (sortedTimesheetUsers.length > 0 && !activeEmployeeTab) {
-      console.log('Setting active employee tab to:', sortedTimesheetUsers[0].user_id, sortedTimesheetUsers[0].name);
       setActiveEmployeeTab(sortedTimesheetUsers[0].user_id);
     }
   }, [sortedTimesheetUsers, activeEmployeeTab]);
@@ -842,7 +906,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     if (sortedTimesheetUsers.length > 0) {
       // Use setTimeout to ensure DOM is updated
       setTimeout(() => {
-        console.log('Checking scroll buttons after users loaded, count:', sortedTimesheetUsers.length);
         checkScrollButtons();
       }, 100);
     }
@@ -938,20 +1001,13 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const usersByProject = useMemo(() => {
     const projectGroups: Record<string, any[]> = {};
 
-    console.log('usersByProject - projects:', projects);
-    console.log('usersByProject - sortedTimesheetUsers:', sortedTimesheetUsers);
-
     // First, ensure all projects the current user has access to are included
     projects?.forEach(project => {
-      console.log('Processing project:', project);
       if (canViewProjectTimesheets(project.id)) {
-        // Apply project filter: if projects are selected, only show those projects
-        // if (selectedTimesheetProjects.length === 0 || selectedTimesheetProjects?.includes(project.id)) {
         // Initialize project group even if no users have timesheet data yet
         if (!projectGroups[project.name]) {
           projectGroups[project.name] = [];
         }
-        // }
       }
     });
 
@@ -965,12 +1021,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         }
       });
 
-      console.log(`User ${user.name} has projects:`, Array.from(userProjects));
-
       // If user has timesheet data, add them to those projects
       if (userProjects.size > 0) {
         for (const projectName of userProjects) {
-          console.log(`Adding user to project: ${projectName}`);
           if (!projectGroups[projectName]) {
             projectGroups[projectName] = [];
           }
@@ -989,7 +1042,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           const userHasProjectAccess = isUserProjectMember(user.user_id, project.id);
           
           if (userHasProjectAccess && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
-            console.log(`Adding user ${user.name} to project they have access to: ${project.name}`);
             // check for duplicate users
             if (!projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
               projectGroups[project.name]?.push(user);
@@ -999,7 +1051,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       }
     });
 
-    console.log('Final projectGroups:', projectGroups);
     return projectGroups;
   }, [sortedTimesheetUsers, projects, canViewProjectTimesheets, selectedTimesheetProjects, isUserProjectMember]);
 
@@ -1074,16 +1125,13 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   };
 
   // Tabs Scrolling Functions
-  const checkScrollButtons = () => {
+  const checkScrollButtons = useCallback(() => {
     const scrollContainer = tabsScrollRef.current;
     if (scrollContainer) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
-      console.log('checkScrollButtons - scrollLeft:', scrollLeft, 'scrollWidth:', scrollWidth, 'clientWidth:', clientWidth);
       
       const shouldShowLeft = scrollLeft > 0;
       const shouldShowRight = scrollLeft < scrollWidth - clientWidth - 1;
-      
-      console.log('checkScrollButtons - shouldShowLeft:', shouldShowLeft, 'shouldShowRight:', shouldShowRight);
       
       setShowLeftScroll(shouldShowLeft);
       setShowRightScroll(shouldShowRight);
@@ -1092,10 +1140,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       const maxScrollLeft = scrollWidth - clientWidth;
       const progress = maxScrollLeft > 0 ? (scrollLeft / maxScrollLeft) * 100 : 0;
       setScrollProgress(progress);
-    } else {
-      console.log('checkScrollButtons - no scroll container found');
     }
-  };
+  }, []);
 
   const scrollTabs = (direction: 'left' | 'right') => {
     const scrollContainer = tabsScrollRef.current;
@@ -1147,8 +1193,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     setViewMode('calendar');
   };
 
-  // Generate calendar grid with weeks
-  const getCurrentMonthCalendar = () => {
+  // Generate calendar grid with weeks - Memoized for performance
+  const getCurrentMonthCalendar = useMemo(() => {
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth();
@@ -1187,10 +1233,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
     
     return { weeks, currentMonth: month };
-  };
+  }, []); // Only recalculate when component mounts
 
-  // Get timesheet summary for date tabs
-  const getDateSummary = (date: Date, user: any) => {
+  // Get timesheet summary for date tabs - Memoized for performance
+  const getDateSummary = useCallback((date: Date, user: any) => {
     const dateKey = `${date.toISOString().split('T')[0]}-${user?.user_id}`;
     
     // Check local timesheet status first
@@ -1232,10 +1278,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
     
     return { hasData: false, inProgressCount: 0, blockedCount: 0, completedCount: 0 };
-  };
+  }, [timesheetStatus, selectedTimesheetDate]);
 
-  // Get status icon for calendar date
-  const getDateStatusIcon = (date: Date, user: any) => {
+  // Get status icon for calendar date - Memoized for performance
+  const getDateStatusIcon = useCallback((date: Date, user: any) => {
     const summary = getDateSummary(date, user);
     
     if (!summary.hasData) {
@@ -1249,7 +1295,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
       );
     }
-  };
+  }, [getDateSummary]);
 
   // Data Management Functions
   // Helper function to check if all timesheet fields are empty for a user
@@ -1566,18 +1612,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
         {/* Employee Tabs Header */}
-        {(() => {
-          console.log('Render check - isTimesheetsFetching:', isTimesheetsFetching, 'sortedTimesheetUsers.length:', sortedTimesheetUsers.length);
-          return !isTimesheetsFetching && sortedTimesheetUsers.length > 0;
-        })() && (
+        {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
           <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0 max-w-full">
             <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
               <div className="relative flex items-center">
                 {/* Left Scroll Button */}
-                {(() => {
-                  console.log('Left scroll button - showLeftScroll:', showLeftScroll);
-                  return showLeftScroll;
-                })() && (
+                {showLeftScroll && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1634,10 +1674,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 </div>
 
                 {/* Right Scroll Button */}
-                {(() => {
-                  console.log('Right scroll button - showRightScroll:', showRightScroll);
-                  return showRightScroll;
-                })() && (
+                {showRightScroll && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1679,11 +1716,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
               {/* Active Employee Content */}
               <div className="flex-1 overflow-hidden min-h-0">
-                {(() => {
-                  console.log('Rendering tabs - sortedTimesheetUsers.length:', sortedTimesheetUsers.length, 'activeEmployeeTab:', activeEmployeeTab);
-                  console.log('Users:', sortedTimesheetUsers.map(u => ({ id: u.user_id, name: u.name })));
-                  return sortedTimesheetUsers.length > 0;
-                })() ? sortedTimesheetUsers?.map((user) => (
+                {sortedTimesheetUsers.length > 0 ? sortedTimesheetUsers?.map((user) => (
                   <TabsContent
                     key={user.user_id}
                     value={user.user_id}
@@ -1748,10 +1781,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
                           {/* View Mode Indicator */}
                           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                            {(() => {
-                              console.log('Back to Calendar button - viewMode:', viewMode);
-                              return viewMode === 'detail';
-                            })() && (
+                            {viewMode === 'detail' && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1763,10 +1793,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                 <span className="sm:hidden">Back</span>
                               </Button>
                             )}
-                            {(() => {
-                              console.log('Header calendar indicator - viewMode:', viewMode);
-                              return viewMode === 'calendar'; // Only show when in calendar mode
-                            })() && (
+                            {viewMode === 'calendar' && (
                               <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700">
                                 <div className="flex items-center gap-1 sm:gap-2">
                                   <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -1793,10 +1820,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             </div>
 
                       {/* Calendar View */}
-                      {(() => {
-                        console.log('Calendar view rendering - viewMode:', viewMode, 'activeEmployeeTab:', activeEmployeeTab, 'user.user_id:', user.user_id);
-                        return viewMode === 'calendar'; // Only show when in calendar mode
-                      })() && (
+                      {viewMode === 'calendar' && (
                         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
                           {/* Month Navigation Header */}
                           <div className="flex items-center justify-between p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -1814,9 +1838,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                           </div>
                           
                           {/* Calendar Grid Container */}
-                          <div className="flex-1 px-2 sm:px-3 pb-1 sm:pb-2 pt-1 sm:pt-1 flex flex-col min-h-0">
+                          <div className="flex-1 px-2 sm:px-3 pb-3 sm:pb-4 pt-1 sm:pt-1 flex flex-col">
                             {/* Week Headers */}
-                            <div className="grid grid-cols-7 mb-1 flex-shrink-0 h-6">
+                            <div className="grid grid-cols-7 mb-2 flex-shrink-0 h-6">
                               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                                 <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center">
                                   {day}
@@ -1825,76 +1849,23 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                             </div>
                             
                             {/* Calendar Weeks - Responsive Grid */}
-                            <div className="grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden flex-1" style={{
-                              gridTemplateRows: `repeat(${getCurrentMonthCalendar().weeks.length}, 1fr)`,
-                              minHeight: `${getCurrentMonthCalendar().weeks.length * 50}px`
-                            }}>
-                              {getCurrentMonthCalendar().weeks.map((week, weekIndex) => (
-                                week.map((date, dayIndex) => {
-                                  const isToday = date.toDateString() === new Date().toDateString();
-                                  const isSelected = selectedCalendarDate && date.toDateString() === selectedCalendarDate.toDateString();
-                                  const isCurrentMonth = date.getMonth() === getCurrentMonthCalendar().currentMonth;
-                                  const isFutureDate = date > new Date();
-                                  const summary = getDateSummary(date, user);
-                                  const dayNumber = date.getDate();
-                                  const isLastColumn = dayIndex === 6;
-                                  const isLastRow = weekIndex === getCurrentMonthCalendar().weeks.length - 1;
-
-                    return (
-                          <button
-                                      key={`${weekIndex}-${dayIndex}`}
-                                      onClick={() => isCurrentMonth && !isFutureDate && handleDateClick(date)}
-                                      className={`
-                                        relative w-full h-full min-h-[50px] 
-                                        flex items-center justify-center transition-all duration-200
-                                        ${!isLastColumn ? 'border-r border-gray-200 dark:border-gray-600' : ''}
-                                        ${!isLastRow ? 'border-b border-gray-200 dark:border-gray-600' : ''}
-                                        ${isSelected 
-                                          ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm' 
-                                          : isToday && isCurrentMonth
-                                            ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
-                                            : isCurrentMonth && !isFutureDate
-                                              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
-                                              : isCurrentMonth && isFutureDate
-                                                ? 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
-                                                : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-default'
-                                        }
-                                      `}
-                                      disabled={!isCurrentMonth || isFutureDate}
-                                    >
-                                      {/* Day Number */}
-                                      <span className={`text-xs font-medium ${
-                                        isSelected 
-                                          ? 'text-green-800 font-semibold' 
-                                          : isToday && isCurrentMonth
-                                            ? 'text-green-600 dark:text-green-400 font-semibold' 
-                                            : isCurrentMonth && !isFutureDate
-                                              ? 'text-gray-900 dark:text-gray-100'
-                                              : 'text-gray-400 dark:text-gray-500'
-                                      }`}>
-                                        {dayNumber}
-                                      </span>
-                                      
-                                      {/* Status Indicator - Show for all valid dates (current month, non-future) */}
-                                      {isCurrentMonth && !isFutureDate && (
-                                        <div className="absolute bottom-1 right-1">
-                                          {getDateStatusIcon(date, user)}
-                                        </div>
-                                      )}
-                                    </button>
-                                  );
-                                })
-                              ))}
-                              </div>
+                            <div className="flex-shrink-0">
+                              <CalendarGrid
+                                user={user}
+                                currentMonth={getCurrentMonthCalendar.currentMonth}
+                                weeks={getCurrentMonthCalendar.weeks}
+                                selectedCalendarDate={selectedCalendarDate}
+                                onDateClick={handleDateClick}
+                                getDateSummary={getDateSummary}
+                                getDateStatusIcon={getDateStatusIcon}
+                              />
+                            </div>
                             </div>
                           </div>
                       )}
 
                       {/* Detail View */}
-                      {(() => {
-                        console.log('Detail view rendering - viewMode:', viewMode);
-                        return viewMode === 'detail';
-                      })() && (
+                      {viewMode === 'detail' && (
                         <>
                           {/* Spreadsheet-Style Columnar Layout */}
                           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -2051,9 +2022,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                         </div>
                         
                         {/* Calendar Grid Container */}
-                        <div className="flex-1 px-2 sm:px-3 pb-1 sm:pb-2 pt-1 sm:pt-1 flex flex-col min-h-0">
+                        <div className="flex-1 px-2 sm:px-3 pb-3 sm:pb-4 pt-1 sm:pt-1 flex flex-col">
                           {/* Week Headers */}
-                          <div className="grid grid-cols-7 mb-1 flex-shrink-0 h-6">
+                          <div className="grid grid-cols-7 mb-2 flex-shrink-0 h-6">
                             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                               <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center">
                                 {day}
@@ -2062,65 +2033,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                           </div>
                           
                           {/* Calendar Weeks - Responsive Grid */}
-                          <div className="grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden flex-1" style={{
-                            gridTemplateRows: `repeat(${getCurrentMonthCalendar().weeks.length}, 1fr)`,
-                            minHeight: `${getCurrentMonthCalendar().weeks.length * 50}px`
-                          }}>
-                            {getCurrentMonthCalendar().weeks.map((week, weekIndex) => (
-                              week.map((date, dayIndex) => {
-                                const isToday = date.toDateString() === new Date().toDateString();
-                                const isSelected = selectedCalendarDate && date.toDateString() === selectedCalendarDate.toDateString();
-                                const isCurrentMonth = date.getMonth() === getCurrentMonthCalendar().currentMonth;
-                                const isFutureDate = date > new Date();
-                                const dayNumber = date.getDate();
-                                const isLastColumn = dayIndex === 6;
-                                const isLastRow = weekIndex === getCurrentMonthCalendar().weeks.length - 1;
-
-                                return (
-                                  <button
-                                    key={`${weekIndex}-${dayIndex}`}
-                                    onClick={() => isCurrentMonth && !isFutureDate && handleDateClick(date)}
-                                    className={`
-                                      relative w-full h-full min-h-[50px] 
-                                      flex items-center justify-center transition-all duration-200
-                                      ${!isLastColumn ? 'border-r border-gray-200 dark:border-gray-600' : ''}
-                                      ${!isLastRow ? 'border-b border-gray-200 dark:border-gray-600' : ''}
-                                      ${isSelected 
-                                        ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm' 
-                                        : isToday && isCurrentMonth
-                                          ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
-                                          : isCurrentMonth && !isFutureDate
-                                            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
-                                            : isCurrentMonth && isFutureDate
-                                              ? 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
-                                              : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-default'
-                                      }
-                                    `}
-                                    disabled={!isCurrentMonth || isFutureDate}
-                                  >
-                                    {/* Day Number */}
-                                    <span className={`text-xs font-medium ${
-                                      isSelected 
-                                        ? 'text-green-800 font-semibold' 
-                                        : isToday && isCurrentMonth
-                                          ? 'text-green-600 dark:text-green-400 font-semibold' 
-                                          : isCurrentMonth && !isFutureDate
-                                            ? 'text-gray-900 dark:text-gray-100'
-                                            : 'text-gray-400 dark:text-gray-500'
-                                    }`}>
-                                      {dayNumber}
-                                    </span>
-                                    
-                                    {/* Status Indicator - Show gray dot for no data */}
-                                    {isCurrentMonth && !isFutureDate && (
-                                      <div className="absolute bottom-1 right-1">
-                                        <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
-                                      </div>
-                                    )}
-                                  </button>
-                                );
-                              })
-                            ))}
+                          <div className="flex-shrink-0">
+                            <CalendarGrid
+                              user={null}
+                              currentMonth={getCurrentMonthCalendar.currentMonth}
+                              weeks={getCurrentMonthCalendar.weeks}
+                              selectedCalendarDate={selectedCalendarDate}
+                              onDateClick={handleDateClick}
+                              getDateSummary={getDateSummary}
+                              getDateStatusIcon={() => <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>}
+                            />
                           </div>
                         </div>
                       </div>
