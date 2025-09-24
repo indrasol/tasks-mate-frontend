@@ -1567,7 +1567,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => scrollTabs('left')}
-                    className="absolute left-0 z-10 h-full px-2 bg-gradient-to-r from-white to-transparent dark:from-gray-800 dark:to-transparent hover:from-gray-50 dark:hover:from-gray-700 border-0 rounded-none shadow-lg"
+                    className="absolute left-0 z-20 h-full px-2 bg-white/90 dark:bg-gray-800/90 hover:bg-gray-50 dark:hover:bg-gray-700 border-0 rounded-none shadow-lg backdrop-blur-sm pointer-events-auto"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
@@ -1576,10 +1576,11 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 {/* Scrollable Tabs Container */}
                 <div 
                   ref={tabsScrollRef}
-                  className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth scrollbar-hide"
+                  className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth scrollbar-hide px-8"
                   onScroll={checkScrollButtons}
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
-                  <TabsList className="h-auto p-0 bg-transparent gap-1 justify-start min-w-max flex">
+                  <TabsList className="h-auto p-0 bg-transparent gap-1 justify-start min-w-max flex pr-4">
                     {sortedTimesheetUsers?.map((user) => {
                       const productivityScore = calculateProductivityScore(user);
                       const productivityLevel = getProductivityLevel(productivityScore);
@@ -1618,7 +1619,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => scrollTabs('right')}
-                    className="absolute right-0 z-10 h-full px-2 bg-gradient-to-l from-white to-transparent dark:from-gray-800 dark:to-transparent hover:from-gray-50 dark:hover:from-gray-700 border-0 rounded-none shadow-lg"
+                    className="absolute right-0 z-20 h-full px-2 bg-white/90 dark:bg-gray-800/90 hover:bg-gray-50 dark:hover:bg-gray-700 border-0 rounded-none shadow-lg backdrop-blur-sm pointer-events-auto"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>
@@ -1856,7 +1857,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                           {/* Spreadsheet-Style Columnar Layout */}
                           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                             {/* Table Header */}
-                            <div className="grid grid-cols-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                            <div className={`grid ${showCompletedTasks ? 'grid-cols-4' : 'grid-cols-3'} bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600`}>
                               <div className="p-4 font-semibold text-sm text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-600 flex items-center gap-2">
                                 <Calendar className="w-4 h-4" />
                                 Date
@@ -1865,7 +1866,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                 <Clock className="w-4 h-4" />
                                 In Progress
                               </div>
-                              <div className="p-4 font-semibold text-sm text-red-700 dark:text-red-300 border-r border-gray-200 dark:border-gray-600 flex items-center gap-2">
+                              <div className={`p-4 font-semibold text-sm text-red-700 dark:text-red-300 ${showCompletedTasks ? 'border-r border-gray-200 dark:border-gray-600' : ''} flex items-center gap-2`}>
                                 <AlertTriangle className="w-4 h-4" />
                                 Blocked
                               </div>
@@ -1878,7 +1879,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                             </div>
 
                             {/* Table Row */}
-                            <div className="grid grid-cols-4 min-h-[250px]">
+                            <div className={`grid ${showCompletedTasks ? 'grid-cols-4' : 'grid-cols-3'} min-h-[250px]`}>
                               {/* Date Column */}
                               <div className="p-4 border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center">
                                 <div className="text-center">
@@ -1912,7 +1913,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                       </div>
 
                                       {/* Blocked Column */}
-                              <div className="p-4 border-r border-gray-200 dark:border-gray-600 bg-red-50/30 dark:bg-red-900/10 flex flex-col">
+                              <div className={`p-4 ${showCompletedTasks ? 'border-r border-gray-200 dark:border-gray-600' : ''} bg-red-50/30 dark:bg-red-900/10 flex flex-col`}>
                                           <TimesheetTextarea
                                             user={user}
                                   projectId={getUserPrimaryProject(user)}
