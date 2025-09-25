@@ -18,8 +18,8 @@ export const useCurrentOrganization = (orgId: string) => {
       return data[0];
     },
     enabled: !!user && !!orgId,
-    // Keep results for 5 minutes; no refetch on every mount within this window
     staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
     gcTime: 1000 * 60 * 10,
   });
 };

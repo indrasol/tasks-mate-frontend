@@ -254,14 +254,15 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // ============================================================================
 
   // Memoized Calendar Grid Component
-  const CalendarGrid = memo(({ 
-    user, 
-    currentMonth, 
-    weeks, 
-    selectedCalendarDate, 
+  const CalendarGrid = memo(({
+    user,
+    currentMonth,
+    weeks,
+    selectedCalendarDate,
     onDateClick,
     getDateSummary,
-    getDateStatusIcon 
+    getDateStatusIcon,
+    isLoading
   }: {
     user: any;
     currentMonth: number;
@@ -270,8 +271,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     onDateClick: (date: Date) => void;
     getDateSummary: (date: Date, user: any) => any;
     getDateStatusIcon: (date: Date, user: any) => JSX.Element;
+    isLoading?: boolean;
   }) => (
-    <div className="grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden" style={{
+    <div className="relative grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden" style={{
       gridTemplateRows: `repeat(${weeks.length}, 1fr)`,
       height: `${weeks.length * 60}px`,
       minHeight: `${weeks.length * 60}px`
@@ -295,10 +297,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 flex items-center justify-center transition-all duration-200
                 ${!isLastColumn ? 'border-r border-gray-200 dark:border-gray-600' : ''}
                 ${!isLastRow ? 'border-b border-gray-200 dark:border-gray-600' : ''}
-                ${isSelected 
-                  ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm' 
+                ${isSelected
+                  ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm'
                   : isToday && isCurrentMonth
-                    ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
+                    ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400'
                     : isCurrentMonth && !isFutureDate
                       ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
                       : isCurrentMonth && isFutureDate
@@ -309,28 +311,43 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
               disabled={!isCurrentMonth || isFutureDate}
             >
               {/* Day Number */}
-              <span className={`text-xs font-medium ${
-                isSelected 
-                  ? 'text-green-800 font-semibold' 
+              <span className={`text-xs font-medium ${isSelected
+                  ? 'text-green-800 font-semibold'
                   : isToday && isCurrentMonth
-                    ? 'text-green-600 dark:text-green-400 font-semibold' 
+                    ? 'text-green-600 dark:text-green-400 font-semibold'
                     : isCurrentMonth && !isFutureDate
                       ? 'text-gray-900 dark:text-gray-100'
                       : 'text-gray-400 dark:text-gray-500'
-              }`}>
+                }`}>
                 {dayNumber}
               </span>
-              
+
               {/* Status Indicator - Show for all valid dates (current month, non-future) */}
               {isCurrentMonth && !isFutureDate && (
                 <div className="absolute bottom-1 right-1">
                   {getDateStatusIcon(date, user)}
                 </div>
               )}
+
+              {/* Loading indicator on selected cell while fetching */}
+              {isSelected && isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-white/60 dark:bg-gray-900/40 rounded-full p-1">
+                    <Loader2 className="w-4 h-4 animate-spin text-green-700 dark:text-green-300" />
+                  </div>
+                </div>
+              )}
             </button>
           );
         })
       ))}
+
+      {/* Small header spinner on the grid while fetching */}
+      {isLoading && (
+        <div className="absolute top-1 right-1">
+          <Loader2 className="w-4 h-4 animate-spin text-gray-500 dark:text-gray-300" />
+        </div>
+      )}
     </div>
   ));
 
@@ -355,13 +372,25 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const canEdit = canEditUserTimesheet(user.user_id, projectId);
     const isRestricted = isDateRestrictedForEditing && currentUserOrgRole === 'member';
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    
-    // Get initial value from saved timesheet data (clean user content)
+
+    // Build field keys
+    // Saving key does not include date (saving a single field API-wise)
+    const savingKey = `${user.user_id}-${type}-${projectId}`;
+    // Draft key includes date so switching dates doesn't overwrite/clear drafts
+    const draftDatePart = selectedDate ? formatDateForAPI(selectedDate) : 'unknown-date';
+    const fieldKey = `${user.user_id}-${projectId}-${type}-${draftDatePart}`;
+    const isSaving = savingFields.has(savingKey);
+
+    // Get initial value from last saved content for this field/date, falling back to user data
     const getInitialValue = () => {
+      // If we have an explicit record of the last saved value for this field/date, prefer it
+      if (Object.prototype.hasOwnProperty.call(savedContentByField, fieldKey)) {
+        return savedContentByField[fieldKey] ?? '';
+      }
       // Look for saved timesheet content in the user's data
       // Handle different possible field names for the content types
       let savedContent = '';
-      
+
       if (type === 'in_progress') {
         savedContent = user.in_progress || user.inProgress || '';
       } else if (type === 'blocked') {
@@ -369,7 +398,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       } else if (type === 'completed') {
         savedContent = user.completed || '';
       }
-      
+
       // If it's an array (task objects format), extract the content
       if (Array.isArray(savedContent)) {
         // For arrays, we'll extract just the raw text without formatting
@@ -382,33 +411,55 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           return '';
         }).filter(Boolean).join('\n');
       }
-      
+
       // If it's a string (direct content format), return as is
       if (typeof savedContent === 'string') {
         return savedContent;
       }
-      
+
       // If it's an object with a single field, try to extract content
       if (typeof savedContent === 'object' && savedContent !== null) {
         const contentObj = savedContent as any;
         return contentObj.content || contentObj.text || contentObj.description || '';
       }
-      
+
       // Default to empty string for new entries
       return '';
     };
 
-    const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-      if (canEdit) {
-        e.target.parentElement?.classList.add('ring-2', `ring-${color}-500`, 'ring-opacity-50');
+    // When the field identity changes or a draft reset is requested, restore the DOM value
+    useEffect(() => {
+      if (textareaRef.current) {
+        const nextVal = fieldDrafts[fieldKey] ?? getInitialValue();
+        textareaRef.current.value = nextVal;
       }
-    };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fieldKey, draftResetCounter]);
 
-    const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-      if (canEdit) {
-        e.target.parentElement?.classList.remove('ring-2', `ring-${color}-500`, 'ring-opacity-50');
-      }
-    };
+    // Controlled content to prevent clearing on save (prefers persisted draft)
+    const [content, setContent] = useState<string>(() => fieldDrafts[fieldKey] ?? getInitialValue());
+
+    // Reset content only when the identity of the field changes
+    useEffect(() => {
+      // On identity change, restore persisted draft if available, else derive initial
+      setContent(fieldDrafts[fieldKey] ?? getInitialValue());
+      // We intentionally depend on identity keys, not the whole user object
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user.user_id, projectId, type, selectedDate?.toDateString()]);
+
+    // const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    //   if (canEdit) {
+    //     e.target.parentElement?.classList.add('ring-2', `ring-${color}-500`, 'ring-opacity-50');
+    //   }
+    // };
+
+    // const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    //   if (canEdit) {
+    //     e.target.parentElement?.classList.remove('ring-2', `ring-${color}-500`, 'ring-opacity-50');
+    //   }
+    //   // Persist the latest content as a draft on blur to avoid frequent parent re-renders
+    //   setFieldDrafts(prev => ({ ...prev, [fieldKey]: textareaRef.current?.value ?? '' }));
+    // };
 
     const handleSave = async () => {
       if (!canEdit) {
@@ -430,15 +481,24 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       }
 
       const value = textareaRef.current?.value || '';
-      
+
       // Allow saving empty content to clear fields
       if (!value || value.trim().length === 0) {
         // Save empty content and check if all fields are empty
         await saveTimesheetData(user.user_id, type, '', projectId);
+        // Clear local draft to reflect empty saved state
+        setContent('');
+        setFieldDrafts(prev => ({ ...prev, [fieldKey]: '' }));
+        // Record last saved empty value for this field/date
+        setSavedContentByField(prev => ({ ...prev, [fieldKey]: '' }));
         return;
       }
 
       await saveTimesheetData(user.user_id, type, value, projectId);
+      // Persist draft explicitly to guard against any remounts
+      setFieldDrafts(prev => ({ ...prev, [fieldKey]: value }));
+      // Record last saved value for this field/date
+      setSavedContentByField(prev => ({ ...prev, [fieldKey]: value }));
     };
 
     const getPlaceholder = () => {
@@ -452,35 +512,49 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     };
 
     return (
-      <div className="h-full flex flex-col">
-        <div className={`flex-1 bg-white dark:bg-gray-800 rounded-lg border border-${color}-200 dark:border-${color}-600 shadow-sm hover:shadow-md transition-all duration-200 ${canEdit ? 'cursor-text' : 'cursor-not-allowed opacity-60'} mb-2`}>
-        <textarea
-          key={`${user.user_id}-${projectId}-${type}-${selectedDate?.toISOString()}-${JSON.stringify(
-            type === 'in_progress' ? (user.in_progress || user.inProgress) :
-            type === 'blocked' ? (user.blocked || user.blockers) :
-            type === 'completed' ? user.completed : ''
-          )}`}
-          ref={textareaRef}
-            className={`w-full h-full p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg ${!canEdit ? 'cursor-not-allowed' : ''}`}
-          placeholder={getPlaceholder()}
-          readOnly={!canEdit}
-          defaultValue={getInitialValue()}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
+      <div className="h-full flex flex-col" key={`${fieldKey}-${draftResetCounter}`}>
+        <div className={`relative flex-1 bg-white dark:bg-gray-800 rounded-lg border border-${color}-200 dark:border-${color}-600 shadow-sm hover:shadow-md transition-all duration-200 ${canEdit ? 'cursor-text' : 'cursor-not-allowed opacity-60'} mb-2`}>
+          <textarea
+            ref={textareaRef}
+            className={`w-full h-full p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg ${(!canEdit || isSaving) ? 'cursor-not-allowed' : ''}${canEdit && !isSaving ? ' cursor-text caret-gray-800 dark:caret-gray-100' : ''}`}
+            placeholder={getPlaceholder()}
+            readOnly={!canEdit}
+            disabled={isSaving}
+            aria-busy={isSaving}
+            defaultValue={fieldDrafts[fieldKey] ?? getInitialValue()}
+            // onFocus={handleFocus}
+            // onBlur={handleBlur}
             style={{ minHeight: '150px' }}
-        />
+          />
+          {isSaving && (
+            <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/40 backdrop-blur-[1px] rounded-lg flex items-center justify-center">
+              <div className="flex items-center text-gray-700 dark:text-gray-200 text-xs font-medium">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex justify-center">
-            <Button
+          <Button
             variant="outline"
-              size="sm"
-            className={`text-xs text-${color}-700 border-${color}-200 hover:bg-${color}-50 dark:text-${color}-400 dark:border-${color}-600 dark:hover:bg-${color}-900/20 ${!canEdit ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={handleSave}
-              disabled={!canEdit}
-            >
-              <Save className="w-3 h-3 mr-1" />
-              Save
-            </Button>
+            size="sm"
+            className={`text-xs text-${color}-700 border-${color}-200 hover:bg-${color}-50 dark:text-${color}-400 dark:border-${color}-600 dark:hover:bg-${color}-900/20 ${(!canEdit || isSaving) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={handleSave}
+            disabled={!canEdit || isSaving}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-3 h-3 mr-1" />
+                Save
+              </>
+            )}
+          </Button>
         </div>
       </div>
     );
@@ -538,6 +612,33 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
   // Local state to track timesheet status for calendar dates
   const [timesheetStatus, setTimesheetStatus] = useState<Record<string, { hasData: boolean; userId: string }>>({});
+
+  // Loading state for individual save actions
+  const [savingFields, setSavingFields] = useState<Set<string>>(new Set());
+
+  // Persist drafts per field to avoid clearing on re-mounts
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({});
+  // Counter to force textareas to reset to last saved when drafts are discarded
+  const [draftResetCounter, setDraftResetCounter] = useState(0);
+  // Persist last saved content per field/date to restore on draft discard
+  const [savedContentByField, setSavedContentByField] = useState<Record<string, string>>({});
+
+  // Discard drafts for a given date (rely on last saved values via getInitialValue)
+  const discardDraftsForDate = useCallback((date: Date | undefined) => {
+    if (!date) return;
+    const dateStr = formatDateForAPI(date);
+    setFieldDrafts(prev => {
+      const next = { ...prev } as Record<string, string>;
+      for (const key of Object.keys(next)) {
+        if (key.endsWith(`-${dateStr}`)) {
+          delete next[key];
+        }
+      }
+      return next;
+    });
+    // Force textareas to reset their DOM value to last saved
+    setDraftResetCounter(c => c + 1);
+  }, []);
 
   // Check if current date is restricted for editing (members can edit today and previous days, but not future dates)
   const isDateRestrictedForEditing = useMemo(() => {
@@ -720,6 +821,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       formatDateForAPI(selectedTimesheetDate!),
       memoizedSelectedTimesheetProjects.length > 0 ? memoizedSelectedTimesheetProjects : undefined
     ),
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    gcTime: 1000 * 60 * 10,
   });
 
   // Trigger refetch when parent signals a refresh
@@ -749,6 +853,75 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       fetchProjects();
     }
   }, [dailyTimesheets?.projects, projectsFromParent, isProjectsLoading, projects.length, fetchProjects]);
+
+  // Hydrate last-saved content map from fetched data so reverting shows server-saved values
+  useEffect(() => {
+    if (!dailyTimesheets || !selectedTimesheetDate) return;
+    const dateStr = formatDateForAPI(selectedTimesheetDate);
+
+    // Read directly from API payload to avoid temporal dependencies
+    const apiUsers = ((dailyTimesheets as any)?.users ?? []) as Array<{
+      user_id: string;
+      in_progress?: any;
+      inProgress?: any;
+      blockers?: any;
+      blocked?: any;
+      completed?: any;
+      default_project_id?: string;
+    }>;
+
+    const apiProjects = ((dailyTimesheets as any)?.projects ?? []) as Array<{
+      project_id: string;
+      team_members?: string[];
+    }>;
+
+    const resolveProjectId = (u: any): string => {
+      if (u?.default_project_id) return u.default_project_id;
+      const p = apiProjects.find(p => (p.team_members || []).includes(u.user_id));
+      return p ? p.project_id : 'default-project';
+    };
+
+    const normalizeToText = (val: any): string => {
+      if (!val) return '';
+      if (typeof val === 'string') return val;
+      if (Array.isArray(val)) {
+        return val.map((item: any) => {
+          if (typeof item === 'string') return item;
+          if (item && typeof item === 'object') {
+            return item.title || item.content || item.description || item.text || '';
+          }
+          return '';
+        }).filter(Boolean).join('\n');
+      }
+      if (typeof val === 'object') {
+        return val.content || val.text || val.description || '';
+      }
+      return '';
+    };
+
+    const newSaved: Record<string, string> = {};
+    (apiUsers || []).forEach((u) => {
+      const projectId = resolveProjectId(u);
+      const base = `${u.user_id}-${projectId}`;
+      const inProgKey = `${base}-in_progress-${dateStr}`;
+      const blockedKey = `${base}-blocked-${dateStr}`;
+      const completedKey = `${base}-completed-${dateStr}`;
+
+      const inProgVal = normalizeToText(u.in_progress ?? u.inProgress ?? []);
+      const blockedVal = normalizeToText(u.blockers ?? u.blocked ?? []);
+      const completedVal = normalizeToText(u.completed ?? []);
+
+      if (!fieldDrafts[inProgKey]) newSaved[inProgKey] = inProgVal;
+      if (!fieldDrafts[blockedKey]) newSaved[blockedKey] = blockedVal;
+      if (!fieldDrafts[completedKey]) newSaved[completedKey] = completedVal;
+    });
+
+    if (Object.keys(newSaved).length > 0) {
+      setSavedContentByField(prev => ({ ...newSaved, ...prev }));
+    }
+    // Force refresh of textarea DOM values now that we have server data (even if newSaved is empty)
+    setDraftResetCounter(c => c + 1);
+  }, [dailyTimesheets, selectedTimesheetDate, fieldDrafts]);
 
   // Handle loading timeout - prevent infinite loading states
   useEffect(() => {
@@ -837,31 +1010,31 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     if (dailyTimesheets && selectedTimesheetDate) {
       const dateKey = formatDateForAPI(selectedTimesheetDate);
       const newStatus: Record<string, { hasData: boolean; userId: string }> = {};
-      
+
       // Check each user's data for the selected date
       filteredTimesheetUsers?.forEach(user => {
         const userDateKey = `${dateKey}-${user.user_id}`;
-        
+
         // Check if user has any data in any field
         const inProgressData = user.in_progress || [];
         const blockedData = user.blockers || [];
         const completedData = user.completed || [];
-        
-        const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 : 
-                             (typeof inProgressData === 'string' && (inProgressData as string).trim().length > 0);
-        const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 : 
-                          (typeof blockedData === 'string' && (blockedData as string).trim().length > 0);
-        const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 : 
-                            (typeof completedData === 'string' && (completedData as string).trim().length > 0);
-        
+
+        const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 :
+          (typeof inProgressData === 'string' && (inProgressData as string).trim().length > 0);
+        const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 :
+          (typeof blockedData === 'string' && (blockedData as string).trim().length > 0);
+        const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 :
+          (typeof completedData === 'string' && (completedData as string).trim().length > 0);
+
         const hasData = hasInProgress || hasBlocked || hasCompleted;
-        
+
         newStatus[userDateKey] = { hasData, userId: user.user_id };
       });
-      
+
       // Update status only if there are changes
       setTimesheetStatus(prev => {
-        const hasChanges = Object.keys(newStatus).some(key => 
+        const hasChanges = Object.keys(newStatus).some(key =>
           !prev[key] || prev[key].hasData !== newStatus[key].hasData
         );
         return hasChanges ? { ...prev, ...newStatus } : prev;
@@ -1040,7 +1213,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           // Note: isUserProjectAdmin and isUserProjectOwner both check for 'owner' role,
           // so we only need one of them. isUserProjectMember checks for 'member' or 'owner'.
           const userHasProjectAccess = isUserProjectMember(user.user_id, project.id);
-          
+
           if (userHasProjectAccess && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
             // check for duplicate users
             if (!projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
@@ -1112,6 +1285,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const currentDate = selectedTimesheetDate || new Date();
     const previousDay = new Date(currentDate);
     previousDay.setDate(previousDay.getDate() - 1);
+    previousDay.setHours(0, 0, 0, 0);
     setSelectedTimesheetDate(previousDay);
     setSelectedCalendarDate(previousDay);
   };
@@ -1120,6 +1294,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const currentDate = selectedTimesheetDate || new Date();
     const nextDay = new Date(currentDate);
     nextDay.setDate(nextDay.getDate() + 1);
+    nextDay.setHours(0, 0, 0, 0);
     setSelectedTimesheetDate(nextDay);
     setSelectedCalendarDate(nextDay);
   };
@@ -1129,13 +1304,13 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const scrollContainer = tabsScrollRef.current;
     if (scrollContainer) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
-      
+
       const shouldShowLeft = scrollLeft > 0;
       const shouldShowRight = scrollLeft < scrollWidth - clientWidth - 1;
-      
+
       setShowLeftScroll(shouldShowLeft);
       setShowRightScroll(shouldShowRight);
-      
+
       // Calculate scroll progress (0 to 100)
       const maxScrollLeft = scrollWidth - clientWidth;
       const progress = maxScrollLeft > 0 ? (scrollLeft / maxScrollLeft) * 100 : 0;
@@ -1147,10 +1322,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const scrollContainer = tabsScrollRef.current;
     if (scrollContainer) {
       const scrollAmount = 200; // Pixels to scroll
-      const newScrollLeft = direction === 'left' 
+      const newScrollLeft = direction === 'left'
         ? scrollContainer.scrollLeft - scrollAmount
         : scrollContainer.scrollLeft + scrollAmount;
-      
+
       scrollContainer.scrollTo({
         left: newScrollLeft,
         behavior: 'smooth'
@@ -1161,16 +1336,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const scrollToActiveTab = () => {
     const scrollContainer = tabsScrollRef.current;
     const activeTab = scrollContainer?.querySelector('[data-state="active"]') as HTMLElement;
-    
+
     if (scrollContainer && activeTab) {
       const containerRect = scrollContainer.getBoundingClientRect();
       const tabRect = activeTab.getBoundingClientRect();
-      
+
       // Check if tab is fully visible
-      const isTabVisible = 
-        tabRect.left >= containerRect.left && 
+      const isTabVisible =
+        tabRect.left >= containerRect.left &&
         tabRect.right <= containerRect.right;
-      
+
       if (!isTabVisible) {
         // Scroll to center the active tab
         const scrollLeft = activeTab.offsetLeft - (scrollContainer.clientWidth / 2) + (activeTab.clientWidth / 2);
@@ -1182,63 +1357,99 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
   };
 
+  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [calendarRefDate, setCalendarRefDate] = useState(new Date());
+
   // Calendar View Functions
   const handleDateClick = (date: Date) => {
-    setSelectedTimesheetDate(date);
-    setSelectedCalendarDate(date);
-    setViewMode('detail');
+    // Discard any unsaved drafts for the currently selected date before navigating
+    discardDraftsForDate(selectedTimesheetDate);
+    const local = new Date(date);
+    local.setHours(0, 0, 0, 0);
+    // If clicking the same date, do not trigger loading or refetch
+    if (selectedTimesheetDate) {
+      const prev = new Date(selectedTimesheetDate);
+      prev.setHours(0, 0, 0, 0);
+      if (prev.getTime() === local.getTime()) {
+        // setSelectedCalendarDate(local);
+        setViewMode('detail');
+        return;
+      }
+    }
+    setIsCalendarLoading(true);
+    setSelectedTimesheetDate(local);
+    setSelectedCalendarDate(local);
+    // setViewMode('detail');
   };
 
   const backToCalendar = () => {
+    // Restore previous saved values by discarding drafts for current date
+    discardDraftsForDate(selectedTimesheetDate);
+    setIsCalendarLoading(false);
     setViewMode('calendar');
   };
+
+  useEffect(() => {
+    // When a calendar click initiated a load, and the query has finished,
+    // navigate to detail view and clear the loading flag.
+    if (isCalendarLoading && !isTimesheetsFetching && selectedTimesheetDate) {
+      setViewMode('detail');
+      setIsCalendarLoading(false);
+    }
+  }, [isCalendarLoading, isTimesheetsFetching, selectedTimesheetDate]);
+
+  // Switching active employee: discard current date drafts to restore last saved values
+  useEffect(() => {
+    discardDraftsForDate(selectedTimesheetDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEmployeeTab]);
 
   // Generate calendar grid with weeks - Memoized for performance
   const getCurrentMonthCalendar = useMemo(() => {
     const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    
+    const year = calendarRefDate.getFullYear();
+    const month = calendarRefDate.getMonth();
+
     // Get first day of month and last day of month
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    
+
     // Get the first Sunday of the calendar view
     const startDate = new Date(firstDay);
     const startDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
     startDate.setDate(firstDay.getDate() - startDayOfWeek);
-    
+
     // Get the last Saturday of the calendar view
     const endDate = new Date(lastDay);
     const endDayOfWeek = lastDay.getDay();
     endDate.setDate(lastDay.getDate() + (6 - endDayOfWeek));
-    
+
     // Generate all dates for the calendar grid
     const weeks = [];
     let currentWeek = [];
-    
+
     for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
       currentWeek.push(new Date(date));
-      
+
       // If it's Saturday (day 6), complete the week
       if (date.getDay() === 6) {
         weeks.push(currentWeek);
         currentWeek = [];
       }
     }
-    
+
     // Add any remaining days to the last week
     if (currentWeek.length > 0) {
       weeks.push(currentWeek);
     }
-    
+
     return { weeks, currentMonth: month };
-  }, []); // Only recalculate when component mounts
+  }, [calendarRefDate]);
 
   // Get timesheet summary for date tabs - Memoized for performance
   const getDateSummary = useCallback((date: Date, user: any) => {
-    const dateKey = `${date.toISOString().split('T')[0]}-${user?.user_id}`;
-    
+    const dateKey = `${formatDateForAPI(date)}-${user?.user_id}`;
+
     // Check local timesheet status first
     if (timesheetStatus[dateKey]) {
       return {
@@ -1248,27 +1459,27 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         completedCount: 0
       };
     }
-    
+
     // Check if this is the currently selected date with loaded data
-    const isCurrentDate = selectedTimesheetDate && 
+    const isCurrentDate = selectedTimesheetDate &&
       date.toDateString() === selectedTimesheetDate.toDateString();
-    
+
     if (isCurrentDate && user) {
       // Check for string content (saved data) or array content (task data)
       const inProgressData = user.in_progress || user.inProgress || [];
       const blockedData = user.blocked || user.blockers || [];
       const completedData = user.completed || [];
-      
+
       // Check if data exists - either as non-empty strings or non-empty arrays
-      const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 : 
-                           (typeof inProgressData === 'string' && inProgressData.trim().length > 0);
-      const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 : 
-                        (typeof blockedData === 'string' && blockedData.trim().length > 0);
-      const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 : 
-                          (typeof completedData === 'string' && completedData.trim().length > 0);
-      
+      const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 :
+        (typeof inProgressData === 'string' && inProgressData.trim().length > 0);
+      const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 :
+        (typeof blockedData === 'string' && blockedData.trim().length > 0);
+      const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 :
+        (typeof completedData === 'string' && completedData.trim().length > 0);
+
       const hasData = hasInProgress || hasBlocked || hasCompleted;
-      
+
       return {
         hasData,
         inProgressCount: hasInProgress ? 1 : 0,
@@ -1276,14 +1487,14 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         completedCount: hasCompleted ? 1 : 0
       };
     }
-    
+
     return { hasData: false, inProgressCount: 0, blockedCount: 0, completedCount: 0 };
   }, [timesheetStatus, selectedTimesheetDate]);
 
   // Get status icon for calendar date - Memoized for performance
   const getDateStatusIcon = useCallback((date: Date, user: any) => {
     const summary = getDateSummary(date, user);
-    
+
     if (!summary.hasData) {
       // No data filled yet - show "Not Started" icon
       return (
@@ -1305,22 +1516,22 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     if (!currentUser) return true;
 
     // Check the values of all three fields, using the current value for the field being saved
-    const inProgressValue = currentField === 'in_progress' ? currentValue : 
-                           (typeof currentUser.in_progress === 'string' ? currentUser.in_progress : 
-                            Array.isArray(currentUser.in_progress) ? currentUser.in_progress.join('') : '');
-    
-    const blockedValue = currentField === 'blocked' ? currentValue : 
-                        (typeof currentUser.blockers === 'string' ? currentUser.blockers :
-                         Array.isArray(currentUser.blockers) ? currentUser.blockers.join('') : '');
-    
-    const completedValue = currentField === 'completed' ? currentValue : 
-                          (typeof currentUser.completed === 'string' ? currentUser.completed : 
-                           Array.isArray(currentUser.completed) ? currentUser.completed.join('') : '');
+    const inProgressValue = currentField === 'in_progress' ? currentValue :
+      (typeof currentUser.in_progress === 'string' ? currentUser.in_progress :
+        Array.isArray(currentUser.in_progress) ? currentUser.in_progress.join('') : '');
+
+    const blockedValue = currentField === 'blocked' ? currentValue :
+      (typeof currentUser.blockers === 'string' ? currentUser.blockers :
+        Array.isArray(currentUser.blockers) ? currentUser.blockers.join('') : '');
+
+    const completedValue = currentField === 'completed' ? currentValue :
+      (typeof currentUser.completed === 'string' ? currentUser.completed :
+        Array.isArray(currentUser.completed) ? currentUser.completed.join('') : '');
 
     // Check if all fields are empty or whitespace-only
     const allEmpty = (!inProgressValue || inProgressValue.trim().length === 0) &&
-                    (!blockedValue || blockedValue.trim().length === 0) &&
-                    (!completedValue || completedValue.trim().length === 0);
+      (!blockedValue || blockedValue.trim().length === 0) &&
+      (!completedValue || completedValue.trim().length === 0);
 
     return allEmpty;
   };
@@ -1360,7 +1571,13 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       return;
     }
 
+    // Create a unique key for this field being saved
+    const fieldKey = `${userId}-${field}-${actualProjectId}`;
+
     try {
+      // Add this field to the loading state
+      setSavingFields(prev => new Set(prev).add(fieldKey));
+
       const timesheetData: DailyTimesheetCreate = {
         org_id: orgId,
         project_id: actualProjectId,
@@ -1383,22 +1600,23 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           description: 'Daily Status updated successfully',
           variant: 'default'
         });
-        
+
         // Check if all fields are empty after this save to determine status
         const allFieldsEmpty = await checkAllFieldsEmpty(userId, field, value);
-        
+
         // Update local timesheet status for calendar view
         const dateKey = `${formatDateForAPI(selectedTimesheetDate)}-${userId}`;
         setTimesheetStatus(prev => ({
           ...prev,
           [dateKey]: { hasData: !allFieldsEmpty, userId }
         }));
-        
+
         // Note: With uncontrolled components, we don't need to clear state
         // The textarea will be refreshed when the data is refetched
-        
-        // Refetch the data to show updated information
-        refetchTimesheets();
+
+        // Remove refetch to avoid loading the complete table
+        // The local state updates should be sufficient for UI consistency
+        // refetchTimesheets();
       } else {
         toast({
           title: 'Failed to save timesheet data',
@@ -1412,6 +1630,13 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         title: 'Error',
         description: 'Failed to save timesheet data. Please try again.',
         variant: 'destructive'
+      });
+    } finally {
+      // Remove this field from the loading state
+      setSavingFields(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fieldKey);
+        return newSet;
       });
     }
   };
@@ -1613,7 +1838,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
         {/* Employee Tabs Header */}
         {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
-          <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0 max-w-full">
+          <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 sm:px-2 py-2 sm:py-3 flex-shrink-0 max-w-full">
             <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
               <div className="relative flex items-center">
                 {/* Left Scroll Button */}
@@ -1629,12 +1854,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 )}
 
                 {/* Scrollable Tabs Container */}
-                <div 
+                <div
                   ref={tabsScrollRef}
-                  className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth scrollbar-hide px-6 sm:px-8"
+                  className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth scrollbar-hide px-2 sm:px-3"
                   onScroll={checkScrollButtons}
-                  style={{ 
-                    scrollbarWidth: 'none', 
+                  style={{
+                    scrollbarWidth: 'none',
                     msOverflowStyle: 'none',
                     maxWidth: '100%'
                   }}
@@ -1644,7 +1869,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                       const productivityScore = calculateProductivityScore(user);
                       const productivityLevel = getProductivityLevel(productivityScore);
                       const employeeProjects = getEmployeeProjects(user);
-                      
+
                       return (
                         <TabsTrigger
                           key={user.user_id}
@@ -1688,7 +1913,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 {/* Scroll Progress Indicator */}
                 {(showLeftScroll || showRightScroll) && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-200 dark:bg-gray-600">
-                    <div 
+                    <div
                       className="h-full bg-blue-500 transition-all duration-300 ease-out"
                       style={{ width: `${scrollProgress}%` }}
                     />
@@ -1698,9 +1923,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             </Tabs>
           </div>
         )}
-              
+
         {/* Loading State */}
-        {isTimesheetsFetching && (
+        {isTimesheetsFetching && !isCalendarLoading && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
@@ -1710,7 +1935,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         )}
 
         {/* Employee Content Area */}
-        {!isTimesheetsFetching && (
+        {!(isTimesheetsFetching && !isCalendarLoading) && (
           <div className="flex-1 overflow-auto min-h-0 min-w-0">
             <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
 
@@ -1774,10 +1999,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                       </HoverCard>
                                     )}
                                   </div>
-                  )}
-                </div>
-              </div>
-                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
 
                           {/* View Mode Indicator */}
                           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
@@ -1804,39 +2029,45 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                         <div className="flex items-center gap-1 sm:gap-2">
                                           <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                                           <span className="text-xs">Not Started</span>
-                  </div>
+                                        </div>
                                         <div className="flex items-center gap-1 sm:gap-2">
                                           <div className="w-2 h-2 rounded-full bg-green-500"></div>
                                           <span className="text-xs">Completed</span>
-                    </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-                              </div>
-                            </div>
-                          </div>
-                  </div>
                             )}
-                </div>
-          </div>
-            </div>
+                          </div>
+                        </div>
+                      </div>
 
                       {/* Calendar View */}
                       {viewMode === 'calendar' && (
                         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
                           {/* Month Navigation Header */}
                           <div className="flex items-center justify-between p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                            <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                            <button
+                              className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                              onClick={() => setCalendarRefDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                            >
                               <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
                             </button>
-                            
+
                             <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                              {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                              {calendarRefDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                             </h2>
-                            
-                            <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+
+                            <button
+                              className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                              onClick={() => setCalendarRefDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                            >
                               <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
                             </button>
                           </div>
-                          
+
                           {/* Calendar Grid Container */}
                           <div className="flex-1 px-2 sm:px-3 pb-3 sm:pb-4 pt-1 sm:pt-1 flex flex-col">
                             {/* Week Headers */}
@@ -1847,7 +2078,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                 </div>
                               ))}
                             </div>
-                            
+
                             {/* Calendar Weeks - Responsive Grid */}
                             <div className="flex-shrink-0">
                               <CalendarGrid
@@ -1858,10 +2089,11 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                 onDateClick={handleDateClick}
                                 getDateSummary={getDateSummary}
                                 getDateStatusIcon={getDateStatusIcon}
+                                isLoading={isTimesheetsFetching}
                               />
                             </div>
-                            </div>
                           </div>
+                        </div>
                       )}
 
                       {/* Detail View */}
@@ -1903,60 +2135,60 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                       day: 'numeric',
                                       year: 'numeric'
                                     })}
-                              </div>
+                                  </div>
 
                                   {/* Additional date info */}
                                   <div className="text-xs text-gray-500 dark:text-gray-400">
                                     {isToday ? 'Today' : 'Historical'}
-                                        </div>
-                                      </div>
-                        </div>
+                                  </div>
+                                </div>
+                              </div>
 
-                                      {/* In Progress Column */}
+                              {/* In Progress Column */}
                               <div className="p-4 border-r border-gray-200 dark:border-gray-600 bg-blue-50/30 dark:bg-blue-900/10 flex flex-col">
-                                          <TimesheetTextarea
-                                            user={user}
+                                <TimesheetTextarea
+                                  user={user}
                                   projectId={getUserPrimaryProject(user)}
-                                            type="in_progress"
-                                            color="blue"
-                                            tasks={user.in_progress || []}
+                                  type="in_progress"
+                                  color="blue"
+                                  tasks={user.in_progress || []}
                                   placeholder={isToday ? "What are you working on today?" : "What were you working on?"}
-                                            selectedDate={selectedTimesheetDate}
-                                          />
-                                      </div>
+                                  selectedDate={selectedTimesheetDate}
+                                />
+                              </div>
 
-                                      {/* Blocked Column */}
+                              {/* Blocked Column */}
                               <div className={`p-4 ${showCompletedTasks ? 'border-r border-gray-200 dark:border-gray-600' : ''} bg-red-50/30 dark:bg-red-900/10 flex flex-col`}>
-                                          <TimesheetTextarea
-                                            user={user}
+                                <TimesheetTextarea
+                                  user={user}
                                   projectId={getUserPrimaryProject(user)}
-                                            type="blocked"
-                                            color="red"
-                                            tasks={user.blockers || []}
+                                  type="blocked"
+                                  color="red"
+                                  tasks={user.blockers || []}
                                   placeholder={isToday ? "Any blockers or issues today?" : "Were there any blockers?"}
-                                            selectedDate={selectedTimesheetDate}
-                                          />
-                                      </div>
+                                  selectedDate={selectedTimesheetDate}
+                                />
+                              </div>
 
-                                      {/* Completed Column */}
-                                      {showCompletedTasks && (
+                              {/* Completed Column */}
+                              {showCompletedTasks && (
                                 <div className="p-4 bg-green-50/30 dark:bg-green-900/10 flex flex-col">
-                                            <TimesheetTextarea
-                                              user={user}
+                                  <TimesheetTextarea
+                                    user={user}
                                     projectId={getUserPrimaryProject(user)}
-                                              type="completed"
-                                              color="green"
-                                              tasks={user.completed || []}
+                                    type="completed"
+                                    color="green"
+                                    tasks={user.completed || []}
                                     placeholder={isToday ? "What did you complete today?" : "What did you complete?"}
-                                              selectedDate={selectedTimesheetDate}
-                                            />
-                                        </div>
-                                      )}
-                                    </div>
+                                    selectedDate={selectedTimesheetDate}
+                                  />
+                                </div>
+                              )}
                             </div>
+                          </div>
                         </>
-                        )}
-                      </div>
+                      )}
+                    </div>
                   </TabsContent>
                 )) : (
                   // Fallback: Show calendar view when no users are available
@@ -1978,7 +2210,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                               </p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700">
                               <div className="flex items-center gap-1 sm:gap-2">
@@ -2011,16 +2243,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                           <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                             <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
                           </button>
-                          
+
                           <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
                             {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                           </h2>
-                          
+
                           <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                             <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
                           </button>
                         </div>
-                        
+
                         {/* Calendar Grid Container */}
                         <div className="flex-1 px-2 sm:px-3 pb-3 sm:pb-4 pt-1 sm:pt-1 flex flex-col">
                           {/* Week Headers */}
@@ -2031,7 +2263,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                               </div>
                             ))}
                           </div>
-                          
+
                           {/* Calendar Weeks - Responsive Grid */}
                           <div className="flex-shrink-0">
                             <CalendarGrid
@@ -2042,6 +2274,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                               onDateClick={handleDateClick}
                               getDateSummary={getDateSummary}
                               getDateStatusIcon={() => <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>}
+                              isLoading={isTimesheetsFetching}
                             />
                           </div>
                         </div>

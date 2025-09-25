@@ -104,7 +104,7 @@ const BugDetail = () => {
   const [recreateGuide, setRecreateGuide] = useState('');
   const [priority, setPriority] = useState('');
   const [status, setStatus] = useState('');
-  const [assignee, setAssignee] = useState('');
+  const [assignee, setAssignee] = useState<string | undefined>(undefined);
   const [project_id, setProjectId] = useState('');
 
   const [isTitleEditing, setIsTitleEditing] = useState(false);
@@ -267,7 +267,7 @@ const BugDetail = () => {
           setRecreateGuide(response.steps_to_reproduce);
           setPriority(response.priority);
           setStatus(response.status);
-          setAssignee(response.assignee);
+          setAssignee(response.assignee || undefined);
           setProjectId(response.project_id);
           response.is_editable = true;
         }
@@ -1549,9 +1549,9 @@ const BugDetail = () => {
                   {bug?.priority?.toUpperCase()}
                 </Badge>
 
-                <Select value={assignee} onValueChange={handleAssigneeChange}>
+                <Select value={assignee ?? undefined} onValueChange={handleAssigneeChange}>
                   <SelectTrigger className="h-6 px-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full text-xs w-auto min-w-[6rem] text-gray-900 dark:text-white">
-                    <SelectValue placeholder="Assignee" className="text-gray-900 dark:text-white" />
+                    <SelectValue placeholder="Select Assignee" className="text-gray-900 dark:text-white" />
                   </SelectTrigger>
                   <SelectContent align="start" className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
                     {orgMembers?.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m) => {

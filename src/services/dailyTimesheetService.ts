@@ -179,7 +179,11 @@ export async function getTeamTimesheetsSummary(
 
 // Utility functions
 export function formatDateForAPI(date: Date): string {
-  return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
+  // Use local date parts to prevent UTC timezone shifts
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`; // YYYY-MM-DD
 }
 
 export function parseTasksFromText(text: string): Array<{ title: string; project?: string; hours?: number }> {
