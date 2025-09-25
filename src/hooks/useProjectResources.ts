@@ -24,6 +24,7 @@ export function useProjectResources(projectId?: string) {
     queryKey: ["project-resources", projectId, user?.id],
     enabled: !!user && !!projectId,
     staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
     gcTime: 1000 * 60 * 10,
     queryFn: async () => {
       if (!user || !projectId) return [];

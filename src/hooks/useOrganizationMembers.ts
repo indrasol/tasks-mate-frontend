@@ -20,6 +20,7 @@ export const useOrganizationMembers = (orgId?: string) => {
     },
     enabled: !!user && !!orgId,
     staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
     gcTime: 1000 * 60 * 10,
   });
 };
