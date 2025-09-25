@@ -26,6 +26,7 @@ export function useProjectStats(projectId?: string) {
     queryKey: ["project-stats", projectId, user?.id],
     enabled: !!user && !!projectId,
     staleTime: 1000 * 30, // 30 s – cheap query but still cache briefly
+    refetchOnWindowFocus: false,
     gcTime: 1000 * 60 * 5,
     queryFn: async () => {
       if (!user || !projectId) return null;
