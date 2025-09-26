@@ -251,7 +251,7 @@ const OrgReports: React.FC = () => {
               {React.useMemo(() => (
                 <OrganizationProfileTab
                   orgId={currentOrgId}
-                  canEdit={canEditProfile}
+                  canEdit={canEditProfile || false}
                 />
               ), [currentOrgId, canEditProfile])}
             </TabsContent>

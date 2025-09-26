@@ -1,4 +1,5 @@
 import { api } from './apiService';
+import { API_ENDPOINTS } from '@/config';
 
 export interface CoreValue {
   id?: string;
@@ -41,10 +42,10 @@ export interface OrganizationProfileResponse {
  */
 export const getOrganizationProfile = async (orgId: string): Promise<OrganizationProfile> => {
   try {
-    const response = await api.get<OrganizationProfileResponse>(`/organizations/profile/${orgId}`);
+    const response :any = await api.get<OrganizationProfileResponse>(`${API_ENDPOINTS.ORGANIZATIONS_PROFILE}/${orgId}`);
     
     // Check if response is HTML (indicates wrong endpoint or route not found)
-    if (typeof response === 'string' && response.includes('<!DOCTYPE html>')) {
+    if (typeof response === 'string' && response?.includes('<!DOCTYPE html>')) {
       console.warn('Organization profile endpoint not found, returning default profile structure');
       return createDefaultProfile(orgId);
     }
@@ -111,13 +112,13 @@ export const updateOrganizationProfile = async (
     delete cleanData.created_by;
     delete cleanData.last_updated_by;
     
-    const response = await api.put<OrganizationProfileResponse>(
-      `/organizations/profile/${orgId}`, 
+    const response:any = await api.put<OrganizationProfileResponse>(
+      `${API_ENDPOINTS.ORGANIZATIONS_PROFILE}/${orgId}`, 
       cleanData
     );
     
     // Check if response is HTML (indicates endpoint not available)
-    if (typeof response === 'string' && response.includes('<!DOCTYPE html>')) {
+    if (typeof response === 'string' && response?.includes('<!DOCTYPE html>')) {
       throw new Error('Organization profile feature is not yet available. Please try again later.');
     }
     
@@ -167,8 +168,8 @@ export const createOrganizationProfile = async (
     delete cleanData.created_by;
     delete cleanData.last_updated_by;
     
-    const response = await api.post<OrganizationProfileResponse>(
-      `/organizations/profile/${orgId}`, 
+    const response:any = await api.post<OrganizationProfileResponse>(
+      `${API_ENDPOINTS.ORGANIZATIONS_PROFILE}/${orgId}`, 
       cleanData
     );
     
@@ -188,7 +189,7 @@ export const createOrganizationProfile = async (
  */
 export const deleteOrganizationProfile = async (orgId: string): Promise<void> => {
   try {
-    const response = await api.del<{success: boolean, message: string}>(`/organizations/profile/${orgId}`);
+    const response:any = await api.del<{success: boolean, message: string}>(`${API_ENDPOINTS.ORGANIZATIONS_PROFILE}/${orgId}`);
     
     if (!response.success) {
       throw new Error(response.message || 'Failed to delete organization profile');
