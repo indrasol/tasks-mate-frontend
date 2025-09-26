@@ -1,5 +1,5 @@
 // React and hooks
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import { DateRange } from 'react-day-picker';
 
@@ -54,12 +54,16 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import {
-  createOrUpdateDailyTimesheet,
-  DailyTimesheetCreate,
+  updateTimesheetField,
+  getTeamTimesheets,
+  getCalendarMonthStatus,
   formatDateForAPI,
-  getTeamTimesheetsSummary,
-  TeamTimesheetUser
-} from '@/services/dailyTimesheetService';
+  convertEntriesToText,
+  hasTimesheetData,
+  UserTimesheetFieldUpdate,
+  TeamTimesheetUser,
+  CalendarStatusResponse
+} from '@/services/userTimesheetService';
 import { BackendOrgMember } from '@/types/organization';
 // import { useProjectMembers, BackendProjectMember } from '@/hooks/useProjectMembers';
 
@@ -104,6 +108,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // ============================================================================
 
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [projects, setProjects] = useState<any[]>([]);
   const [isProjectsLoading, setIsProjectsLoading] = useState<boolean>(false);
 
@@ -353,78 +358,48 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
   // Memoized Reusable Timesheet Textarea Component
   const TimesheetTextarea = memo(({
-    user,
-    projectId,
+    user: timesheetUser,
     type,
     color,
-    tasks,
     placeholder,
     selectedDate
   }: {
     user: any;
-    projectId: string;
     type: 'in_progress' | 'blocked' | 'completed';
     color: 'blue' | 'red' | 'green';
-    tasks: any[];
     placeholder: string;
     selectedDate: Date | undefined;
   }) => {
-    const canEdit = canEditUserTimesheet(user.user_id, projectId);
+    // Permission checks - simplified for user-centric approach  
+    const canEdit = timesheetUser.user_id === user?.id || ['admin', 'owner'].includes(currentUserOrgRole || '');
     const isRestricted = isDateRestrictedForEditing && currentUserOrgRole === 'member';
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Build field keys
-    // Saving key does not include date (saving a single field API-wise)
-    const savingKey = `${user.user_id}-${type}-${projectId}`;
-    // Draft key includes date so switching dates doesn't overwrite/clear drafts
+    // Build field keys for new API
+    const savingKey = `${timesheetUser.user_id}-${type}`;
     const draftDatePart = selectedDate ? formatDateForAPI(selectedDate) : 'unknown-date';
-    const fieldKey = `${user.user_id}-${projectId}-${type}-${draftDatePart}`;
+    const fieldKey = `${timesheetUser.user_id}-${type}-${draftDatePart}`;
     const isSaving = savingFields.has(savingKey);
 
-    // Get initial value from last saved content for this field/date, falling back to user data
+    // Get initial value from user data (new structure)
     const getInitialValue = () => {
-      // If we have an explicit record of the last saved value for this field/date, prefer it
-      if (Object.prototype.hasOwnProperty.call(savedContentByField, fieldKey)) {
-        return savedContentByField[fieldKey] ?? '';
+      // If we have a draft for this field/date, use it
+      if (Object.prototype.hasOwnProperty.call(fieldDrafts, fieldKey)) {
+        return fieldDrafts[fieldKey] ?? '';
       }
-      // Look for saved timesheet content in the user's data
-      // Handle different possible field names for the content types
-      let savedContent = '';
 
+      // Get data from user timesheet entries
+      let entries = [];
       if (type === 'in_progress') {
-        savedContent = user.in_progress || user.inProgress || '';
+        entries = timesheetUser.in_progress || [];
       } else if (type === 'blocked') {
-        savedContent = user.blocked || user.blockers || '';
+        entries = timesheetUser.blocked || [];
       } else if (type === 'completed') {
-        savedContent = user.completed || '';
+        entries = timesheetUser.completed || [];
       }
 
-      // If it's an array (task objects format), extract the content
-      if (Array.isArray(savedContent)) {
-        // For arrays, we'll extract just the raw text without formatting
-        return savedContent.map(item => {
-          if (typeof item === 'string') return item;
-          if (typeof item === 'object') {
-            // Try different possible content fields
-            return item.title || item.content || item.description || item.text || '';
-          }
-          return '';
-        }).filter(Boolean).join('\n');
-      }
-
-      // If it's a string (direct content format), return as is
-      if (typeof savedContent === 'string') {
-        return savedContent;
-      }
-
-      // If it's an object with a single field, try to extract content
-      if (typeof savedContent === 'object' && savedContent !== null) {
-        const contentObj = savedContent as any;
-        return contentObj.content || contentObj.text || contentObj.description || '';
-      }
-
-      // Default to empty string for new entries
-      return '';
+      // Convert entries to text format
+      return convertEntriesToText(entries);
     };
 
     // When the field identity changes or a draft reset is requested, restore the DOM value
@@ -436,78 +411,42 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fieldKey, draftResetCounter]);
 
-    // Controlled content to prevent clearing on save (prefers persisted draft)
+    // Controlled content to prevent clearing on save
     const [content, setContent] = useState<string>(() => fieldDrafts[fieldKey] ?? getInitialValue());
 
     // Reset content only when the identity of the field changes
     useEffect(() => {
-      // On identity change, restore persisted draft if available, else derive initial
       setContent(fieldDrafts[fieldKey] ?? getInitialValue());
-      // We intentionally depend on identity keys, not the whole user object
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user.user_id, projectId, type, selectedDate?.toDateString()]);
-
-    // const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-    //   if (canEdit) {
-    //     e.target.parentElement?.classList.add('ring-2', `ring-${color}-500`, 'ring-opacity-50');
-    //   }
-    // };
-
-    // const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-    //   if (canEdit) {
-    //     e.target.parentElement?.classList.remove('ring-2', `ring-${color}-500`, 'ring-opacity-50');
-    //   }
-    //   // Persist the latest content as a draft on blur to avoid frequent parent re-renders
-    //   setFieldDrafts(prev => ({ ...prev, [fieldKey]: textareaRef.current?.value ?? '' }));
-    // };
+    }, [timesheetUser.user_id, type, selectedDate?.toDateString()]);
 
     const handleSave = async () => {
       if (!canEdit) {
-        // Check if it's a date restriction issue
-        if (isRestricted) {
-          toast({
-            title: 'Date Restricted',
-            description: 'Project members cannot edit future dates',
-            variant: 'destructive'
-          });
-        } else {
-          toast({
-            title: 'Access Denied',
-            description: 'You do not have permission to edit this project\'s timesheet data',
-            variant: 'destructive'
-          });
-        }
+        toast({
+          title: 'Access Denied',
+          description: isRestricted ? 'You cannot edit future dates' : 'You do not have permission to edit this timesheet',
+          variant: 'destructive'
+        });
         return;
       }
 
       const value = textareaRef.current?.value || '';
 
-      // Allow saving empty content to clear fields
-      if (!value || value.trim().length === 0) {
-        // Save empty content and check if all fields are empty
-        await saveTimesheetData(user.user_id, type, '', projectId);
-        // Clear local draft to reflect empty saved state
-        setContent('');
-        setFieldDrafts(prev => ({ ...prev, [fieldKey]: '' }));
-        // Record last saved empty value for this field/date
-        setSavedContentByField(prev => ({ ...prev, [fieldKey]: '' }));
-        return;
-      }
-
-      await saveTimesheetData(user.user_id, type, value, projectId);
-      // Persist draft explicitly to guard against any remounts
+      // Save the timesheet data using new API
+      await saveTimesheetData(timesheetUser.user_id, type, value);
+      
+      // Update local draft
       setFieldDrafts(prev => ({ ...prev, [fieldKey]: value }));
-      // Record last saved value for this field/date
-      setSavedContentByField(prev => ({ ...prev, [fieldKey]: value }));
+      setContent(value);
     };
 
     const getPlaceholder = () => {
       if (canEdit) {
         return placeholder;
       } else if (isRestricted) {
-        return "You cannot edit future dates";
+        return "Future dates cannot be edited";
       } else {
-        return "You don't have permission to edit this timesheet data";
+        return `View-only: ${timesheetUser.name || 'User'}'s timesheet data`;
       }
     };
 
@@ -521,9 +460,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             readOnly={!canEdit}
             disabled={isSaving}
             aria-busy={isSaving}
-            defaultValue={fieldDrafts[fieldKey] ?? getInitialValue()}
-            // onFocus={handleFocus}
-            // onBlur={handleBlur}
+            defaultValue={getInitialValue()}
             style={{ minHeight: '150px' }}
           />
           {isSaving && (
@@ -612,6 +549,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
   // Local state to track timesheet status for calendar dates
   const [timesheetStatus, setTimesheetStatus] = useState<Record<string, { hasData: boolean; userId: string }>>({});
+  
+  // Calendar status from month API
+  const [calendarStatus, setCalendarStatus] = useState<Record<string, { hasData: boolean; userCount: number }>>({});
 
   // Loading state for individual save actions
   const [savingFields, setSavingFields] = useState<Set<string>>(new Set());
@@ -735,9 +675,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const calculateProductivityScore = (user: any) => {
     const completed = (user.completed || []).length;
     const inProgress = (user.in_progress || []).length;
-    const blockers = (user.blockers || []).length;
+    const blocked = (user.blocked || []).length;
 
-    return Math.max(0, Math.min(100, (completed * 3 + inProgress * 1 - blockers * 2)));
+    return Math.max(0, Math.min(100, (completed * 3 + inProgress * 1 - blocked * 2)));
   };
 
   const getProductivityLevel = (score: number) => {
@@ -806,7 +746,15 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     return selectedTimesheetProjects;
   }, [selectedTimesheetProjects]);
 
-  // Fetch daily timesheets data
+  const memoizedSelectedTimesheetUsers = useMemo(() => {
+    return selectedTimesheetUsers;
+  }, [selectedTimesheetUsers]);
+
+  // Calendar state (needed for queries)
+  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [calendarRefDate, setCalendarRefDate] = useState(new Date());
+
+  // Fetch team timesheets data using new API
   const {
     data: dailyTimesheets,
     isFetching: isTimesheetsFetching,
@@ -814,16 +762,33 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     error: timesheetsError,
     refetch: refetchTimesheets
   } = useQuery({
-    queryKey: ['daily-timesheets', orgId, memoizedSelectedTimesheetDate, memoizedSelectedTimesheetProjects],
+    queryKey: ['team-timesheets', orgId, memoizedSelectedTimesheetDate, memoizedSelectedTimesheetUsers, activeEmployeeTab],
     enabled: !!orgId && orgId.length > 0 && !!selectedTimesheetDate,
-    queryFn: () => getTeamTimesheetsSummary(
+    queryFn: () => getTeamTimesheets(
       orgId,
       formatDateForAPI(selectedTimesheetDate!),
-      memoizedSelectedTimesheetProjects.length > 0 ? memoizedSelectedTimesheetProjects : undefined
+      memoizedSelectedTimesheetUsers.length > 0 ? memoizedSelectedTimesheetUsers : undefined
     ),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 2, // Reduced stale time for more frequent updates
     refetchOnWindowFocus: false,
     gcTime: 1000 * 60 * 10,
+  });
+
+  // Fetch calendar month status for indicators - user-specific
+  const {
+    data: monthStatus,
+    isFetching: isMonthStatusFetching
+  } = useQuery({
+    queryKey: ['calendar-month-status', orgId, calendarRefDate.getFullYear(), calendarRefDate.getMonth() + 1, activeEmployeeTab],
+    enabled: !!orgId && !!activeEmployeeTab,
+    queryFn: () => getCalendarMonthStatus(
+      orgId,
+      calendarRefDate.getFullYear(),
+      calendarRefDate.getMonth() + 1,
+      [activeEmployeeTab] // Pass current active user ID for user-specific indicators
+    ),
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
   });
 
   // Trigger refetch when parent signals a refresh
@@ -833,18 +798,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   //   }
   // }, [refreshSignal]);
 
-  // Update projects state when dailyTimesheets data changes
+  // Update calendar status when month data loads
   useEffect(() => {
-    if (dailyTimesheets?.projects && dailyTimesheets.projects.length > 0) {
-      setProjects(dailyTimesheets.projects.map((project: any) => ({
-        id: project.project_id,
-        name: project.name || project.project_name,
-        members: project.team_members ?? [],
-        owner: project.owner ?? ""
-      })));
-      setIsProjectsLoading(false);
-    } else if (projectsFromParent && projectsFromParent.length > 0) {
-      // Fallback to projects from parent if no projects in timesheet data
+    if (monthStatus?.calendar_status) {
+      setCalendarStatus(monthStatus.calendar_status);
+    }
+  }, [monthStatus]);
+
+  // Update projects state - use projects from parent or fallback
+  useEffect(() => {
+    if (projectsFromParent && projectsFromParent.length > 0) {
       setProjects(projectsFromParent);
       setIsProjectsLoading(false);
     } else if (!isProjectsLoading && projects.length === 0) {
@@ -852,7 +815,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       setIsProjectsLoading(true);
       fetchProjects();
     }
-  }, [dailyTimesheets?.projects, projectsFromParent, isProjectsLoading, projects.length, fetchProjects]);
+  }, [projectsFromParent, isProjectsLoading, projects.length, fetchProjects]);
 
   // Hydrate last-saved content map from fetched data so reverting shows server-saved values
   useEffect(() => {
@@ -948,18 +911,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
   // Filter and process timesheet users based on role permissions
   const filteredTimesheetUsers = useMemo(() => {
-    // Get users from the real API response - support both old and new format
+    // Get users from the new API response format
     let users: TeamTimesheetUser[] = ((dailyTimesheets as any)?.users ?? []) as TeamTimesheetUser[];
-
-    // If we have the new projects structure, we can use that too
-    const projectsTimesheet = ((dailyTimesheets as any)?.projects ?? []) as any[];
-
-    // Check if selected date is today (for empty columns)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = selectedTimesheetDate ? new Date(selectedTimesheetDate) : today;
-    selectedDate.setHours(0, 0, 0, 0);
-    const isToday = selectedDate.getTime() === today.getTime();
 
     // If no real timesheet data exists, show organization members for empty timesheet display
     if (users.length === 0) {
@@ -974,16 +927,11 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         designation: member.designation || 'Team Member',
         avatar_initials: member.initials,
         role: member.role || 'member',
-        total_hours_today: 0,
-        total_hours_week: 0,
         in_progress: [],
         completed: [],
-        blockers: []
+        blocked: []
       })) || [];
     }
-
-    // Apply additional role-based filtering if needed
-    // Users are already filtered by the backend or converted from org members above
 
     // Apply member filter first
     if (selectedTimesheetUsers.length > 0) {
@@ -1003,7 +951,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
 
     return users;
-  }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetDate, realOrgMembers, currentUserOrgRole, user, projects, memoizedSelectedTimesheetProjects]);
+  }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, getFilteredMembers]);
 
   // Initialize timesheet status from loaded data
   useEffect(() => {
@@ -1017,7 +965,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
         // Check if user has any data in any field
         const inProgressData = user.in_progress || [];
-        const blockedData = user.blockers || [];
+        const blockedData = user.blocked || [];
         const completedData = user.completed || [];
 
         const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 :
@@ -1061,7 +1009,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       case 'alphabetical':
         return users?.sort((a, b) => (a.name || '')?.localeCompare(b.name || ''));
       case 'hours':
-        return users?.sort((a, b) => (b.total_hours_today || 0) - (a.total_hours_today || 0));
+        // Since we don't track hours in the new system, sort by total task count instead
+        return users?.sort((a, b) => {
+          const aTaskCount = (a.in_progress?.length || 0) + (a.completed?.length || 0) + (a.blocked?.length || 0);
+          const bTaskCount = (b.in_progress?.length || 0) + (b.completed?.length || 0) + (b.blocked?.length || 0);
+          return bTaskCount - aTaskCount;
+        });
       default:
         return users;
     }
@@ -1151,16 +1104,11 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     return sortedTimesheetUsers?.find(user => user.user_id === activeEmployeeTab);
   }, [sortedTimesheetUsers, activeEmployeeTab]);
 
-  // Get employee's project involvement
+  // Get employee's project involvement - simplified for user-centric approach
   const getEmployeeProjects = useCallback((employee: TeamTimesheetUser) => {
     const employeeProjects = new Set<string>();
-    [...(employee.in_progress || []), ...(employee.completed || []), ...(employee.blockers || [])]?.forEach(task => {
-      if (task.project) {
-        employeeProjects.add(task.project);
-      }
-    });
 
-    // Also check projects where user is a member based on role
+    // Check projects where user is a member based on role
     projects?.forEach(project => {
       if (isUserProjectMember(employee.user_id, project.id)) {
         employeeProjects.add(project.name);
@@ -1184,44 +1132,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       }
     });
 
-    // Then, add users to their respective projects based on timesheet data
+    // Add users to projects they have role-based access to
     sortedTimesheetUsers?.forEach(user => {
-      // Get all projects from user's tasks
-      const userProjects = new Set<string>();
-      [...(user.in_progress || []), ...(user.completed || []), ...(user.blockers || [])]?.forEach(task => {
-        if (task.project) {
-          userProjects.add(task.project);
+      projects?.forEach(project => {
+        // Check if this specific user has access to this project
+        const userHasProjectAccess = isUserProjectMember(user.user_id, project.id);
+
+        if (userHasProjectAccess && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
+          projectGroups[project.name]?.push(user);
         }
       });
-
-      // If user has timesheet data, add them to those projects
-      if (userProjects.size > 0) {
-        for (const projectName of userProjects) {
-          if (!projectGroups[projectName]) {
-            projectGroups[projectName] = [];
-          }
-
-          // check for duplicate users
-          if (!projectGroups[projectName]?.some(u => u.user_id === user.user_id)) {
-            projectGroups[projectName]?.push(user);
-          }
-        }
-      } else {
-        // If user has no timesheet data, add them to projects they have role-based access to
-        projects?.forEach(project => {
-          // Check if this specific user has access to this project (using user-specific functions)
-          // Note: isUserProjectAdmin and isUserProjectOwner both check for 'owner' role,
-          // so we only need one of them. isUserProjectMember checks for 'member' or 'owner'.
-          const userHasProjectAccess = isUserProjectMember(user.user_id, project.id);
-
-          if (userHasProjectAccess && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
-            // check for duplicate users
-            if (!projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
-              projectGroups[project.name]?.push(user);
-            }
-          }
-        });
-      }
     });
 
     return projectGroups;
@@ -1251,25 +1171,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   };
 
   const getUserPrimaryProject = (user: TeamTimesheetUser): string => {
-    // Try to get project from user's tasks
-    const allTasks = [...(user.in_progress || []), ...(user.completed || []), ...(user.blockers || [])];
-    if (allTasks.length > 0) {
-      // Find the most common project
-      const projectCounts: Record<string, number> = {};
-      allTasks?.forEach(task => {
-        if (task.project) {
-          projectCounts[task.project] = (projectCounts[task.project] || 0) + 1;
-        }
-      });
-
-      const mostCommonProject = Object.keys(projectCounts).reduce((a, b) =>
-        projectCounts[a] > projectCounts[b] ? a : b
-      );
-
-      // Find the project ID by name
-      const project = projects?.find(p => p.name === mostCommonProject);
-      if (project) return project.id;
-    }
+    // Since we moved to user-centric approach, find first project user is member of
+    const userProject = projects?.find(project => 
+      isUserProjectMember(user.user_id, project.id)
+    );
+    
+    if (userProject) return userProject.id;
 
     // Fallback: use first available project or create a default one
     if (projects.length > 0) {
@@ -1287,7 +1194,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     previousDay.setDate(previousDay.getDate() - 1);
     previousDay.setHours(0, 0, 0, 0);
     setSelectedTimesheetDate(previousDay);
-    setSelectedCalendarDate(previousDay);
   };
 
   const navigateToNextDay = () => {
@@ -1296,7 +1202,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     nextDay.setDate(nextDay.getDate() + 1);
     nextDay.setHours(0, 0, 0, 0);
     setSelectedTimesheetDate(nextDay);
-    setSelectedCalendarDate(nextDay);
   };
 
   // Tabs Scrolling Functions
@@ -1357,9 +1262,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
   };
 
-  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
-  const [calendarRefDate, setCalendarRefDate] = useState(new Date());
-
   // Calendar View Functions
   const handleDateClick = (date: Date) => {
     // Discard any unsaved drafts for the currently selected date before navigating
@@ -1371,15 +1273,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       const prev = new Date(selectedTimesheetDate);
       prev.setHours(0, 0, 0, 0);
       if (prev.getTime() === local.getTime()) {
-        // setSelectedCalendarDate(local);
         setViewMode('detail');
         return;
       }
     }
     setIsCalendarLoading(true);
     setSelectedTimesheetDate(local);
-    setSelectedCalendarDate(local);
-    // setViewMode('detail');
   };
 
   const backToCalendar = () => {
@@ -1398,9 +1297,19 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
   }, [isCalendarLoading, isTimesheetsFetching, selectedTimesheetDate]);
 
-  // Switching active employee: discard current date drafts to restore last saved values
+  // Switching active employee: discard current date drafts and ensure fresh data
   useEffect(() => {
-    discardDraftsForDate(selectedTimesheetDate);
+    if (activeEmployeeTab && selectedTimesheetDate) {
+      // Discard any unsaved drafts for the current date
+      discardDraftsForDate(selectedTimesheetDate);
+      
+      // Invalidate queries to ensure we get fresh data for the new active employee
+      const dateString = formatDateForAPI(selectedTimesheetDate);
+      queryClient.invalidateQueries({
+        queryKey: ['team-timesheets', orgId, dateString],
+        exact: false
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEmployeeTab]);
 
@@ -1467,7 +1376,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     if (isCurrentDate && user) {
       // Check for string content (saved data) or array content (task data)
       const inProgressData = user.in_progress || user.inProgress || [];
-      const blockedData = user.blocked || user.blockers || [];
+      const blockedData = user.blocked || [];
       const completedData = user.completed || [];
 
       // Check if data exists - either as non-empty strings or non-empty arrays
@@ -1491,22 +1400,28 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     return { hasData: false, inProgressCount: 0, blockedCount: 0, completedCount: 0 };
   }, [timesheetStatus, selectedTimesheetDate]);
 
-  // Get status icon for calendar date - Memoized for performance
+  // Get status icon for calendar date - Enhanced with month-level status
   const getDateStatusIcon = useCallback((date: Date, user: any) => {
-    const summary = getDateSummary(date, user);
-
-    if (!summary.hasData) {
-      // No data filled yet - show "Not Started" icon
-      return (
+    const dateKey = formatDateForAPI(date);
+    
+    // Check month-level status first for better performance
+    if (calendarStatus[dateKey]) {
+      const status = calendarStatus[dateKey];
+      return status.hasData ? (
+        <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
+      ) : (
         <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
       );
-    } else {
-      // Has data - show "Completed" icon
-      return (
-        <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
-      );
     }
-  }, [getDateSummary]);
+    
+    // Fallback to current logic for selected date
+    const summary = getDateSummary(date, user);
+    return summary.hasData ? (
+      <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
+    ) : (
+      <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
+    );
+  }, [calendarStatus, getDateSummary]);
 
   // Data Management Functions
   // Helper function to check if all timesheet fields are empty for a user
@@ -1521,8 +1436,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         Array.isArray(currentUser.in_progress) ? currentUser.in_progress.join('') : '');
 
     const blockedValue = currentField === 'blocked' ? currentValue :
-      (typeof currentUser.blockers === 'string' ? currentUser.blockers :
-        Array.isArray(currentUser.blockers) ? currentUser.blockers.join('') : '');
+      (typeof currentUser.blocked === 'string' ? currentUser.blocked :
+        Array.isArray(currentUser.blocked) ? currentUser.blocked.join('') : '');
 
     const completedValue = currentField === 'completed' ? currentValue :
       (typeof currentUser.completed === 'string' ? currentUser.completed :
@@ -1539,96 +1454,90 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const saveTimesheetData = async (
     userId: string,
     field: 'in_progress' | 'completed' | 'blocked',
-    value: string,
-    projectId?: string
+    value: string
   ) => {
-    if (!selectedTimesheetDate || !orgId || orgId.length === 0 || !userId || userId.trim().length === 0 || !field || field.trim().length === 0) return;
+    if (!selectedTimesheetDate || !orgId || !userId || !field) return;
 
-    // If no projectId provided, find the user to get their primary project
-    let actualProjectId = projectId;
-    if (!actualProjectId) {
-      const user = filteredTimesheetUsers?.find(u => u.user_id === userId);
-      if (!user) return;
-      actualProjectId = getUserPrimaryProject(user);
+    // Check permissions - users can edit their own timesheets, admins/owners can edit any
+    if (userId !== user?.id && !['admin', 'owner'].includes(currentUserOrgRole || '')) {
+      toast({
+        title: 'Access Denied',
+        description: 'You can only edit your own timesheets',
+        variant: 'destructive'
+      });
+      return;
     }
 
-    // Check if user has permission to edit this user's timesheet data
-    if (!canEditUserTimesheet(userId, actualProjectId)) {
-      // Check if it's a date restriction issue
-      if (isDateRestrictedForEditing && currentUserOrgRole === 'member') {
-        toast({
-          title: 'Date Restricted',
-          description: 'Project members cannot edit future dates',
-          variant: 'destructive'
-        });
-      } else {
-        toast({
-          title: 'Access Denied',
-          description: 'You do not have permission to edit this project\'s timesheet data',
-          variant: 'destructive'
-        });
-      }
+    // Check date restrictions for members
+    if (currentUserOrgRole === 'member' && isDateRestrictedForEditing) {
+      toast({
+        title: 'Date Restricted',
+        description: 'Members cannot edit future dates',
+        variant: 'destructive'
+      });
       return;
     }
 
     // Create a unique key for this field being saved
-    const fieldKey = `${userId}-${field}-${actualProjectId}`;
+    const fieldKey = `${userId}-${field}`;
 
     try {
       // Add this field to the loading state
       setSavingFields(prev => new Set(prev).add(fieldKey));
 
-      const timesheetData: DailyTimesheetCreate = {
+      const updateData: UserTimesheetFieldUpdate = {
         org_id: orgId,
-        project_id: actualProjectId,
         user_id: userId,
         entry_date: formatDateForAPI(selectedTimesheetDate),
-        [field]: value
+        field_type: field,
+        field_content: value
       };
 
-      toast({
-        title: 'Saving timesheet data...',
-        description: 'Please wait while we save the timesheet data',
-        variant: 'default'
-      });
-
-      // Get Response and include as soft update instead of refetch
-      const response = await createOrUpdateDailyTimesheet(timesheetData);
+      const response = await updateTimesheetField(updateData);
+      
       if (response.success) {
         toast({
-          title: 'Daily Status updated successfully',
-          description: 'Daily Status updated successfully',
+          title: 'Status updated successfully',
           variant: 'default'
         });
 
-        // Check if all fields are empty after this save to determine status
-        const allFieldsEmpty = await checkAllFieldsEmpty(userId, field, value);
-
-        // Update local timesheet status for calendar view
-        const dateKey = `${formatDateForAPI(selectedTimesheetDate)}-${userId}`;
-        setTimesheetStatus(prev => ({
+        // Update local calendar status optimistically
+        const dateKey = formatDateForAPI(selectedTimesheetDate);
+        const hasData = value.trim().length > 0;
+        
+        setCalendarStatus(prev => ({
           ...prev,
-          [dateKey]: { hasData: !allFieldsEmpty, userId }
+          [dateKey]: { 
+            hasData: hasData || Object.values(prev[dateKey] || {}).some(Boolean), 
+            userCount: prev[dateKey]?.userCount || 1 
+          }
         }));
 
-        // Note: With uncontrolled components, we don't need to clear state
-        // The textarea will be refreshed when the data is refetched
-
-        // Remove refetch to avoid loading the complete table
-        // The local state updates should be sufficient for UI consistency
-        // refetchTimesheets();
+        // Invalidate the query cache for this specific date so it refetches when navigated to
+        if (selectedTimesheetDate) {
+          const savedDateString = formatDateForAPI(selectedTimesheetDate);
+          
+          // Invalidate all team-timesheet queries for this org and date (regardless of user filters)
+          queryClient.invalidateQueries({
+            queryKey: ['team-timesheets', orgId, savedDateString],
+            exact: false // This will match queries that start with these keys
+          });
+          
+          // Also invalidate calendar status for the saved date
+          queryClient.invalidateQueries({
+            queryKey: ['calendar-month-status', orgId, selectedTimesheetDate.getFullYear(), selectedTimesheetDate.getMonth() + 1],
+            exact: false
+          });
+        }
+        
       } else {
-        toast({
-          title: 'Failed to save timesheet data',
-          description: 'Please try again',
-          variant: 'destructive'
-        });
+        throw new Error(response.message || 'Failed to save');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save timesheet data:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to save timesheet data. Please try again.',
+        title: 'Failed to save timesheet',
+        description: error.message || 'Please try again',
         variant: 'destructive'
       });
     } finally {
@@ -2085,7 +1994,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                 user={user}
                                 currentMonth={getCurrentMonthCalendar.currentMonth}
                                 weeks={getCurrentMonthCalendar.weeks}
-                                selectedCalendarDate={selectedCalendarDate}
+                                selectedCalendarDate={selectedTimesheetDate}
                                 onDateClick={handleDateClick}
                                 getDateSummary={getDateSummary}
                                 getDateStatusIcon={getDateStatusIcon}
@@ -2148,10 +2057,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                               <div className="p-4 border-r border-gray-200 dark:border-gray-600 bg-blue-50/30 dark:bg-blue-900/10 flex flex-col">
                                 <TimesheetTextarea
                                   user={user}
-                                  projectId={getUserPrimaryProject(user)}
                                   type="in_progress"
                                   color="blue"
-                                  tasks={user.in_progress || []}
                                   placeholder={isToday ? "What are you working on today?" : "What were you working on?"}
                                   selectedDate={selectedTimesheetDate}
                                 />
@@ -2161,10 +2068,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                               <div className={`p-4 ${showCompletedTasks ? 'border-r border-gray-200 dark:border-gray-600' : ''} bg-red-50/30 dark:bg-red-900/10 flex flex-col`}>
                                 <TimesheetTextarea
                                   user={user}
-                                  projectId={getUserPrimaryProject(user)}
                                   type="blocked"
                                   color="red"
-                                  tasks={user.blockers || []}
                                   placeholder={isToday ? "Any blockers or issues today?" : "Were there any blockers?"}
                                   selectedDate={selectedTimesheetDate}
                                 />
@@ -2175,10 +2080,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                 <div className="p-4 bg-green-50/30 dark:bg-green-900/10 flex flex-col">
                                   <TimesheetTextarea
                                     user={user}
-                                    projectId={getUserPrimaryProject(user)}
                                     type="completed"
                                     color="green"
-                                    tasks={user.completed || []}
                                     placeholder={isToday ? "What did you complete today?" : "What did you complete?"}
                                     selectedDate={selectedTimesheetDate}
                                   />
@@ -2270,7 +2173,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                               user={null}
                               currentMonth={getCurrentMonthCalendar.currentMonth}
                               weeks={getCurrentMonthCalendar.weeks}
-                              selectedCalendarDate={selectedCalendarDate}
+                              selectedCalendarDate={selectedTimesheetDate}
                               onDateClick={handleDateClick}
                               getDateSummary={getDateSummary}
                               getDateStatusIcon={() => <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>}
