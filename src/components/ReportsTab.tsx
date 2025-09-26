@@ -1,6 +1,6 @@
 // React and hooks
 import { useQuery } from '@tanstack/react-query';
-import React, { useCallback, useEffect, useMemo, useState, memo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, memo, useRef } from 'react';
 import { DateRange } from 'react-day-picker';
 import { useSearchParams } from 'react-router-dom';
 
@@ -23,6 +23,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 // Icons
 import {
   CalendarRange,
+  ChevronLeft,
+  ChevronRight,
   Filter,
   FolderOpen,
   RefreshCw,
@@ -434,6 +436,12 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
   const [memberSort, setMemberSort] = useState<MemberSortType>('name_asc');
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Horizontal scrolling state for projects grid
+  const [showLeftScrollProjects, setShowLeftScrollProjects] = useState(false);
+  const [showRightScrollProjects, setShowRightScrollProjects] = useState(false);
+  const [scrollProgressProjects, setScrollProgressProjects] = useState(0);
+  const projectsScrollRef = useRef<HTMLDivElement>(null);
+
   // ============================================================================
   // DATA FETCHING
   // ============================================================================
@@ -689,6 +697,40 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
       });
   }, [report, searchQuery, projectSort, userDisplayMap]);
 
+  // Projects scrolling functions
+  const checkScrollButtonsProjects = useCallback(() => {
+    const scrollContainer = projectsScrollRef.current;
+    if (scrollContainer) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
+
+      const shouldShowLeft = scrollLeft > 0;
+      const shouldShowRight = scrollLeft < scrollWidth - clientWidth - 1;
+
+      setShowLeftScrollProjects(shouldShowLeft);
+      setShowRightScrollProjects(shouldShowRight);
+
+      // Calculate scroll progress (0 to 100)
+      const maxScrollLeft = scrollWidth - clientWidth;
+      const progress = maxScrollLeft > 0 ? (scrollLeft / maxScrollLeft) * 100 : 0;
+      setScrollProgressProjects(progress);
+    }
+  }, []);
+
+  const scrollProjects = (direction: 'left' | 'right') => {
+    const scrollContainer = projectsScrollRef.current;
+    if (scrollContainer) {
+      const scrollAmount = 300; // Pixels to scroll (larger for project cards)
+      const newScrollLeft = direction === 'left'
+        ? scrollContainer.scrollLeft - scrollAmount
+        : scrollContainer.scrollLeft + scrollAmount;
+
+      scrollContainer.scrollTo({
+        left: newScrollLeft,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   // ============================================================================
   // EFFECTS
   // ============================================================================
@@ -713,6 +755,43 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
     if (filters.date_to) params.set('to', filters.date_to); else params.delete('to');
     setSearchParams(params, { replace: true });
   }, [filters, searchParams, setSearchParams]);
+
+  // Handle projects scroll events and check scroll button visibility
+  useEffect(() => {
+    const scrollContainer = projectsScrollRef.current;
+    if (scrollContainer) {
+      const handleScroll = () => {
+        checkScrollButtonsProjects();
+      };
+
+      const handleResize = () => {
+        checkScrollButtonsProjects();
+      };
+
+      // Initial check
+      checkScrollButtonsProjects();
+
+      // Add event listeners
+      scrollContainer.addEventListener('scroll', handleScroll);
+      window.addEventListener('resize', handleResize);
+
+      // Cleanup
+      return () => {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('resize', handleResize);
+      };
+    }
+  }, [filteredAndSortedProjects, checkScrollButtonsProjects]);
+
+  // Check scroll buttons when projects change
+  useEffect(() => {
+    if (filteredAndSortedProjects.length > 0) {
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        checkScrollButtonsProjects();
+      }, 100);
+    }
+  }, [filteredAndSortedProjects.length, checkScrollButtonsProjects]);
 
 
 
@@ -1032,20 +1111,66 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                 </div>
               )}
 
-              {/* Side-by-side grid layout for projects */}
-              <div className="overflow-x-auto h-full">
-                <div className="flex flex-row gap-4 p-4 pb-8 min-w-max w-full h-full">
-                  {(filteredAndSortedProjects || []).map((proj: any) => (
-                    <ProjectCard 
-                      key={proj.project_id} 
-                      project={proj} 
-                      orgId={orgId} 
-                      realOrgMembers={realOrgMembers} 
-                      memberSort={memberSort} 
-                      isTaskOverdue={isTaskOverdue} 
-                    />
-                  ))}
+              {/* Side-by-side grid layout for projects with horizontal scroll */}
+              <div className="relative h-full">
+                {/* Left Scroll Button */}
+                {showLeftScrollProjects && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => scrollProjects('left')}
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20 h-12 w-12 p-0 bg-white/90 dark:bg-gray-800/90 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full shadow-lg backdrop-blur-sm pointer-events-auto"
+                    title="Scroll left"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                )}
+
+                {/* Scrollable Projects Container */}
+                <div
+                  ref={projectsScrollRef}
+                  className="overflow-x-auto overflow-y-hidden h-full scroll-smooth scrollbar-hide"
+                  style={{
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none'
+                  }}
+                >
+                  <div className="flex flex-row gap-4 p-4 pb-8 pr-16 min-w-max w-full h-full">
+                    {(filteredAndSortedProjects || []).map((proj: any) => (
+                      <ProjectCard 
+                        key={proj.project_id} 
+                        project={proj} 
+                        orgId={orgId} 
+                        realOrgMembers={realOrgMembers} 
+                        memberSort={memberSort} 
+                        isTaskOverdue={isTaskOverdue} 
+                      />
+                    ))}
+                  </div>
                 </div>
+
+                {/* Right Scroll Button */}
+                {showRightScrollProjects && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => scrollProjects('right')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 z-20 h-12 w-12 p-0 bg-white/90 dark:bg-gray-800/90 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full shadow-lg backdrop-blur-sm pointer-events-auto"
+                    title="Scroll right"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </Button>
+                )}
+
+                {/* Scroll Progress Indicator */}
+                {(showLeftScrollProjects || showRightScrollProjects) && (
+                  <div className="absolute bottom-2 left-4 right-4 h-1 bg-gray-200 dark:bg-gray-600 rounded-full">
+                    <div
+                      className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${scrollProgressProjects}%` }}
+                    />
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -1,6 +1,7 @@
 import MainNavigation from '@/components/navigation/MainNavigation';
 import ReportsTab from '@/components/ReportsTab';
 import TimesheetTab from '@/components/TimesheetTab';
+import OrganizationProfileTab from '@/components/OrganizationProfileTab';
 import {
   Tabs,
   TabsContent,
@@ -126,11 +127,18 @@ const OrgReports: React.FC = () => {
     fetchProjects();
   }, [currentOrgId]);
 
-  const [activeTab, setActiveTab] = useState<'reports' | 'timesheets'>('timesheets');
+  const [activeTab, setActiveTab] = useState<'reports' | 'timesheets' | 'profile'>('timesheets');
 
   // Memoize projects and realOrgMembers to prevent unnecessary ReportsTab re-renders
   const memoizedProjects = useMemo(() => projects, [projects]);
   const memoizedRealOrgMembers = useMemo(() => realOrgMembers, [realOrgMembers]);
+
+  // Determine if user can edit organization profile (owners and admins only)
+  const canEditProfile = useMemo(() => {
+    if (!user || !memoizedRealOrgMembers) return false;
+    const currentUserMember = memoizedRealOrgMembers.find((m) => m.user_id === user.id);
+    return currentUserMember?.role === 'owner' || currentUserMember?.role === 'admin';
+  }, [user, memoizedRealOrgMembers]);
 
   // // Reports tab state
   // const [reportsSearchQuery, setReportsSearchQuery] = useState('');
@@ -188,7 +196,7 @@ const OrgReports: React.FC = () => {
                   <TabsList>
                     <TabsTrigger value="timesheets">Daily Status Updates</TabsTrigger>
                     <TabsTrigger value="reports">Reports</TabsTrigger>
-
+                    <TabsTrigger value="profile">Organization Profile</TabsTrigger>
                   </TabsList>
 
 
@@ -237,6 +245,15 @@ const OrgReports: React.FC = () => {
                 // refreshSignal={timesheetRefreshSignal}
                 />
               ), [currentOrgId, memoizedProjects, memoizedRealOrgMembers])}
+            </TabsContent>
+
+            <TabsContent value="profile" className={`flex flex-1 overflow-hidden mt-0 h-0 ${activeTab === 'profile' ? 'min-h-full' : ''}`}>
+              {React.useMemo(() => (
+                <OrganizationProfileTab
+                  orgId={currentOrgId}
+                  canEdit={canEditProfile}
+                />
+              ), [currentOrgId, canEditProfile])}
             </TabsContent>
           </Tabs>
         </div>
