@@ -639,14 +639,16 @@ const BugDetail = () => {
 
   // Mutation for adding a comment
   const addComment = useMutation({
-    mutationFn: async (commentText: string) => {
+    mutationFn: async ({ commentText, mentions }: { commentText: string; mentions: any[] }) => {
       toast({
         title: "Adding comment",
         description: "Please wait...",
       });
       const response: any = await api.post(`${API_ENDPOINTS.BUGS}/${bugId}/comments`, {
         bug_id: bugId,
-        content: commentText
+        content: commentText,
+        mentions: mentions,
+        org_id: currentOrgId
       });
       return response.data;
     },
@@ -671,13 +673,15 @@ const BugDetail = () => {
 
   // Mutation for updating a comment
   const updateComment = useMutation({
-    mutationFn: async ({ commentId, text }: { commentId: string, text: string }) => {
+    mutationFn: async ({ commentId, text, mentions }: { commentId: string; text: string; mentions: any[] }) => {
       toast({
         title: "Updating comment",
         description: "Please wait...",
       });
       const response: any = await api.put(`${API_ENDPOINTS.BUGS}/${bugId}/comments/${commentId}`, {
-        content: text
+        content: text,
+        mentions: mentions,
+        org_id: currentOrgId
       });
       return response.data;
     },
@@ -731,13 +735,23 @@ const BugDetail = () => {
   // Handle form submissions
   const handleAddComment = () => {
     if (newComment.trim()) {
-      addComment.mutate(newComment);
+      // Check for Matching UserNames from teamMembers List and assign the id's to an array
+      const matchingUserIds = orgMembers
+        .filter(member => newComment.replace(/ /g, '\u00A0').includes(member.displayName.replace(/ /g, '\u00A0')))
+        .map(member => { return { user_id: member.user_id, email: member.email, username: member.username } });
+      
+      addComment.mutate({ commentText: newComment, mentions: matchingUserIds });
     }
   };
 
   const handleSaveEdit = (commentId: string) => {
     if (editCommentText.trim()) {
-      updateComment.mutate({ commentId, text: editCommentText });
+      // Check for Matching UserNames from teamMembers List and assign the id's to an array
+      const matchingUserIdsEdit = orgMembers
+        .filter(member => editCommentText.replace(/ /g, '\u00A0').includes(member.displayName.replace(/ /g, '\u00A0')))
+        .map(member => { return { user_id: member.user_id, email: member.email, username: member.username } });
+      
+      updateComment.mutate({ commentId, text: editCommentText, mentions: matchingUserIdsEdit });
     }
   };
 

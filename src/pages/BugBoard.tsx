@@ -185,7 +185,7 @@ const BugBoard = () => {
             id: bug.id || '',
             title: bug.title || '',
             description: bug.description || '',
-            severity: bug.severity || 'medium',
+            severity: bug.priority || 'medium',
             status: bug.status || 'open',
             tags: bug.tags || [],
             closed: ['closed', 'won_t_fix', 'duplicate'].includes(bug.status),

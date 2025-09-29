@@ -1,6 +1,6 @@
 // React and hooks
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DateRange } from 'react-day-picker';
 
 // UI Components
@@ -8,8 +8,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Card } from '@/components/ui/card';
-import CopyableBadge from '@/components/ui/copyable-badge';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -26,23 +24,17 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
   Eye,
   EyeOff,
   Folder,
-  FolderMinus,
-  FolderPlus,
   Loader2,
-  Plus,
-  RefreshCw,
   RotateCcw,
   Save,
   Star,
   Target,
-  Timer,
   TrendingUp,
   Trophy,
   Users,
@@ -54,15 +46,13 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import {
-  updateTimesheetField,
-  getTeamTimesheets,
-  getCalendarMonthStatus,
-  formatDateForAPI,
   convertEntriesToText,
-  hasTimesheetData,
-  UserTimesheetFieldUpdate,
+  formatDateForAPI,
+  getCalendarMonthStatus,
+  getTeamTimesheets,
   TeamTimesheetUser,
-  CalendarStatusResponse
+  updateTimesheetField,
+  UserTimesheetFieldUpdate
 } from '@/services/userTimesheetService';
 import { BackendOrgMember } from '@/types/organization';
 // import { useProjectMembers, BackendProjectMember } from '@/hooks/useProjectMembers';
@@ -85,7 +75,7 @@ interface TimesheetTabProps {
   // refreshSignal: number;
 }
 
-type TimesheetSortType = 'productivity' | 'alphabetical' | 'hours';
+type TimesheetSortType = 'productivity' | 'alphabetical' | 'hours' | 'name';
 
 // ============================================================================
 // MAIN COMPONENT
@@ -317,12 +307,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             >
               {/* Day Number */}
               <span className={`text-xs font-medium ${isSelected
-                  ? 'text-green-800 font-semibold'
-                  : isToday && isCurrentMonth
-                    ? 'text-green-600 dark:text-green-400 font-semibold'
-                    : isCurrentMonth && !isFutureDate
-                      ? 'text-gray-900 dark:text-gray-100'
-                      : 'text-gray-400 dark:text-gray-500'
+                ? 'text-green-800 font-semibold'
+                : isToday && isCurrentMonth
+                  ? 'text-green-600 dark:text-green-400 font-semibold'
+                  : isCurrentMonth && !isFutureDate
+                    ? 'text-gray-900 dark:text-gray-100'
+                    : 'text-gray-400 dark:text-gray-500'
                 }`}>
                 {dayNumber}
               </span>
@@ -434,7 +424,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
       // Save the timesheet data using new API
       await saveTimesheetData(timesheetUser.user_id, type, value);
-      
+
       // Update local draft
       setFieldDrafts(prev => ({ ...prev, [fieldKey]: value }));
       setContent(value);
@@ -534,7 +524,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // UI State
   const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(true);
-  const [timesheetSort, setTimesheetSort] = useState<TimesheetSortType>('productivity');
+  const [timesheetSort, setTimesheetSort] = useState<TimesheetSortType>('name');
   const [selectedTimesheetDate, setSelectedTimesheetDate] = useState<Date | undefined>(new Date());
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [activeEmployeeTab, setActiveEmployeeTab] = useState<string>('');
@@ -549,7 +539,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
   // Local state to track timesheet status for calendar dates
   const [timesheetStatus, setTimesheetStatus] = useState<Record<string, { hasData: boolean; userId: string }>>({});
-  
+
   // Calendar status from month API
   const [calendarStatus, setCalendarStatus] = useState<Record<string, { hasData: boolean; userCount: number }>>({});
 
@@ -1015,6 +1005,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           const bTaskCount = (b.in_progress?.length || 0) + (b.completed?.length || 0) + (b.blocked?.length || 0);
           return bTaskCount - aTaskCount;
         });
+      case 'name':
+        return users?.sort((a, b) => (a.name || a.email || a.user_id)?.localeCompare(b.name || b.email || b.user_id));
       default:
         return users;
     }
@@ -1023,9 +1015,14 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Set active employee tab to first user if not set
   useEffect(() => {
     if (sortedTimesheetUsers.length > 0 && !activeEmployeeTab) {
-      setActiveEmployeeTab(sortedTimesheetUsers[0].user_id);
+      const currentUserSheet = sortedTimesheetUsers.find(sheetUser => sheetUser.user_id === user?.id);
+      if (currentUserSheet) {
+        setActiveEmployeeTab(currentUserSheet.user_id);
+      } else {
+        setActiveEmployeeTab(sortedTimesheetUsers[0].user_id);
+      }
     }
-  }, [sortedTimesheetUsers, activeEmployeeTab]);
+  }, [sortedTimesheetUsers, activeEmployeeTab, user]);
 
   // Check scroll buttons when users change
   useEffect(() => {
@@ -1172,10 +1169,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
   const getUserPrimaryProject = (user: TeamTimesheetUser): string => {
     // Since we moved to user-centric approach, find first project user is member of
-    const userProject = projects?.find(project => 
+    const userProject = projects?.find(project =>
       isUserProjectMember(user.user_id, project.id)
     );
-    
+
     if (userProject) return userProject.id;
 
     // Fallback: use first available project or create a default one
@@ -1302,7 +1299,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     if (activeEmployeeTab && selectedTimesheetDate) {
       // Discard any unsaved drafts for the current date
       discardDraftsForDate(selectedTimesheetDate);
-      
+
       // Invalidate queries to ensure we get fresh data for the new active employee
       const dateString = formatDateForAPI(selectedTimesheetDate);
       queryClient.invalidateQueries({
@@ -1403,7 +1400,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Get status icon for calendar date - Enhanced with month-level status
   const getDateStatusIcon = useCallback((date: Date, user: any) => {
     const dateKey = formatDateForAPI(date);
-    
+
     // Check month-level status first for better performance
     if (calendarStatus[dateKey]) {
       const status = calendarStatus[dateKey];
@@ -1413,7 +1410,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
       );
     }
-    
+
     // Fallback to current logic for selected date
     const summary = getDateSummary(date, user);
     return summary.hasData ? (
@@ -1494,7 +1491,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       };
 
       const response = await updateTimesheetField(updateData);
-      
+
       if (response.success) {
         toast({
           title: 'Status updated successfully',
@@ -1504,32 +1501,32 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         // Update local calendar status optimistically
         const dateKey = formatDateForAPI(selectedTimesheetDate);
         const hasData = value.trim().length > 0;
-        
+
         setCalendarStatus(prev => ({
           ...prev,
-          [dateKey]: { 
-            hasData: hasData || Object.values(prev[dateKey] || {}).some(Boolean), 
-            userCount: prev[dateKey]?.userCount || 1 
+          [dateKey]: {
+            hasData: hasData || Object.values(prev[dateKey] || {}).some(Boolean),
+            userCount: prev[dateKey]?.userCount || 1
           }
         }));
 
         // Invalidate the query cache for this specific date so it refetches when navigated to
         if (selectedTimesheetDate) {
           const savedDateString = formatDateForAPI(selectedTimesheetDate);
-          
+
           // Invalidate all team-timesheet queries for this org and date (regardless of user filters)
           queryClient.invalidateQueries({
             queryKey: ['team-timesheets', orgId, savedDateString],
             exact: false // This will match queries that start with these keys
           });
-          
+
           // Also invalidate calendar status for the saved date
           queryClient.invalidateQueries({
             queryKey: ['calendar-month-status', orgId, selectedTimesheetDate.getFullYear(), selectedTimesheetDate.getMonth() + 1],
             exact: false
           });
         }
-        
+
       } else {
         throw new Error(response.message || 'Failed to save');
       }
@@ -1748,7 +1745,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         {/* Employee Tabs Header */}
         {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
           <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 sm:px-2 py-2 sm:py-3 flex-shrink-0 max-w-full">
-            <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
+            <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full w-full flex flex-col">
               <div className="relative flex items-center">
                 {/* Left Scroll Button */}
                 {showLeftScroll && (
@@ -1784,7 +1781,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                           key={user.user_id}
                           value={user.user_id}
                           className="flex-shrink-0 px-2 sm:px-3 py-2 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:border-blue-200 data-[state=active]:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 whitespace-nowrap"
-                          style={{ minWidth: '100px', maxWidth: '140px' }}
+                        // style={{ minWidth: '100px', maxWidth: '140px' }}
                         >
                           <div className="flex items-center gap-1.5 sm:gap-2">
                             <Avatar className="w-5 h-5 sm:w-6 sm:h-6 ring-1 ring-offset-1 ring-blue-500">
@@ -1794,7 +1791,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                             </Avatar>
                             <div className="text-left min-w-0 flex-1">
                               <div className="font-medium text-xs truncate whitespace-nowrap">
-                                {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
+                                {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
                               </div>
                               <div className="text-xs text-gray-500 dark:text-gray-400 truncate whitespace-nowrap">
                                 {employeeProjects.length > 0 ? `${employeeProjects.length} projects` : '0 projects'}
@@ -1868,7 +1865,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                             </Avatar>
                             <div>
                               <h2 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">
-                                {user.name || deriveDisplayFromEmail(user.email || user.user_id).displayName}
+                                {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
                               </h2>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
