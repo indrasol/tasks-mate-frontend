@@ -225,6 +225,14 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
     }
   };
 
+  const handleScratchpadOpen = () => {
+    if (orgId) {
+      navigate(`/scratchpad?org_id=${orgId}`);
+    } else {
+      navigate('/scratchpad');
+    }
+  };
+
   return (
     <nav className={`bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen fixed left-0 top-0 z-50 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64 sm:w-64 max-w-[90vw] sm:max-w-[256px] min-w-[240px]'} overflow-hidden`}>
       <div className="flex flex-col h-full">
@@ -350,7 +358,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
           <div className="flex-1 py-4">
             <div className="space-y-1 px-3">
               {navigationItems.map((item) => {
-                if (item.name === "Feedback") {
+                if (item.name === "Feedback" || item.name === "Scratchpad") {
                   return null;
                 }
                 const Icon = item.icon;
@@ -378,7 +386,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
           <div className="flex-10 justify-end items-end py-4">
             <div className="space-y-1 px-3">
               {navigationItems.map((item) => {
-                if (item.name !== "Feedback") {
+                if (item.name !== "Feedback" && item.name !== "Scratchpad") {
                   return null;
                 }
                 if (isCollapsed) {
@@ -413,6 +421,17 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
         {
           isCollapsed &&
           <div className="flex flex-col items-center justify-between p-4 border-b border-gray-200">
+
+            {/* Scratchpad Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleScratchpadOpen}
+              className="w-8 h-8 hover:bg-gray-50 hover:text-gray-600 flex-shrink-0"
+              title="Scratchpad"
+            >
+              <Edit3 className="w-4 h-4" />
+            </Button>
 
             {/* Feedback Button */}
             <Button

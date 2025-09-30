@@ -21,6 +21,7 @@ import { BackendOrgMember } from '@/types/organization';
 
 
 import { Button } from '@/components/ui/button';
+import GoalsTab from '@/components/GoalsTab';
 // import { Search } from 'lucide-react';
 // import { X } from 'lucide-react';
 // import { RefreshCw } from 'lucide-react';
@@ -127,7 +128,7 @@ const OrgReports: React.FC = () => {
     fetchProjects();
   }, [currentOrgId]);
 
-  const [activeTab, setActiveTab] = useState<'reports' | 'timesheets' | 'profile'>('timesheets');
+  const [activeTab, setActiveTab] = useState<'reports' | 'timesheets' | 'profile' | 'goals'>('timesheets');
 
   // Memoize projects and realOrgMembers to prevent unnecessary ReportsTab re-renders
   const memoizedProjects = useMemo(() => projects, [projects]);
@@ -195,8 +196,9 @@ const OrgReports: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <TabsList>
                     <TabsTrigger value="timesheets">Daily Status Updates</TabsTrigger>
-                    <TabsTrigger value="reports">Reports</TabsTrigger>
-                    <TabsTrigger value="profile">Organization Profile</TabsTrigger>
+                    <TabsTrigger value="reports">Project Reports</TabsTrigger>
+                    {/* <TabsTrigger value="profile">Organization Profile</TabsTrigger> */}
+                    <TabsTrigger value="goals">Goals</TabsTrigger>
                   </TabsList>
 
 
@@ -248,12 +250,23 @@ const OrgReports: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="profile" className={`flex flex-1 overflow-hidden mt-0 h-0 ${activeTab === 'profile' ? 'min-h-full' : ''}`}>
-              {React.useMemo(() => (
+              {/* {React.useMemo(() => (
                 <OrganizationProfileTab
                   orgId={currentOrgId}
                   canEdit={canEditProfile || false}
                 />
-              ), [currentOrgId, canEditProfile])}
+              ), [currentOrgId, canEditProfile])} */}
+              <>
+              </>
+            </TabsContent>
+
+            <TabsContent value="goals" className={`flex flex-1 overflow-hidden mt-0 h-0 ${activeTab === 'goals' ? 'min-h-full' : ''}`}>
+              {React.useMemo(() => (
+                <GoalsTab
+                  orgId={currentOrgId}
+                  realOrgMembers={memoizedRealOrgMembers}
+                />
+              ), [currentOrgId, memoizedRealOrgMembers])}
             </TabsContent>
           </Tabs>
         </div>
