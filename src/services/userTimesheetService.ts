@@ -97,7 +97,7 @@ export async function updateTimesheetField(data: UserTimesheetFieldUpdate): Prom
       throw new Error('Field content too long (max 5000 characters)');
     }
 
-    const response = await api.post(`${API_ENDPOINTS.USER_TIMESHEETS}/field`, data);
+    const response: any = await api.post(`${API_ENDPOINTS.USER_TIMESHEETS}/field`, data);
     
     if (!response.success) {
       throw new Error(response.message || 'Failed to update timesheet field');
@@ -123,7 +123,7 @@ export async function getUserTimesheet(
       throw new Error('Missing required parameters for getUserTimesheet');
     }
 
-    const response = await api.get(
+    const response: any = await api.get(
       `${API_ENDPOINTS.USER_TIMESHEETS}/user/${userId}/${entryDate}?org_id=${orgId}`
     );
 
@@ -143,7 +143,7 @@ export async function getUserTimesheet(
  */
 export async function getTeamTimesheets(
   orgId: string,
-  entryDate: string,
+  entryDate?: string,
   userIds?: string[]
 ): Promise<TeamTimesheetsResponse> {
   try {
@@ -160,9 +160,9 @@ export async function getTeamTimesheets(
     const queryString = params.toString();
     const url = `${API_ENDPOINTS.USER_TIMESHEETS}/team/${orgId}/${entryDate}${queryString ? `?${queryString}` : ''}`;
 
-    const response = await api.get(url);
+    const response: any = await api.get(url);
 
-    if (!response.success) {
+    if (!response.success) {  
       throw new Error(response.message || 'Failed to fetch team timesheets');
     }
 
@@ -204,7 +204,7 @@ export async function getCalendarMonthStatus(
     const queryString = params.toString();
     const url = `${API_ENDPOINTS.USER_TIMESHEETS}/calendar-status/${orgId}/${year}/${month}${queryString ? `?${queryString}` : ''}`;
 
-    const response = await api.get(url);
+    const response: any = await api.get(url);
 
     if (!response.success) {
       throw new Error(response.message || 'Failed to fetch calendar status');
@@ -230,7 +230,7 @@ export async function deleteUserTimesheet(
       throw new Error('Missing required parameters for deleteUserTimesheet');
     }
 
-    const response = await api.del(
+    const response: any = await api.del(
       `${API_ENDPOINTS.USER_TIMESHEETS}/user/${userId}/${entryDate}?org_id=${orgId}`
     );
 
