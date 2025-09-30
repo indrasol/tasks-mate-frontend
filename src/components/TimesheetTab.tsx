@@ -24,6 +24,7 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -378,7 +379,25 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         return fieldDrafts[fieldKey] ?? '';
       }
 
-      // Get data from user timesheet entries
+      // Check if we have saved content for this specific field/date combination
+      if (savedContentByField[fieldKey]) {
+        return savedContentByField[fieldKey];
+      }
+
+      // For dates other than the currently selected date, check if we have cached data
+      if (selectedDate && selectedTimesheetDate) {
+        const selectedDateStr = formatDateForAPI(selectedDate);
+        const currentDateStr = formatDateForAPI(selectedTimesheetDate);
+        
+        // If this is not the current date, try to get data from cache or return empty
+        if (selectedDateStr !== currentDateStr) {
+          // Check if we have cached data for this specific date
+          const cachedKey = `${timesheetUser.user_id}-${type}-${selectedDateStr}`;
+          return savedContentByField[cachedKey] || '';
+        }
+      }
+
+      // Get data from user timesheet entries (only for the current selected date)
       let entries = [];
       if (type === 'in_progress') {
         entries = timesheetUser.in_progress || [];
@@ -422,11 +441,15 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
       const value = textareaRef.current?.value || '';
 
-      // Save the timesheet data using new API
-      await saveTimesheetData(timesheetUser.user_id, type, value);
+      // Save the timesheet data using new API with the specific date
+      await saveTimesheetData(timesheetUser.user_id, type, value, selectedDate);
 
-      // Update local draft
+      // Update local draft for this specific field and date
       setFieldDrafts(prev => ({ ...prev, [fieldKey]: value }));
+      
+      // Update saved content cache for this specific field and date
+      setSavedContentByField(prev => ({ ...prev, [fieldKey]: value }));
+      
       setContent(value);
     };
 
@@ -442,12 +465,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
     return (
       <div className="h-full flex flex-col" key={`${fieldKey}-${draftResetCounter}`}>
-        <div className={`relative flex-1 bg-white dark:bg-gray-800 rounded-lg border border-${color}-200 dark:border-${color}-600 shadow-sm hover:shadow-md transition-all duration-200 ${canEdit ? 'cursor-text' : 'cursor-not-allowed opacity-60'} mb-2`}>
+        <div className={`relative flex-1 bg-white dark:bg-gray-800 rounded-lg border border-${color}-200 dark:border-${color}-600 shadow-sm hover:shadow-md transition-all duration-200 cursor-text mb-2`}>
           <textarea
             ref={textareaRef}
-            className={`w-full h-full p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg ${(!canEdit || isSaving) ? 'cursor-not-allowed' : ''}${canEdit && !isSaving ? ' cursor-text caret-gray-800 dark:caret-gray-100' : ''}`}
-            placeholder={getPlaceholder()}
-            readOnly={!canEdit}
+            className={`w-full h-full p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg ${isSaving ? 'cursor-not-allowed' : 'cursor-text caret-gray-800 dark:caret-gray-100'}`}
+            placeholder={canEdit ? placeholder : `View-only: ${timesheetUser.name || 'User'}'s timesheet data`}
+            readOnly={false}
             disabled={isSaving}
             aria-busy={isSaving}
             defaultValue={getInitialValue()}
@@ -469,11 +492,17 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             className={`text-xs text-${color}-700 border-${color}-200 hover:bg-${color}-50 dark:text-${color}-400 dark:border-${color}-600 dark:hover:bg-${color}-900/20 ${(!canEdit || isSaving) ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={handleSave}
             disabled={!canEdit || isSaving}
+            title={!canEdit ? (isRestricted ? 'You cannot edit future dates' : 'You do not have permission to edit this timesheet') : ''}
           >
             {isSaving ? (
               <>
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                 Saving...
+              </>
+            ) : !canEdit ? (
+              <>
+                <Eye className="w-3 h-3 mr-1" />
+                View Only
               </>
             ) : (
               <>
@@ -520,6 +549,27 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const [timesheetDateRange, setTimesheetDateRange] = useState<DateRange | undefined>(undefined);
   const [tempTimesheetDateRange, setTempTimesheetDateRange] = useState<DateRange | undefined>(undefined);
   const [isTimesheetDatePopoverOpen, setIsTimesheetDatePopoverOpen] = useState(false);
+  
+  // Detail view date range state
+  const [detailDateRange, setDetailDateRange] = useState<DateRange | undefined>(() => {
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(today.getDate() - 7);
+    return { from: weekAgo, to: today };
+  });
+  const [tempDetailDateRange, setTempDetailDateRange] = useState<DateRange | undefined>(detailDateRange);
+  const [isDetailDatePopoverOpen, setIsDetailDatePopoverOpen] = useState(false);
+  
+  // Scroll state for modern scroll indicators
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+  const [isNearBottom, setIsNearBottom] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Collapsible member cards state
+  const [collapsedMembers, setCollapsedMembers] = useState<Set<string>>(new Set());
+  
+  // Member filter state - 'all' means show all members, specific userId means show only that member
+  const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
 
   // UI State
   const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
@@ -528,14 +578,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const [selectedTimesheetDate, setSelectedTimesheetDate] = useState<Date | undefined>(new Date());
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [activeEmployeeTab, setActiveEmployeeTab] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'calendar' | 'detail'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'detail'>('detail');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(undefined);
 
-  // Tabs scrolling state
-  const [showLeftScroll, setShowLeftScroll] = useState(false);
-  const [showRightScroll, setShowRightScroll] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const tabsScrollRef = useRef<HTMLDivElement>(null);
+  // Remove old scrolling state - no longer needed with dropdown filters
 
   // Local state to track timesheet status for calendar dates
   const [timesheetStatus, setTimesheetStatus] = useState<Record<string, { hasData: boolean; userId: string }>>({});
@@ -552,6 +598,64 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const [draftResetCounter, setDraftResetCounter] = useState(0);
   // Persist last saved content per field/date to restore on draft discard
   const [savedContentByField, setSavedContentByField] = useState<Record<string, string>>({});
+  
+  // Cache for date-specific timesheet data
+  const [dateSpecificData, setDateSpecificData] = useState<Record<string, any>>({});
+
+  // Function to fetch data for a specific date
+  const fetchDataForDate = useCallback(async (date: Date, userId: string) => {
+    const dateKey = `${formatDateForAPI(date)}-${userId}`;
+    
+    // If we already have data for this date/user, don't fetch again
+    if (dateSpecificData[dateKey]) {
+      return dateSpecificData[dateKey];
+    }
+
+    try {
+      // Fetch data for the specific date
+      const data = await getTeamTimesheets(
+        orgId,
+        formatDateForAPI(date),
+        [userId]
+      );
+      
+      // Cache the data
+      setDateSpecificData(prev => ({ ...prev, [dateKey]: data }));
+      
+      // Update savedContentByField with the fetched data
+      if (data?.users?.length > 0) {
+        const userData = data.users[0];
+        const dateStr = formatDateForAPI(date);
+        
+        const newSavedContent: Record<string, string> = {};
+        
+        // Store in_progress data
+        if (userData.in_progress) {
+          const inProgKey = `${userId}-in_progress-${dateStr}`;
+          newSavedContent[inProgKey] = convertEntriesToText(userData.in_progress);
+        }
+        
+        // Store blocked data
+        if (userData.blocked) {
+          const blockedKey = `${userId}-blocked-${dateStr}`;
+          newSavedContent[blockedKey] = convertEntriesToText(userData.blocked);
+        }
+        
+        // Store completed data
+        if (userData.completed) {
+          const completedKey = `${userId}-completed-${dateStr}`;
+          newSavedContent[completedKey] = convertEntriesToText(userData.completed);
+        }
+        
+        setSavedContentByField(prev => ({ ...prev, ...newSavedContent }));
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch data for date:', date, error);
+      return null;
+    }
+  }, [orgId, dateSpecificData]);
 
   // Discard drafts for a given date (rely on last saved values via getInitialValue)
   const discardDraftsForDate = useCallback((date: Date | undefined) => {
@@ -807,6 +911,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
   }, [projectsFromParent, isProjectsLoading, projects.length, fetchProjects]);
 
+  // This useEffect will be moved after sortedTimesheetUsers is defined
+
   // Hydrate last-saved content map from fetched data so reverting shows server-saved values
   useEffect(() => {
     if (!dailyTimesheets || !selectedTimesheetDate) return;
@@ -928,6 +1034,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       users = users?.filter(user => selectedTimesheetUsers?.includes(String(user.user_id)));
     }
 
+    // Apply project filter - filter users based on their project membership
+    if (selectedTimesheetProjects.length > 0) {
+      users = users?.filter(user => {
+        // Check if user is a member of any of the selected projects
+        return selectedTimesheetProjects.some(projectId => 
+          isUserProjectMember(user.user_id, projectId)
+        );
+      });
+    }
+
     // Apply search filter
     if (timesheetSearchQuery) {
       const q = timesheetSearchQuery.toLowerCase();
@@ -941,7 +1057,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
 
     return users;
-  }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, getFilteredMembers]);
+  }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetProjects, getFilteredMembers, isUserProjectMember]);
 
   // Initialize timesheet status from loaded data
   useEffect(() => {
@@ -1012,6 +1128,31 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
   }, [filteredTimesheetUsers, timesheetSort]);
 
+  // Fetch data for all dates in the detail range
+  useEffect(() => {
+    if (!detailDateRange?.from || !detailDateRange?.to || !sortedTimesheetUsers.length) return;
+    
+    const fetchAllDatesData = async () => {
+      const dates = [];
+      const currentDate = new Date(detailDateRange.from!);
+      const endDate = new Date(detailDateRange.to!);
+      
+      while (currentDate <= endDate) {
+        dates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      // Fetch data for each date and user combination
+      for (const date of dates) {
+        for (const user of sortedTimesheetUsers) {
+          await fetchDataForDate(date, user.user_id);
+        }
+      }
+    };
+    
+    fetchAllDatesData();
+  }, [detailDateRange, sortedTimesheetUsers, fetchDataForDate]);
+
   // Set active employee tab to first user if not set
   useEffect(() => {
     if (sortedTimesheetUsers.length > 0 && !activeEmployeeTab) {
@@ -1024,54 +1165,49 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
   }, [sortedTimesheetUsers, activeEmployeeTab, user]);
 
-  // Check scroll buttons when users change
+  // Scroll detection for modern scroll indicators
   useEffect(() => {
-    if (sortedTimesheetUsers.length > 0) {
-      // Use setTimeout to ensure DOM is updated
-      setTimeout(() => {
-        checkScrollButtons();
-      }, 100);
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
+      
+      // Show scroll indicator if there's content to scroll
+      setShowScrollIndicator(scrollHeight > clientHeight);
+      
+      // Check if near bottom (within 50px)
+      setIsNearBottom(scrollTop + clientHeight >= scrollHeight - 50);
+    };
+
+    // Initial check
+    handleScroll();
+    
+    // Add scroll listener
+    scrollContainer.addEventListener('scroll', handleScroll);
+    
+    // Add resize listener to recheck on window resize
+    const handleResize = () => handleScroll();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [viewMode, detailDateRange]);
+
+  // Scroll to bottom function
+  const scrollToBottom = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
-  }, [sortedTimesheetUsers.length]);
+  };
 
-  // Handle scroll events and check scroll button visibility
-  useEffect(() => {
-    const scrollContainer = tabsScrollRef.current;
-    if (scrollContainer) {
-      const handleScroll = () => {
-        checkScrollButtons();
-      };
-
-      const handleResize = () => {
-        checkScrollButtons();
-      };
-
-      // Initial check
-      checkScrollButtons();
-
-      // Add event listeners
-      scrollContainer.addEventListener('scroll', handleScroll);
-      window.addEventListener('resize', handleResize);
-
-      // Cleanup
-      return () => {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-        window.removeEventListener('resize', handleResize);
-      };
-    }
-  }, [sortedTimesheetUsers]);
-
-  // Scroll to active tab when it changes
-  useEffect(() => {
-    if (activeEmployeeTab) {
-      // Use timeout to ensure DOM is updated
-      setTimeout(() => {
-        scrollToActiveTab();
-      }, 100);
-    }
-  }, [activeEmployeeTab]);
-
-  // Keyboard navigation for tabs
+  // Enhanced keyboard navigation for member selection
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!sortedTimesheetUsers.length || !activeEmployeeTab) return;
@@ -1079,12 +1215,19 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       const currentIndex = sortedTimesheetUsers.findIndex(user => user.user_id === activeEmployeeTab);
       let newIndex = currentIndex;
 
+      // Ctrl + Arrow keys for member navigation
       if (event.key === 'ArrowLeft' && event.ctrlKey) {
         event.preventDefault();
         newIndex = Math.max(0, currentIndex - 1);
       } else if (event.key === 'ArrowRight' && event.ctrlKey) {
         event.preventDefault();
         newIndex = Math.min(sortedTimesheetUsers.length - 1, currentIndex + 1);
+      }
+      // Ctrl + M to focus member dropdown (for accessibility)
+      else if (event.key === 'm' && event.ctrlKey) {
+        event.preventDefault();
+        // Focus will be handled by the dropdown component
+        return;
       }
 
       if (newIndex !== currentIndex) {
@@ -1201,63 +1344,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     setSelectedTimesheetDate(nextDay);
   };
 
-  // Tabs Scrolling Functions
-  const checkScrollButtons = useCallback(() => {
-    const scrollContainer = tabsScrollRef.current;
-    if (scrollContainer) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
-
-      const shouldShowLeft = scrollLeft > 0;
-      const shouldShowRight = scrollLeft < scrollWidth - clientWidth - 1;
-
-      setShowLeftScroll(shouldShowLeft);
-      setShowRightScroll(shouldShowRight);
-
-      // Calculate scroll progress (0 to 100)
-      const maxScrollLeft = scrollWidth - clientWidth;
-      const progress = maxScrollLeft > 0 ? (scrollLeft / maxScrollLeft) * 100 : 0;
-      setScrollProgress(progress);
-    }
-  }, []);
-
-  const scrollTabs = (direction: 'left' | 'right') => {
-    const scrollContainer = tabsScrollRef.current;
-    if (scrollContainer) {
-      const scrollAmount = 200; // Pixels to scroll
-      const newScrollLeft = direction === 'left'
-        ? scrollContainer.scrollLeft - scrollAmount
-        : scrollContainer.scrollLeft + scrollAmount;
-
-      scrollContainer.scrollTo({
-        left: newScrollLeft,
-        behavior: 'smooth'
-      });
-    }
-  };
-
-  const scrollToActiveTab = () => {
-    const scrollContainer = tabsScrollRef.current;
-    const activeTab = scrollContainer?.querySelector('[data-state="active"]') as HTMLElement;
-
-    if (scrollContainer && activeTab) {
-      const containerRect = scrollContainer.getBoundingClientRect();
-      const tabRect = activeTab.getBoundingClientRect();
-
-      // Check if tab is fully visible
-      const isTabVisible =
-        tabRect.left >= containerRect.left &&
-        tabRect.right <= containerRect.right;
-
-      if (!isTabVisible) {
-        // Scroll to center the active tab
-        const scrollLeft = activeTab.offsetLeft - (scrollContainer.clientWidth / 2) + (activeTab.clientWidth / 2);
-        scrollContainer.scrollTo({
-          left: scrollLeft,
-          behavior: 'smooth'
-        });
-      }
-    }
-  };
+  // Remove old scrolling functions - no longer needed with dropdown filters
 
   // Calendar View Functions
   const handleDateClick = (date: Date) => {
@@ -1451,9 +1538,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const saveTimesheetData = async (
     userId: string,
     field: 'in_progress' | 'completed' | 'blocked',
-    value: string
+    value: string,
+    specificDate?: Date
   ) => {
-    if (!selectedTimesheetDate || !orgId || !userId || !field) return;
+    // Use the specific date if provided, otherwise fall back to selectedTimesheetDate
+    const dateToSave = specificDate || selectedTimesheetDate;
+    if (!dateToSave || !orgId || !userId || !field) return;
 
     // Check permissions - users can edit their own timesheets, admins/owners can edit any
     if (userId !== user?.id && !['admin', 'owner'].includes(currentUserOrgRole || '')) {
@@ -1465,8 +1555,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       return;
     }
 
-    // Check date restrictions for members
-    if (currentUserOrgRole === 'member' && isDateRestrictedForEditing) {
+    // Check date restrictions for members using the specific date
+    const isSpecificDateRestricted = (() => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetDate = new Date(dateToSave);
+      targetDate.setHours(0, 0, 0, 0);
+      return targetDate > today;
+    })();
+
+    if (currentUserOrgRole === 'member' && isSpecificDateRestricted) {
       toast({
         title: 'Date Restricted',
         description: 'Members cannot edit future dates',
@@ -1485,7 +1583,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       const updateData: UserTimesheetFieldUpdate = {
         org_id: orgId,
         user_id: userId,
-        entry_date: formatDateForAPI(selectedTimesheetDate),
+        entry_date: formatDateForAPI(dateToSave),
         field_type: field,
         field_content: value
       };
@@ -1498,8 +1596,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           variant: 'default'
         });
 
-        // Update local calendar status optimistically
-        const dateKey = formatDateForAPI(selectedTimesheetDate);
+        // Update local calendar status optimistically using the specific date
+        const dateKey = formatDateForAPI(dateToSave);
         const hasData = value.trim().length > 0;
 
         setCalendarStatus(prev => ({
@@ -1511,21 +1609,19 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         }));
 
         // Invalidate the query cache for this specific date so it refetches when navigated to
-        if (selectedTimesheetDate) {
-          const savedDateString = formatDateForAPI(selectedTimesheetDate);
+        const savedDateString = formatDateForAPI(dateToSave);
 
-          // Invalidate all team-timesheet queries for this org and date (regardless of user filters)
-          queryClient.invalidateQueries({
-            queryKey: ['team-timesheets', orgId, savedDateString],
-            exact: false // This will match queries that start with these keys
-          });
+        // Invalidate all team-timesheet queries for this org and date (regardless of user filters)
+        queryClient.invalidateQueries({
+          queryKey: ['team-timesheets', orgId, savedDateString],
+          exact: false // This will match queries that start with these keys
+        });
 
-          // Also invalidate calendar status for the saved date
-          queryClient.invalidateQueries({
-            queryKey: ['calendar-month-status', orgId, selectedTimesheetDate.getFullYear(), selectedTimesheetDate.getMonth() + 1],
-            exact: false
-          });
-        }
+        // Also invalidate calendar status for the saved date
+        queryClient.invalidateQueries({
+          queryKey: ['calendar-month-status', orgId, dateToSave.getFullYear(), dateToSave.getMonth() + 1],
+          exact: false
+        });
 
       } else {
         throw new Error(response.message || 'Failed to save');
@@ -1742,91 +1838,349 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
-        {/* Employee Tabs Header */}
-        {!isTimesheetsFetching && sortedTimesheetUsers.length > 0 && (
-          <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 sm:px-2 py-2 sm:py-3 flex-shrink-0 max-w-full">
-            <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full w-full flex flex-col">
-              <div className="relative flex items-center">
-                {/* Left Scroll Button */}
-                {showLeftScroll && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => scrollTabs('left')}
-                    className="absolute left-0 z-20 h-full px-2 bg-white/90 dark:bg-gray-800/90 hover:bg-gray-50 dark:hover:bg-gray-700 border-0 rounded-none shadow-lg backdrop-blur-sm pointer-events-auto"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                )}
-
-                {/* Scrollable Tabs Container */}
-                <div
-                  ref={tabsScrollRef}
-                  className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth scrollbar-hide px-2 sm:px-3"
-                  onScroll={checkScrollButtons}
-                  style={{
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                    maxWidth: '100%'
-                  }}
-                >
-                  <TabsList className="h-auto p-0 bg-transparent gap-0.5 sm:gap-1 justify-start flex pr-4" style={{ width: 'max-content', minWidth: 'max-content' }}>
+        {/* Simplified Filter Header */}
+        {!isTimesheetsFetching && (
+          <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 flex-shrink-0">
+            <div className="flex items-center justify-between gap-4">
+              {/* Left Section - Filters */}
+              <div className="flex items-center gap-3">
+                {/* Member Selection Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="min-w-[140px] justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        <span className="truncate">
+                          {selectedMemberFilter === 'all' 
+                            ? 'All Members'
+                            : (() => {
+                                const selectedUser = sortedTimesheetUsers.find(u => u.user_id === selectedMemberFilter);
+                                return selectedUser 
+                                  ? deriveDisplayFromEmail(selectedUser.name || selectedUser.email || selectedUser.user_id).displayName
+                                  : 'All Members';
+                              })()
+                          }
+                        </span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 rotate-90" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
+                    {/* All Members Option */}
+                    <DropdownMenuCheckboxItem
+                      checked={selectedMemberFilter === 'all'}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedMemberFilter('all');
+                        }
+                      }}
+                      className="cursor-pointer font-medium"
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                          <Users className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">All Members</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            View all team members
+                          </div>
+                        </div>
+                      </div>
+                    </DropdownMenuCheckboxItem>
+                    
+                    {/* Individual Members */}
                     {sortedTimesheetUsers?.map((user) => {
-                      const productivityScore = calculateProductivityScore(user);
-                      const productivityLevel = getProductivityLevel(productivityScore);
                       const employeeProjects = getEmployeeProjects(user);
-
+                      const isSelected = selectedMemberFilter === user.user_id;
+                      
                       return (
-                        <TabsTrigger
+                        <DropdownMenuCheckboxItem
                           key={user.user_id}
-                          value={user.user_id}
-                          className="flex-shrink-0 px-2 sm:px-3 py-2 rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:border-blue-200 data-[state=active]:shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 whitespace-nowrap"
-                        // style={{ minWidth: '100px', maxWidth: '140px' }}
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedMemberFilter(user.user_id);
+                            }
+                          }}
+                          className="cursor-pointer"
                         >
-                          <div className="flex items-center gap-1.5 sm:gap-2">
-                            <Avatar className="w-5 h-5 sm:w-6 sm:h-6 ring-1 ring-offset-1 ring-blue-500">
+                          <div className="flex items-center gap-3 w-full">
+                            <Avatar className="w-8 h-8">
                               <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs">
                                 {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
-                            <div className="text-left min-w-0 flex-1">
-                              <div className="font-medium text-xs truncate whitespace-nowrap">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">
                                 {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate whitespace-nowrap">
-                                {employeeProjects.length > 0 ? `${employeeProjects.length} projects` : '0 projects'}
+                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {user.designation || 'Team Member'} • {employeeProjects.length} projects
                               </div>
                             </div>
                           </div>
-                        </TabsTrigger>
+                        </DropdownMenuCheckboxItem>
                       );
                     })}
-                  </TabsList>
-                </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                {/* Right Scroll Button */}
-                {showRightScroll && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => scrollTabs('right')}
-                    className="absolute right-0 z-20 h-full px-2 bg-white/90 dark:bg-gray-800/90 hover:bg-gray-50 dark:hover:bg-gray-700 border-0 rounded-none shadow-lg backdrop-blur-sm pointer-events-auto"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                )}
-
-                {/* Scroll Progress Indicator */}
-                {(showLeftScroll || showRightScroll) && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-200 dark:bg-gray-600">
-                    <div
-                      className="h-full bg-blue-500 transition-all duration-300 ease-out"
-                      style={{ width: `${scrollProgress}%` }}
-                    />
-                  </div>
-                )}
+                {/* Project Filter Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="min-w-[120px] justify-between">
+                      <div className="flex items-center gap-2">
+                        <Folder className="w-4 h-4" />
+                        <span className="truncate">
+                          {selectedTimesheetProjects.length > 0 
+                            ? `${selectedTimesheetProjects.length} Projects`
+                            : 'All Projects'
+                          }
+                        </span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 rotate-90" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 max-h-72 overflow-auto">
+                    {/* Clear Selection */}
+                    <DropdownMenuCheckboxItem
+                      checked={selectedTimesheetProjects.length === 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedTimesheetProjects([]);
+                        }
+                      }}
+                      className="cursor-pointer font-medium"
+                    >
+                      All Projects
+                    </DropdownMenuCheckboxItem>
+                    
+                    {/* Project List */}
+                    {projects
+                      ?.filter(project => {
+                        // Apply role-based filtering
+                        if (currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin') {
+                          return true;
+                        } else if (currentUserOrgRole === 'member') {
+                          return project?.members?.includes(user?.id) || false;
+                        }
+                        return false;
+                      })
+                      ?.sort((a, b) => a.name?.localeCompare(b.name))
+                      ?.map((project) => (
+                        <DropdownMenuCheckboxItem
+                          key={project.id}
+                          checked={selectedTimesheetProjects.includes(project.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedTimesheetProjects(prev => 
+                              checked 
+                                ? [...prev, project.id]
+                                : prev.filter(id => id !== project.id)
+                            );
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Folder className="w-4 h-4 text-blue-500" />
+                            <span className="truncate">{project.name}</span>
+                          </div>
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-            </Tabs>
+
+              {/* Right Section - Date Range Filter */}
+              <Popover 
+                open={isDetailDatePopoverOpen} 
+                onOpenChange={(open) => {
+                  if (open) {
+                    // Sync temp range with current range when opening
+                    setTempDetailDateRange(detailDateRange);
+                  }
+                  setIsDetailDatePopoverOpen(open);
+                }}
+              >
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="min-w-[160px] justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-xs">
+                        {detailDateRange?.from && detailDateRange?.to
+                          ? `${detailDateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${detailDateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                          : 'Select range'
+                        }
+                      </span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 rotate-90" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-4" align="end">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-sm">Select Date Range</h4>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const today = new Date();
+                            const weekAgo = new Date(today);
+                            weekAgo.setDate(today.getDate() - 7);
+                            setTempDetailDateRange({ from: weekAgo, to: today });
+                          }}
+                        >
+                          Last 7 days
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const today = new Date();
+                            const monthAgo = new Date(today);
+                            monthAgo.setDate(today.getDate() - 30);
+                            setTempDetailDateRange({ from: monthAgo, to: today });
+                          }}
+                        >
+                          Last 30 days
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Individual Date Inputs */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Start Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-left font-normal"
+                            >
+                              <Calendar className="mr-2 h-4 w-4" />
+                              {tempDetailDateRange?.from ? (
+                                tempDetailDateRange.from.toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })
+                              ) : (
+                                <span>Pick start date</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={tempDetailDateRange?.from}
+                              onSelect={(date) => {
+                                if (date) {
+                                  setTempDetailDateRange(prev => ({
+                                    from: date,
+                                    to: prev?.to && date <= prev.to ? prev.to : date
+                                  }));
+                                }
+                              }}
+                              disabled={(date) => 
+                                tempDetailDateRange?.to ? date > tempDetailDateRange.to : false
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">End Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-left font-normal"
+                            >
+                              <Calendar className="mr-2 h-4 w-4" />
+                              {tempDetailDateRange?.to ? (
+                                tempDetailDateRange.to.toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })
+                              ) : (
+                                <span>Pick end date</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={tempDetailDateRange?.to}
+                              onSelect={(date) => {
+                                if (date) {
+                                  setTempDetailDateRange(prev => ({
+                                    from: prev?.from && date >= prev.from ? prev.from : date,
+                                    to: date
+                                  }));
+                                }
+                              }}
+                              disabled={(date) => 
+                                tempDetailDateRange?.from ? date < tempDetailDateRange.from : false
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                    
+                    {/* Visual Range Display */}
+                    {tempDetailDateRange?.from && tempDetailDateRange?.to && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-blue-700 dark:text-blue-300 font-medium">Selected Range:</span>
+                          <span className="text-blue-900 dark:text-blue-100">
+                            {Math.ceil((tempDetailDateRange.to.getTime() - tempDetailDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1} days
+                          </span>
+                        </div>
+                        <div className="text-blue-800 dark:text-blue-200 font-medium mt-1">
+                          {tempDetailDateRange.from.toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric'
+                          })} → {tempDetailDateRange.to.toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-end items-center">
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setIsDetailDatePopoverOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          onClick={() => { 
+                            setDetailDateRange(tempDetailDateRange); 
+                            setIsDetailDatePopoverOpen(false); 
+                          }}
+                          disabled={!tempDetailDateRange?.from || !tempDetailDateRange?.to}
+                        >
+                          Apply Range
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         )}
 
@@ -1842,291 +2196,328 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
         {/* Employee Content Area */}
         {!(isTimesheetsFetching && !isCalendarLoading) && (
-          <div className="flex-1 overflow-auto min-h-0 min-w-0">
-            <Tabs value={activeEmployeeTab} onValueChange={setActiveEmployeeTab} className="h-full flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 relative">
+            {/* All Members Content */}
+            <div className="flex-1 flex flex-col min-h-0 relative">
+              {sortedTimesheetUsers.length > 0 ? (
+                <div 
+                  ref={scrollContainerRef}
+                  className="flex-1 overflow-y-auto overflow-x-hidden m-0 p-0 relative"
+                  style={{ 
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#cbd5e1 transparent'
+                  }}
+                >
+                  <div className="p-2 sm:p-3 space-y-4">
+                    {/* Filtered Members Cards */}
+                    {sortedTimesheetUsers
+                      .filter(user => selectedMemberFilter === 'all' || user.user_id === selectedMemberFilter)
+                      .map((user) => {
+                      // Auto-expand when a specific member is selected, otherwise use collapsed state
+                      const isCollapsed = selectedMemberFilter === 'all' 
+                        ? collapsedMembers.has(user.user_id)
+                        : false; // Always expand when viewing a specific member
+                      const toggleCollapse = () => {
+                        // Only allow toggling when in "All Members" mode
+                        if (selectedMemberFilter === 'all') {
+                          setCollapsedMembers(prev => {
+                            const newSet = new Set(prev);
+                            if (newSet.has(user.user_id)) {
+                              newSet.delete(user.user_id);
+                            } else {
+                              newSet.add(user.user_id);
+                            }
+                            return newSet;
+                          });
+                        }
+                      };
 
-              {/* Active Employee Content */}
-              <div className="flex-1 overflow-hidden min-h-0">
-                {sortedTimesheetUsers.length > 0 ? sortedTimesheetUsers?.map((user) => (
-                  <TabsContent
-                    key={user.user_id}
-                    value={user.user_id}
-                    className="h-full overflow-auto thin-scroll m-0 p-0"
-                  >
-                    <div className="p-2 sm:p-3 space-y-2 sm:space-y-3 h-full flex flex-col">
-                      {/* Employee Header Strip */}
-                      <div className="bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border border-slate-200 dark:border-gray-600 rounded-lg p-2 sm:p-3 shadow-sm flex-shrink-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-                          <div className="flex items-center gap-3 sm:gap-4">
-                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 ring-2 ring-offset-1 ring-blue-500">
-                              <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs sm:text-sm">
-                                {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <h2 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">
-                                {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
-                              </h2>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                  {user.designation || 'Team Member'} • {user.email || user.user_id}
-                                  {getEmployeeProjects(user).length > 0 && (
-                                    <span> • Projects:</span>
-                                  )}
-                                </p>
-                                {getEmployeeProjects(user).length > 0 && (
+                      return (
+                        <div key={user.user_id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                          {/* Member Header with Toggle */}
+                          <div 
+                            className={`bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-b border-slate-200 dark:border-gray-600 p-3 transition-all duration-200 ${
+                              selectedMemberFilter === 'all' 
+                                ? 'cursor-pointer hover:bg-gradient-to-r hover:from-slate-100/80 hover:to-blue-100/60 dark:hover:from-gray-700/90 dark:hover:to-gray-600/90' 
+                                : 'cursor-default'
+                            }`}
+                            onClick={toggleCollapse}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="w-10 h-10 ring-2 ring-offset-1 ring-blue-500">
+                                  <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-sm">
+                                    {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">
+                                    {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
+                                  </h3>
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    {getEmployeeProjects(user).slice(0, 3)?.map((projectName, idx) => (
-                                      <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                        <Folder className="w-3 h-3 mr-1" />
-                                        {projectName}
-                                      </Badge>
-                                    ))}
-                                    {getEmployeeProjects(user).length > 3 && (
-                                      <HoverCard>
-                                        <HoverCardTrigger asChild>
-                                          <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200 cursor-pointer">
-                                            +{getEmployeeProjects(user).length - 3} more
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                      <span className="font-medium">{user.designation || 'Team Member'}</span> • <span className="font-medium">{user.email || user.user_id}</span>
+                                      {getEmployeeProjects(user).length > 0 && (
+                                        <span className="font-medium"> • Projects:</span>
+                                      )}
+                                    </p>
+                                    {getEmployeeProjects(user).length > 0 && (
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        {getEmployeeProjects(user).slice(0, 3)?.map((projectName, idx) => (
+                                          <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700">
+                                            <Folder className="w-3 h-3 mr-1" />
+                                            {projectName}
                                           </Badge>
-                                        </HoverCardTrigger>
-                                        <HoverCardContent className="w-80">
-                                          <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold">All Projects</h4>
-                                            <div className="flex flex-wrap gap-1">
-                                              {getEmployeeProjects(user)?.map((projectName, idx) => (
-                                                <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                                  <Folder className="w-3 h-3 mr-1" />
-                                                  {projectName}
-                                                </Badge>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        </HoverCardContent>
-                                      </HoverCard>
+                                        ))}
+                                        {getEmployeeProjects(user).length > 3 && (
+                                          <HoverCard>
+                                            <HoverCardTrigger asChild>
+                                              <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                                +{getEmployeeProjects(user).length - 3} more
+                                              </Badge>
+                                            </HoverCardTrigger>
+                                            <HoverCardContent className="w-80">
+                                              <div className="space-y-2">
+                                                <h4 className="text-sm font-semibold">All Projects</h4>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {getEmployeeProjects(user)?.map((projectName, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700">
+                                                      <Folder className="w-3 h-3 mr-1" />
+                                                      {projectName}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </HoverCardContent>
+                                          </HoverCard>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
-                                )}
+                                </div>
                               </div>
+                              {selectedMemberFilter === 'all' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 hover:bg-white/50 dark:hover:bg-gray-700/50"
+                                >
+                                  <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? 'rotate-0' : 'rotate-90'}`} />
+                                </Button>
+                              )}
                             </div>
                           </div>
 
-                          {/* View Mode Indicator */}
-                          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                            {viewMode === 'detail' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={backToCalendar}
-                                className="flex items-center gap-2"
-                              >
-                                <ArrowLeft className="w-4 h-4" />
-                                <span className="hidden sm:inline">Back to Calendar</span>
-                                <span className="sm:hidden">Back</span>
-                              </Button>
-                            )}
-                            {viewMode === 'calendar' && (
-                              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700">
-                                <div className="flex items-center gap-1 sm:gap-2">
-                                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                  <div className="text-xs sm:text-sm font-medium text-indigo-900 dark:text-indigo-100">
-                                    <div className="flex items-center gap-2 sm:gap-4">
-                                      <span className="hidden sm:inline">Status:</span>
-                                      <div className="flex items-center gap-2 sm:gap-3">
-                                        <div className="flex items-center gap-1 sm:gap-2">
-                                          <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                                          <span className="text-xs">Not Started</span>
+                          {/* Member Content - Collapsible */}
+                          {!isCollapsed && (
+                            <div className="space-y-4">
+                              {/* Timeline Cards Layout */}
+                          <div className="space-y-4">
+                            {detailDateRange?.from && detailDateRange?.to ? (
+                              (() => {
+                                const dates = [];
+                                const currentDate = new Date(detailDateRange.from);
+                                const endDate = new Date(detailDateRange.to);
+                                
+                                while (currentDate <= endDate) {
+                                  dates.push(new Date(currentDate));
+                                  currentDate.setDate(currentDate.getDate() + 1);
+                                }
+                                
+                                return dates.reverse().map((date) => {
+                                  const isDateToday = date.toDateString() === new Date().toDateString();
+                                  const dateKey = formatDateForAPI(date);
+                                  
+                                  return (
+                                    <div key={dateKey} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                      {/* Content Grid with Date as First Column */}
+                                      <div className={`grid ${showCompletedTasks ? 'grid-cols-1 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-3'} gap-4 p-4`}>
+                                        {/* Date Column */}
+                                        <div className="space-y-2">
+                                          <div className="flex items-center justify-center gap-2 text-gray-700 dark:text-gray-300">
+                                            <Calendar className="w-4 h-4" />
+                                            <span className="font-medium text-sm">Date</span>
+                                          </div>
+                                          <div className="bg-gradient-to-br from-gray-50/80 to-slate-100/60 dark:from-gray-900/40 dark:to-gray-800/60 rounded-xl p-4 min-h-[120px] flex flex-col justify-center border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
+                                            <div className="text-center space-y-4">
+                                              {/* Full Date Display in One Line */}
+                                              <div className="space-y-2">
+                                                <div className="font-bold text-base text-gray-900 dark:text-gray-100 leading-tight">
+                                                  {date.toLocaleDateString('en-US', {
+                                                    weekday: 'long',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                  })}
+                                                </div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                  {date.getFullYear()}
+                                                </div>
+                                              </div>
+                                              
+                                              {/* Status Badge */}
+                                              <Badge 
+                                                variant={isDateToday ? 'default' : 'secondary'} 
+                                                className={`text-xs px-2 py-1 ${
+                                                  isDateToday 
+                                                    ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' 
+                                                    : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                                                }`}
+                                              >
+                                                {isDateToday ? 'Today' : (() => {
+                                                  const today = new Date();
+                                                  today.setHours(0, 0, 0, 0);
+                                                  const targetDate = new Date(date);
+                                                  targetDate.setHours(0, 0, 0, 0);
+                                                  const diffTime = today.getTime() - targetDate.getTime();
+                                                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                                  
+                                                  if (diffDays === 1) return '1 day ago';
+                                                  if (diffDays === 0) return 'Today';
+                                                  if (diffDays < 0) return 'Future';
+                                                  return `${diffDays} days ago`;
+                                                })()}
+                                              </Badge>
+                                            </div>
+                                          </div>
                                         </div>
-                                        <div className="flex items-center gap-1 sm:gap-2">
-                                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                          <span className="text-xs">Completed</span>
+                                        {/* In Progress */}
+                                        <div className="space-y-2">
+                                          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                                            <Clock className="w-4 h-4" />
+                                            <span className="font-medium text-sm">In Progress</span>
+                                          </div>
+                                          <div className="bg-blue-50/50 dark:bg-blue-900/20 rounded-lg p-3 min-h-[120px]">
+                                            <TimesheetTextarea
+                                              user={user}
+                                              type="in_progress"
+                                              color="blue"
+                                              placeholder={isDateToday ? "What are you working on today?" : "What were you working on?"}
+                                              selectedDate={date}
+                                            />
+                                          </div>
                                         </div>
+
+                                        {/* Blocked */}
+                                        <div className="space-y-2">
+                                          <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                                            <AlertTriangle className="w-4 h-4" />
+                                            <span className="font-medium text-sm">Blocked</span>
+                                          </div>
+                                          <div className="bg-red-50/50 dark:bg-red-900/20 rounded-lg p-3 min-h-[120px]">
+                                            <TimesheetTextarea
+                                              user={user}
+                                              type="blocked"
+                                              color="red"
+                                              placeholder={isDateToday ? "Any blockers or issues today?" : "Were there any blockers?"}
+                                              selectedDate={date}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        {/* Completed */}
+                                        {showCompletedTasks && (
+                                          <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                                              <CheckCircle className="w-4 h-4" />
+                                              <span className="font-medium text-sm">Completed</span>
+                                            </div>
+                                            <div className="bg-green-50/50 dark:bg-green-900/20 rounded-lg p-3 min-h-[120px]">
+                                              <TimesheetTextarea
+                                                user={user}
+                                                type="completed"
+                                                color="green"
+                                                placeholder={isDateToday ? "What did you complete today?" : "What did you complete?"}
+                                                selectedDate={date}
+                                              />
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
-                                  </div>
-                                </div>
+                                  );
+                                });
+                              })()
+                            ) : (
+                              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-8 text-center">
+                                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Select Date Range</h3>
+                                <p className="text-gray-500 dark:text-gray-400">Choose a date range above to view timeline data</p>
                               </div>
                             )}
                           </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-
-                      {/* Calendar View */}
-                      {viewMode === 'calendar' && (
-                        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
-                          {/* Month Navigation Header */}
-                          <div className="flex items-center justify-between p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                            <button
-                              className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                              onClick={() => setCalendarRefDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                            >
-                              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
-                            </button>
-
-                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                              {calendarRefDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                            </h2>
-
-                            <button
-                              className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                              onClick={() => setCalendarRefDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                            >
-                              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
-                            </button>
-                          </div>
-
-                          {/* Calendar Grid Container */}
-                          <div className="flex-1 px-2 sm:px-3 pb-3 sm:pb-4 pt-1 sm:pt-1 flex flex-col">
-                            {/* Week Headers */}
-                            <div className="grid grid-cols-7 mb-2 flex-shrink-0 h-6">
-                              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                                <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center">
-                                  {day}
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Calendar Weeks - Responsive Grid */}
-                            <div className="flex-shrink-0">
-                              <CalendarGrid
-                                user={user}
-                                currentMonth={getCurrentMonthCalendar.currentMonth}
-                                weeks={getCurrentMonthCalendar.weeks}
-                                selectedCalendarDate={selectedTimesheetDate}
-                                onDateClick={handleDateClick}
-                                getDateSummary={getDateSummary}
-                                getDateStatusIcon={getDateStatusIcon}
-                                isLoading={isTimesheetsFetching}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Detail View */}
-                      {viewMode === 'detail' && (
-                        <>
-                          {/* Spreadsheet-Style Columnar Layout */}
-                          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                            {/* Table Header */}
-                            <div className={`grid ${showCompletedTasks ? 'grid-cols-4' : 'grid-cols-3'} bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600`}>
-                              <div className="p-4 font-semibold text-sm text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-600 flex items-center gap-2">
-                                <Calendar className="w-4 h-4" />
-                                Date
-                              </div>
-                              <div className="p-4 font-semibold text-sm text-blue-700 dark:text-blue-300 border-r border-gray-200 dark:border-gray-600 flex items-center gap-2">
-                                <Clock className="w-4 h-4" />
-                                In Progress
-                              </div>
-                              <div className={`p-4 font-semibold text-sm text-red-700 dark:text-red-300 ${showCompletedTasks ? 'border-r border-gray-200 dark:border-gray-600' : ''} flex items-center gap-2`}>
-                                <AlertTriangle className="w-4 h-4" />
-                                Blocked
-                              </div>
-                              {showCompletedTasks && (
-                                <div className="p-4 font-semibold text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
-                                  <CheckCircle className="w-4 h-4" />
-                                  Completed
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Table Row */}
-                            <div className={`grid ${showCompletedTasks ? 'grid-cols-4' : 'grid-cols-3'} min-h-[250px]`}>
-                              {/* Date Column */}
-                              <div className="p-4 border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center">
-                                <div className="text-center">
-                                  <div className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                                    {(selectedTimesheetDate || new Date()).toLocaleDateString('en-US', {
-                                      weekday: 'short',
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric'
-                                    })}
-                                  </div>
-
-                                  {/* Additional date info */}
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    {isToday ? 'Today' : 'Historical'}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* In Progress Column */}
-                              <div className="p-4 border-r border-gray-200 dark:border-gray-600 bg-blue-50/30 dark:bg-blue-900/10 flex flex-col">
-                                <TimesheetTextarea
-                                  user={user}
-                                  type="in_progress"
-                                  color="blue"
-                                  placeholder={isToday ? "What are you working on today?" : "What were you working on?"}
-                                  selectedDate={selectedTimesheetDate}
-                                />
-                              </div>
-
-                              {/* Blocked Column */}
-                              <div className={`p-4 ${showCompletedTasks ? 'border-r border-gray-200 dark:border-gray-600' : ''} bg-red-50/30 dark:bg-red-900/10 flex flex-col`}>
-                                <TimesheetTextarea
-                                  user={user}
-                                  type="blocked"
-                                  color="red"
-                                  placeholder={isToday ? "Any blockers or issues today?" : "Were there any blockers?"}
-                                  selectedDate={selectedTimesheetDate}
-                                />
-                              </div>
-
-                              {/* Completed Column */}
-                              {showCompletedTasks && (
-                                <div className="p-4 bg-green-50/30 dark:bg-green-900/10 flex flex-col">
-                                  <TimesheetTextarea
-                                    user={user}
-                                    type="completed"
-                                    color="green"
-                                    placeholder={isToday ? "What did you complete today?" : "What did you complete?"}
-                                    selectedDate={selectedTimesheetDate}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </>
-                      )}
+                      );
+                    })}
+                    
+                    {/* Modern Bottom Padding and Border */}
+                    <div className="h-8 flex-shrink-0 bg-gradient-to-t from-gray-50/80 to-transparent dark:from-gray-900/50 dark:to-transparent border-t border-gray-100 dark:border-gray-700/50 mt-4"></div>
+                  </div>
+                  
+                  {/* Modern Scroll Indicators */}
+                  {showScrollIndicator && !isNearBottom && (
+                    <div className="absolute bottom-4 right-4 z-10">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={scrollToBottom}
+                        className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200"
+                      >
+                        <ChevronDown className="w-4 h-4 mr-1" />
+                        <span className="text-xs">More</span>
+                      </Button>
                     </div>
-                  </TabsContent>
-                )) : (
-                  // Fallback: Show calendar view when no users are available
-                  <div className="h-full overflow-auto thin-scroll m-0 p-0">
-                    <div className="p-2 sm:p-3 space-y-2 sm:space-y-3 h-full flex flex-col">
-                      {/* Header for no users state */}
-                      <div className="bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border border-slate-200 dark:border-gray-600 rounded-lg p-2 sm:p-3 shadow-sm flex-shrink-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-                          <div className="flex items-center gap-3 sm:gap-4">
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                            </div>
-                            <div>
-                              <h2 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">
-                                Team Calendar View
-                              </h2>
-                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                No timesheet data available for the selected date
-                              </p>
-                            </div>
+                  )}
+                  
+                  {/* Bottom Reached Indicator */}
+                  {showScrollIndicator && isNearBottom && (
+                    <div className="absolute bottom-4 right-4 z-10">
+                      <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg px-3 py-2 shadow-sm">
+                        <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-xs font-medium">End of timeline</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Fallback: Show calendar view when no users are available
+                <div className="flex-1 overflow-y-auto overflow-x-hidden m-0 p-0">
+                  <div className="p-2 sm:p-3 space-y-2 sm:space-y-3">
+                    {/* Header for no users state */}
+                    <div className="bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border border-slate-200 dark:border-gray-600 rounded-lg p-2 sm:p-3 shadow-sm flex-shrink-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                            <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                           </div>
+                          <div>
+                            <h2 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">
+                              Team Calendar View
+                            </h2>
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                              No timesheet data available for the selected date
+                            </p>
+                          </div>
+                        </div>
 
-                          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700">
-                              <div className="flex items-center gap-1 sm:gap-2">
-                                <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                <div className="text-xs sm:text-sm font-medium text-indigo-900 dark:text-indigo-100">
-                                  <div className="flex items-center gap-2 sm:gap-4">
-                                    <span className="hidden sm:inline">Status:</span>
-                                    <div className="flex items-center gap-2 sm:gap-3">
-                                      <div className="flex items-center gap-1 sm:gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                                        <span className="text-xs">Not Started</span>
-                                      </div>
-                                      <div className="flex items-center gap-1 sm:gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                        <span className="text-xs">Completed</span>
-                                      </div>
+                        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 px-2 sm:px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                            <div className="flex items-center gap-1 sm:gap-2">
+                              <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                              <div className="text-xs sm:text-sm font-medium text-indigo-900 dark:text-indigo-100">
+                                <div className="flex items-center gap-2 sm:gap-4">
+                                  <span className="hidden sm:inline">Status:</span>
+                                  <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="flex items-center gap-1 sm:gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                                      <span className="text-xs">Not Started</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 sm:gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                      <span className="text-xs">Completed</span>
                                     </div>
                                   </div>
                                 </div>
@@ -2135,55 +2526,55 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                           </div>
                         </div>
                       </div>
+                    </div>
 
                       {/* Calendar View - Fallback Always Show */}
-                      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
-                        {/* Month Navigation Header */}
-                        <div className="flex items-center justify-between p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                          <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
-                          </button>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                      {/* Month Navigation Header */}
+                      <div className="flex items-center justify-between p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                        <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                          <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
+                        </button>
 
-                          <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                          </h2>
+                        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                          {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </h2>
 
-                          <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
-                          </button>
-                        </div>
+                        <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                      </div>
 
                         {/* Calendar Grid Container */}
-                        <div className="flex-1 px-2 sm:px-3 pb-3 sm:pb-4 pt-1 sm:pt-1 flex flex-col">
-                          {/* Week Headers */}
-                          <div className="grid grid-cols-7 mb-2 flex-shrink-0 h-6">
-                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                              <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center">
-                                {day}
-                              </div>
-                            ))}
-                          </div>
+                        <div className="px-2 sm:px-3 pb-3 sm:pb-4 pt-1 sm:pt-1">
+                        {/* Week Headers */}
+                        <div className="grid grid-cols-7 mb-2 h-6">
+                          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                            <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center">
+                              {day}
+                            </div>
+                          ))}
+                        </div>
 
-                          {/* Calendar Weeks - Responsive Grid */}
-                          <div className="flex-shrink-0">
-                            <CalendarGrid
-                              user={null}
-                              currentMonth={getCurrentMonthCalendar.currentMonth}
-                              weeks={getCurrentMonthCalendar.weeks}
-                              selectedCalendarDate={selectedTimesheetDate}
-                              onDateClick={handleDateClick}
-                              getDateSummary={getDateSummary}
-                              getDateStatusIcon={() => <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>}
-                              isLoading={isTimesheetsFetching}
-                            />
-                          </div>
+                        {/* Calendar Weeks - Responsive Grid */}
+                        <div className="flex-shrink-0">
+                          <CalendarGrid
+                            user={null}
+                            currentMonth={getCurrentMonthCalendar.currentMonth}
+                            weeks={getCurrentMonthCalendar.weeks}
+                            selectedCalendarDate={selectedTimesheetDate}
+                            onDateClick={handleDateClick}
+                            getDateSummary={getDateSummary}
+                            getDateStatusIcon={() => <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>}
+                            isLoading={isTimesheetsFetching}
+                          />
                         </div>
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </Tabs>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
