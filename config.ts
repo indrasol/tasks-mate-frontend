@@ -39,4 +39,5 @@ export const API_ENDPOINTS = {
   DAILY_TIMESHEETS: `${API_BASE_URL}/daily-timesheets`,
   USER_TIMESHEETS: `${API_BASE_URL}/user-timesheets`,
   ORGANIZATIONS_PROFILE: `${API_BASE_URL}/organizations/profile`,
+  GOALS: `${API_BASE_URL}/goals`,
 };

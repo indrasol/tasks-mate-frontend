@@ -16,30 +16,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Icons
 import {
   AlertTriangle,
-  ArrowLeft,
   Calendar,
   CheckCircle,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Clock,
   Eye,
-  EyeOff,
   Folder,
   Loader2,
-  RotateCcw,
   Save,
-  Star,
-  Target,
-  TrendingUp,
-  Trophy,
-  Users,
-  X
+  Users
 } from 'lucide-react';
 
 // Services and utilities
@@ -49,7 +39,6 @@ import { deriveDisplayFromEmail } from '@/lib/projectUtils';
 import {
   convertEntriesToText,
   formatDateForAPI,
-  getCalendarMonthStatus,
   getTeamTimesheets,
   TeamTimesheetUser,
   updateTimesheetField,
@@ -76,7 +65,7 @@ interface TimesheetTabProps {
   // refreshSignal: number;
 }
 
-type TimesheetSortType = 'productivity' | 'alphabetical' | 'hours' | 'name';
+// type TimesheetSortType = 'productivity' | 'alphabetical' | 'hours' | 'name';
 
 // ============================================================================
 // MAIN COMPONENT
@@ -111,14 +100,14 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   }, [user, realOrgMembers]);
 
 
-  // Role-based permission checks for timesheet editing only
-  const canEditAllMemberTimesheets = useMemo(() => {
-    return currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin';
-  }, [currentUserOrgRole]);
+  // // Role-based permission checks for timesheet editing only
+  // const canEditAllMemberTimesheets = useMemo(() => {
+  //   return currentUserOrgRole === 'owner' || currentUserOrgRole === 'admin';
+  // }, [currentUserOrgRole]);
 
-  const canEditOwnTimesheet = useMemo(() => {
-    return currentUserOrgRole === 'member' || currentUserOrgRole === 'admin' || currentUserOrgRole === 'owner';
-  }, [currentUserOrgRole]);
+  // const canEditOwnTimesheet = useMemo(() => {
+  //   return currentUserOrgRole === 'member' || currentUserOrgRole === 'admin' || currentUserOrgRole === 'owner';
+  // }, [currentUserOrgRole]);
 
   // ============================================================================
   // REUSABLE ROLE AND PERMISSION COMPUTATIONS (OPTIMIZED)
@@ -139,44 +128,44 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     };
   }, [currentUserOrgRole]);
 
-  // Project-specific role detection functions
-  const getProjectRole = useCallback((projectId: string) => {
-    if (!user) return null;
+  // // Project-specific role detection functions
+  // const getProjectRole = useCallback((projectId: string) => {
+  //   if (!user) return null;
 
-    const project = projects?.find(p => p.id === projectId || p.project_id === projectId);
-    if (!project) return null;
+  //   const project = projects?.find(p => p.id === projectId || p.project_id === projectId);
+  //   if (!project) return null;
 
-    // Check if user is the project owner
-    if (project?.owner === user.id) {
-      return 'owner';
-    }
+  //   // Check if user is the project owner
+  //   if (project?.owner === user.id) {
+  //     return 'owner';
+  //   }
 
-    // Check if user is a project member
-    if (project?.members?.includes(user.id)) {
-      return 'member';
-    }
+  //   // Check if user is a project member
+  //   if (project?.members?.includes(user.id)) {
+  //     return 'member';
+  //   }
 
-    // If user is org admin/owner, they have admin access to all projects
-    if (roleChecks?.isOrgAdminOrOwner) {
-      return 'admin';
-    }
+  //   // If user is org admin/owner, they have admin access to all projects
+  //   if (roleChecks?.isOrgAdminOrOwner) {
+  //     return 'admin';
+  //   }
 
-    return null;
-  }, [user, projects, roleChecks.isOrgAdminOrOwner]);
+  //   return null;
+  // }, [user, projects, roleChecks.isOrgAdminOrOwner]);
 
-  const isProjectOwner = useCallback((projectId: string) => {
-    return getProjectRole(projectId) === 'owner';
-  }, [getProjectRole]);
+  // const isProjectOwner = useCallback((projectId: string) => {
+  //   return getProjectRole(projectId) === 'owner';
+  // }, [getProjectRole]);
 
-  const isProjectMember = useCallback((projectId: string) => {
-    const role = getProjectRole(projectId);
-    return role === 'member' || role === 'owner';
-  }, [getProjectRole]);
+  // const isProjectMember = useCallback((projectId: string) => {
+  //   const role = getProjectRole(projectId);
+  //   return role === 'member' || role === 'owner';
+  // }, [getProjectRole]);
 
-  const isProjectAdmin = useCallback((projectId: string) => {
-    const role = getProjectRole(projectId);
-    return role === 'admin' || role === 'owner';
-  }, [getProjectRole]);
+  // const isProjectAdmin = useCallback((projectId: string) => {
+  //   const role = getProjectRole(projectId);
+  //   return role === 'admin' || role === 'owner';
+  // }, [getProjectRole]);
 
   // User-specific role checking functions (for checking other users' roles)
   const getUserProjectRole = useCallback((userId: string, projectId: string) => {
@@ -203,149 +192,149 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     return role === 'member' || role === 'owner';
   }, [getUserProjectRole]);
 
-  const isUserProjectAdmin = useCallback((userId: string, projectId: string) => {
-    // For other users, we only check direct project roles
-    // Since getUserProjectRole doesn't return 'admin' for other users,
-    // we only check for 'owner' (owners have admin-like permissions)
-    const role = getUserProjectRole(userId, projectId);
-    return role === 'owner';
-  }, [getUserProjectRole]);
+  // const isUserProjectAdmin = useCallback((userId: string, projectId: string) => {
+  //   // For other users, we only check direct project roles
+  //   // Since getUserProjectRole doesn't return 'admin' for other users,
+  //   // we only check for 'owner' (owners have admin-like permissions)
+  //   const role = getUserProjectRole(userId, projectId);
+  //   return role === 'owner';
+  // }, [getUserProjectRole]);
 
-  const isUserProjectOwner = useCallback((userId: string, projectId: string) => {
-    return getUserProjectRole(userId, projectId) === 'owner';
-  }, [getUserProjectRole]);
+  // const isUserProjectOwner = useCallback((userId: string, projectId: string) => {
+  //   return getUserProjectRole(userId, projectId) === 'owner';
+  // }, [getUserProjectRole]);
 
-  // Helper function to get user's role in a specific project (legacy - use getProjectRole instead)
-  const getUserProjectRoleForProject = useMemo(() => {
-    return (projectId: string) => {
-      return getProjectRole(projectId);
-    };
-  }, [getProjectRole]);
+  // // Helper function to get user's role in a specific project (legacy - use getProjectRole instead)
+  // const getUserProjectRoleForProject = useMemo(() => {
+  //   return (projectId: string) => {
+  //     return getProjectRole(projectId);
+  //   };
+  // }, [getProjectRole]);
 
 
 
-  // Check if user can view timesheet data for projects they're part of (PROJECT-SPECIFIC)
-  const canViewProjectTimesheets = useMemo(() => {
-    return (projectId: string) => {
-      if (!user) return false;
+  // // Check if user can view timesheet data for projects they're part of (PROJECT-SPECIFIC)
+  // const canViewProjectTimesheets = useMemo(() => {
+  //   return (projectId: string) => {
+  //     if (!user) return false;
 
-      // Get user's effective role in this specific project
-      const projectRole = getUserProjectRoleForProject(projectId);
-      // Use pre-computed role check
+  //     // Get user's effective role in this specific project
+  //     const projectRole = getUserProjectRoleForProject(projectId);
+  //     // Use pre-computed role check
 
-      // Determine effective project role: Org Admin/Owner = Project Admin/Owner
-      const effectiveProjectRole = roleChecks.isOrgAdminOrOwner ? 'admin' : projectRole;
+  //     // Determine effective project role: Org Admin/Owner = Project Admin/Owner
+  //     const effectiveProjectRole = roleChecks.isOrgAdminOrOwner ? 'admin' : projectRole;
 
-      // Project Owner/Admin/Member: Can view timesheets for projects they have roles in
-      if (effectiveProjectRole === 'owner' || effectiveProjectRole === 'admin' || effectiveProjectRole === 'member') {
-        return true;
-      }
+  //     // Project Owner/Admin/Member: Can view timesheets for projects they have roles in
+  //     if (effectiveProjectRole === 'owner' || effectiveProjectRole === 'admin' || effectiveProjectRole === 'member') {
+  //       return true;
+  //     }
 
-      // No project role: No access to view project timesheets
-      return false;
-    };
-  }, [user, getUserProjectRoleForProject, roleChecks.isOrgAdminOrOwner]);
+  //     // No project role: No access to view project timesheets
+  //     return false;
+  //   };
+  // }, [user, getUserProjectRoleForProject, roleChecks.isOrgAdminOrOwner]);
   // ============================================================================
   // REUSABLE COMPONENTS
   // ============================================================================
 
   // Memoized Calendar Grid Component
-  const CalendarGrid = memo(({
-    user,
-    currentMonth,
-    weeks,
-    selectedCalendarDate,
-    onDateClick,
-    getDateSummary,
-    getDateStatusIcon,
-    isLoading
-  }: {
-    user: any;
-    currentMonth: number;
-    weeks: Date[][];
-    selectedCalendarDate: Date | undefined;
-    onDateClick: (date: Date) => void;
-    getDateSummary: (date: Date, user: any) => any;
-    getDateStatusIcon: (date: Date, user: any) => JSX.Element;
-    isLoading?: boolean;
-  }) => (
-    <div className="relative grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden" style={{
-      gridTemplateRows: `repeat(${weeks.length}, 1fr)`,
-      height: `${weeks.length * 60}px`,
-      minHeight: `${weeks.length * 60}px`
-    }}>
-      {weeks.map((week, weekIndex) => (
-        week.map((date, dayIndex) => {
-          const isToday = date.toDateString() === new Date().toDateString();
-          const isSelected = selectedCalendarDate && date.toDateString() === selectedCalendarDate.toDateString();
-          const isCurrentMonth = date.getMonth() === currentMonth;
-          const isFutureDate = date > new Date();
-          const dayNumber = date.getDate();
-          const isLastColumn = dayIndex === 6;
-          const isLastRow = weekIndex === weeks.length - 1;
+  // const CalendarGrid = memo(({
+  //   user,
+  //   currentMonth,
+  //   weeks,
+  //   selectedCalendarDate,
+  //   onDateClick,
+  //   getDateSummary,
+  //   getDateStatusIcon,
+  //   isLoading
+  // }: {
+  //   user: any;
+  //   currentMonth: number;
+  //   weeks: Date[][];
+  //   selectedCalendarDate: Date | undefined;
+  //   onDateClick: (date: Date) => void;
+  //   getDateSummary: (date: Date, user: any) => any;
+  //   getDateStatusIcon: (date: Date, user: any) => JSX.Element;
+  //   isLoading?: boolean;
+  // }) => (
+  //   <div className="relative grid grid-cols-7 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden" style={{
+  //     gridTemplateRows: `repeat(${weeks.length}, 1fr)`,
+  //     height: `${weeks.length * 60}px`,
+  //     minHeight: `${weeks.length * 60}px`
+  //   }}>
+  //     {weeks.map((week, weekIndex) => (
+  //       week.map((date, dayIndex) => {
+  //         const isToday = date.toDateString() === new Date().toDateString();
+  //         const isSelected = selectedCalendarDate && date.toDateString() === selectedCalendarDate.toDateString();
+  //         const isCurrentMonth = date.getMonth() === currentMonth;
+  //         const isFutureDate = date > new Date();
+  //         const dayNumber = date.getDate();
+  //         const isLastColumn = dayIndex === 6;
+  //         const isLastRow = weekIndex === weeks.length - 1;
 
-          return (
-            <button
-              key={`${weekIndex}-${dayIndex}`}
-              onClick={() => isCurrentMonth && !isFutureDate && onDateClick(date)}
-              className={`
-                relative w-full h-full min-h-[60px] 
-                flex items-center justify-center transition-all duration-200
-                ${!isLastColumn ? 'border-r border-gray-200 dark:border-gray-600' : ''}
-                ${!isLastRow ? 'border-b border-gray-200 dark:border-gray-600' : ''}
-                ${isSelected
-                  ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm'
-                  : isToday && isCurrentMonth
-                    ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                    : isCurrentMonth && !isFutureDate
-                      ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
-                      : isCurrentMonth && isFutureDate
-                        ? 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
-                        : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-default'
-                }
-              `}
-              disabled={!isCurrentMonth || isFutureDate}
-            >
-              {/* Day Number */}
-              <span className={`text-xs font-medium ${isSelected
-                ? 'text-green-800 font-semibold'
-                : isToday && isCurrentMonth
-                  ? 'text-green-600 dark:text-green-400 font-semibold'
-                  : isCurrentMonth && !isFutureDate
-                    ? 'text-gray-900 dark:text-gray-100'
-                    : 'text-gray-400 dark:text-gray-500'
-                }`}>
-                {dayNumber}
-              </span>
+  //         return (
+  //           <button
+  //             key={`${weekIndex}-${dayIndex}`}
+  //             onClick={() => isCurrentMonth && !isFutureDate && onDateClick(date)}
+  //             className={`
+  //               relative w-full h-full min-h-[60px] 
+  //               flex items-center justify-center transition-all duration-200
+  //               ${!isLastColumn ? 'border-r border-gray-200 dark:border-gray-600' : ''}
+  //               ${!isLastRow ? 'border-b border-gray-200 dark:border-gray-600' : ''}
+  //               ${isSelected
+  //                 ? 'bg-green-100 text-green-800 border-2 border-green-300 shadow-sm'
+  //                 : isToday && isCurrentMonth
+  //                   ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+  //                   : isCurrentMonth && !isFutureDate
+  //                     ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+  //                     : isCurrentMonth && isFutureDate
+  //                       ? 'bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
+  //                       : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 cursor-default'
+  //               }
+  //             `}
+  //             disabled={!isCurrentMonth || isFutureDate}
+  //           >
+  //             {/* Day Number */}
+  //             <span className={`text-xs font-medium ${isSelected
+  //               ? 'text-green-800 font-semibold'
+  //               : isToday && isCurrentMonth
+  //                 ? 'text-green-600 dark:text-green-400 font-semibold'
+  //                 : isCurrentMonth && !isFutureDate
+  //                   ? 'text-gray-900 dark:text-gray-100'
+  //                   : 'text-gray-400 dark:text-gray-500'
+  //               }`}>
+  //               {dayNumber}
+  //             </span>
 
-              {/* Status Indicator - Show for all valid dates (current month, non-future) */}
-              {isCurrentMonth && !isFutureDate && (
-                <div className="absolute bottom-1 right-1">
-                  {getDateStatusIcon(date, user)}
-                </div>
-              )}
+  //             {/* Status Indicator - Show for all valid dates (current month, non-future) */}
+  //             {isCurrentMonth && !isFutureDate && (
+  //               <div className="absolute bottom-1 right-1">
+  //                 {getDateStatusIcon(date, user)}
+  //               </div>
+  //             )}
 
-              {/* Loading indicator on selected cell while fetching */}
-              {isSelected && isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="bg-white/60 dark:bg-gray-900/40 rounded-full p-1">
-                    <Loader2 className="w-4 h-4 animate-spin text-green-700 dark:text-green-300" />
-                  </div>
-                </div>
-              )}
-            </button>
-          );
-        })
-      ))}
+  //             {/* Loading indicator on selected cell while fetching */}
+  //             {isSelected && isLoading && (
+  //               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+  //                 <div className="bg-white/60 dark:bg-gray-900/40 rounded-full p-1">
+  //                   <Loader2 className="w-4 h-4 animate-spin text-green-700 dark:text-green-300" />
+  //                 </div>
+  //               </div>
+  //             )}
+  //           </button>
+  //         );
+  //       })
+  //     ))}
 
-      {/* Small header spinner on the grid while fetching */}
-      {isLoading && (
-        <div className="absolute top-1 right-1">
-          <Loader2 className="w-4 h-4 animate-spin text-gray-500 dark:text-gray-300" />
-        </div>
-      )}
-    </div>
-  ));
+  //     {/* Small header spinner on the grid while fetching */}
+  //     {isLoading && (
+  //       <div className="absolute top-1 right-1">
+  //         <Loader2 className="w-4 h-4 animate-spin text-gray-500 dark:text-gray-300" />
+  //       </div>
+  //     )}
+  //   </div>
+  // ));
 
   // Memoized Reusable Timesheet Textarea Component
   const TimesheetTextarea = memo(({
@@ -363,7 +352,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   }) => {
     // Permission checks - simplified for user-centric approach  
     const canEdit = timesheetUser.user_id === user?.id || ['admin', 'owner'].includes(currentUserOrgRole || '');
-    const isRestricted = isDateRestrictedForEditing && currentUserOrgRole === 'member';
+    // const isRestricted = isDateRestrictedForEditing && currentUserOrgRole === 'member';
+    const isRestricted = (currentUserOrgRole === 'member');
+
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Build field keys for new API
@@ -385,17 +376,17 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       }
 
       // For dates other than the currently selected date, check if we have cached data
-      if (selectedDate && selectedTimesheetDate) {
-        const selectedDateStr = formatDateForAPI(selectedDate);
-        const currentDateStr = formatDateForAPI(selectedTimesheetDate);
-        
-        // If this is not the current date, try to get data from cache or return empty
-        if (selectedDateStr !== currentDateStr) {
-          // Check if we have cached data for this specific date
-          const cachedKey = `${timesheetUser.user_id}-${type}-${selectedDateStr}`;
-          return savedContentByField[cachedKey] || '';
-        }
-      }
+      // if (selectedDate && selectedTimesheetDate) {
+      //   const selectedDateStr = formatDateForAPI(selectedDate);
+      //   const currentDateStr = formatDateForAPI(selectedTimesheetDate);
+
+      //   // If this is not the current date, try to get data from cache or return empty
+      //   if (selectedDateStr !== currentDateStr) {
+      //     // Check if we have cached data for this specific date
+      //     const cachedKey = `${timesheetUser.user_id}-${type}-${selectedDateStr}`;
+      //     return savedContentByField[cachedKey] || '';
+      //   }
+      // }
 
       // Get data from user timesheet entries (only for the current selected date)
       let entries = [];
@@ -446,53 +437,79 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
       // Update local draft for this specific field and date
       setFieldDrafts(prev => ({ ...prev, [fieldKey]: value }));
-      
+
       // Update saved content cache for this specific field and date
       setSavedContentByField(prev => ({ ...prev, [fieldKey]: value }));
-      
+
       setContent(value);
     };
 
-    const getPlaceholder = () => {
-      if (canEdit) {
-        return placeholder;
-      } else if (isRestricted) {
-        return "Future dates cannot be edited";
-      } else {
-        return `View-only: ${timesheetUser.name || 'User'}'s timesheet data`;
+    // Auto-resize textarea based on content
+    const autoResize = useCallback(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${Math.max(80, textareaRef.current.scrollHeight)}px`;
       }
+    }, []);
+
+    // Auto-resize when content changes
+    useEffect(() => {
+      autoResize();
+    }, [content, autoResize]);
+
+    // Handle input changes with auto-resize
+    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setContent(e.target.value);
+      autoResize();
     };
 
     return (
-      <div className="h-full flex flex-col" key={`${fieldKey}-${draftResetCounter}`}>
-        <div className={`relative flex-1 bg-white dark:bg-gray-800 rounded-lg border border-${color}-200 dark:border-${color}-600 shadow-sm hover:shadow-md transition-all duration-200 cursor-text mb-2`}>
+      <div className="h-full flex flex-col space-y-2" key={`${fieldKey}-${draftResetCounter}`}>
+        <div className={`relative flex-1 bg-white dark:bg-gray-800 rounded-lg border border-${color}-200 dark:border-${color}-600 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden`}>
           <textarea
             ref={textareaRef}
-            className={`w-full h-full p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg ${isSaving ? 'cursor-not-allowed' : 'cursor-text caret-gray-800 dark:caret-gray-100'}`}
+            className={`w-full h-full p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg transition-all duration-200 ${isSaving ? 'cursor-not-allowed opacity-60' : 'cursor-text caret-gray-800 dark:caret-gray-100 hover:bg-gray-50/50 dark:hover:bg-gray-700/30'}`}
             placeholder={canEdit ? placeholder : `View-only: ${timesheetUser.name || 'User'}'s timesheet data`}
-            readOnly={false}
+            readOnly={!canEdit}
             disabled={isSaving}
             aria-busy={isSaving}
             defaultValue={getInitialValue()}
-            style={{ minHeight: '150px' }}
+            style={{ minHeight: '80px', maxHeight: '150px' }}
+            rows={2}
+            onChange={handleInputChange}
+            onKeyDown={(e) => {
+              // Auto-save on Ctrl/Cmd + Enter
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canEdit && !isSaving) {
+                e.preventDefault();
+                handleSave();
+              }
+            }}
           />
           {isSaving && (
-            <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/40 backdrop-blur-[1px] rounded-lg flex items-center justify-center">
+            <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm rounded-lg flex items-center justify-center">
               <div className="flex items-center text-gray-700 dark:text-gray-200 text-xs font-medium">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Saving...
               </div>
             </div>
           )}
+          {/* Character counter for better UX */}
+          {canEdit && !isSaving && (
+            <div className="absolute bottom-1 right-1 text-xs text-gray-400 dark:text-gray-500 pointer-events-none">
+              {content.length}/1000
+            </div>
+          )}
         </div>
-        <div className="flex justify-center">
+        <div className="flex justify-end">
           <Button
             variant="outline"
             size="sm"
-            className={`text-xs text-${color}-700 border-${color}-200 hover:bg-${color}-50 dark:text-${color}-400 dark:border-${color}-600 dark:hover:bg-${color}-900/20 ${(!canEdit || isSaving) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-xs h-8 px-3 transition-all duration-200 ${!canEdit || isSaving 
+              ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700' 
+              : `hover:bg-${color}-50 dark:hover:bg-${color}-900/20 active:scale-95`}`}
             onClick={handleSave}
             disabled={!canEdit || isSaving}
-            title={!canEdit ? (isRestricted ? 'You cannot edit future dates' : 'You do not have permission to edit this timesheet') : ''}
+            title={!canEdit ? (isRestricted ? 'You cannot edit future dates' : 'You do not have permission to edit this timesheet') : 'Save changes (Ctrl/Cmd + Enter)'}
           >
             {isSaving ? (
               <>
@@ -543,51 +560,51 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // ============================================================================
 
   // Filter and Search State
-  const [timesheetSearchQuery, setTimesheetSearchQuery] = useState('');
-  const [selectedTimesheetUsers, setSelectedTimesheetUsers] = useState<string[]>([]);
+  // const [timesheetSearchQuery, setTimesheetSearchQuery] = useState('');
+  // const [selectedTimesheetUsers, setSelectedTimesheetUsers] = useState<string[]>([]);
   const [selectedTimesheetProjects, setSelectedTimesheetProjects] = useState<string[]>([]);
-  const [timesheetDateRange, setTimesheetDateRange] = useState<DateRange | undefined>(undefined);
-  const [tempTimesheetDateRange, setTempTimesheetDateRange] = useState<DateRange | undefined>(undefined);
-  const [isTimesheetDatePopoverOpen, setIsTimesheetDatePopoverOpen] = useState(false);
-  
+  // const [timesheetDateRange, setTimesheetDateRange] = useState<DateRange | undefined>(undefined);
+  // const [tempTimesheetDateRange, setTempTimesheetDateRange] = useState<DateRange | undefined>(undefined);
+  // const [isTimesheetDatePopoverOpen, setIsTimesheetDatePopoverOpen] = useState(false);
+
   // Detail view date range state
   const [detailDateRange, setDetailDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
-    const weekAgo = new Date(today);
-    weekAgo.setDate(today.getDate() - 7);
-    return { from: weekAgo, to: today };
+    // const weekAgo = new Date(today);
+    // weekAgo.setDate(today.getDate() - 7);
+    return { from: today, to: today };
   });
   const [tempDetailDateRange, setTempDetailDateRange] = useState<DateRange | undefined>(detailDateRange);
   const [isDetailDatePopoverOpen, setIsDetailDatePopoverOpen] = useState(false);
-  
+
   // Scroll state for modern scroll indicators
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  
+
   // Collapsible member cards state
   const [collapsedMembers, setCollapsedMembers] = useState<Set<string>>(new Set());
-  
+
   // Member filter state - 'all' means show all members, specific userId means show only that member
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
 
   // UI State
-  const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
-  const [showCompletedTasks, setShowCompletedTasks] = useState(true);
-  const [timesheetSort, setTimesheetSort] = useState<TimesheetSortType>('name');
-  const [selectedTimesheetDate, setSelectedTimesheetDate] = useState<Date | undefined>(new Date());
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  // const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
+  // const [showCompletedTasks, setShowCompletedTasks] = useState(true);
+  // const [timesheetSort, setTimesheetSort] = useState<TimesheetSortType>('name');
+  // const [selectedTimesheetDate, setSelectedTimesheetDate] = useState<Date | undefined>(new Date());
+  // const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [activeEmployeeTab, setActiveEmployeeTab] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'calendar' | 'detail'>('detail');
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(undefined);
+  // const [viewMode, setViewMode] = useState<'calendar' | 'detail'>('detail');
+  // const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(undefined);
 
   // Remove old scrolling state - no longer needed with dropdown filters
 
-  // Local state to track timesheet status for calendar dates
-  const [timesheetStatus, setTimesheetStatus] = useState<Record<string, { hasData: boolean; userId: string }>>({});
+  // // Local state to track timesheet status for calendar dates
+  // const [timesheetStatus, setTimesheetStatus] = useState<Record<string, { hasData: boolean; userId: string }>>({});
 
-  // Calendar status from month API
-  const [calendarStatus, setCalendarStatus] = useState<Record<string, { hasData: boolean; userCount: number }>>({});
+  // // Calendar status from month API
+  // const [calendarStatus, setCalendarStatus] = useState<Record<string, { hasData: boolean; userCount: number }>>({});
 
   // Loading state for individual save actions
   const [savingFields, setSavingFields] = useState<Set<string>>(new Set());
@@ -598,188 +615,194 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   const [draftResetCounter, setDraftResetCounter] = useState(0);
   // Persist last saved content per field/date to restore on draft discard
   const [savedContentByField, setSavedContentByField] = useState<Record<string, string>>({});
-  
+
   // Cache for date-specific timesheet data
   const [dateSpecificData, setDateSpecificData] = useState<Record<string, any>>({});
+  
+  // Use ref to track fetched data without causing re-renders
+  const fetchedDataRef = useRef<Set<string>>(new Set());
 
-  // Function to fetch data for a specific date
-  const fetchDataForDate = useCallback(async (date: Date, userId: string) => {
-    const dateKey = `${formatDateForAPI(date)}-${userId}`;
-    
-    // If we already have data for this date/user, don't fetch again
-    if (dateSpecificData[dateKey]) {
-      return dateSpecificData[dateKey];
-    }
+  // // Function to fetch data for a specific date
+  // const fetchDataForDate = useCallback(async (date: Date, userId: string) => {
+  //   const dateKey = `${formatDateForAPI(date)}-${userId}`;
 
-    try {
-      // Fetch data for the specific date
-      const data = await getTeamTimesheets(
-        orgId,
-        formatDateForAPI(date),
-        [userId]
-      );
-      
-      // Cache the data
-      setDateSpecificData(prev => ({ ...prev, [dateKey]: data }));
-      
-      // Update savedContentByField with the fetched data
-      if (data?.users?.length > 0) {
-        const userData = data.users[0];
-        const dateStr = formatDateForAPI(date);
-        
-        const newSavedContent: Record<string, string> = {};
-        
-        // Store in_progress data
-        if (userData.in_progress) {
-          const inProgKey = `${userId}-in_progress-${dateStr}`;
-          newSavedContent[inProgKey] = convertEntriesToText(userData.in_progress);
-        }
-        
-        // Store blocked data
-        if (userData.blocked) {
-          const blockedKey = `${userId}-blocked-${dateStr}`;
-          newSavedContent[blockedKey] = convertEntriesToText(userData.blocked);
-        }
-        
-        // Store completed data
-        if (userData.completed) {
-          const completedKey = `${userId}-completed-${dateStr}`;
-          newSavedContent[completedKey] = convertEntriesToText(userData.completed);
-        }
-        
-        setSavedContentByField(prev => ({ ...prev, ...newSavedContent }));
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Failed to fetch data for date:', date, error);
-      return null;
-    }
-  }, [orgId, dateSpecificData]);
+  //   // If we already have data for this date/user, don't fetch again
+  //   if (fetchedDataRef.current.has(dateKey)) {
+  //     return dateSpecificData[dateKey];
+  //   }
 
-  // Discard drafts for a given date (rely on last saved values via getInitialValue)
-  const discardDraftsForDate = useCallback((date: Date | undefined) => {
-    if (!date) return;
-    const dateStr = formatDateForAPI(date);
-    setFieldDrafts(prev => {
-      const next = { ...prev } as Record<string, string>;
-      for (const key of Object.keys(next)) {
-        if (key.endsWith(`-${dateStr}`)) {
-          delete next[key];
-        }
-      }
-      return next;
-    });
-    // Force textareas to reset their DOM value to last saved
-    setDraftResetCounter(c => c + 1);
-  }, []);
+  //   try {
+  //     // Fetch data for the specific date
+  //     const data = await getTeamTimesheets(
+  //       orgId,
+  //       formatDateForAPI(date),
+  //       [userId]
+  //     );
+
+  //     // Cache the data
+  //     setDateSpecificData(prev => ({ ...prev, [dateKey]: data }));
+      
+  //     // Mark as fetched in ref
+  //     fetchedDataRef.current.add(dateKey);
+
+  //     // Update savedContentByField with the fetched data
+  //     if (data?.users?.length > 0) {
+  //       const userData = data.users[0];
+  //       const dateStr = formatDateForAPI(date);
+
+  //       const newSavedContent: Record<string, string> = {};
+
+  //       // Store in_progress data
+  //       if (userData.in_progress) {
+  //         const inProgKey = `${userId}-in_progress-${dateStr}`;
+  //         newSavedContent[inProgKey] = convertEntriesToText(userData.in_progress);
+  //       }
+
+  //       // Store blocked data
+  //       if (userData.blocked) {
+  //         const blockedKey = `${userId}-blocked-${dateStr}`;
+  //         newSavedContent[blockedKey] = convertEntriesToText(userData.blocked);
+  //       }
+
+  //       // Store completed data
+  //       if (userData.completed) {
+  //         const completedKey = `${userId}-completed-${dateStr}`;
+  //         newSavedContent[completedKey] = convertEntriesToText(userData.completed);
+  //       }
+
+  //       setSavedContentByField(prev => ({ ...prev, ...newSavedContent }));
+  //     }
+
+  //     return data;
+  //   } catch (error) {
+  //     console.error('Failed to fetch data for date:', date, error);
+  //     return null;
+  //   }
+  // }, [orgId]);
+
+  // // Discard drafts for a given date (rely on last saved values via getInitialValue)
+  // const discardDraftsForDate = useCallback((date: Date | undefined) => {
+  //   if (!date) return;
+  //   const dateStr = formatDateForAPI(date);
+  //   setFieldDrafts(prev => {
+  //     const next = { ...prev } as Record<string, string>;
+  //     for (const key of Object.keys(next)) {
+  //       if (key.endsWith(`-${dateStr}`)) {
+  //         delete next[key];
+  //       }
+  //     }
+  //     return next;
+  //   });
+  //   // Force textareas to reset their DOM value to last saved
+  //   setDraftResetCounter(c => c + 1);
+  // }, []);
 
   // Check if current date is restricted for editing (members can edit today and previous days, but not future dates)
-  const isDateRestrictedForEditing = useMemo(() => {
-    if (!selectedTimesheetDate) return false;
+  // const isDateRestrictedForEditing = useMemo(() => {
+  //   if (!selectedTimesheetDate) return false;
 
-    // Members can edit today and previous days, but not future dates
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = new Date(selectedTimesheetDate);
-    selectedDate.setHours(0, 0, 0, 0);
+  //   // Members can edit today and previous days, but not future dates
+  //   const today = new Date();
+  //   today.setHours(0, 0, 0, 0);
+  //   const selectedDate = new Date(selectedTimesheetDate);
+  //   selectedDate.setHours(0, 0, 0, 0);
 
-    // Restrict only future dates (dates after today)
-    return selectedDate > today;
-  }, [selectedTimesheetDate]);
+  //   // Restrict only future dates (dates after today)
+  //   return selectedDate > today;
+  // }, [selectedTimesheetDate]);
 
-  // Reusable Project Badge Logic
-  const getProjectBadges = useCallback((projectId: string) => {
-    const projectRole = getUserProjectRoleForProject(projectId);
-    const effectiveProjectRole = roleChecks.isOrgAdminOrOwner ? 'admin' : projectRole;
+  // // Reusable Project Badge Logic
+  // const getProjectBadges = useCallback((projectId: string) => {
+  //   const projectRole = getUserProjectRoleForProject(projectId);
+  //   const effectiveProjectRole = roleChecks.isOrgAdminOrOwner ? 'admin' : projectRole;
 
-    const badges = [];
+  //   const badges = [];
 
-    if (effectiveProjectRole === 'owner') {
-      badges?.push(
-        <Badge key="owner" variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-          Project Owner
-        </Badge>
-      );
-    } else if (effectiveProjectRole === 'admin') {
-      badges?.push(
-        <Badge key="admin" variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-          Project Admin
-        </Badge>
-      );
-    } else if (effectiveProjectRole === 'member') {
-      badges?.push(
-        <Badge key="member" variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
-          Project Member
-        </Badge>
-      );
-    }
+  //   if (effectiveProjectRole === 'owner') {
+  //     badges?.push(
+  //       <Badge key="owner" variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+  //         Project Owner
+  //       </Badge>
+  //     );
+  //   } else if (effectiveProjectRole === 'admin') {
+  //     badges?.push(
+  //       <Badge key="admin" variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+  //         Project Admin
+  //       </Badge>
+  //     );
+  //   } else if (effectiveProjectRole === 'member') {
+  //     badges?.push(
+  //       <Badge key="member" variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+  //         Project Member
+  //       </Badge>
+  //     );
+  //   }
 
-    if (effectiveProjectRole === 'member' && isDateRestrictedForEditing) {
-      badges?.push(
-        <Badge key="restricted" variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
-          Future Dates Restricted
-        </Badge>
-      );
-    }
+  //   if (effectiveProjectRole === 'member' && isDateRestrictedForEditing) {
+  //     badges?.push(
+  //       <Badge key="restricted" variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+  //         Future Dates Restricted
+  //       </Badge>
+  //     );
+  //   }
 
-    return badges;
-  }, [getUserProjectRoleForProject, roleChecks.isOrgAdminOrOwner, isDateRestrictedForEditing]);
+  //   return badges;
+  // }, [getUserProjectRoleForProject, roleChecks.isOrgAdminOrOwner, isDateRestrictedForEditing]);
 
-  // Check if user can edit a specific user's timesheet data (PROJECT-SPECIFIC PERMISSIONS)
-  const canEditUserTimesheet = useMemo(() => {
-    return (targetUserId: string, projectId?: string) => {
-      if (!user || !projectId) return false;
+  // // Check if user can edit a specific user's timesheet data (PROJECT-SPECIFIC PERMISSIONS)
+  // const canEditUserTimesheet = useMemo(() => {
+  //   return (targetUserId: string, projectId?: string) => {
+  //     if (!user || !projectId) return false;
 
-      // Get user's effective role in this specific project
-      const projectRole = getUserProjectRoleForProject(projectId);
-      // Use pre-computed role check
+  //     // Get user's effective role in this specific project
+  //     const projectRole = getUserProjectRoleForProject(projectId);
+  //     // Use pre-computed role check
 
-      // Determine effective project role: Org Admin/Owner = Project Admin/Owner
-      const effectiveProjectRole = roleChecks.isOrgAdminOrOwner ? 'admin' : projectRole;
+  //     // Determine effective project role: Org Admin/Owner = Project Admin/Owner
+  //     const effectiveProjectRole = roleChecks.isOrgAdminOrOwner ? 'admin' : projectRole;
 
-      // Project Owner/Admin: Can edit all users' timesheets in this project (no date restrictions)
-      if (effectiveProjectRole === 'owner' || effectiveProjectRole === 'admin') {
-        return true;
-      }
+  //     // Project Owner/Admin: Can edit all users' timesheets in this project (no date restrictions)
+  //     if (effectiveProjectRole === 'owner' || effectiveProjectRole === 'admin') {
+  //       return true;
+  //     }
 
-      // Project Member: Can only edit their own timesheet, but with date restrictions
-      if (effectiveProjectRole === 'member' && targetUserId === user.id) {
-        // Check date restrictions for members
-        if (isDateRestrictedForEditing) {
-          return false; // Members can't edit today's or future timesheets
-        }
-        return true; // Members can edit their own previous day timesheets
-      }
+  //     // Project Member: Can only edit their own timesheet, but with date restrictions
+  //     if (effectiveProjectRole === 'member' && targetUserId === user.id) {
+  //       // Check date restrictions for members
+  //       if (isDateRestrictedForEditing) {
+  //         return false; // Members can't edit today's or future timesheets
+  //       }
+  //       return true; // Members can edit their own previous day timesheets
+  //     }
 
-      // No project role or unknown role: No access
-      return false;
-    };
-  }, [user, getUserProjectRoleForProject, roleChecks.isOrgAdminOrOwner, isDateRestrictedForEditing]);
+  //     // No project role or unknown role: No access
+  //     return false;
+  //   };
+  // }, [user, getUserProjectRoleForProject, roleChecks.isOrgAdminOrOwner, isDateRestrictedForEditing]);
 
   // Modal State (for future use)
-  const [isAddEntryModalOpen, setIsAddEntryModalOpen] = useState(false);
-  const [selectedUserForEntry, setSelectedUserForEntry] = useState<string>('');
+  // const [isAddEntryModalOpen, setIsAddEntryModalOpen] = useState(false);
+  // const [selectedUserForEntry, setSelectedUserForEntry] = useState<string>('');
 
   // ============================================================================
   // HELPER FUNCTIONS
   // ============================================================================
 
   // Productivity and Scoring Functions
-  const calculateProductivityScore = (user: any) => {
-    const completed = (user.completed || []).length;
-    const inProgress = (user.in_progress || []).length;
-    const blocked = (user.blocked || []).length;
+  // const calculateProductivityScore = (user: any) => {
+  //   const completed = (user.completed || []).length;
+  //   const inProgress = (user.in_progress || []).length;
+  //   const blocked = (user.blocked || []).length;
 
-    return Math.max(0, Math.min(100, (completed * 3 + inProgress * 1 - blocked * 2)));
-  };
+  //   return Math.max(0, Math.min(100, (completed * 3 + inProgress * 1 - blocked * 2)));
+  // };
 
-  const getProductivityLevel = (score: number) => {
-    if (score >= 80) return { level: 'Excellent', color: 'text-green-600', bgColor: 'bg-green-100', icon: Trophy };
-    if (score >= 60) return { level: 'Good', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: Star };
-    if (score >= 40) return { level: 'Average', color: 'text-yellow-600', bgColor: 'bg-yellow-100', icon: Target };
-    return { level: 'Needs Focus', color: 'text-red-600', bgColor: 'bg-red-100', icon: AlertTriangle };
-  };
+  // const getProductivityLevel = (score: number) => {
+  //   if (score >= 80) return { level: 'Excellent', color: 'text-green-600', bgColor: 'bg-green-100', icon: Trophy };
+  //   if (score >= 60) return { level: 'Good', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: Star };
+  //   if (score >= 40) return { level: 'Average', color: 'text-yellow-600', bgColor: 'bg-yellow-100', icon: Target };
+  //   return { level: 'Needs Focus', color: 'text-red-600', bgColor: 'bg-red-100', icon: AlertTriangle };
+  // };
 
   // ============================================================================
   // HOOKS AND DATA FETCHING
@@ -792,61 +815,61 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
 
   // Auto-update to today's date daily
-  useEffect(() => {
-    const updateToToday = () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset time to start of day
+  // useEffect(() => {
+  //   const updateToToday = () => {
+  //     const today = new Date();
+  //     today.setHours(0, 0, 0, 0); // Reset time to start of day
 
-      const currentSelected = selectedTimesheetDate ? new Date(selectedTimesheetDate) : null;
-      if (currentSelected) {
-        currentSelected.setHours(0, 0, 0, 0);
-      }
+  //     const currentSelected = selectedTimesheetDate ? new Date(selectedTimesheetDate) : null;
+  //     if (currentSelected) {
+  //       currentSelected.setHours(0, 0, 0, 0);
+  //     }
 
-      // Only update if we're not already on today's date
-      if (!currentSelected || currentSelected.getTime() !== today.getTime()) {
-        setSelectedTimesheetDate(today);
-      }
-    };
+  //     // Only update if we're not already on today's date
+  //     if (!currentSelected || currentSelected.getTime() !== today.getTime()) {
+  //       setSelectedTimesheetDate(today);
+  //     }
+  //   };
 
-    // Update immediately
-    updateToToday();
+  //   // Update immediately
+  //   updateToToday();
 
-    // Set up daily auto-update at midnight
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
+  //   // Set up daily auto-update at midnight
+  //   const now = new Date();
+  //   const tomorrow = new Date(now);
+  //   tomorrow.setDate(tomorrow.getDate() + 1);
+  //   tomorrow.setHours(0, 0, 0, 0);
 
-    const msUntilMidnight = tomorrow.getTime() - now.getTime();
+  //   const msUntilMidnight = tomorrow.getTime() - now.getTime();
 
-    const timeoutId = setTimeout(() => {
-      updateToToday();
+  //   const timeoutId = setTimeout(() => {
+  //     updateToToday();
 
-      // Set up recurring daily update
-      const intervalId = setInterval(updateToToday, 24 * 60 * 60 * 1000); // 24 hours
+  //     // Set up recurring daily update
+  //     const intervalId = setInterval(updateToToday, 24 * 60 * 60 * 1000); // 24 hours
 
-      return () => clearInterval(intervalId);
-    }, msUntilMidnight);
+  //     return () => clearInterval(intervalId);
+  //   }, msUntilMidnight);
 
-    return () => clearTimeout(timeoutId);
-  }, []);
+  //   return () => clearTimeout(timeoutId);
+  // }, []);
 
   // Memoize date string and project array to prevent unstable queryKey references
-  const memoizedSelectedTimesheetDate = useMemo(() => {
-    return selectedTimesheetDate?.toISOString() || '';
-  }, [selectedTimesheetDate]);
+  // const memoizedSelectedTimesheetDate = useMemo(() => {
+  //   return selectedTimesheetDate?.toISOString() || '';
+  // }, [selectedTimesheetDate]);
 
-  const memoizedSelectedTimesheetProjects = useMemo(() => {
-    return selectedTimesheetProjects;
-  }, [selectedTimesheetProjects]);
+  // const memoizedSelectedTimesheetProjects = useMemo(() => {
+  //   return selectedTimesheetProjects;
+  // }, [selectedTimesheetProjects]);
 
-  const memoizedSelectedTimesheetUsers = useMemo(() => {
-    return selectedTimesheetUsers;
-  }, [selectedTimesheetUsers]);
+  // const memoizedSelectedTimesheetUsers = useMemo(() => {
+  //   return selectedTimesheetUsers;
+  // }, [selectedTimesheetUsers]);
 
   // Calendar state (needed for queries)
-  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
-  const [calendarRefDate, setCalendarRefDate] = useState(new Date());
+  // const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  // const [calendarRefDate, setCalendarRefDate] = useState(new Date());
 
   // Fetch team timesheets data using new API
   const {
@@ -856,12 +879,11 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     error: timesheetsError,
     refetch: refetchTimesheets
   } = useQuery({
-    queryKey: ['team-timesheets', orgId, memoizedSelectedTimesheetDate, memoizedSelectedTimesheetUsers, activeEmployeeTab],
-    enabled: !!orgId && orgId.length > 0 && !!selectedTimesheetDate,
+    queryKey: ['team-timesheets', orgId, activeEmployeeTab],
+    enabled: !!orgId && orgId.length > 0,
     queryFn: () => getTeamTimesheets(
       orgId,
-      formatDateForAPI(selectedTimesheetDate!),
-      memoizedSelectedTimesheetUsers.length > 0 ? memoizedSelectedTimesheetUsers : undefined
+      // formatDateForAPI(selectedTimesheetDate!)
     ),
     staleTime: 1000 * 60 * 2, // Reduced stale time for more frequent updates
     refetchOnWindowFocus: false,
@@ -869,21 +891,21 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   });
 
   // Fetch calendar month status for indicators - user-specific
-  const {
-    data: monthStatus,
-    isFetching: isMonthStatusFetching
-  } = useQuery({
-    queryKey: ['calendar-month-status', orgId, calendarRefDate.getFullYear(), calendarRefDate.getMonth() + 1, activeEmployeeTab],
-    enabled: !!orgId && !!activeEmployeeTab,
-    queryFn: () => getCalendarMonthStatus(
-      orgId,
-      calendarRefDate.getFullYear(),
-      calendarRefDate.getMonth() + 1,
-      [activeEmployeeTab] // Pass current active user ID for user-specific indicators
-    ),
-    staleTime: 1000 * 60 * 10,
-    refetchOnWindowFocus: false,
-  });
+  // const {
+  //   data: monthStatus,
+  //   isFetching: isMonthStatusFetching
+  // } = useQuery({
+  //   queryKey: ['calendar-month-status', orgId, calendarRefDate.getFullYear(), calendarRefDate.getMonth() + 1, activeEmployeeTab],
+  //   enabled: !!orgId && !!activeEmployeeTab,
+  //   queryFn: () => getCalendarMonthStatus(
+  //     orgId,
+  //     calendarRefDate.getFullYear(),
+  //     calendarRefDate.getMonth() + 1,
+  //     [activeEmployeeTab] // Pass current active user ID for user-specific indicators
+  //   ),
+  //   staleTime: 1000 * 60 * 10,
+  //   refetchOnWindowFocus: false,
+  // });
 
   // Trigger refetch when parent signals a refresh
   // useEffect(() => {
@@ -892,12 +914,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   //   }
   // }, [refreshSignal]);
 
-  // Update calendar status when month data loads
-  useEffect(() => {
-    if (monthStatus?.calendar_status) {
-      setCalendarStatus(monthStatus.calendar_status);
-    }
-  }, [monthStatus]);
+  // // Update calendar status when month data loads
+  // useEffect(() => {
+  //   if (monthStatus?.calendar_status) {
+  //     setCalendarStatus(monthStatus.calendar_status);
+  //   }
+  // }, [monthStatus]);
 
   // Update projects state - use projects from parent or fallback
   useEffect(() => {
@@ -914,73 +936,73 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // This useEffect will be moved after sortedTimesheetUsers is defined
 
   // Hydrate last-saved content map from fetched data so reverting shows server-saved values
-  useEffect(() => {
-    if (!dailyTimesheets || !selectedTimesheetDate) return;
-    const dateStr = formatDateForAPI(selectedTimesheetDate);
+  // useEffect(() => {
+  //   if (!dailyTimesheets) return;
+  //   const dateStr = formatDateForAPI(selectedTimesheetDate);
 
-    // Read directly from API payload to avoid temporal dependencies
-    const apiUsers = ((dailyTimesheets as any)?.users ?? []) as Array<{
-      user_id: string;
-      in_progress?: any;
-      inProgress?: any;
-      blockers?: any;
-      blocked?: any;
-      completed?: any;
-      default_project_id?: string;
-    }>;
+  //   // Read directly from API payload to avoid temporal dependencies
+  //   const apiUsers = ((dailyTimesheets as any)?.users ?? []) as Array<{
+  //     user_id: string;
+  //     in_progress?: any;
+  //     inProgress?: any;
+  //     blockers?: any;
+  //     blocked?: any;
+  //     completed?: any;
+  //     default_project_id?: string;
+  //   }>;
 
-    const apiProjects = ((dailyTimesheets as any)?.projects ?? []) as Array<{
-      project_id: string;
-      team_members?: string[];
-    }>;
+  //   const apiProjects = ((dailyTimesheets as any)?.projects ?? []) as Array<{
+  //     project_id: string;
+  //     team_members?: string[];
+  //   }>;
 
-    const resolveProjectId = (u: any): string => {
-      if (u?.default_project_id) return u.default_project_id;
-      const p = apiProjects.find(p => (p.team_members || []).includes(u.user_id));
-      return p ? p.project_id : 'default-project';
-    };
+  //   const resolveProjectId = (u: any): string => {
+  //     if (u?.default_project_id) return u.default_project_id;
+  //     const p = apiProjects.find(p => (p.team_members || []).includes(u.user_id));
+  //     return p ? p.project_id : 'default-project';
+  //   };
 
-    const normalizeToText = (val: any): string => {
-      if (!val) return '';
-      if (typeof val === 'string') return val;
-      if (Array.isArray(val)) {
-        return val.map((item: any) => {
-          if (typeof item === 'string') return item;
-          if (item && typeof item === 'object') {
-            return item.title || item.content || item.description || item.text || '';
-          }
-          return '';
-        }).filter(Boolean).join('\n');
-      }
-      if (typeof val === 'object') {
-        return val.content || val.text || val.description || '';
-      }
-      return '';
-    };
+  //   const normalizeToText = (val: any): string => {
+  //     if (!val) return '';
+  //     if (typeof val === 'string') return val;
+  //     if (Array.isArray(val)) {
+  //       return val.map((item: any) => {
+  //         if (typeof item === 'string') return item;
+  //         if (item && typeof item === 'object') {
+  //           return item.title || item.content || item.description || item.text || '';
+  //         }
+  //         return '';
+  //       }).filter(Boolean).join('\n');
+  //     }
+  //     if (typeof val === 'object') {
+  //       return val.content || val.text || val.description || '';
+  //     }
+  //     return '';
+  //   };
 
-    const newSaved: Record<string, string> = {};
-    (apiUsers || []).forEach((u) => {
-      const projectId = resolveProjectId(u);
-      const base = `${u.user_id}-${projectId}`;
-      const inProgKey = `${base}-in_progress-${dateStr}`;
-      const blockedKey = `${base}-blocked-${dateStr}`;
-      const completedKey = `${base}-completed-${dateStr}`;
+  //   const newSaved: Record<string, string> = {};
+  //   (apiUsers || []).forEach((u) => {
+  //     const projectId = resolveProjectId(u);
+  //     const base = `${u.user_id}-${projectId}`;
+  //     const inProgKey = `${base}-in_progress-${dateStr}`;
+  //     const blockedKey = `${base}-blocked-${dateStr}`;
+  //     const completedKey = `${base}-completed-${dateStr}`;
 
-      const inProgVal = normalizeToText(u.in_progress ?? u.inProgress ?? []);
-      const blockedVal = normalizeToText(u.blockers ?? u.blocked ?? []);
-      const completedVal = normalizeToText(u.completed ?? []);
+  //     const inProgVal = normalizeToText(u.in_progress ?? u.inProgress ?? []);
+  //     const blockedVal = normalizeToText(u.blockers ?? u.blocked ?? []);
+  //     const completedVal = normalizeToText(u.completed ?? []);
 
-      if (!fieldDrafts[inProgKey]) newSaved[inProgKey] = inProgVal;
-      if (!fieldDrafts[blockedKey]) newSaved[blockedKey] = blockedVal;
-      if (!fieldDrafts[completedKey]) newSaved[completedKey] = completedVal;
-    });
+  //     if (!fieldDrafts[inProgKey]) newSaved[inProgKey] = inProgVal;
+  //     if (!fieldDrafts[blockedKey]) newSaved[blockedKey] = blockedVal;
+  //     if (!fieldDrafts[completedKey]) newSaved[completedKey] = completedVal;
+  //   });
 
-    if (Object.keys(newSaved).length > 0) {
-      setSavedContentByField(prev => ({ ...newSaved, ...prev }));
-    }
-    // Force refresh of textarea DOM values now that we have server data (even if newSaved is empty)
-    setDraftResetCounter(c => c + 1);
-  }, [dailyTimesheets, selectedTimesheetDate, fieldDrafts]);
+  //   if (Object.keys(newSaved).length > 0) {
+  //     setSavedContentByField(prev => ({ ...newSaved, ...prev }));
+  //   }
+  //   // Force refresh of textarea DOM values now that we have server data (even if newSaved is empty)
+  //   setDraftResetCounter(c => c + 1);
+  // }, [dailyTimesheets, selectedTimesheetDate, fieldDrafts]);
 
   // Handle loading timeout - prevent infinite loading states
   useEffect(() => {
@@ -1030,128 +1052,190 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
 
     // Apply member filter first
-    if (selectedTimesheetUsers.length > 0) {
-      users = users?.filter(user => selectedTimesheetUsers?.includes(String(user.user_id)));
-    }
+    // if (selectedTimesheetUsers.length > 0) {
+    //   users = users?.filter(user => selectedTimesheetUsers?.includes(String(user.user_id)));
+    // }
 
     // Apply project filter - filter users based on their project membership
     if (selectedTimesheetProjects.length > 0) {
+      console.log('Applying project filter:', selectedTimesheetProjects);
+      console.log('Users before filter:', users?.length);
+      
       users = users?.filter(user => {
         // Check if user is a member of any of the selected projects
-        return selectedTimesheetProjects.some(projectId => 
-          isUserProjectMember(user.user_id, projectId)
-        );
+        const isMember = selectedTimesheetProjects.some(projectId => {
+          const memberStatus = isUserProjectMember(user.user_id, projectId);
+          console.log(`User ${user.user_id} project ${projectId} member:`, memberStatus);
+          return memberStatus;
+        });
+        return isMember;
       });
+      
+      console.log('Users after filter:', users?.length);
     }
 
     // Apply search filter
-    if (timesheetSearchQuery) {
-      const q = timesheetSearchQuery.toLowerCase();
-      users = users?.filter((u) => {
-        const name = String(u.name || '').toLowerCase();
-        const email = String(u.email || '').toLowerCase();
-        const role = String(u.role || '').toLowerCase();
-        const designation = String(u.designation || '').toLowerCase();
-        return [name, email, role, designation]?.some(v => v?.includes(q));
-      });
-    }
+    // if (timesheetSearchQuery) {
+    //   const q = timesheetSearchQuery.toLowerCase();
+    //   users = users?.filter((u) => {
+    //     const name = String(u.name || '').toLowerCase();
+    //     const email = String(u.email || '').toLowerCase();
+    //     const role = String(u.role || '').toLowerCase();
+    //     const designation = String(u.designation || '').toLowerCase();
+    //     return [name, email, role, designation]?.some(v => v?.includes(q));
+    //   });
+    // }
 
     return users;
-  }, [dailyTimesheets, timesheetSearchQuery, selectedTimesheetUsers, selectedTimesheetProjects, getFilteredMembers, isUserProjectMember]);
+  }, [dailyTimesheets, selectedTimesheetProjects, getFilteredMembers, isUserProjectMember]);
 
-  // Initialize timesheet status from loaded data
-  useEffect(() => {
-    if (dailyTimesheets && selectedTimesheetDate) {
-      const dateKey = formatDateForAPI(selectedTimesheetDate);
-      const newStatus: Record<string, { hasData: boolean; userId: string }> = {};
+  // // Initialize timesheet status from loaded data
+  // useEffect(() => {
+  //   if (dailyTimesheets && selectedTimesheetDate) {
+  //     const dateKey = formatDateForAPI(selectedTimesheetDate);
+  //     const newStatus: Record<string, { hasData: boolean; userId: string }> = {};
 
-      // Check each user's data for the selected date
-      filteredTimesheetUsers?.forEach(user => {
-        const userDateKey = `${dateKey}-${user.user_id}`;
+  //     // Check each user's data for the selected date
+  //     filteredTimesheetUsers?.forEach(user => {
+  //       const userDateKey = `${dateKey}-${user.user_id}`;
 
-        // Check if user has any data in any field
-        const inProgressData = user.in_progress || [];
-        const blockedData = user.blocked || [];
-        const completedData = user.completed || [];
+  //       // Check if user has any data in any field
+  //       const inProgressData = user.in_progress || [];
+  //       const blockedData = user.blocked || [];
+  //       const completedData = user.completed || [];
 
-        const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 :
-          (typeof inProgressData === 'string' && (inProgressData as string).trim().length > 0);
-        const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 :
-          (typeof blockedData === 'string' && (blockedData as string).trim().length > 0);
-        const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 :
-          (typeof completedData === 'string' && (completedData as string).trim().length > 0);
+  //       const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 :
+  //         (typeof inProgressData === 'string' && (inProgressData as string).trim().length > 0);
+  //       const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 :
+  //         (typeof blockedData === 'string' && (blockedData as string).trim().length > 0);
+  //       const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 :
+  //         (typeof completedData === 'string' && (completedData as string).trim().length > 0);
 
-        const hasData = hasInProgress || hasBlocked || hasCompleted;
+  //       const hasData = hasInProgress || hasBlocked || hasCompleted;
 
-        newStatus[userDateKey] = { hasData, userId: user.user_id };
-      });
+  //       newStatus[userDateKey] = { hasData, userId: user.user_id };
+  //     });
 
-      // Update status only if there are changes
-      setTimesheetStatus(prev => {
-        const hasChanges = Object.keys(newStatus).some(key =>
-          !prev[key] || prev[key].hasData !== newStatus[key].hasData
-        );
-        return hasChanges ? { ...prev, ...newStatus } : prev;
-      });
-    }
-  }, [dailyTimesheets, selectedTimesheetDate, filteredTimesheetUsers]);
+  //     // Update status only if there are changes
+  //     setTimesheetStatus(prev => {
+  //       const hasChanges = Object.keys(newStatus).some(key =>
+  //         !prev[key] || prev[key].hasData !== newStatus[key].hasData
+  //       );
+  //       return hasChanges ? { ...prev, ...newStatus } : prev;
+  //     });
+  //   }
+  // }, [dailyTimesheets, selectedTimesheetDate, filteredTimesheetUsers]);
 
   // Check if selected date is today
-  const isToday = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = selectedTimesheetDate ? new Date(selectedTimesheetDate) : today;
-    selectedDate.setHours(0, 0, 0, 0);
-    return selectedDate.getTime() === today.getTime();
-  }, [selectedTimesheetDate?.getTime()]);
+  // const isToday = useMemo(() => {
+  //   const today = new Date();
+  //   today.setHours(0, 0, 0, 0);
+  //   const selectedDate = selectedTimesheetDate ? new Date(selectedTimesheetDate) : today;
+  //   selectedDate.setHours(0, 0, 0, 0);
+  //   return selectedDate.getTime() === today.getTime();
+  // }, [selectedTimesheetDate?.getTime()]);
 
   // Sort timesheet users based on selected criteria
   const sortedTimesheetUsers = useMemo(() => {
     const users = [...(filteredTimesheetUsers || [])];
 
-    switch (timesheetSort) {
-      case 'productivity':
-        return users?.sort((a, b) => calculateProductivityScore(b) - calculateProductivityScore(a));
-      case 'alphabetical':
-        return users?.sort((a, b) => (a.name || '')?.localeCompare(b.name || ''));
-      case 'hours':
-        // Since we don't track hours in the new system, sort by total task count instead
-        return users?.sort((a, b) => {
-          const aTaskCount = (a.in_progress?.length || 0) + (a.completed?.length || 0) + (a.blocked?.length || 0);
-          const bTaskCount = (b.in_progress?.length || 0) + (b.completed?.length || 0) + (b.blocked?.length || 0);
-          return bTaskCount - aTaskCount;
-        });
-      case 'name':
-        return users?.sort((a, b) => (a.name || a.email || a.user_id)?.localeCompare(b.name || b.email || b.user_id));
-      default:
-        return users;
+    // switch (timesheetSort) {
+    //   case 'productivity':
+    //     return users?.sort((a, b) => calculateProductivityScore(b) - calculateProductivityScore(a));
+    //   case 'alphabetical':
+    //     return users?.sort((a, b) => (a.name || '')?.localeCompare(b.name || ''));
+    //   case 'hours':
+    //     // Since we don't track hours in the new system, sort by total task count instead
+    //     return users?.sort((a, b) => {
+    //       const aTaskCount = (a.in_progress?.length || 0) + (a.completed?.length || 0) + (a.blocked?.length || 0);
+    //       const bTaskCount = (b.in_progress?.length || 0) + (b.completed?.length || 0) + (b.blocked?.length || 0);
+    //       return bTaskCount - aTaskCount;
+    //     });
+    //   case 'name':
+    //     return users?.sort((a, b) => (a.name || a.email || a.user_id)?.localeCompare(b.name || b.email || b.user_id));
+    //   default:
+    //     return users;
+    // }
+    return users?.sort((a, b) => (a.name || a.email || a.user_id)?.localeCompare(b.name || b.email || b.user_id));
+  }, [filteredTimesheetUsers]);
+
+  const fetchAllDatesData = async () => {
+    const dates = [];
+    const currentDate = new Date(detailDateRange.from!);
+    const endDate = new Date(detailDateRange.to!);
+
+    while (currentDate <= endDate) {
+      dates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
     }
-  }, [filteredTimesheetUsers, timesheetSort]);
+
+    // Fetch data for each date and user combination
+    for (const date of dates) {
+      for (const user of sortedTimesheetUsers) {
+        const dateKey = `${formatDateForAPI(date)}-${user.user_id}`;
+        
+        // If we already have data for this date/user, don't fetch again
+        if (fetchedDataRef.current.has(dateKey)) {
+          continue;
+        }
+
+        try {
+          // Fetch data for the specific date
+          const data = await getTeamTimesheets(
+            orgId,
+            formatDateForAPI(date),
+            [user.user_id]
+          );
+
+          // Cache the data
+          setDateSpecificData(prev => ({ ...prev, [dateKey]: data }));
+          
+          // Mark as fetched in ref
+          fetchedDataRef.current.add(dateKey);
+
+          // Update savedContentByField with the fetched data
+          if (data?.users?.length > 0) {
+            const userData = data.users[0];
+            const dateStr = formatDateForAPI(date);
+
+            const newSavedContent: Record<string, string> = {};
+
+            // Store in_progress data
+            if (userData.in_progress) {
+              const inProgKey = `${user.user_id}-in_progress-${dateStr}`;
+              newSavedContent[inProgKey] = convertEntriesToText(userData.in_progress);
+            }
+
+            // Store blocked data
+            if (userData.blocked) {
+              const blockedKey = `${user.user_id}-blocked-${dateStr}`;
+              newSavedContent[blockedKey] = convertEntriesToText(userData.blocked);
+            }
+
+            // Store completed data
+            if (userData.completed) {
+              const completedKey = `${user.user_id}-completed-${dateStr}`;
+              newSavedContent[completedKey] = convertEntriesToText(userData.completed);
+            }
+
+            setSavedContentByField(prev => ({ ...prev, ...newSavedContent }));
+          }
+        } catch (error) {
+          console.error('Failed to fetch data for date:', date, error);
+        }
+      }
+    }
+  };
 
   // Fetch data for all dates in the detail range
   useEffect(() => {
     if (!detailDateRange?.from || !detailDateRange?.to || !sortedTimesheetUsers.length) return;
     
-    const fetchAllDatesData = async () => {
-      const dates = [];
-      const currentDate = new Date(detailDateRange.from!);
-      const endDate = new Date(detailDateRange.to!);
-      
-      while (currentDate <= endDate) {
-        dates.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-      
-      // Fetch data for each date and user combination
-      for (const date of dates) {
-        for (const user of sortedTimesheetUsers) {
-          await fetchDataForDate(date, user.user_id);
-        }
-      }
-    };
+    // Clear the fetched data ref when date range changes to force refresh
+    fetchedDataRef.current.clear();
     
     fetchAllDatesData();
-  }, [detailDateRange, sortedTimesheetUsers, fetchDataForDate]);
+  }, [detailDateRange?.from, detailDateRange?.to, sortedTimesheetUsers, orgId]);
 
   // Set active employee tab to first user if not set
   useEffect(() => {
@@ -1173,20 +1257,20 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
       const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
-      
+
       // Show scroll indicator if there's content to scroll
       setShowScrollIndicator(scrollHeight > clientHeight);
-      
+
       // Check if near bottom (within 50px)
       setIsNearBottom(scrollTop + clientHeight >= scrollHeight - 50);
     };
 
     // Initial check
     handleScroll();
-    
+
     // Add scroll listener
     scrollContainer.addEventListener('scroll', handleScroll);
-    
+
     // Add resize listener to recheck on window resize
     const handleResize = () => handleScroll();
     window.addEventListener('resize', handleResize);
@@ -1195,7 +1279,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       scrollContainer.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
     };
-  }, [viewMode, detailDateRange]);
+  }, [detailDateRange]);
 
   // Scroll to bottom function
   const scrollToBottom = () => {
@@ -1240,9 +1324,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   }, [sortedTimesheetUsers, activeEmployeeTab]);
 
   // Get active employee data
-  const activeEmployee = useMemo(() => {
-    return sortedTimesheetUsers?.find(user => user.user_id === activeEmployeeTab);
-  }, [sortedTimesheetUsers, activeEmployeeTab]);
+  // const activeEmployee = useMemo(() => {
+  //   return sortedTimesheetUsers?.find(user => user.user_id === activeEmployeeTab);
+  // }, [sortedTimesheetUsers, activeEmployeeTab]);
 
   // Get employee's project involvement - simplified for user-centric approach
   const getEmployeeProjects = useCallback((employee: TeamTimesheetUser) => {
@@ -1259,290 +1343,290 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   }, [projects, isUserProjectMember]);
 
   // Organize users by their primary project with role-based filtering
-  const usersByProject = useMemo(() => {
-    const projectGroups: Record<string, any[]> = {};
+  // const usersByProject = useMemo(() => {
+  //   const projectGroups: Record<string, any[]> = {};
 
-    // First, ensure all projects the current user has access to are included
-    projects?.forEach(project => {
-      if (canViewProjectTimesheets(project.id)) {
-        // Initialize project group even if no users have timesheet data yet
-        if (!projectGroups[project.name]) {
-          projectGroups[project.name] = [];
-        }
-      }
-    });
+  //   // First, ensure all projects the current user has access to are included
+  //   projects?.forEach(project => {
+  //     if (canViewProjectTimesheets(project.id)) {
+  //       // Initialize project group even if no users have timesheet data yet
+  //       if (!projectGroups[project.name]) {
+  //         projectGroups[project.name] = [];
+  //       }
+  //     }
+  //   });
 
-    // Add users to projects they have role-based access to
-    sortedTimesheetUsers?.forEach(user => {
-      projects?.forEach(project => {
-        // Check if this specific user has access to this project
-        const userHasProjectAccess = isUserProjectMember(user.user_id, project.id);
+  //   // Add users to projects they have role-based access to
+  //   sortedTimesheetUsers?.forEach(user => {
+  //     projects?.forEach(project => {
+  //       // Check if this specific user has access to this project
+  //       const userHasProjectAccess = isUserProjectMember(user.user_id, project.id);
 
-        if (userHasProjectAccess && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
-          projectGroups[project.name]?.push(user);
-        }
-      });
-    });
+  //       if (userHasProjectAccess && !projectGroups[project.name]?.some(u => u.user_id === user.user_id)) {
+  //         projectGroups[project.name]?.push(user);
+  //       }
+  //     });
+  //   });
 
-    return projectGroups;
-  }, [sortedTimesheetUsers, projects, canViewProjectTimesheets, selectedTimesheetProjects, isUserProjectMember]);
+  //   return projectGroups;
+  // }, [sortedTimesheetUsers, projects, canViewProjectTimesheets, selectedTimesheetProjects, isUserProjectMember]);
 
 
 
   // Project Management Functions
-  const toggleProject = (projectName: string) => {
-    setExpandedProjects(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(projectName)) {
-        newSet.delete(projectName);
-      } else {
-        newSet.add(projectName);
-      }
-      return newSet;
-    });
-  };
+  // const toggleProject = (projectName: string) => {
+  //   setExpandedProjects(prev => {
+  //     const newSet = new Set(prev);
+  //     if (newSet.has(projectName)) {
+  //       newSet.delete(projectName);
+  //     } else {
+  //       newSet.add(projectName);
+  //     }
+  //     return newSet;
+  //   });
+  // };
 
-  const toggleAllProjects = (expand: boolean) => {
-    if (expand) {
-      setExpandedProjects(new Set(Object.keys(usersByProject)));
-    } else {
-      setExpandedProjects(new Set());
-    }
-  };
+  // const toggleAllProjects = (expand: boolean) => {
+  //   if (expand) {
+  //     setExpandedProjects(new Set(Object.keys(usersByProject)));
+  //   } else {
+  //     setExpandedProjects(new Set());
+  //   }
+  // };
 
-  const getUserPrimaryProject = (user: TeamTimesheetUser): string => {
-    // Since we moved to user-centric approach, find first project user is member of
-    const userProject = projects?.find(project =>
-      isUserProjectMember(user.user_id, project.id)
-    );
+  // const getUserPrimaryProject = (user: TeamTimesheetUser): string => {
+  //   // Since we moved to user-centric approach, find first project user is member of
+  //   const userProject = projects?.find(project =>
+  //     isUserProjectMember(user.user_id, project.id)
+  //   );
 
-    if (userProject) return userProject.id;
+  //   if (userProject) return userProject.id;
 
-    // Fallback: use first available project or create a default one
-    if (projects.length > 0) {
-      return projects[0].id;
-    }
+  //   // Fallback: use first available project or create a default one
+  //   if (projects.length > 0) {
+  //     return projects[0].id;
+  //   }
 
-    // Last resort: use a default project ID
-    return 'default-project';
-  };
+  //   // Last resort: use a default project ID
+  //   return 'default-project';
+  // };
 
-  // Date Navigation Functions
-  const navigateToPreviousDay = () => {
-    const currentDate = selectedTimesheetDate || new Date();
-    const previousDay = new Date(currentDate);
-    previousDay.setDate(previousDay.getDate() - 1);
-    previousDay.setHours(0, 0, 0, 0);
-    setSelectedTimesheetDate(previousDay);
-  };
+  // // Date Navigation Functions
+  // const navigateToPreviousDay = () => {
+  //   const currentDate = selectedTimesheetDate || new Date();
+  //   const previousDay = new Date(currentDate);
+  //   previousDay.setDate(previousDay.getDate() - 1);
+  //   previousDay.setHours(0, 0, 0, 0);
+  //   setSelectedTimesheetDate(previousDay);
+  // };
 
-  const navigateToNextDay = () => {
-    const currentDate = selectedTimesheetDate || new Date();
-    const nextDay = new Date(currentDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    nextDay.setHours(0, 0, 0, 0);
-    setSelectedTimesheetDate(nextDay);
-  };
+  // const navigateToNextDay = () => {
+  //   const currentDate = selectedTimesheetDate || new Date();
+  //   const nextDay = new Date(currentDate);
+  //   nextDay.setDate(nextDay.getDate() + 1);
+  //   nextDay.setHours(0, 0, 0, 0);
+  //   setSelectedTimesheetDate(nextDay);
+  // };
 
-  // Remove old scrolling functions - no longer needed with dropdown filters
+  // // Remove old scrolling functions - no longer needed with dropdown filters
 
-  // Calendar View Functions
-  const handleDateClick = (date: Date) => {
-    // Discard any unsaved drafts for the currently selected date before navigating
-    discardDraftsForDate(selectedTimesheetDate);
-    const local = new Date(date);
-    local.setHours(0, 0, 0, 0);
-    // If clicking the same date, do not trigger loading or refetch
-    if (selectedTimesheetDate) {
-      const prev = new Date(selectedTimesheetDate);
-      prev.setHours(0, 0, 0, 0);
-      if (prev.getTime() === local.getTime()) {
-        setViewMode('detail');
-        return;
-      }
-    }
-    setIsCalendarLoading(true);
-    setSelectedTimesheetDate(local);
-  };
+  // // Calendar View Functions
+  // const handleDateClick = (date: Date) => {
+  //   // Discard any unsaved drafts for the currently selected date before navigating
+  //   discardDraftsForDate(selectedTimesheetDate);
+  //   const local = new Date(date);
+  //   local.setHours(0, 0, 0, 0);
+  //   // If clicking the same date, do not trigger loading or refetch
+  //   if (selectedTimesheetDate) {
+  //     const prev = new Date(selectedTimesheetDate);
+  //     prev.setHours(0, 0, 0, 0);
+  //     if (prev.getTime() === local.getTime()) {
+  //       setViewMode('detail');
+  //       return;
+  //     }
+  //   }
+  //   setIsCalendarLoading(true);
+  //   setSelectedTimesheetDate(local);
+  // };
 
-  const backToCalendar = () => {
-    // Restore previous saved values by discarding drafts for current date
-    discardDraftsForDate(selectedTimesheetDate);
-    setIsCalendarLoading(false);
-    setViewMode('calendar');
-  };
+  // const backToCalendar = () => {
+  //   // Restore previous saved values by discarding drafts for current date
+  //   discardDraftsForDate(selectedTimesheetDate);
+  //   setIsCalendarLoading(false);
+  //   setViewMode('calendar');
+  // };
 
-  useEffect(() => {
-    // When a calendar click initiated a load, and the query has finished,
-    // navigate to detail view and clear the loading flag.
-    if (isCalendarLoading && !isTimesheetsFetching && selectedTimesheetDate) {
-      setViewMode('detail');
-      setIsCalendarLoading(false);
-    }
-  }, [isCalendarLoading, isTimesheetsFetching, selectedTimesheetDate]);
+  // useEffect(() => {
+  //   // When a calendar click initiated a load, and the query has finished,
+  //   // navigate to detail view and clear the loading flag.
+  //   if (isCalendarLoading && !isTimesheetsFetching && selectedTimesheetDate) {
+  //     setViewMode('detail');
+  //     setIsCalendarLoading(false);
+  //   }
+  // }, [isCalendarLoading, isTimesheetsFetching, selectedTimesheetDate]);
 
   // Switching active employee: discard current date drafts and ensure fresh data
-  useEffect(() => {
-    if (activeEmployeeTab && selectedTimesheetDate) {
-      // Discard any unsaved drafts for the current date
-      discardDraftsForDate(selectedTimesheetDate);
+  // useEffect(() => {
+  //   if (activeEmployeeTab && selectedTimesheetDate) {
+  //     // Discard any unsaved drafts for the current date
+  //     discardDraftsForDate(selectedTimesheetDate);
 
-      // Invalidate queries to ensure we get fresh data for the new active employee
-      const dateString = formatDateForAPI(selectedTimesheetDate);
-      queryClient.invalidateQueries({
-        queryKey: ['team-timesheets', orgId, dateString],
-        exact: false
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeEmployeeTab]);
+  //     // Invalidate queries to ensure we get fresh data for the new active employee
+  //     const dateString = formatDateForAPI(selectedTimesheetDate);
+  //     queryClient.invalidateQueries({
+  //       queryKey: ['team-timesheets', orgId, dateString],
+  //       exact: false
+  //     });
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [activeEmployeeTab]);
 
   // Generate calendar grid with weeks - Memoized for performance
-  const getCurrentMonthCalendar = useMemo(() => {
-    const today = new Date();
-    const year = calendarRefDate.getFullYear();
-    const month = calendarRefDate.getMonth();
+  // const getCurrentMonthCalendar = useMemo(() => {
+  //   const today = new Date();
+  //   const year = calendarRefDate.getFullYear();
+  //   const month = calendarRefDate.getMonth();
 
-    // Get first day of month and last day of month
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+  //   // Get first day of month and last day of month
+  //   const firstDay = new Date(year, month, 1);
+  //   const lastDay = new Date(year, month + 1, 0);
 
-    // Get the first Sunday of the calendar view
-    const startDate = new Date(firstDay);
-    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    startDate.setDate(firstDay.getDate() - startDayOfWeek);
+  //   // Get the first Sunday of the calendar view
+  //   const startDate = new Date(firstDay);
+  //   const startDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  //   startDate.setDate(firstDay.getDate() - startDayOfWeek);
 
-    // Get the last Saturday of the calendar view
-    const endDate = new Date(lastDay);
-    const endDayOfWeek = lastDay.getDay();
-    endDate.setDate(lastDay.getDate() + (6 - endDayOfWeek));
+  //   // Get the last Saturday of the calendar view
+  //   const endDate = new Date(lastDay);
+  //   const endDayOfWeek = lastDay.getDay();
+  //   endDate.setDate(lastDay.getDate() + (6 - endDayOfWeek));
 
-    // Generate all dates for the calendar grid
-    const weeks = [];
-    let currentWeek = [];
+  //   // Generate all dates for the calendar grid
+  //   const weeks = [];
+  //   let currentWeek = [];
 
-    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-      currentWeek.push(new Date(date));
+  //   for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+  //     currentWeek.push(new Date(date));
 
-      // If it's Saturday (day 6), complete the week
-      if (date.getDay() === 6) {
-        weeks.push(currentWeek);
-        currentWeek = [];
-      }
-    }
+  //     // If it's Saturday (day 6), complete the week
+  //     if (date.getDay() === 6) {
+  //       weeks.push(currentWeek);
+  //       currentWeek = [];
+  //     }
+  //   }
 
-    // Add any remaining days to the last week
-    if (currentWeek.length > 0) {
-      weeks.push(currentWeek);
-    }
+  //   // Add any remaining days to the last week
+  //   if (currentWeek.length > 0) {
+  //     weeks.push(currentWeek);
+  //   }
 
-    return { weeks, currentMonth: month };
-  }, [calendarRefDate]);
+  //   return { weeks, currentMonth: month };
+  // }, [calendarRefDate]);
 
-  // Get timesheet summary for date tabs - Memoized for performance
-  const getDateSummary = useCallback((date: Date, user: any) => {
-    const dateKey = `${formatDateForAPI(date)}-${user?.user_id}`;
+  // // Get timesheet summary for date tabs - Memoized for performance
+  // const getDateSummary = useCallback((date: Date, user: any) => {
+  //   const dateKey = `${formatDateForAPI(date)}-${user?.user_id}`;
 
-    // Check local timesheet status first
-    if (timesheetStatus[dateKey]) {
-      return {
-        hasData: timesheetStatus[dateKey].hasData,
-        inProgressCount: timesheetStatus[dateKey].hasData ? 1 : 0,
-        blockedCount: 0,
-        completedCount: 0
-      };
-    }
+  //   // Check local timesheet status first
+  //   if (timesheetStatus[dateKey]) {
+  //     return {
+  //       hasData: timesheetStatus[dateKey].hasData,
+  //       inProgressCount: timesheetStatus[dateKey].hasData ? 1 : 0,
+  //       blockedCount: 0,
+  //       completedCount: 0
+  //     };
+  //   }
 
-    // Check if this is the currently selected date with loaded data
-    const isCurrentDate = selectedTimesheetDate &&
-      date.toDateString() === selectedTimesheetDate.toDateString();
+  //   // Check if this is the currently selected date with loaded data
+  //   const isCurrentDate = selectedTimesheetDate &&
+  //     date.toDateString() === selectedTimesheetDate.toDateString();
 
-    if (isCurrentDate && user) {
-      // Check for string content (saved data) or array content (task data)
-      const inProgressData = user.in_progress || user.inProgress || [];
-      const blockedData = user.blocked || [];
-      const completedData = user.completed || [];
+  //   if (isCurrentDate && user) {
+  //     // Check for string content (saved data) or array content (task data)
+  //     const inProgressData = user.in_progress || user.inProgress || [];
+  //     const blockedData = user.blocked || [];
+  //     const completedData = user.completed || [];
 
-      // Check if data exists - either as non-empty strings or non-empty arrays
-      const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 :
-        (typeof inProgressData === 'string' && inProgressData.trim().length > 0);
-      const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 :
-        (typeof blockedData === 'string' && blockedData.trim().length > 0);
-      const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 :
-        (typeof completedData === 'string' && completedData.trim().length > 0);
+  //     // Check if data exists - either as non-empty strings or non-empty arrays
+  //     const hasInProgress = Array.isArray(inProgressData) ? inProgressData.length > 0 :
+  //       (typeof inProgressData === 'string' && inProgressData.trim().length > 0);
+  //     const hasBlocked = Array.isArray(blockedData) ? blockedData.length > 0 :
+  //       (typeof blockedData === 'string' && blockedData.trim().length > 0);
+  //     const hasCompleted = Array.isArray(completedData) ? completedData.length > 0 :
+  //       (typeof completedData === 'string' && completedData.trim().length > 0);
 
-      const hasData = hasInProgress || hasBlocked || hasCompleted;
+  //     const hasData = hasInProgress || hasBlocked || hasCompleted;
 
-      return {
-        hasData,
-        inProgressCount: hasInProgress ? 1 : 0,
-        blockedCount: hasBlocked ? 1 : 0,
-        completedCount: hasCompleted ? 1 : 0
-      };
-    }
+  //     return {
+  //       hasData,
+  //       inProgressCount: hasInProgress ? 1 : 0,
+  //       blockedCount: hasBlocked ? 1 : 0,
+  //       completedCount: hasCompleted ? 1 : 0
+  //     };
+  //   }
 
-    return { hasData: false, inProgressCount: 0, blockedCount: 0, completedCount: 0 };
-  }, [timesheetStatus, selectedTimesheetDate]);
+  //   return { hasData: false, inProgressCount: 0, blockedCount: 0, completedCount: 0 };
+  // }, [timesheetStatus, selectedTimesheetDate]);
 
   // Get status icon for calendar date - Enhanced with month-level status
-  const getDateStatusIcon = useCallback((date: Date, user: any) => {
-    const dateKey = formatDateForAPI(date);
+  // const getDateStatusIcon = useCallback((date: Date, user: any) => {
+  //   const dateKey = formatDateForAPI(date);
 
-    // Check month-level status first for better performance
-    if (calendarStatus[dateKey]) {
-      const status = calendarStatus[dateKey];
-      return status.hasData ? (
-        <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
-      ) : (
-        <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
-      );
-    }
+  //   // Check month-level status first for better performance
+  //   if (calendarStatus[dateKey]) {
+  //     const status = calendarStatus[dateKey];
+  //     return status.hasData ? (
+  //       <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
+  //     ) : (
+  //       <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
+  //     );
+  //   }
 
-    // Fallback to current logic for selected date
-    const summary = getDateSummary(date, user);
-    return summary.hasData ? (
-      <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
-    ) : (
-      <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
-    );
-  }, [calendarStatus, getDateSummary]);
+  //   // Fallback to current logic for selected date
+  //   const summary = getDateSummary(date, user);
+  //   return summary.hasData ? (
+  //     <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
+  //   ) : (
+  //     <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
+  //   );
+  // }, [calendarStatus, getDateSummary]);
 
-  // Data Management Functions
-  // Helper function to check if all timesheet fields are empty for a user
-  const checkAllFieldsEmpty = async (userId: string, currentField: 'in_progress' | 'completed' | 'blocked', currentValue: string) => {
-    // Get current user data
-    const currentUser = filteredTimesheetUsers?.find(u => u.user_id === userId);
-    if (!currentUser) return true;
+  // // Data Management Functions
+  // // Helper function to check if all timesheet fields are empty for a user
+  // const checkAllFieldsEmpty = async (userId: string, currentField: 'in_progress' | 'completed' | 'blocked', currentValue: string) => {
+  //   // Get current user data
+  //   const currentUser = filteredTimesheetUsers?.find(u => u.user_id === userId);
+  //   if (!currentUser) return true;
 
-    // Check the values of all three fields, using the current value for the field being saved
-    const inProgressValue = currentField === 'in_progress' ? currentValue :
-      (typeof currentUser.in_progress === 'string' ? currentUser.in_progress :
-        Array.isArray(currentUser.in_progress) ? currentUser.in_progress.join('') : '');
+  //   // Check the values of all three fields, using the current value for the field being saved
+  //   const inProgressValue = currentField === 'in_progress' ? currentValue :
+  //     (typeof currentUser.in_progress === 'string' ? currentUser.in_progress :
+  //       Array.isArray(currentUser.in_progress) ? currentUser.in_progress.join('') : '');
 
-    const blockedValue = currentField === 'blocked' ? currentValue :
-      (typeof currentUser.blocked === 'string' ? currentUser.blocked :
-        Array.isArray(currentUser.blocked) ? currentUser.blocked.join('') : '');
+  //   const blockedValue = currentField === 'blocked' ? currentValue :
+  //     (typeof currentUser.blocked === 'string' ? currentUser.blocked :
+  //       Array.isArray(currentUser.blocked) ? currentUser.blocked.join('') : '');
 
-    const completedValue = currentField === 'completed' ? currentValue :
-      (typeof currentUser.completed === 'string' ? currentUser.completed :
-        Array.isArray(currentUser.completed) ? currentUser.completed.join('') : '');
+  //   const completedValue = currentField === 'completed' ? currentValue :
+  //     (typeof currentUser.completed === 'string' ? currentUser.completed :
+  //       Array.isArray(currentUser.completed) ? currentUser.completed.join('') : '');
 
-    // Check if all fields are empty or whitespace-only
-    const allEmpty = (!inProgressValue || inProgressValue.trim().length === 0) &&
-      (!blockedValue || blockedValue.trim().length === 0) &&
-      (!completedValue || completedValue.trim().length === 0);
+  //   // Check if all fields are empty or whitespace-only
+  //   const allEmpty = (!inProgressValue || inProgressValue.trim().length === 0) &&
+  //     (!blockedValue || blockedValue.trim().length === 0) &&
+  //     (!completedValue || completedValue.trim().length === 0);
 
-    return allEmpty;
-  };
+  //   return allEmpty;
+  // };
 
   const saveTimesheetData = async (
     userId: string,
     field: 'in_progress' | 'completed' | 'blocked',
     value: string,
-    specificDate?: Date
+    specificDate: Date
   ) => {
     // Use the specific date if provided, otherwise fall back to selectedTimesheetDate
-    const dateToSave = specificDate || selectedTimesheetDate;
+    const dateToSave = specificDate;
     if (!dateToSave || !orgId || !userId || !field) return;
 
     // Check permissions - users can edit their own timesheets, admins/owners can edit any
@@ -1597,16 +1681,16 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         });
 
         // Update local calendar status optimistically using the specific date
-        const dateKey = formatDateForAPI(dateToSave);
-        const hasData = value.trim().length > 0;
+        // const dateKey = formatDateForAPI(dateToSave);
+        // const hasData = value.trim().length > 0;
 
-        setCalendarStatus(prev => ({
-          ...prev,
-          [dateKey]: {
-            hasData: hasData || Object.values(prev[dateKey] || {}).some(Boolean),
-            userCount: prev[dateKey]?.userCount || 1
-          }
-        }));
+        // setCalendarStatus(prev => ({
+        //   ...prev,
+        //   [dateKey]: {
+        //     hasData: hasData || Object.values(prev[dateKey] || {}).some(Boolean),
+        //     userCount: prev[dateKey]?.userCount || 1
+        //   }
+        // }));
 
         // Invalidate the query cache for this specific date so it refetches when navigated to
         const savedDateString = formatDateForAPI(dateToSave);
@@ -1643,14 +1727,14 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     }
   };
 
-  const clearTimesheetFilters = () => {
-    setSelectedTimesheetUsers([]);
-    setSelectedTimesheetProjects([]);
-    setTimesheetDateRange(undefined);
-    setTempTimesheetDateRange(undefined);
-    // Keep selectedTimesheetDate as is - it's just for display
-    // setTimesheetSearchQuery('');
-  };
+  // const clearTimesheetFilters = () => {
+  //   setSelectedTimesheetUsers([]);
+  //   setSelectedTimesheetProjects([]);
+  //   setTimesheetDateRange(undefined);
+  //   setTempTimesheetDateRange(undefined);
+  //   // Keep selectedTimesheetDate as is - it's just for display
+  //   // setTimesheetSearchQuery('');
+  // };
 
   // ============================================================================
   // RENDER
@@ -1658,184 +1742,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
   return (
     <div className="flex w-full h-full relative overflow-hidden min-w-0">
-      {/* Collapsible Filter Sidebar */}
-      <div className={`${isFilterSidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-shrink-0`}>
-        <div className="p-4 space-y-4 h-full overflow-y-auto">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Filters & Settings</h3>
-            <Button variant="ghost" size="sm" onClick={() => setIsFilterSidebarOpen(false)}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {/* Date Range */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Date Range</label>
-            <Popover open={isTimesheetDatePopoverOpen} onOpenChange={setIsTimesheetDatePopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant={timesheetDateRange?.from ? 'default' : 'outline'} className="w-full justify-start">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  {timesheetDateRange?.from ? 'Custom Range' : 'All Time'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-3" align="start">
-                <div className="space-y-3">
-                  <CalendarComponent
-                    mode="range"
-                    defaultMonth={tempTimesheetDateRange?.from}
-                    selected={tempTimesheetDateRange}
-                    onSelect={(range) => setTempTimesheetDateRange(range ?? undefined)}
-                    numberOfMonths={2}
-                    className="rounded-md border"
-                  />
-                  <div className="flex justify-between">
-                    <Button size="sm" variant="outline" onClick={() => { setTimesheetDateRange(undefined); setTempTimesheetDateRange(undefined); setIsTimesheetDatePopoverOpen(false); }}>Reset</Button>
-                    <Button size="sm" onClick={() => { setTimesheetDateRange(tempTimesheetDateRange); setIsTimesheetDatePopoverOpen(false); }}>Apply</Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Projects Filter */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Projects</label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-between">
-                  <div className="flex items-center">
-                    <Folder className="w-4 h-4 mr-2" />
-                    {selectedTimesheetProjects.length ? `${selectedTimesheetProjects.length} Selected` : 'All Projects'}
-                  </div>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
-                {/* Loading State */}
-                {isProjectsLoading && (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Loading projects...</span>
-                  </div>
-                )}
-
-                {/* Projects List */}
-                {!isProjectsLoading && (projects || [])
-                  ?.filter(project => {
-                    // Apply role-based filtering for timesheet visibility
-                    if (currentUserOrgRole === 'owner') {
-                      return true; // Owners can see all project timesheets
-                    } else if (currentUserOrgRole === 'admin') {
-                      return true; // Admins can see all project timesheets
-                    } else if (currentUserOrgRole === 'member') {
-                      // Members can see timesheets for projects they're members of
-                      return project?.members?.includes(user?.id) || false;
-                    }
-                    return false; // No role or unknown role
-                  })
-                  ?.sort((a, b) => a.name?.localeCompare(b.name))
-                  ?.map((p) => (
-                    <DropdownMenuCheckboxItem
-                      key={p.id}
-                      checked={selectedTimesheetProjects?.includes(p.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedTimesheetProjects(checked ? [...selectedTimesheetProjects, p.id] : selectedTimesheetProjects?.filter(x => x !== p.id));
-                      }}
-                      className="cursor-pointer"
-                    >
-                      {p.name}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Members Filter */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Team Members</label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-between">
-                  <div className="flex items-center">
-                    <Users className="w-4 h-4 mr-2" />
-                    {selectedTimesheetUsers.length ? `${selectedTimesheetUsers.length} Selected` : 'All Members'}
-                  </div>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
-                {getFilteredMembers()
-                  ?.map((m) => (
-                    <DropdownMenuCheckboxItem
-                      key={m.user_id}
-                      checked={selectedTimesheetUsers?.includes(String(m.user_id))}
-                      onCheckedChange={(checked) => {
-                        const id = String(m.user_id);
-                        setSelectedTimesheetUsers(checked ? [...selectedTimesheetUsers, id] : selectedTimesheetUsers?.filter(x => x !== id));
-                      }}
-                      className="cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Avatar className="w-6 h-6">
-                          <AvatarFallback className="text-xs">{m.initials}</AvatarFallback>
-                        </Avatar>
-                        {m.displayName}
-                      </div>
-                    </DropdownMenuCheckboxItem>
-                  ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Sort Options */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Sort Tasks By</label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-between">
-                  <div className="flex items-center">
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    {timesheetSort === 'productivity' ? 'Productivity' : timesheetSort === 'alphabetical' ? 'Alphabetical' : 'Hours'}
-                  </div>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuCheckboxItem checked={timesheetSort === 'productivity'} onCheckedChange={() => setTimesheetSort('productivity')}>
-                  <Trophy className="w-4 h-4 mr-2" />
-                  Productivity Score
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={timesheetSort === 'alphabetical'} onCheckedChange={() => setTimesheetSort('alphabetical')}>
-                  <Users className="w-4 h-4 mr-2" />
-                  Alphabetical
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={timesheetSort === 'hours'} onCheckedChange={() => setTimesheetSort('hours')}>
-                  <Clock className="w-4 h-4 mr-2" />
-                  Hours Today
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* View Options */}
-          <div className="space-y-3 pt-2 border-t">
-            <Button
-              variant={showCompletedTasks ? 'default' : 'outline'}
-              onClick={() => setShowCompletedTasks(!showCompletedTasks)}
-              className="w-full justify-start"
-            >
-              {showCompletedTasks ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
-              Show Completed Tasks
-            </Button>
-
-            <Button variant="outline" onClick={clearTimesheetFilters} className="w-full">
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Clear All Filters
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
         {/* Simplified Filter Header */}
@@ -1851,14 +1757,14 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4" />
                         <span className="truncate">
-                          {selectedMemberFilter === 'all' 
+                          {selectedMemberFilter === 'all'
                             ? 'All Members'
                             : (() => {
-                                const selectedUser = sortedTimesheetUsers.find(u => u.user_id === selectedMemberFilter);
-                                return selectedUser 
-                                  ? deriveDisplayFromEmail(selectedUser.name || selectedUser.email || selectedUser.user_id).displayName
-                                  : 'All Members';
-                              })()
+                              const selectedUser = sortedTimesheetUsers.find(u => u.user_id === selectedMemberFilter);
+                              return selectedUser
+                                ? deriveDisplayFromEmail(selectedUser.name || selectedUser.email || selectedUser.user_id).displayName
+                                : 'All Members';
+                            })()
                           }
                         </span>
                       </div>
@@ -1888,12 +1794,12 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                         </div>
                       </div>
                     </DropdownMenuCheckboxItem>
-                    
+
                     {/* Individual Members */}
                     {sortedTimesheetUsers?.map((user) => {
                       const employeeProjects = getEmployeeProjects(user);
                       const isSelected = selectedMemberFilter === user.user_id;
-                      
+
                       return (
                         <DropdownMenuCheckboxItem
                           key={user.user_id}
@@ -1933,7 +1839,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                       <div className="flex items-center gap-2">
                         <Folder className="w-4 h-4" />
                         <span className="truncate">
-                          {selectedTimesheetProjects.length > 0 
+                          {selectedTimesheetProjects.length > 0
                             ? `${selectedTimesheetProjects.length} Projects`
                             : 'All Projects'
                           }
@@ -1955,7 +1861,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                     >
                       All Projects
                     </DropdownMenuCheckboxItem>
-                    
+
                     {/* Project List */}
                     {projects
                       ?.filter(project => {
@@ -1973,8 +1879,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                           key={project.id}
                           checked={selectedTimesheetProjects.includes(project.id)}
                           onCheckedChange={(checked) => {
-                            setSelectedTimesheetProjects(prev => 
-                              checked 
+                            setSelectedTimesheetProjects(prev =>
+                              checked
                                 ? [...prev, project.id]
                                 : prev.filter(id => id !== project.id)
                             );
@@ -1992,8 +1898,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
               </div>
 
               {/* Right Section - Date Range Filter */}
-              <Popover 
-                open={isDetailDatePopoverOpen} 
+              <Popover
+                open={isDetailDatePopoverOpen}
                 onOpenChange={(open) => {
                   if (open) {
                     // Sync temp range with current range when opening
@@ -2016,38 +1922,113 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                     <ChevronRight className="w-4 h-4 rotate-90" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-4" align="end">
+                <PopoverContent className="w-96 p-4" align="end">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium text-sm">Select Date Range</h4>
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const today = new Date();
+                          setTempDetailDateRange({ from: today, to: today });
+                        }}
+                        className="text-xs h-7 px-2"
+                      >
+                        Reset to Today
+                      </Button>
+                    </div>
+
+                    {/* Quick Preset Buttons - Enhanced */}
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400">Quick Select:</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const today = new Date();
+                            setTempDetailDateRange({ from: today, to: today });
+                          }}
+                          className="text-xs h-8 justify-start"
+                        >
+                          <Calendar className="w-3 h-3 mr-2" />
+                          Today
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const today = new Date();
+                            const yesterday = new Date(today);
+                            yesterday.setDate(today.getDate() - 1);
+                            setTempDetailDateRange({ from: yesterday, to: yesterday });
+                          }}
+                          className="text-xs h-8 justify-start"
+                        >
+                          <Calendar className="w-3 h-3 mr-2" />
+                          Yesterday
+                        </Button>
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => {
                             const today = new Date();
                             const weekAgo = new Date(today);
-                            weekAgo.setDate(today.getDate() - 7);
+                            weekAgo.setDate(today.getDate() - 6); // Last 7 days including today
                             setTempDetailDateRange({ from: weekAgo, to: today });
                           }}
+                          className="text-xs h-8 justify-start"
                         >
+                          <Calendar className="w-3 h-3 mr-2" />
                           Last 7 days
                         </Button>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => {
                             const today = new Date();
                             const monthAgo = new Date(today);
-                            monthAgo.setDate(today.getDate() - 30);
+                            monthAgo.setDate(today.getDate() - 29); // Last 30 days including today
                             setTempDetailDateRange({ from: monthAgo, to: today });
                           }}
+                          className="text-xs h-8 justify-start"
                         >
+                          <Calendar className="w-3 h-3 mr-2" />
                           Last 30 days
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const today = new Date();
+                            const monday = new Date(today);
+                            const day = today.getDay();
+                            const diff = today.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+                            monday.setDate(diff);
+                            setTempDetailDateRange({ from: monday, to: today });
+                          }}
+                          className="text-xs h-8 justify-start col-span-2"
+                        >
+                          <Calendar className="w-3 h-3 mr-2" />
+                          This Week (Mon to Today)
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const today = new Date();
+                            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                            setTempDetailDateRange({ from: firstDay, to: today });
+                          }}
+                          className="text-xs h-8 justify-start col-span-2"
+                        >
+                          <Calendar className="w-3 h-3 mr-2" />
+                          This Month (1st to Today)
                         </Button>
                       </div>
                     </div>
-                    
+
                     {/* Individual Date Inputs */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
@@ -2082,7 +2063,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                   }));
                                 }
                               }}
-                              disabled={(date) => 
+                              disabled={(date) =>
                                 tempDetailDateRange?.to ? date > tempDetailDateRange.to : false
                               }
                               initialFocus
@@ -2090,7 +2071,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                           </PopoverContent>
                         </Popover>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">End Date</label>
                         <Popover>
@@ -2123,7 +2104,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                   }));
                                 }
                               }}
-                              disabled={(date) => 
+                              disabled={(date) =>
                                 tempDetailDateRange?.from ? date < tempDetailDateRange.from : false
                               }
                               initialFocus
@@ -2132,46 +2113,83 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                         </Popover>
                       </div>
                     </div>
-                    
-                    {/* Visual Range Display */}
+
+                    {/* Enhanced Visual Range Display */}
                     {tempDetailDateRange?.from && tempDetailDateRange?.to && (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-blue-700 dark:text-blue-300 font-medium">Selected Range:</span>
-                          <span className="text-blue-900 dark:text-blue-100">
-                            {Math.ceil((tempDetailDateRange.to.getTime() - tempDetailDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1} days
-                          </span>
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Selected Range:</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                              {Math.ceil((tempDetailDateRange.to.getTime() - tempDetailDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1} days
+                            </Badge>
+                            {(() => {
+                              const today = new Date();
+                              const isToday = tempDetailDateRange.from.toDateString() === today.toDateString() && 
+                                           tempDetailDateRange.to.toDateString() === today.toDateString();
+                              const isPast = tempDetailDateRange.to < today;
+                              const isFuture = tempDetailDateRange.from > today;
+                              
+                              if (isToday) {
+                                return <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Today</Badge>;
+                              } else if (isPast) {
+                                return <Badge className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">Past</Badge>;
+                              } else if (isFuture) {
+                                return <Badge className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">Future</Badge>;
+                              }
+                              return null;
+                            })()}
+                          </div>
                         </div>
-                        <div className="text-blue-800 dark:text-blue-200 font-medium mt-1">
-                          {tempDetailDateRange.from.toLocaleDateString('en-US', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric'
-                          })} → {tempDetailDateRange.to.toLocaleDateString('en-US', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
+                        <div className="space-y-1">
+                          <div className="text-blue-900 dark:text-blue-100 font-medium text-sm">
+                            {tempDetailDateRange.from.toLocaleDateString('en-US', {
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                            {' → '}
+                            {tempDetailDateRange.to.toLocaleDateString('en-US', {
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </div>
+                          <div className="text-xs text-blue-700 dark:text-blue-300">
+                            {tempDetailDateRange.from.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} 
+                            through 
+                            {tempDetailDateRange.to.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          </div>
                         </div>
                       </div>
                     )}
-                    
-                    <div className="flex justify-end items-center">
+
+                    <div className="flex justify-end items-center pt-2 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => setIsDetailDatePopoverOpen(false)}
+                          className="text-xs h-8 px-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                         >
                           Cancel
                         </Button>
-                        <Button 
-                          size="sm" 
-                          onClick={() => { 
-                            setDetailDateRange(tempDetailDateRange); 
-                            setIsDetailDatePopoverOpen(false); 
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setDetailDateRange(tempDetailDateRange);
+                            setIsDetailDatePopoverOpen(false);
                           }}
                           disabled={!tempDetailDateRange?.from || !tempDetailDateRange?.to}
+                          className="text-xs h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={!tempDetailDateRange?.from || !tempDetailDateRange?.to 
+                            ? "Please select both start and end dates" 
+                            : "Apply the selected date range"}
                         >
                           Apply Range
                         </Button>
@@ -2185,7 +2203,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         )}
 
         {/* Loading State */}
-        {isTimesheetsFetching && !isCalendarLoading && (
+        {isTimesheetsFetching && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
@@ -2195,15 +2213,15 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         )}
 
         {/* Employee Content Area */}
-        {!(isTimesheetsFetching && !isCalendarLoading) && (
+        {!(isTimesheetsFetching) && (
           <div className="flex-1 flex flex-col min-h-0 min-w-0 relative">
             {/* All Members Content */}
             <div className="flex-1 flex flex-col min-h-0 relative">
               {sortedTimesheetUsers.length > 0 ? (
-                <div 
+                <div
                   ref={scrollContainerRef}
                   className="flex-1 overflow-y-auto overflow-x-hidden m-0 p-0 relative"
-                  style={{ 
+                  style={{
                     scrollbarWidth: 'thin',
                     scrollbarColor: '#cbd5e1 transparent'
                   }}
@@ -2213,248 +2231,251 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                     {sortedTimesheetUsers
                       .filter(user => selectedMemberFilter === 'all' || user.user_id === selectedMemberFilter)
                       .map((user) => {
-                      // Auto-expand when a specific member is selected, otherwise use collapsed state
-                      const isCollapsed = selectedMemberFilter === 'all' 
-                        ? collapsedMembers.has(user.user_id)
-                        : false; // Always expand when viewing a specific member
-                      const toggleCollapse = () => {
-                        // Only allow toggling when in "All Members" mode
-                        if (selectedMemberFilter === 'all') {
-                          setCollapsedMembers(prev => {
-                            const newSet = new Set(prev);
-                            if (newSet.has(user.user_id)) {
-                              newSet.delete(user.user_id);
-                            } else {
-                              newSet.add(user.user_id);
-                            }
-                            return newSet;
-                          });
-                        }
-                      };
+                        // Auto-expand when a specific member is selected, otherwise use collapsed state
+                        const isCollapsed = selectedMemberFilter === 'all'
+                          ? collapsedMembers.has(user.user_id)
+                          : false; // Always expand when viewing a specific member
+                        const toggleCollapse = () => {
+                          // Only allow toggling when in "All Members" mode
+                          if (selectedMemberFilter === 'all') {
+                            setCollapsedMembers(prev => {
+                              const newSet = new Set(prev);
+                              if (newSet.has(user.user_id)) {
+                                newSet.delete(user.user_id);
+                              } else {
+                                newSet.add(user.user_id);
+                              }
+                              return newSet;
+                            });
+                          }
+                        };
 
-                      return (
-                        <div key={user.user_id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                          {/* Member Header with Toggle */}
-                          <div 
-                            className={`bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-b border-slate-200 dark:border-gray-600 p-3 transition-all duration-200 ${
-                              selectedMemberFilter === 'all' 
-                                ? 'cursor-pointer hover:bg-gradient-to-r hover:from-slate-100/80 hover:to-blue-100/60 dark:hover:from-gray-700/90 dark:hover:to-gray-600/90' 
+                        return (
+                          <div key={user.user_id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                            {/* Member Header with Toggle */}
+                            <div
+                              className={`bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-b border-slate-200 dark:border-gray-600 p-3 transition-all duration-200 ${selectedMemberFilter === 'all'
+                                ? 'cursor-pointer hover:bg-gradient-to-r hover:from-slate-100/80 hover:to-blue-100/60 dark:hover:from-gray-700/90 dark:hover:to-gray-600/90'
                                 : 'cursor-default'
-                            }`}
-                            onClick={toggleCollapse}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <Avatar className="w-10 h-10 ring-2 ring-offset-1 ring-blue-500">
-                                  <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-sm">
-                                    {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">
-                                    {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
-                                  </h3>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                      <span className="font-medium">{user.designation || 'Team Member'}</span> • <span className="font-medium">{user.email || user.user_id}</span>
-                                      {getEmployeeProjects(user).length > 0 && (
-                                        <span className="font-medium"> • Projects:</span>
-                                      )}
-                                    </p>
-                                    {getEmployeeProjects(user).length > 0 && (
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        {getEmployeeProjects(user).slice(0, 3)?.map((projectName, idx) => (
-                                          <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700">
-                                            <Folder className="w-3 h-3 mr-1" />
-                                            {projectName}
-                                          </Badge>
-                                        ))}
-                                        {getEmployeeProjects(user).length > 3 && (
-                                          <HoverCard>
-                                            <HoverCardTrigger asChild>
-                                              <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                                +{getEmployeeProjects(user).length - 3} more
-                                              </Badge>
-                                            </HoverCardTrigger>
-                                            <HoverCardContent className="w-80">
-                                              <div className="space-y-2">
-                                                <h4 className="text-sm font-semibold">All Projects</h4>
-                                                <div className="flex flex-wrap gap-1">
-                                                  {getEmployeeProjects(user)?.map((projectName, idx) => (
-                                                    <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700">
-                                                      <Folder className="w-3 h-3 mr-1" />
-                                                      {projectName}
-                                                    </Badge>
-                                                  ))}
-                                                </div>
-                                              </div>
-                                            </HoverCardContent>
-                                          </HoverCard>
+                                }`}
+                              onClick={toggleCollapse}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="w-10 h-10 ring-2 ring-offset-1 ring-blue-500">
+                                    <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-sm">
+                                      {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">
+                                      {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
+                                    </h3>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        <span className="font-medium">{user.designation || 'Team Member'}</span> • <span className="font-medium">{user.email || user.user_id}</span>
+                                        {getEmployeeProjects(user).length > 0 && (
+                                          <span className="font-medium"> • Projects:</span>
                                         )}
-                                      </div>
-                                    )}
+                                      </p>
+                                      {getEmployeeProjects(user).length > 0 && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          {getEmployeeProjects(user).slice(0, 3)?.map((projectName, idx) => (
+                                            <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700">
+                                              <Folder className="w-3 h-3 mr-1" />
+                                              {projectName}
+                                            </Badge>
+                                          ))}
+                                          {getEmployeeProjects(user).length > 3 && (
+                                            <HoverCard>
+                                              <HoverCardTrigger asChild>
+                                                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                                  +{getEmployeeProjects(user).length - 3} more
+                                                </Badge>
+                                              </HoverCardTrigger>
+                                              <HoverCardContent className="w-80">
+                                                <div className="space-y-2">
+                                                  <h4 className="text-sm font-semibold">All Projects</h4>
+                                                  <div className="flex flex-wrap gap-1">
+                                                    {getEmployeeProjects(user)?.map((projectName, idx) => (
+                                                      <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700">
+                                                        <Folder className="w-3 h-3 mr-1" />
+                                                        {projectName}
+                                                      </Badge>
+                                                    ))}
+                                                  </div>
+                                                </div>
+                                              </HoverCardContent>
+                                            </HoverCard>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
+                                {selectedMemberFilter === 'all' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-white/50 dark:hover:bg-gray-700/50"
+                                  >
+                                    <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? 'rotate-0' : 'rotate-90'}`} />
+                                  </Button>
+                                )}
                               </div>
-                              {selectedMemberFilter === 'all' && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 hover:bg-white/50 dark:hover:bg-gray-700/50"
-                                >
-                                  <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? 'rotate-0' : 'rotate-90'}`} />
-                                </Button>
-                              )}
                             </div>
-                          </div>
 
-                          {/* Member Content - Collapsible */}
-                          {!isCollapsed && (
-                            <div className="space-y-4">
-                              {/* Timeline Cards Layout */}
-                          <div className="space-y-4">
-                            {detailDateRange?.from && detailDateRange?.to ? (
-                              (() => {
-                                const dates = [];
-                                const currentDate = new Date(detailDateRange.from);
-                                const endDate = new Date(detailDateRange.to);
-                                
-                                while (currentDate <= endDate) {
-                                  dates.push(new Date(currentDate));
-                                  currentDate.setDate(currentDate.getDate() + 1);
-                                }
-                                
-                                return dates.reverse().map((date) => {
-                                  const isDateToday = date.toDateString() === new Date().toDateString();
-                                  const dateKey = formatDateForAPI(date);
-                                  
-                                  return (
-                                    <div key={dateKey} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                      {/* Content Grid with Date as First Column */}
-                                      <div className={`grid ${showCompletedTasks ? 'grid-cols-1 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-3'} gap-4 p-4`}>
-                                        {/* Date Column */}
-                                        <div className="space-y-2">
-                                          <div className="flex items-center justify-center gap-2 text-gray-700 dark:text-gray-300">
-                                            <Calendar className="w-4 h-4" />
-                                            <span className="font-medium text-sm">Date</span>
-                                          </div>
-                                          <div className="bg-gradient-to-br from-gray-50/80 to-slate-100/60 dark:from-gray-900/40 dark:to-gray-800/60 rounded-xl p-4 min-h-[120px] flex flex-col justify-center border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
-                                            <div className="text-center space-y-4">
-                                              {/* Full Date Display in One Line */}
-                                              <div className="space-y-2">
-                                                <div className="font-bold text-base text-gray-900 dark:text-gray-100 leading-tight">
-                                                  {date.toLocaleDateString('en-US', {
-                                                    weekday: 'long',
-                                                    month: 'long',
-                                                    day: 'numeric'
-                                                  })}
-                                                </div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                  {date.getFullYear()}
+                            {/* Member Content - Collapsible */}
+                            {!isCollapsed && (
+                              <div className="space-y-4">
+                                {/* Timeline Cards Layout */}
+                                <div className="space-y-4">
+                                  {detailDateRange?.from && detailDateRange?.to ? (
+                                    (() => {
+                                      const dates = [];
+                                      const currentDate = new Date(detailDateRange.from);
+                                      const endDate = new Date(detailDateRange.to);
+
+                                      while (currentDate <= endDate) {
+                                        dates.push(new Date(currentDate));
+                                        currentDate.setDate(currentDate.getDate() + 1);
+                                      }
+
+                                      return dates.reverse().map((date) => {
+                                        const isDateToday = date.toDateString() === new Date().toDateString();
+                                        const dateKey = formatDateForAPI(date);
+
+                                        return (
+                                          <div key={dateKey} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                            {/* Content Grid with Date (15%) and Text Areas (85%) */}
+                                            <div className="grid grid-cols-1 lg:grid-cols-[15%_85%] gap-2 p-3">
+                                              {/* Date Column - 15% width */}
+                                              <div className="h-full flex flex-col items-center justify-center">
+                                                <div className="bg-gradient-to-br from-gray-50/80 to-slate-100/60 dark:from-gray-900/40 dark:to-gray-800/60 rounded-lg p-3 min-h-[100px] flex flex-col justify-center border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all duration-200 w-full">
+                                                  <div className="text-center space-y-2">
+                                                    {/* Compact Date Display */}
+                                                    <div className="space-y-1">
+                                                      <div className="font-bold text-sm text-gray-900 dark:text-gray-100 leading-tight">
+                                                        {date.toLocaleDateString('en-US', {
+                                                          weekday: 'short',
+                                                          month: 'short',
+                                                          day: 'numeric'
+                                                        })}
+                                                      </div>
+                                                      <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                                        {date.getFullYear()}
+                                                      </div>
+                                                    </div>
+
+                                                    {/* Status Badge - More Compact */}
+                                                    <Badge
+                                                      variant={isDateToday ? 'default' : 'secondary'}
+                                                      className={`text-xs px-2 py-0.5 inline-flex items-center gap-1 ${isDateToday
+                                                        ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
+                                                        : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                                                      }`}
+                                                    >
+                                                      {isDateToday ? (
+                                                        <>
+                                                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                                                          Today
+                                                        </>
+                                                      ) : (() => {
+                                                        const today = new Date();
+                                                        today.setHours(0, 0, 0, 0);
+                                                        const targetDate = new Date(date);
+                                                        targetDate.setHours(0, 0, 0, 0);
+                                                        const diffTime = today.getTime() - targetDate.getTime();
+                                                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                                                        if (diffDays === 1) return '1d ago';
+                                                        if (diffDays === 0) return 'Today';
+                                                        if (diffDays < 0) return 'Future';
+                                                        return `${diffDays}d ago`;
+                                                      })()}
+                                                    </Badge>
+                                                  </div>
                                                 </div>
                                               </div>
-                                              
-                                              {/* Status Badge */}
-                                              <Badge 
-                                                variant={isDateToday ? 'default' : 'secondary'} 
-                                                className={`text-xs px-2 py-1 ${
-                                                  isDateToday 
-                                                    ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' 
-                                                    : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
-                                                }`}
-                                              >
-                                                {isDateToday ? 'Today' : (() => {
-                                                  const today = new Date();
-                                                  today.setHours(0, 0, 0, 0);
-                                                  const targetDate = new Date(date);
-                                                  targetDate.setHours(0, 0, 0, 0);
-                                                  const diffTime = today.getTime() - targetDate.getTime();
-                                                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                                                  
-                                                  if (diffDays === 1) return '1 day ago';
-                                                  if (diffDays === 0) return 'Today';
-                                                  if (diffDays < 0) return 'Future';
-                                                  return `${diffDays} days ago`;
-                                                })()}
-                                              </Badge>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        {/* In Progress */}
-                                        <div className="space-y-2">
-                                          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                                            <Clock className="w-4 h-4" />
-                                            <span className="font-medium text-sm">In Progress</span>
-                                          </div>
-                                          <div className="bg-blue-50/50 dark:bg-blue-900/20 rounded-lg p-3 min-h-[120px]">
-                                            <TimesheetTextarea
-                                              user={user}
-                                              type="in_progress"
-                                              color="blue"
-                                              placeholder={isDateToday ? "What are you working on today?" : "What were you working on?"}
-                                              selectedDate={date}
-                                            />
-                                          </div>
-                                        </div>
 
-                                        {/* Blocked */}
-                                        <div className="space-y-2">
-                                          <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
-                                            <AlertTriangle className="w-4 h-4" />
-                                            <span className="font-medium text-sm">Blocked</span>
-                                          </div>
-                                          <div className="bg-red-50/50 dark:bg-red-900/20 rounded-lg p-3 min-h-[120px]">
-                                            <TimesheetTextarea
-                                              user={user}
-                                              type="blocked"
-                                              color="red"
-                                              placeholder={isDateToday ? "Any blockers or issues today?" : "Were there any blockers?"}
-                                              selectedDate={date}
-                                            />
-                                          </div>
-                                        </div>
+                                              {/* Text Areas Column - 85% width */}
+                                              <div>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                                  {/* In Progress */}
+                                                  <div className="space-y-2 flex-1">
+                                                    <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                                                      <Clock className="w-4 h-4" />
+                                                      <span className="font-xs text-xs">In Progress</span>
+                                                    </div>
+                                                    <div className="bg-blue-50/50 dark:bg-blue-900/20 rounded-lg p-3 min-h-[120px]">
+                                                      <TimesheetTextarea
+                                                        user={user}
+                                                        type="in_progress"
+                                                        color="blue"
+                                                        placeholder={isDateToday ? "What are you working on today?" : "What were you working on?"}
+                                                        selectedDate={date}
+                                                      />
+                                                    </div>
+                                                  </div>
 
-                                        {/* Completed */}
-                                        {showCompletedTasks && (
-                                          <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                                              <CheckCircle className="w-4 h-4" />
-                                              <span className="font-medium text-sm">Completed</span>
-                                            </div>
-                                            <div className="bg-green-50/50 dark:bg-green-900/20 rounded-lg p-3 min-h-[120px]">
-                                              <TimesheetTextarea
-                                                user={user}
-                                                type="completed"
-                                                color="green"
-                                                placeholder={isDateToday ? "What did you complete today?" : "What did you complete?"}
-                                                selectedDate={date}
-                                              />
+                                                  {/* Blocked */}
+                                                  <div className="space-y-2 flex-1">
+                                                    <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                                                      <AlertTriangle className="w-4 h-4" />
+                                                      <span className="font-xs text-xs">Blocked</span>
+                                                    </div>
+                                                    <div className="bg-red-50/50 dark:bg-red-900/20 rounded-lg p-3 min-h-[120px]">
+                                                      <TimesheetTextarea
+                                                        user={user}
+                                                        type="blocked"
+                                                        color="red"
+                                                        placeholder={isDateToday ? "Any blockers or issues today?" : "Were there any blockers?"}
+                                                        selectedDate={date}
+                                                      />
+                                                    </div>
+                                                  </div>
+
+                                                  {/* Completed */}
+                                                  <div className="space-y-2 flex-1">
+                                                    <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                                                      <CheckCircle className="w-4 h-4" />
+                                                      <span className="font-xs text-xs">Completed</span>
+                                                    </div>
+                                                    <div className="bg-green-50/50 dark:bg-green-900/20 rounded-lg p-3 min-h-[120px]">
+                                                      <TimesheetTextarea
+                                                        user={user}
+                                                        type="completed"
+                                                        color="green"
+                                                        placeholder={isDateToday ? "What did you complete today?" : "What did you complete?"}
+                                                        selectedDate={date}
+                                                      />
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </div>
                                             </div>
                                           </div>
-                                        )}
-                                      </div>
+                                        );
+                                      });
+                                    })()
+                                  ) : (
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-8 text-center">
+                                      <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Select Date Range</h3>
+                                      <p className="text-gray-500 dark:text-gray-400">Choose a date range above to view timeline data</p>
                                     </div>
-                                  );
-                                });
-                              })()
-                            ) : (
-                              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-8 text-center">
-                                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Select Date Range</h3>
-                                <p className="text-gray-500 dark:text-gray-400">Choose a date range above to view timeline data</p>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    
+                        );
+                      })}
+
                     {/* Modern Bottom Padding and Border */}
                     <div className="h-8 flex-shrink-0 bg-gradient-to-t from-gray-50/80 to-transparent dark:from-gray-900/50 dark:to-transparent border-t border-gray-100 dark:border-gray-700/50 mt-4"></div>
                   </div>
-                  
+
                   {/* Modern Scroll Indicators */}
                   {showScrollIndicator && !isNearBottom && (
                     <div className="absolute bottom-4 right-4 z-10">
@@ -2469,7 +2490,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                       </Button>
                     </div>
                   )}
-                  
+
                   {/* Bottom Reached Indicator */}
                   {showScrollIndicator && isNearBottom && (
                     <div className="absolute bottom-4 right-4 z-10">
@@ -2524,50 +2545,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    </div>
-
-                      {/* Calendar View - Fallback Always Show */}
-                      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                      {/* Month Navigation Header */}
-                      <div className="flex items-center justify-between p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                        <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                          <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
-                        </button>
-
-                        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                          {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                        </h2>
-
-                        <button className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
-                        </button>
-                      </div>
-
-                        {/* Calendar Grid Container */}
-                        <div className="px-2 sm:px-3 pb-3 sm:pb-4 pt-1 sm:pt-1">
-                        {/* Week Headers */}
-                        <div className="grid grid-cols-7 mb-2 h-6">
-                          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                            <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center">
-                              {day}
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Calendar Weeks - Responsive Grid */}
-                        <div className="flex-shrink-0">
-                          <CalendarGrid
-                            user={null}
-                            currentMonth={getCurrentMonthCalendar.currentMonth}
-                            weeks={getCurrentMonthCalendar.weeks}
-                            selectedCalendarDate={selectedTimesheetDate}
-                            onDateClick={handleDateClick}
-                            getDateSummary={getDateSummary}
-                            getDateStatusIcon={() => <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>}
-                            isLoading={isTimesheetsFetching}
-                          />
                         </div>
                       </div>
                     </div>

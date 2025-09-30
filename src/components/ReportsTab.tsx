@@ -171,7 +171,7 @@ const ProjectCard = memo(({ project, orgId, realOrgMembers, memberSort, isTaskOv
   memberSort: MemberSortType;
   isTaskOverdue: (task: any) => boolean;
 }) => {
-  const sortedMembers = useMemo(() => 
+  const sortedMembers = useMemo(() =>
     ([...(project?.members ?? [])] as any[])
       .sort((a, b) => {
         const nameA = deriveDisplayFromEmail(a.email || a.user_id).displayName;
@@ -203,11 +203,11 @@ const ProjectCard = memo(({ project, orgId, realOrgMembers, memberSort, isTaskOv
 
       <div className="space-y-3 flex-1 overflow-y-auto pr-1 thin-scroll scroll-smooth">
         {sortedMembers.map((m: any) => (
-          <MemberCard 
-            key={m.user_id} 
-            member={m} 
-            orgId={orgId} 
-            isTaskOverdue={isTaskOverdue} 
+          <MemberCard
+            key={m.user_id}
+            member={m}
+            orgId={orgId}
+            isTaskOverdue={isTaskOverdue}
           />
         ))}
       </div>
@@ -223,7 +223,7 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
 }) => {
   const memberName = deriveDisplayFromEmail(member.email || member.user_id).displayName;
   const memberInitials = deriveDisplayFromEmail(member.email || member.user_id).initials;
-  
+
   return (
     <Card className="p-3 bg-white/70 dark:bg-gray-700/50 border-slate-200/50 dark:border-gray-600/50">
       <div className="flex items-center gap-3 mb-3">
@@ -1095,21 +1095,36 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
         <div className="flex-1 min-w-0 overflow-hidden">
           <Card className="h-full flex flex-col bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardContent className="p-0 flex-1 overflow-hidden">
-              {isError && (
-                <div className="flex flex-col items-center justify-center py-10 text-red-600">
-                  <div className="mb-3">Failed to load reports</div>
-                  <Button onClick={() => refetch()}>
-                    <RefreshCw className="w-4 h-4 mr-2" /> Try again
-                  </Button>
-                  <div className="text-xs text-gray-500 mt-2">{String((error as any)?.message || '')}</div>
-                </div>
-              )}
-              {!isFetching && !isError && !((report as any)?.projects || []).length && (
-                <div className="flex flex-col items-center justify-center py-10 text-gray-600">
-                  <div>No data found</div>
-                  <div className="text-xs text-gray-500">Adjust filters and run again</div>
-                </div>
-              )}
+              <>
+                {isFetching ?
+                  (
+                    <div className="flex flex-col items-center justify-center py-10 text-gray-600">
+                      <div className="mb-3">Loading reports...</div>
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tasksmate-green-end"></div>
+                    </div>
+                  ) :
+                  (
+                    isError ?
+                      (
+                        <div className="flex flex-col items-center justify-center py-10 text-red-600">
+                          <div className="mb-3">Failed to load reports</div>
+                          <Button onClick={() => refetch()}>
+                            <RefreshCw className="w-4 h-4 mr-2" /> Try again
+                          </Button>
+                          <div className="text-xs text-gray-500 mt-2">{String((error as any)?.message || '')}</div>
+                        </div>
+                      ) :
+                      (
+                        !isFetching && !isError && !(filteredAndSortedProjects || []).length && (
+                          <div className="flex flex-col items-center justify-center py-10 text-gray-600">
+                            <div>No data found</div>
+                            <div className="text-xs text-gray-500">Adjust filters and run again</div>
+                          </div>
+                        )
+                      )
+                  )
+                }
+              </>
 
               {/* Side-by-side grid layout for projects with horizontal scroll */}
               <div className="relative h-full">
@@ -1137,13 +1152,13 @@ const ReportsTab: React.FC<ReportsTabProps> = ({
                 >
                   <div className="flex flex-row gap-4 p-4 pb-8 pr-16 min-w-max w-full h-full">
                     {(filteredAndSortedProjects || []).map((proj: any) => (
-                      <ProjectCard 
-                        key={proj.project_id} 
-                        project={proj} 
-                        orgId={orgId} 
-                        realOrgMembers={realOrgMembers} 
-                        memberSort={memberSort} 
-                        isTaskOverdue={isTaskOverdue} 
+                      <ProjectCard
+                        key={proj.project_id}
+                        project={proj}
+                        orgId={orgId}
+                        realOrgMembers={realOrgMembers}
+                        memberSort={memberSort}
+                        isTaskOverdue={isTaskOverdue}
                       />
                     ))}
                   </div>
