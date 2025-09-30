@@ -1262,7 +1262,7 @@ const OrganizationProfileTab: React.FC<OrganizationProfileTabProps> = ({
                   // isAddingValue ? 
                   (
                     <div className="w-full space-y-2">
-                      <div className="space-y-2">
+                      <div className="space-y-2 mt-4">
                         <Label htmlFor="value-icon">Icon</Label>
                         <Select value={newValue.icon || 'star'} onValueChange={(value) => setNewValue(prev => ({ ...prev, icon: value }))}>
                           <SelectTrigger>

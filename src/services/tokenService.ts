@@ -18,12 +18,3 @@ export function removeToken() {
   cachedToken = null;
   localStorage.removeItem(TOKEN_KEY);
 }
-
-// Keep browser storage in sync with Supabase auth events
-supabase.auth.onAuthStateChange((_event, session) => {
-  if (session?.access_token) {
-    setToken(session.access_token);
-  } else {
-    removeToken();
-  }
-});

@@ -38,6 +38,7 @@ interface AuthContextType {
   exchangeCodeForSession: (accessToken: string) => Promise<{ user: User, session: Session }>;
   changePassword: (currentPwd: string, newPwd: string) => Promise<void>;
   onPasswordRecovery: (cb: (email: string) => void) => () => void;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>(null as unknown as AuthContextType);
@@ -65,12 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const prevUserRef = useRef<User | null>(null);
 
-
   /** Sync local state + localStorage whenever we get a fresh session */
   const handleSession = async (s: Session | null) => {
     setSession(s);
-    // setUser(s?.user ?? null);
-
+    
     // Only update user if changed
     const newUser = s?.user ?? null;
     if (
@@ -82,13 +81,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       prevUserRef.current = newUser;
     }
 
-    // setUser(newUser);
-
+    // Centralized token management
     if (s?.access_token && s.user) {
       setToken(s.access_token);
     } else {
       removeToken();
     }
+    
     setLoading(false);
   };
 
@@ -98,6 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => handleSession(s));
     return () => subscription.unsubscribe();
   }, []);
+
+  const refreshSession = async () => {
+    await supabase.auth.refreshSession();
+  };
 
   //---------------------------------------------------
   // Actions exposed to UI
@@ -368,7 +371,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* -------- original signUp / signIn / signOut stay unchanged -------- */
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInWithOtp, verifyOtp, signOut, forgotPassword, resetPassword, resetPasswordWithToken, exchangeCodeForSession, changePassword, onPasswordRecovery }}>
+    <AuthContext.Provider value={{ user, session, loading, refreshSession, signUp, signIn, signInWithOtp, verifyOtp, signOut, forgotPassword, resetPassword, resetPasswordWithToken, exchangeCodeForSession, changePassword, onPasswordRecovery }}>
       {children}
     </AuthContext.Provider>
   );
