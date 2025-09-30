@@ -133,7 +133,7 @@ const NewBugModal = ({ open, onOpenChange, runId, projectId, projectName }: NewB
         project_name: formData.projectName,
         title: formData.title,
         description: formData.description,
-        severity: formData.severity,
+        priority: formData.severity,
         status: 'open', // Default status for new bugs
         tags: [formData.projectName, ...formData.tags],
         tracker_id: runId,
