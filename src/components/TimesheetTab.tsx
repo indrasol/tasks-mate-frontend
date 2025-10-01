@@ -27,6 +27,7 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock,
   Eye,
   Folder,
@@ -99,10 +100,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  
+
   // Cache for date-specific timesheet data - moved up to avoid hoisting issues
   const [dateSpecificData, setDateSpecificData] = useState<Record<string, any>>({});
-  
+
   // Existing state...
   const [projects, setProjects] = useState<any[]>([]);
   const [isProjectsLoading, setIsProjectsLoading] = useState<boolean>(false);
@@ -110,46 +111,57 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Editing state management like Goals table
   const [editingRows, setEditingRows] = useState<Set<string>>(new Set());
   const [editedData, setEditedData] = useState<Record<string, any>>({});
-  
+
   // Add function to get timesheet content for a user and date
   const getTimesheetContent = useCallback((user: TeamTimesheetUser, date: Date, type: 'in_progress' | 'blocked' | 'completed') => {
     // First, try to get data from dateSpecificData cache
     const dateKey = `${formatDateForAPI(date)}-${user.user_id}`;
     const cachedData = dateSpecificData[dateKey];
-    
+
     if (cachedData?.users?.length > 0) {
       const userData = cachedData.users[0];
       const content = userData[type] || [];
-      
+
       if (Array.isArray(content) && content.length > 0) {
         return convertEntriesToText(content);
       }
     }
-    
+
     // Fallback to user object data (if available)
     const content = user[type] || [];
     if (Array.isArray(content) && content.length > 0) {
       return convertEntriesToText(content);
     }
-    
+
     return '';
   }, [dateSpecificData]);
 
   // Add function to handle save with backend integration
   const handleSaveRow = useCallback(async (rowId: string, user: TeamTimesheetUser, date: Date) => {
     if (!editedData[rowId]) return;
-    
-    const userId = user.user_id;
-    const dateStr = formatDateForAPI(date);
-    
+
+
+
     try {
+      const userId = user.user_id;
+      const dateStr = formatDateForAPI(date);
+
+      toast({ title: 'Saving timesheet entry...', description: 'User: ' + user.avatar_initials + ' - Date: ' + dateStr });
+
       // Save each field sequentially to avoid race conditions
-      const fieldsToSave = [
-        { type: 'in_progress' as const, content: editedData[rowId].in_progress },
-        { type: 'blocked' as const, content: editedData[rowId].blocked },
-        { type: 'completed' as const, content: editedData[rowId].completed }
-      ];
-      
+      let fieldsToSave = [];
+
+      // Check for existing data and remove redundant saving if content is not changed
+      if (editedData[rowId].in_progress) {
+        fieldsToSave.push({ type: 'in_progress' as const, content: editedData[rowId].in_progress });
+      }
+      if (editedData[rowId].blocked) {
+        fieldsToSave.push({ type: 'blocked' as const, content: editedData[rowId].blocked });
+      }
+      if (editedData[rowId].completed) {
+        fieldsToSave.push({ type: 'completed' as const, content: editedData[rowId].completed });
+      }
+
       for (const field of fieldsToSave) {
         if (field.content !== undefined) {
           await updateTimesheetField({
@@ -159,18 +171,18 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
             field_type: field.type,
             field_content: field.content || ''
           });
-          
+
           // Small delay to prevent race conditions
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
-      
+
       // Update the cached data with the new values
       const dateKey = `${dateStr}-${userId}`;
       setDateSpecificData(prev => {
         const existing = prev[dateKey] || { users: [{ user_id: userId }] };
         const userData = existing.users[0] || { user_id: userId };
-        
+
         // Update the user data with new values
         const updatedUserData = {
           ...userData,
@@ -178,7 +190,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           blocked: editedData[rowId].blocked ? [{ id: 'temp-id', title: editedData[rowId].blocked }] : [],
           completed: editedData[rowId].completed ? [{ id: 'temp-id', title: editedData[rowId].completed }] : []
         };
-        
+
         return {
           ...prev,
           [dateKey]: {
@@ -187,22 +199,22 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           }
         };
       });
-      
+
       // Remove from editing state
       const newEditingRows = new Set(editingRows);
       newEditingRows.delete(rowId);
       setEditingRows(newEditingRows);
-      
+
       // Clear edited data
       const newEditedData = { ...editedData };
       delete newEditedData[rowId];
       setEditedData(newEditedData);
-      
+
       toast({ title: 'Status updated successfully' });
-      
+
       // Force refresh the data for this user and date
       fetchedDataRef.current.delete(dateKey);
-      
+
       // Refetch the data to get the latest from backend
       try {
         const refreshedData = await getTeamTimesheets(
@@ -214,13 +226,13 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
       } catch (error) {
         console.error('Error refreshing data after save:', error);
       }
-      
+
     } catch (error) {
       console.error('Error saving timesheet:', error);
-      toast({ 
-        title: 'Failed to save status', 
+      toast({
+        title: 'Failed to save status',
         description: error instanceof Error ? error.message : 'Please try again',
-        variant: 'destructive' 
+        variant: 'destructive'
       });
     }
   }, [editedData, editingRows, orgId, toast, dateSpecificData]);
@@ -473,201 +485,201 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // ));
 
   // Memoized Reusable Timesheet Textarea Component
-  const TimesheetTextarea = memo(({
-    user: timesheetUser,
-    type,
-    color,
-    placeholder,
-    selectedDate
-  }: {
-    user: any;
-    type: 'in_progress' | 'blocked' | 'completed';
-    color: 'blue' | 'red' | 'green';
-    placeholder: string;
-    selectedDate: Date | undefined;
-  }) => {
-    // Permission checks - simplified for user-centric approach  
-    const canEdit = timesheetUser.user_id === user?.id || ['admin', 'owner'].includes(currentUserOrgRole || '');
-    // const isRestricted = isDateRestrictedForEditing && currentUserOrgRole === 'member';
-    const isRestricted = (currentUserOrgRole === 'member');
+  // const TimesheetTextarea = memo(({
+  //   user: timesheetUser,
+  //   type,
+  //   color,
+  //   placeholder,
+  //   selectedDate
+  // }: {
+  //   user: any;
+  //   type: 'in_progress' | 'blocked' | 'completed';
+  //   color: 'blue' | 'red' | 'green';
+  //   placeholder: string;
+  //   selectedDate: Date | undefined;
+  // }) => {
+  //   // Permission checks - simplified for user-centric approach  
+  //   const canEdit = timesheetUser.user_id === user?.id || ['admin', 'owner'].includes(currentUserOrgRole || '');
+  //   // const isRestricted = isDateRestrictedForEditing && currentUserOrgRole === 'member';
+  //   const isRestricted = (currentUserOrgRole === 'member');
 
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+  //   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Build field keys for new API
-    const savingKey = `${timesheetUser.user_id}-${type}`;
-    const draftDatePart = selectedDate ? formatDateForAPI(selectedDate) : 'unknown-date';
-    const fieldKey = `${timesheetUser.user_id}-${type}-${draftDatePart}`;
-    const isSaving = savingFields.has(savingKey);
+  //   // Build field keys for new API
+  //   const savingKey = `${timesheetUser.user_id}-${type}`;
+  //   const draftDatePart = selectedDate ? formatDateForAPI(selectedDate) : 'unknown-date';
+  //   const fieldKey = `${timesheetUser.user_id}-${type}-${draftDatePart}`;
+  //   const isSaving = savingFields.has(savingKey);
 
-    // Get initial value from user data (new structure)
-    const getInitialValue = () => {
-      // If we have a draft for this field/date, use it
-      if (Object.prototype.hasOwnProperty.call(fieldDrafts, fieldKey)) {
-        return fieldDrafts[fieldKey] ?? '';
-      }
+  //   // Get initial value from user data (new structure)
+  //   const getInitialValue = () => {
+  //     // If we have a draft for this field/date, use it
+  //     if (Object.prototype.hasOwnProperty.call(fieldDrafts, fieldKey)) {
+  //       return fieldDrafts[fieldKey] ?? '';
+  //     }
 
-      // Check if we have saved content for this specific field/date combination
-      if (savedContentByField[fieldKey]) {
-        return savedContentByField[fieldKey];
-      }
+  //     // Check if we have saved content for this specific field/date combination
+  //     if (savedContentByField[fieldKey]) {
+  //       return savedContentByField[fieldKey];
+  //     }
 
-      // For dates other than the currently selected date, check if we have cached data
-      // if (selectedDate && selectedTimesheetDate) {
-      //   const selectedDateStr = formatDateForAPI(selectedDate);
-      //   const currentDateStr = formatDateForAPI(selectedTimesheetDate);
+  //     // For dates other than the currently selected date, check if we have cached data
+  //     // if (selectedDate && selectedTimesheetDate) {
+  //     //   const selectedDateStr = formatDateForAPI(selectedDate);
+  //     //   const currentDateStr = formatDateForAPI(selectedTimesheetDate);
 
-      //   // If this is not the current date, try to get data from cache or return empty
-      //   if (selectedDateStr !== currentDateStr) {
-      //     // Check if we have cached data for this specific date
-      //     const cachedKey = `${timesheetUser.user_id}-${type}-${selectedDateStr}`;
-      //     return savedContentByField[cachedKey] || '';
-      //   }
-      // }
+  //     //   // If this is not the current date, try to get data from cache or return empty
+  //     //   if (selectedDateStr !== currentDateStr) {
+  //     //     // Check if we have cached data for this specific date
+  //     //     const cachedKey = `${timesheetUser.user_id}-${type}-${selectedDateStr}`;
+  //     //     return savedContentByField[cachedKey] || '';
+  //     //   }
+  //     // }
 
-      // Get data from user timesheet entries (only for the current selected date)
-      let entries = [];
-      if (type === 'in_progress') {
-        entries = timesheetUser.in_progress || [];
-      } else if (type === 'blocked') {
-        entries = timesheetUser.blocked || [];
-      } else if (type === 'completed') {
-        entries = timesheetUser.completed || [];
-      }
+  //     // Get data from user timesheet entries (only for the current selected date)
+  //     let entries = [];
+  //     if (type === 'in_progress') {
+  //       entries = timesheetUser.in_progress || [];
+  //     } else if (type === 'blocked') {
+  //       entries = timesheetUser.blocked || [];
+  //     } else if (type === 'completed') {
+  //       entries = timesheetUser.completed || [];
+  //     }
 
-      // Convert entries to text format
-      return convertEntriesToText(entries);
-    };
+  //     // Convert entries to text format
+  //     return convertEntriesToText(entries);
+  //   };
 
-    // When the field identity changes or a draft reset is requested, restore the DOM value
-    useEffect(() => {
-      if (textareaRef.current) {
-        const nextVal = fieldDrafts[fieldKey] ?? getInitialValue();
-        textareaRef.current.value = nextVal;
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fieldKey, draftResetCounter]);
+  //   // When the field identity changes or a draft reset is requested, restore the DOM value
+  //   useEffect(() => {
+  //     if (textareaRef.current) {
+  //       const nextVal = fieldDrafts[fieldKey] ?? getInitialValue();
+  //       textareaRef.current.value = nextVal;
+  //     }
+  //     // eslint-disable-next-line react-hooks/exhaustive-deps
+  //   }, [fieldKey, draftResetCounter]);
 
-    // Controlled content to prevent clearing on save
-    const [content, setContent] = useState<string>(() => fieldDrafts[fieldKey] ?? getInitialValue());
+  //   // Controlled content to prevent clearing on save
+  //   const [content, setContent] = useState<string>(() => fieldDrafts[fieldKey] ?? getInitialValue());
 
-    // Reset content only when the identity of the field changes
-    useEffect(() => {
-      setContent(fieldDrafts[fieldKey] ?? getInitialValue());
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timesheetUser.user_id, type, selectedDate?.toDateString()]);
+  //   // Reset content only when the identity of the field changes
+  //   useEffect(() => {
+  //     setContent(fieldDrafts[fieldKey] ?? getInitialValue());
+  //     // eslint-disable-next-line react-hooks/exhaustive-deps
+  //   }, [timesheetUser.user_id, type, selectedDate?.toDateString()]);
 
-    const handleSave = async () => {
-      if (!canEdit) {
-        toast({
-          title: 'Access Denied',
-          description: isRestricted ? 'You cannot edit future dates' : 'You do not have permission to edit this timesheet',
-          variant: 'destructive'
-        });
-        return;
-      }
+  //   const handleSave = async () => {
+  //     if (!canEdit) {
+  //       toast({
+  //         title: 'Access Denied',
+  //         description: isRestricted ? 'You cannot edit future dates' : 'You do not have permission to edit this timesheet',
+  //         variant: 'destructive'
+  //       });
+  //       return;
+  //     }
 
-      const value = textareaRef.current?.value || '';
+  //     const value = textareaRef.current?.value || '';
 
-      // Save the timesheet data using new API with the specific date
-      await saveTimesheetData(timesheetUser.user_id, type, value, selectedDate);
+  //     // Save the timesheet data using new API with the specific date
+  //     await saveTimesheetData(timesheetUser.user_id, type, value, selectedDate);
 
-      // Update local draft for this specific field and date
-      setFieldDrafts(prev => ({ ...prev, [fieldKey]: value }));
+  //     // Update local draft for this specific field and date
+  //     setFieldDrafts(prev => ({ ...prev, [fieldKey]: value }));
 
-      // Update saved content cache for this specific field and date
-      setSavedContentByField(prev => ({ ...prev, [fieldKey]: value }));
+  //     // Update saved content cache for this specific field and date
+  //     setSavedContentByField(prev => ({ ...prev, [fieldKey]: value }));
 
-      setContent(value);
-    };
+  //     setContent(value);
+  //   };
 
-    // Auto-resize textarea based on content
-    const autoResize = useCallback(() => {
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-        textareaRef.current.style.height = `${Math.max(80, textareaRef.current.scrollHeight)}px`;
-      }
-    }, []);
+  //   // Auto-resize textarea based on content
+  //   const autoResize = useCallback(() => {
+  //     if (textareaRef.current) {
+  //       textareaRef.current.style.height = 'auto';
+  //       textareaRef.current.style.height = `${Math.max(80, textareaRef.current.scrollHeight)}px`;
+  //     }
+  //   }, []);
 
-    // Auto-resize when content changes
-    useEffect(() => {
-      autoResize();
-    }, [content, autoResize]);
+  //   // Auto-resize when content changes
+  //   useEffect(() => {
+  //     autoResize();
+  //   }, [content, autoResize]);
 
-    // Handle input changes with auto-resize
-    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setContent(e.target.value);
-      autoResize();
-    };
+  //   // Handle input changes with auto-resize
+  //   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  //     setContent(e.target.value);
+  //     autoResize();
+  //   };
 
-    return (
-      <div className="h-full flex flex-col space-y-2" key={`${fieldKey}-${draftResetCounter}`}>
-        <div className={`relative flex-1 bg-white dark:bg-gray-800 rounded-lg border border-${color}-200 dark:border-${color}-600 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden`}>
-          <textarea
-            ref={textareaRef}
-            className={`w-full h-full p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg transition-all duration-200 ${isSaving ? 'cursor-not-allowed opacity-60' : 'cursor-text caret-gray-800 dark:caret-gray-100 hover:bg-gray-50/50 dark:hover:bg-gray-700/30'}`}
-            placeholder={canEdit ? placeholder : `View-only: ${timesheetUser.name || 'User'}'s timesheet data`}
-            readOnly={!canEdit}
-            disabled={isSaving}
-            aria-busy={isSaving}
-            defaultValue={getInitialValue()}
-            style={{ minHeight: '80px', maxHeight: '150px' }}
-            rows={2}
-            onChange={handleInputChange}
-            onKeyDown={(e) => {
-              // Auto-save on Ctrl/Cmd + Enter
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canEdit && !isSaving) {
-                e.preventDefault();
-                handleSave();
-              }
-            }}
-          />
-          {isSaving && (
-            <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm rounded-lg flex items-center justify-center">
-              <div className="flex items-center text-gray-700 dark:text-gray-200 text-xs font-medium">
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </div>
-            </div>
-          )}
-          {/* Character counter for better UX */}
-          {canEdit && !isSaving && (
-            <div className="absolute bottom-1 right-1 text-xs text-gray-400 dark:text-gray-500 pointer-events-none">
-              {content.length}/1000
-            </div>
-          )}
-        </div>
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            className={`text-xs h-8 px-3 transition-all duration-200 ${!canEdit || isSaving 
-              ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700' 
-              : `hover:bg-${color}-50 dark:hover:bg-${color}-900/20 active:scale-95`}`}
-            onClick={handleSave}
-            disabled={!canEdit || isSaving}
-            title={!canEdit ? (isRestricted ? 'You cannot edit future dates' : 'You do not have permission to edit this timesheet') : 'Save changes (Ctrl/Cmd + Enter)'}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                Saving...
-              </>
-            ) : !canEdit ? (
-              <>
-                <Eye className="w-3 h-3 mr-1" />
-                View Only
-              </>
-            ) : (
-              <>
-                <Save className="w-3 h-3 mr-1" />
-                Save
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-    );
-  });
+  //   return (
+  //     <div className="h-full flex flex-col space-y-2" key={`${fieldKey}-${draftResetCounter}`}>
+  //       <div className={`relative flex-1 bg-white dark:bg-gray-800 rounded-lg border border-${color}-200 dark:border-${color}-600 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden`}>
+  //         <textarea
+  //           ref={textareaRef}
+  //           className={`w-full h-full p-3 bg-transparent border-none outline-none resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg transition-all duration-200 ${isSaving ? 'cursor-not-allowed opacity-60' : 'cursor-text caret-gray-800 dark:caret-gray-100 hover:bg-gray-50/50 dark:hover:bg-gray-700/30'}`}
+  //           placeholder={canEdit ? placeholder : `View-only: ${timesheetUser.name || 'User'}'s timesheet data`}
+  //           readOnly={!canEdit}
+  //           disabled={isSaving}
+  //           aria-busy={isSaving}
+  //           defaultValue={getInitialValue()}
+  //           style={{ minHeight: '80px', maxHeight: '150px' }}
+  //           rows={2}
+  //           onChange={handleInputChange}
+  //           onKeyDown={(e) => {
+  //             // Auto-save on Ctrl/Cmd + Enter
+  //             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canEdit && !isSaving) {
+  //               e.preventDefault();
+  //               handleSave();
+  //             }
+  //           }}
+  //         />
+  //         {isSaving && (
+  //           <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm rounded-lg flex items-center justify-center">
+  //             <div className="flex items-center text-gray-700 dark:text-gray-200 text-xs font-medium">
+  //               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+  //               Saving...
+  //             </div>
+  //           </div>
+  //         )}
+  //         {/* Character counter for better UX */}
+  //         {canEdit && !isSaving && (
+  //           <div className="absolute bottom-1 right-1 text-xs text-gray-400 dark:text-gray-500 pointer-events-none">
+  //             {content.length}/1000
+  //           </div>
+  //         )}
+  //       </div>
+  //       <div className="flex justify-end">
+  //         <Button
+  //           variant="outline"
+  //           size="sm"
+  //           className={`text-xs h-8 px-3 transition-all duration-200 ${!canEdit || isSaving 
+  //             ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700' 
+  //             : `hover:bg-${color}-50 dark:hover:bg-${color}-900/20 active:scale-95`}`}
+  //           onClick={handleSave}
+  //           disabled={!canEdit || isSaving}
+  //           title={!canEdit ? (isRestricted ? 'You cannot edit future dates' : 'You do not have permission to edit this timesheet') : 'Save changes (Ctrl/Cmd + Enter)'}
+  //         >
+  //           {isSaving ? (
+  //             <>
+  //               <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+  //               Saving...
+  //             </>
+  //           ) : !canEdit ? (
+  //             <>
+  //               <Eye className="w-3 h-3 mr-1" />
+  //               View Only
+  //             </>
+  //           ) : (
+  //             <>
+  //               <Save className="w-3 h-3 mr-1" />
+  //               Save
+  //             </>
+  //           )}
+  //         </Button>
+  //       </div>
+  //     </div>
+  //   );
+  // });
 
   // Reusable Member Filtering Logic
   const getFilteredMembers = useCallback(() => {
@@ -774,7 +786,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
   //     // Cache the data
   //     setDateSpecificData(prev => ({ ...prev, [dateKey]: data }));
-      
+
   //     // Mark as fetched in ref
   //     fetchedDataRef.current.add(dateKey);
 
@@ -1193,7 +1205,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     if (selectedTimesheetProjects.length > 0) {
       console.log('Applying project filter:', selectedTimesheetProjects);
       console.log('Users before filter:', users?.length);
-      
+
       users = users?.filter(user => {
         // Check if user is a member of any of the selected projects
         const isMember = selectedTimesheetProjects.some(projectId => {
@@ -1203,7 +1215,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
         });
         return isMember;
       });
-      
+
       console.log('Users after filter:', users?.length);
     }
 
@@ -1292,6 +1304,48 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     return users?.sort((a, b) => (a.name || a.email || a.user_id)?.localeCompare(b.name || b.email || b.user_id));
   }, [filteredTimesheetUsers]);
 
+  // Expand/collapse states for employee sections
+  const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set());
+  const [allExpanded, setAllExpanded] = useState<boolean>(false);
+
+  // Toggle individual employee expansion
+  const toggleEmployeeExpansion = useCallback((userId: string) => {
+    setExpandedEmployees(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      // Update allExpanded state based on whether all employees are now expanded
+      const allUserIds = sortedTimesheetUsers.map(user => user.user_id);
+      setAllExpanded(newSet.size === allUserIds.length && allUserIds.length > 0);
+      return newSet;
+    });
+  }, [sortedTimesheetUsers]);
+
+  // Expand all employees
+  const expandAllEmployees = useCallback(() => {
+    const allUserIds = sortedTimesheetUsers.map(user => user.user_id);
+    setExpandedEmployees(new Set(allUserIds));
+    setAllExpanded(true);
+  }, [sortedTimesheetUsers]);
+
+  // Collapse all employees
+  const collapseAllEmployees = useCallback(() => {
+    setExpandedEmployees(new Set());
+    setAllExpanded(false);
+  }, []);
+
+  // Toggle expand all/collapse all
+  const toggleExpandCollapseAll = useCallback(() => {
+    if (allExpanded) {
+      collapseAllEmployees();
+    } else {
+      expandAllEmployees();
+    }
+  }, [allExpanded, expandAllEmployees, collapseAllEmployees]);
+
   const fetchAllDatesData = async () => {
     const dates = [];
     const currentDate = new Date(detailDateRange.from!);
@@ -1306,7 +1360,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
     for (const date of dates) {
       for (const user of sortedTimesheetUsers) {
         const dateKey = `${formatDateForAPI(date)}-${user.user_id}`;
-        
+
         // If we already have data for this date/user, don't fetch again
         if (fetchedDataRef.current.has(dateKey)) {
           continue;
@@ -1322,7 +1376,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
 
           // Cache the data
           setDateSpecificData(prev => ({ ...prev, [dateKey]: data }));
-          
+
           // Mark as fetched in ref
           fetchedDataRef.current.add(dateKey);
 
@@ -1363,10 +1417,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Fetch data for all dates in the detail range
   useEffect(() => {
     if (!detailDateRange?.from || !detailDateRange?.to || !sortedTimesheetUsers.length) return;
-    
+
     // Clear the fetched data ref when date range changes to force refresh
     fetchedDataRef.current.clear();
-    
+
     fetchAllDatesData();
   }, [detailDateRange?.from, detailDateRange?.to, sortedTimesheetUsers, orgId]);
 
@@ -2030,307 +2084,330 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                 </DropdownMenu>
               </div>
 
-              {/* Right Section - Date Range Filter */}
-              <Popover
-                open={isDetailDatePopoverOpen}
-                onOpenChange={(open) => {
-                  if (open) {
-                    // Sync temp range with current range when opening
-                    setTempDetailDateRange(detailDateRange);
-                  }
-                  setIsDetailDatePopoverOpen(open);
-                }}
-              >
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="min-w-[160px] justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <span className="text-xs">
-                        {detailDateRange?.from && detailDateRange?.to
-                          ? `${detailDateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${detailDateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                          : 'Select range'
-                        }
-                      </span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 rotate-90" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-96 p-4" align="end">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-sm">Select Date Range</h4>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          const today = new Date();
-                          setTempDetailDateRange({ from: today, to: today });
-                        }}
-                        className="text-xs h-7 px-2"
-                      >
-                        Reset to Today
-                      </Button>
-                    </div>
+              {/* Right Section - Date Range Filter and Expand/Collapse */}
+              <div className="flex items-center gap-3">
+                {/* Expand/Collapse All Buttons */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={toggleExpandCollapseAll}
+                  className="text-xs h-8 px-3 flex items-center gap-2"
+                  title={allExpanded ? "Collapse all employee sections" : "Expand all employee sections"}
+                >
+                  {allExpanded ? (
+                    <>
+                      <ChevronUp className="w-3 h-3" />
+                      Collapse All
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3 h-3" />
+                      Expand All
+                    </>
+                  )}
+                </Button>
 
-                    {/* Quick Preset Buttons - Enhanced */}
-                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400">Quick Select:</div>
-                      <div className="grid grid-cols-2 gap-2">
+                <Popover
+                  open={isDetailDatePopoverOpen}
+                  onOpenChange={(open) => {
+                    if (open) {
+                      // Sync temp range with current range when opening
+                      setTempDetailDateRange(detailDateRange);
+                    }
+                    setIsDetailDatePopoverOpen(open);
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="min-w-[160px] justify-between">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span className="text-xs">
+                          {detailDateRange?.from && detailDateRange?.to
+                            ? `${detailDateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${detailDateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                            : 'Select range'
+                          }
+                        </span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 rotate-90" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-96 p-4" align="end">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">Select Date Range</h4>
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => {
                             const today = new Date();
                             setTempDetailDateRange({ from: today, to: today });
                           }}
-                          className="text-xs h-8 justify-start"
+                          className="text-xs h-7 px-2"
                         >
-                          <Calendar className="w-3 h-3 mr-2" />
-                          Today
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const today = new Date();
-                            const yesterday = new Date(today);
-                            yesterday.setDate(today.getDate() - 1);
-                            setTempDetailDateRange({ from: yesterday, to: yesterday });
-                          }}
-                          className="text-xs h-8 justify-start"
-                        >
-                          <Calendar className="w-3 h-3 mr-2" />
-                          Yesterday
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const today = new Date();
-                            const weekAgo = new Date(today);
-                            weekAgo.setDate(today.getDate() - 6); // Last 7 days including today
-                            setTempDetailDateRange({ from: weekAgo, to: today });
-                          }}
-                          className="text-xs h-8 justify-start"
-                        >
-                          <Calendar className="w-3 h-3 mr-2" />
-                          Last 7 days
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const today = new Date();
-                            const monthAgo = new Date(today);
-                            monthAgo.setDate(today.getDate() - 29); // Last 30 days including today
-                            setTempDetailDateRange({ from: monthAgo, to: today });
-                          }}
-                          className="text-xs h-8 justify-start"
-                        >
-                          <Calendar className="w-3 h-3 mr-2" />
-                          Last 30 days
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const today = new Date();
-                            const monday = new Date(today);
-                            const day = today.getDay();
-                            const diff = today.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-                            monday.setDate(diff);
-                            setTempDetailDateRange({ from: monday, to: today });
-                          }}
-                          className="text-xs h-8 justify-start col-span-2"
-                        >
-                          <Calendar className="w-3 h-3 mr-2" />
-                          This Week (Mon to Today)
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const today = new Date();
-                            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                            setTempDetailDateRange({ from: firstDay, to: today });
-                          }}
-                          className="text-xs h-8 justify-start col-span-2"
-                        >
-                          <Calendar className="w-3 h-3 mr-2" />
-                          This Month (1st to Today)
+                          Reset to Today
                         </Button>
                       </div>
-                    </div>
 
-                    {/* Individual Date Inputs */}
-                    <div className="grid grid-cols-2 gap-3">
+                      {/* Quick Preset Buttons - Enhanced */}
                       <div className="space-y-2">
-                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Start Date</label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start text-left font-normal"
-                            >
-                              <Calendar className="mr-2 h-4 w-4" />
-                              {tempDetailDateRange?.from ? (
-                                tempDetailDateRange.from.toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric'
-                                })
-                              ) : (
-                                <span>Pick start date</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <CalendarComponent
-                              mode="single"
-                              selected={tempDetailDateRange?.from}
-                              onSelect={(date) => {
-                                if (date) {
-                                  setTempDetailDateRange(prev => ({
-                                    from: date,
-                                    to: prev?.to && date <= prev.to ? prev.to : date
-                                  }));
-                                }
-                              }}
-                              disabled={(date) =>
-                                tempDetailDateRange?.to ? date > tempDetailDateRange.to : false
-                              }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">End Date</label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start text-left font-normal"
-                            >
-                              <Calendar className="mr-2 h-4 w-4" />
-                              {tempDetailDateRange?.to ? (
-                                tempDetailDateRange.to.toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric'
-                                })
-                              ) : (
-                                <span>Pick end date</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <CalendarComponent
-                              mode="single"
-                              selected={tempDetailDateRange?.to}
-                              onSelect={(date) => {
-                                if (date) {
-                                  setTempDetailDateRange(prev => ({
-                                    from: prev?.from && date >= prev.from ? prev.from : date,
-                                    to: date
-                                  }));
-                                }
-                              }}
-                              disabled={(date) =>
-                                tempDetailDateRange?.from ? date < tempDetailDateRange.from : false
-                              }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-
-                    {/* Enhanced Visual Range Display */}
-                    {tempDetailDateRange?.from && tempDetailDateRange?.to && (
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 shadow-sm">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                            <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Selected Range:</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                              {Math.ceil((tempDetailDateRange.to.getTime() - tempDetailDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1} days
-                            </Badge>
-                            {(() => {
+                        <div className="text-xs font-medium text-gray-600 dark:text-gray-400">Quick Select:</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
                               const today = new Date();
-                              const isToday = tempDetailDateRange.from.toDateString() === today.toDateString() && 
-                                           tempDetailDateRange.to.toDateString() === today.toDateString();
-                              const isPast = tempDetailDateRange.to < today;
-                              const isFuture = tempDetailDateRange.from > today;
-                              
-                              if (isToday) {
-                                return <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Today</Badge>;
-                              } else if (isPast) {
-                                return <Badge className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">Past</Badge>;
-                              } else if (isFuture) {
-                                return <Badge className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">Future</Badge>;
-                              }
-                              return null;
-                            })()}
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-blue-900 dark:text-blue-100 font-medium text-sm">
-                            {tempDetailDateRange.from.toLocaleDateString('en-US', {
-                              weekday: 'short',
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
-                            {' → '}
-                            {tempDetailDateRange.to.toLocaleDateString('en-US', {
-                              weekday: 'short',
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
-                          </div>
-                          <div className="text-xs text-blue-700 dark:text-blue-300">
-                            {tempDetailDateRange.from.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} 
-                            through 
-                            {tempDetailDateRange.to.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                          </div>
+                              setTempDetailDateRange({ from: today, to: today });
+                            }}
+                            className="text-xs h-8 justify-start"
+                          >
+                            <Calendar className="w-3 h-3 mr-2" />
+                            Today
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const today = new Date();
+                              const yesterday = new Date(today);
+                              yesterday.setDate(today.getDate() - 1);
+                              setTempDetailDateRange({ from: yesterday, to: yesterday });
+                            }}
+                            className="text-xs h-8 justify-start"
+                          >
+                            <Calendar className="w-3 h-3 mr-2" />
+                            Yesterday
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const today = new Date();
+                              const weekAgo = new Date(today);
+                              weekAgo.setDate(today.getDate() - 6); // Last 7 days including today
+                              setTempDetailDateRange({ from: weekAgo, to: today });
+                            }}
+                            className="text-xs h-8 justify-start"
+                          >
+                            <Calendar className="w-3 h-3 mr-2" />
+                            Last 7 days
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const today = new Date();
+                              const monthAgo = new Date(today);
+                              monthAgo.setDate(today.getDate() - 29); // Last 30 days including today
+                              setTempDetailDateRange({ from: monthAgo, to: today });
+                            }}
+                            className="text-xs h-8 justify-start"
+                          >
+                            <Calendar className="w-3 h-3 mr-2" />
+                            Last 30 days
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const today = new Date();
+                              const monday = new Date(today);
+                              const day = today.getDay();
+                              const diff = today.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+                              monday.setDate(diff);
+                              setTempDetailDateRange({ from: monday, to: today });
+                            }}
+                            className="text-xs h-8 justify-start col-span-2"
+                          >
+                            <Calendar className="w-3 h-3 mr-2" />
+                            This Week (Mon to Today)
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const today = new Date();
+                              const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                              setTempDetailDateRange({ from: firstDay, to: today });
+                            }}
+                            className="text-xs h-8 justify-start col-span-2"
+                          >
+                            <Calendar className="w-3 h-3 mr-2" />
+                            This Month (1st to Today)
+                          </Button>
                         </div>
                       </div>
-                    )}
 
-                    <div className="flex justify-end items-center pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setIsDetailDatePopoverOpen(false)}
-                          className="text-xs h-8 px-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setDetailDateRange(tempDetailDateRange);
-                            setIsDetailDatePopoverOpen(false);
-                          }}
-                          disabled={!tempDetailDateRange?.from || !tempDetailDateRange?.to}
-                          className="text-xs h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={!tempDetailDateRange?.from || !tempDetailDateRange?.to 
-                            ? "Please select both start and end dates" 
-                            : "Apply the selected date range"}
-                        >
-                          Apply Range
-                        </Button>
+                      {/* Individual Date Inputs */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Start Date</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left font-normal"
+                              >
+                                <Calendar className="mr-2 h-4 w-4" />
+                                {tempDetailDateRange?.from ? (
+                                  tempDetailDateRange.from.toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })
+                                ) : (
+                                  <span>Pick start date</span>
+                                )}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent
+                                mode="single"
+                                selected={tempDetailDateRange?.from}
+                                onSelect={(date) => {
+                                  if (date) {
+                                    setTempDetailDateRange(prev => ({
+                                      from: date,
+                                      to: prev?.to && date <= prev.to ? prev.to : date
+                                    }));
+                                  }
+                                }}
+                                disabled={(date) =>
+                                  tempDetailDateRange?.to ? date > tempDetailDateRange.to : false
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">End Date</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left font-normal"
+                              >
+                                <Calendar className="mr-2 h-4 w-4" />
+                                {tempDetailDateRange?.to ? (
+                                  tempDetailDateRange.to.toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })
+                                ) : (
+                                  <span>Pick end date</span>
+                                )}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent
+                                mode="single"
+                                selected={tempDetailDateRange?.to}
+                                onSelect={(date) => {
+                                  if (date) {
+                                    setTempDetailDateRange(prev => ({
+                                      from: prev?.from && date >= prev.from ? prev.from : date,
+                                      to: date
+                                    }));
+                                  }
+                                }}
+                                disabled={(date) =>
+                                  tempDetailDateRange?.from ? date < tempDetailDateRange.from : false
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+
+                      {/* Enhanced Visual Range Display */}
+                      {tempDetailDateRange?.from && tempDetailDateRange?.to && (
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Selected Range:</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                {Math.ceil((tempDetailDateRange.to.getTime() - tempDetailDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1} days
+                              </Badge>
+                              {(() => {
+                                const today = new Date();
+                                const isToday = tempDetailDateRange.from.toDateString() === today.toDateString() &&
+                                  tempDetailDateRange.to.toDateString() === today.toDateString();
+                                const isPast = tempDetailDateRange.to < today;
+                                const isFuture = tempDetailDateRange.from > today;
+
+                                if (isToday) {
+                                  return <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Today</Badge>;
+                                } else if (isPast) {
+                                  return <Badge className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">Past</Badge>;
+                                } else if (isFuture) {
+                                  return <Badge className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">Future</Badge>;
+                                }
+                                return null;
+                              })()}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-blue-900 dark:text-blue-100 font-medium text-sm">
+                              {tempDetailDateRange.from.toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                              {' → '}
+                              {tempDetailDateRange.to.toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </div>
+                            <div className="text-xs text-blue-700 dark:text-blue-300">
+                              {tempDetailDateRange.from.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                              through
+                              {tempDetailDateRange.to.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setIsDetailDatePopoverOpen(false)}
+                            className="text-xs h-8 px-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setDetailDateRange(tempDetailDateRange);
+                              setIsDetailDatePopoverOpen(false);
+                            }}
+                            disabled={!tempDetailDateRange?.from || !tempDetailDateRange?.to}
+                            className="text-xs h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={!tempDetailDateRange?.from || !tempDetailDateRange?.to
+                              ? "Please select both start and end dates"
+                              : "Apply the selected date range"}
+                          >
+                            Apply Range
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
         )}
@@ -2353,22 +2430,22 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
               {sortedTimesheetUsers.length > 0 ? (
                 <div
                   ref={scrollContainerRef}
-                  className="flex-1 overflow-y-auto overflow-x-hidden m-0 p-0 relative"
+                  className="flex-1 overflow-y-auto overflow-x-hidden m-0 p-0 relative mb-8"
                   style={{
                     scrollbarWidth: 'thin',
                     scrollbarColor: '#cbd5e1 transparent'
                   }}
                 >
-                  <div className="p-4 space-y-6">
+                  <div className="p-2 space-y-6 mb-8">
                     {/* Group data by employee (sections) */}
                     {sortedTimesheetUsers
                       .filter(user => selectedMemberFilter === 'all' || user.user_id === selectedMemberFilter)
                       .map((user) => (
                         <div key={user.user_id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                           {/* Employee Section Title */}
-                          <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b-2 border-blue-200 dark:border-blue-700">
+                          <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b-2 border-blue-200 dark:border-blue-700 cursor-pointer hover:from-blue-100 dark:hover:from-blue-900/30 hover:to-indigo-100 dark:hover:to-indigo-900/30 transition-colors" onClick={() => toggleEmployeeExpansion(user.user_id)}>
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3 text-xs">
                                 <Avatar className="w-10 h-10 ring-2 ring-offset-1 ring-blue-500">
                                   <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-sm">
                                     {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
@@ -2378,7 +2455,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                   <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
                                     {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
                                   </h3>
-                                  <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center flex-wrap gap-1">
+                                  <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center flex-wrap gap-1">
                                     <span>{user.designation || 'Team Member'} • {user.email || user.user_id}</span>
                                     {getEmployeeProjects(user).length > 0 && (
                                       <>
@@ -2406,8 +2483,8 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                             ))}
                                             <HoverCard>
                                               <HoverCardTrigger asChild>
-                                                <Badge 
-                                                  variant="outline" 
+                                                <Badge
+                                                  variant="outline"
                                                   className="text-xs px-2 py-0.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-600 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
                                                 >
                                                   +{getEmployeeProjects(user).length - 3} more
@@ -2418,9 +2495,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                                   <h4 className="text-sm font-semibold">All Projects ({getEmployeeProjects(user).length})</h4>
                                                   <div className="flex flex-wrap gap-1">
                                                     {getEmployeeProjects(user).map((projectName, idx) => (
-                                                      <Badge 
-                                                        key={idx} 
-                                                        variant="outline" 
+                                                      <Badge
+                                                        key={idx}
+                                                        variant="outline"
                                                         className="text-xs px-2 py-0.5 bg-white text-gray-800 border-gray-300 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-400"
                                                       >
                                                         {projectName}
@@ -2437,272 +2514,292 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                   </p>
                                 </div>
                               </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleEmployeeExpansion(user.user_id);
+                                  }}
+                                  title={expandedEmployees.has(user.user_id) ? "Collapse section" : "Expand section"}
+                                >
+                                  {expandedEmployees.has(user.user_id) ? (
+                                    <ChevronDown className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                  )}
+                                </Button>
+                              </div>
                             </div>
                           </div>
 
-                          {/* Table with horizontal scroll */}
-                          <div className="overflow-x-auto">
-                            <Table className="min-w-[1200px]">
-                              <TableHeader>
-                                <TableRow className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
-                                  <TableHead className="w-[120px]">Date</TableHead>
-                                  <TableHead className="w-[300px] text-blue-600 dark:text-blue-400 font-semibold">In Progress</TableHead>
-                                  <TableHead className="w-[300px] text-red-600 dark:text-red-400 font-semibold">Blockers</TableHead>
-                                  <TableHead className="w-[300px] text-green-600 dark:text-green-400 font-semibold">Completed</TableHead>
-                                  <TableHead className="w-[120px] text-center">Actions</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {detailDateRange?.from && detailDateRange?.to ? (
-                                  (() => {
-                                    const dates = [];
-                                    const currentDate = new Date(detailDateRange.from);
-                                    const endDate = new Date(detailDateRange.to);
-
-                                    while (currentDate <= endDate) {
-                                      dates.push(new Date(currentDate));
-                                      currentDate.setDate(currentDate.getDate() + 1);
-                                    }
-
-                                    return dates.reverse().map((date) => {
-                                      const isDateToday = date.toDateString() === new Date().toDateString();
-                                      const dateKey = formatDateForAPI(date);
-                                      const rowId = `${user.user_id}-${dateKey}`;
-                                      const isEditing = editingRows.has(rowId);
-
-                                      return (
-                                        <TableRow 
-                                          key={rowId}
-                                          className={isEditing ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-blue-500' : ''}
-                                        >
-                                          {/* Date Column */}
-                                          <TableCell>
-                                            <div className="text-center">
-                                              <div className="font-bold text-sm text-gray-900 dark:text-gray-100">
-                                                {date.toLocaleDateString('en-US', {
-                                                  weekday: 'short',
-                                                  month: 'short',
-                                                  day: 'numeric'
-                                                })}
-                                              </div>
-                                              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                                {date.getFullYear()}
-                                              </div>
-                                            </div>
-                                          </TableCell>
-
-                                          {/* In Progress Column */}
-                                          <TableCell>
-                                            {isEditing ? (
-                                              <div className="relative w-full">
-                                                <Textarea
-                                                  value={editedData[rowId]?.in_progress || ''}
-                                                  onChange={(e) => setEditedData({
-                                                    ...editedData,
-                                                    [rowId]: { ...editedData[rowId], in_progress: e.target.value }
-                                                  })}
-                                                  placeholder={isDateToday ? "What are you working on today?" : "What were you working on?"}
-                                                  className="min-h-[48px] text-xs py-2 pr-8 resize-none"
-                                                  rows={2}
-                                                />
-                                                {editedData[rowId]?.in_progress && editedData[rowId]?.in_progress.length > 80 && (
-                                                  <button
-                                                    onClick={() => setExpandedContent({ type: 'in_progress', content: editedData[rowId]?.in_progress, rowId })}
-                                                    className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                                    title="Expand to see full content"
-                                                  >
-                                                    <Maximize2 className="w-3 h-3 text-gray-500" />
-                                                  </button>
-                                                )}
-                                              </div>
-                                            ) : (
-                                              <div className="relative w-full group pr-6">
-                                                <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
-                                                  {getTimesheetContent(user, date, 'in_progress') || (isDateToday ? "Click Edit to add what you're working on today" : "No work in progress")}
-                                                </div>
-                                                {/* Show maximize button only if content is long */}
-                                                {getTimesheetContent(user, date, 'in_progress') && getTimesheetContent(user, date, 'in_progress').length > 80 && (
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      const content = getTimesheetContent(user, date, 'in_progress');
-                                                      setExpandedContent({ type: 'in_progress', content, rowId });
-                                                    }}
-                                                    className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    title="View full content"
-                                                  >
-                                                    <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                                                  </button>
-                                                )}
-                                              </div>
-                                            )}
-                                          </TableCell>
-
-                                          {/* Blockers Column */}
-                                          <TableCell>
-                                            {isEditing ? (
-                                              <div className="relative w-full">
-                                                <Textarea
-                                                  value={editedData[rowId]?.blocked || ''}
-                                                  onChange={(e) => setEditedData({
-                                                    ...editedData,
-                                                    [rowId]: { ...editedData[rowId], blocked: e.target.value }
-                                                  })}
-                                                  placeholder={isDateToday ? "Any blockers or issues today?" : "Were there any blockers?"}
-                                                  className="min-h-[48px] text-xs py-2 pr-8 resize-none"
-                                                  rows={2}
-                                                />
-                                                {editedData[rowId]?.blocked && editedData[rowId]?.blocked.length > 80 && (
-                                                  <button
-                                                    onClick={() => setExpandedContent({ type: 'blocked', content: editedData[rowId]?.blocked, rowId })}
-                                                    className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                                    title="Expand to see full content"
-                                                  >
-                                                    <Maximize2 className="w-3 h-3 text-gray-500" />
-                                                  </button>
-                                                )}
-                                              </div>
-                                            ) : (
-                                              <div className="relative w-full group pr-6">
-                                                <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
-                                                  {getTimesheetContent(user, date, 'blocked') || (isDateToday ? "Click Edit to add any blockers" : "No blockers reported")}
-                                                </div>
-                                                {getTimesheetContent(user, date, 'blocked') && getTimesheetContent(user, date, 'blocked').length > 80 && (
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      const content = getTimesheetContent(user, date, 'blocked');
-                                                      setExpandedContent({ type: 'blocked', content, rowId });
-                                                    }}
-                                                    className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    title="View full content"
-                                                  >
-                                                    <Maximize2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-                                                  </button>
-                                                )}
-                                              </div>
-                                            )}
-                                          </TableCell>
-
-                                          {/* Completed Column */}
-                                          <TableCell>
-                                            {isEditing ? (
-                                              <div className="relative w-full">
-                                                <Textarea
-                                                  value={editedData[rowId]?.completed || ''}
-                                                  onChange={(e) => setEditedData({
-                                                    ...editedData,
-                                                    [rowId]: { ...editedData[rowId], completed: e.target.value }
-                                                  })}
-                                                  placeholder={isDateToday ? "What did you complete today?" : "What did you complete?"}
-                                                  className="min-h-[48px] text-xs py-2 pr-8 resize-none"
-                                                  rows={2}
-                                                />
-                                                {editedData[rowId]?.completed && editedData[rowId]?.completed.length > 80 && (
-                                                  <button
-                                                    onClick={() => setExpandedContent({ type: 'completed', content: editedData[rowId]?.completed, rowId })}
-                                                    className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                                    title="Expand to see full content"
-                                                  >
-                                                    <Maximize2 className="w-3 h-3 text-gray-500" />
-                                                  </button>
-                                                )}
-                                              </div>
-                                            ) : (
-                                              <div className="relative w-full group pr-6">
-                                                <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
-                                                  {getTimesheetContent(user, date, 'completed') || (isDateToday ? "Click Edit to add completed tasks" : "No completed tasks")}
-                                                </div>
-                                                {getTimesheetContent(user, date, 'completed') && getTimesheetContent(user, date, 'completed').length > 80 && (
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      const content = getTimesheetContent(user, date, 'completed');
-                                                      setExpandedContent({ type: 'completed', content, rowId });
-                                                    }}
-                                                    className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    title="View full content"
-                                                  >
-                                                    <Maximize2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
-                                                  </button>
-                                                )}
-                                              </div>
-                                            )}
-                                          </TableCell>
-
-                                          {/* Actions Column */}
-                                          <TableCell className="text-center">
-                                            {isEditing ? (
-                                              <div className="flex items-center justify-center gap-1">
-                                                <Button
-                                                  size="sm"
-                                                  className="h-7 px-2 bg-green-500 hover:bg-green-600 text-white text-xs"
-                                                  onClick={() => handleSaveRow(rowId, user, date)}
-                                                >
-                                                  Save
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-7 px-2"
-                                                  onClick={() => {
-                                                    const newEditingRows = new Set(editingRows);
-                                                    newEditingRows.delete(rowId);
-                                                    setEditingRows(newEditingRows);
-                                                    const newEditedData = { ...editedData };
-                                                    delete newEditedData[rowId];
-                                                    setEditedData(newEditedData);
-                                                  }}
-                                                >
-                                                  <X className="w-3.5 h-3.5" />
-                                                </Button>
-                                              </div>
-                                            ) : (
-                                              <div className="flex items-center justify-center gap-1">
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                                  onClick={() => {
-                                                    setEditingRows(new Set([...editingRows, rowId]));
-                                                    // Initialize edited data with current values from timesheet
-                                                    setEditedData({
-                                                      ...editedData,
-                                                      [rowId]: {
-                                                        in_progress: getTimesheetContent(user, date, 'in_progress'),
-                                                        blocked: getTimesheetContent(user, date, 'blocked'),
-                                                        completed: getTimesheetContent(user, date, 'completed')
-                                                      }
-                                                    });
-                                                  }}
-                                                >
-                                                  Edit
-                                                </Button>
-                                              </div>
-                                            )}
-                                          </TableCell>
-                                        </TableRow>
-                                      );
-                                    });
-                                  })()
-                                ) : (
-                                  <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8">
-                                      <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Select Date Range</h3>
-                                      <p className="text-gray-500 dark:text-gray-400">Choose a date range above to view timeline data</p>
-                                    </TableCell>
+                          {/* Collapsible Table Content */}
+                          {expandedEmployees.has(user.user_id) && (
+                            <div className="overflow-x-auto">
+                              <Table className="min-w-[1200px]">
+                                <TableHeader>
+                                  <TableRow className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+                                    <TableHead className="w-[120px] text-center">Date</TableHead>
+                                    <TableHead className="w-[300px] text-blue-600 dark:text-blue-400 font-semibold">In Progress</TableHead>
+                                    <TableHead className="w-[300px] text-red-600 dark:text-red-400 font-semibold">Blockers</TableHead>
+                                    <TableHead className="w-[300px] text-green-600 dark:text-green-400 font-semibold">Completed</TableHead>
+                                    <TableHead className="w-[120px] text-center">Actions</TableHead>
                                   </TableRow>
-                                )}
-                              </TableBody>
-                            </Table>
-                          </div>
+                                </TableHeader>
+                                <TableBody>
+                                  {detailDateRange?.from && detailDateRange?.to ? (
+                                    (() => {
+                                      const dates = [];
+                                      const currentDate = new Date(detailDateRange.from);
+                                      const endDate = new Date(detailDateRange.to);
+
+                                      while (currentDate <= endDate) {
+                                        dates.push(new Date(currentDate));
+                                        currentDate.setDate(currentDate.getDate() + 1);
+                                      }
+
+                                      return dates.reverse().map((date) => {
+                                        const isDateToday = date.toDateString() === new Date().toDateString();
+                                        const dateKey = formatDateForAPI(date);
+                                        const rowId = `${user.user_id}-${dateKey}`;
+                                        const isEditing = editingRows.has(rowId);
+
+                                        return (
+                                          <TableRow
+                                            key={rowId}
+                                            className={isEditing ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-blue-500' : ''}
+                                          >
+                                            {/* Date Column */}
+                                            <TableCell>
+                                              <div className="text-center">
+                                                <div className="font-bold text-sm text-gray-900 dark:text-gray-100">
+                                                  {date.toLocaleDateString('en-US', {
+                                                    weekday: 'short',
+                                                    month: 'short',
+                                                    day: 'numeric'
+                                                  })}
+                                                </div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                                  {date.getFullYear()}
+                                                </div>
+                                              </div>
+                                            </TableCell>
+
+                                            {/* In Progress Column */}
+                                            <TableCell>
+                                              {isEditing ? (
+                                                <div className="relative w-full">
+                                                  <Textarea
+                                                    value={editedData[rowId]?.in_progress || ''}
+                                                    onChange={(e) => setEditedData({
+                                                      ...editedData,
+                                                      [rowId]: { ...editedData[rowId], in_progress: e.target.value }
+                                                    })}
+                                                    placeholder={isDateToday ? "What are you working on today?" : "What were you working on?"}
+                                                    className="min-h-[48px] text-xs py-2 pr-8 resize-none"
+                                                    rows={2}
+                                                  />
+                                                  {editedData[rowId]?.in_progress && editedData[rowId]?.in_progress.length > 80 && (
+                                                    <button
+                                                      onClick={() => setExpandedContent({ type: 'in_progress', content: editedData[rowId]?.in_progress, rowId })}
+                                                      className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                                      title="Expand to see full content"
+                                                    >
+                                                      <Maximize2 className="w-3 h-3 text-gray-500" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              ) : (
+                                                <div className="relative w-full group pr-6">
+                                                  <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
+                                                    {getTimesheetContent(user, date, 'in_progress') || (isDateToday ? "Click Edit to add what you're working on today" : "No work in progress")}
+                                                  </div>
+                                                  {/* Show maximize button only if content is long */}
+                                                  {getTimesheetContent(user, date, 'in_progress') && getTimesheetContent(user, date, 'in_progress').length > 80 && (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const content = getTimesheetContent(user, date, 'in_progress');
+                                                        setExpandedContent({ type: 'in_progress', content, rowId });
+                                                      }}
+                                                      className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                      title="View full content"
+                                                    >
+                                                      <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </TableCell>
+
+                                            {/* Blockers Column */}
+                                            <TableCell>
+                                              {isEditing ? (
+                                                <div className="relative w-full">
+                                                  <Textarea
+                                                    value={editedData[rowId]?.blocked || ''}
+                                                    onChange={(e) => setEditedData({
+                                                      ...editedData,
+                                                      [rowId]: { ...editedData[rowId], blocked: e.target.value }
+                                                    })}
+                                                    placeholder={isDateToday ? "Any blockers or issues today?" : "Were there any blockers?"}
+                                                    className="min-h-[48px] text-xs py-2 pr-8 resize-none"
+                                                    rows={2}
+                                                  />
+                                                  {editedData[rowId]?.blocked && editedData[rowId]?.blocked.length > 80 && (
+                                                    <button
+                                                      onClick={() => setExpandedContent({ type: 'blocked', content: editedData[rowId]?.blocked, rowId })}
+                                                      className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                                      title="Expand to see full content"
+                                                    >
+                                                      <Maximize2 className="w-3 h-3 text-gray-500" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              ) : (
+                                                <div className="relative w-full group pr-6">
+                                                  <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
+                                                    {getTimesheetContent(user, date, 'blocked') || (isDateToday ? "Click Edit to add any blockers" : "No blockers reported")}
+                                                  </div>
+                                                  {getTimesheetContent(user, date, 'blocked') && getTimesheetContent(user, date, 'blocked').length > 80 && (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const content = getTimesheetContent(user, date, 'blocked');
+                                                        setExpandedContent({ type: 'blocked', content, rowId });
+                                                      }}
+                                                      className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                      title="View full content"
+                                                    >
+                                                      <Maximize2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </TableCell>
+
+                                            {/* Completed Column */}
+                                            <TableCell>
+                                              {isEditing ? (
+                                                <div className="relative w-full">
+                                                  <Textarea
+                                                    value={editedData[rowId]?.completed || ''}
+                                                    onChange={(e) => setEditedData({
+                                                      ...editedData,
+                                                      [rowId]: { ...editedData[rowId], completed: e.target.value }
+                                                    })}
+                                                    placeholder={isDateToday ? "What did you complete today?" : "What did you complete?"}
+                                                    className="min-h-[48px] text-xs py-2 pr-8 resize-none"
+                                                    rows={2}
+                                                  />
+                                                  {editedData[rowId]?.completed && editedData[rowId]?.completed.length > 80 && (
+                                                    <button
+                                                      onClick={() => setExpandedContent({ type: 'completed', content: editedData[rowId]?.completed, rowId })}
+                                                      className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                                      title="Expand to see full content"
+                                                    >
+                                                      <Maximize2 className="w-3 h-3 text-gray-500" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              ) : (
+                                                <div className="relative w-full group pr-6">
+                                                  <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
+                                                    {getTimesheetContent(user, date, 'completed') || (isDateToday ? "Click Edit to add completed tasks" : "No completed tasks")}
+                                                  </div>
+                                                  {getTimesheetContent(user, date, 'completed') && getTimesheetContent(user, date, 'completed').length > 80 && (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const content = getTimesheetContent(user, date, 'completed');
+                                                        setExpandedContent({ type: 'completed', content, rowId });
+                                                      }}
+                                                      className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                      title="View full content"
+                                                    >
+                                                      <Maximize2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </TableCell>
+
+                                            {/* Actions Column */}
+                                            <TableCell className="text-center">
+                                              {isEditing ? (
+                                                <div className="flex items-center justify-center gap-1">
+                                                  <Button
+                                                    size="sm"
+                                                    className="h-7 px-2 bg-green-500 hover:bg-green-600 text-white text-xs"
+                                                    onClick={() => handleSaveRow(rowId, user, date)}
+                                                  >
+                                                    Save
+                                                  </Button>
+                                                  <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-7 px-2"
+                                                    onClick={() => {
+                                                      const newEditingRows = new Set(editingRows);
+                                                      newEditingRows.delete(rowId);
+                                                      setEditingRows(newEditingRows);
+                                                      const newEditedData = { ...editedData };
+                                                      delete newEditedData[rowId];
+                                                      setEditedData(newEditedData);
+                                                    }}
+                                                  >
+                                                    <X className="w-3.5 h-3.5" />
+                                                  </Button>
+                                                </div>
+                                              ) : (
+                                                <div className="flex items-center justify-center gap-1">
+                                                  <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                    onClick={() => {
+                                                      setEditingRows(new Set([...editingRows, rowId]));
+                                                      // Initialize edited data with current values from timesheet
+                                                      setEditedData({
+                                                        ...editedData,
+                                                        [rowId]: {
+                                                          in_progress: getTimesheetContent(user, date, 'in_progress'),
+                                                          blocked: getTimesheetContent(user, date, 'blocked'),
+                                                          completed: getTimesheetContent(user, date, 'completed')
+                                                        }
+                                                      });
+                                                    }}
+                                                  >
+                                                    Edit
+                                                  </Button>
+                                                </div>
+                                              )}
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      });
+                                    })()
+                                  ) : (
+                                    <TableRow>
+                                      <TableCell colSpan={7} className="text-center py-8">
+                                        <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Select Date Range</h3>
+                                        <p className="text-gray-500 dark:text-gray-400">Choose a date range above to view timeline data</p>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
                         </div>
                       ))}
                   </div>
 
                   {/* Modern Scroll Indicators */}
-                  {showScrollIndicator && !isNearBottom && (
+                  {/* {showScrollIndicator && !isNearBottom && (
                     <div className="absolute bottom-4 right-4 z-10">
                       <Button
                         variant="outline"
@@ -2714,10 +2811,10 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                         <span className="text-xs">More</span>
                       </Button>
                     </div>
-                  )}
+                  )} */}
 
                   {/* Bottom Reached Indicator */}
-                  {showScrollIndicator && isNearBottom && (
+                  {/* {showScrollIndicator && isNearBottom && (
                     <div className="absolute bottom-4 right-4 z-10">
                       <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg px-3 py-2 shadow-sm">
                         <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
@@ -2726,7 +2823,7 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                         </div>
                       </div>
                     </div>
-                  )}
+                  )} */}
                 </div>
               ) : (
                 // Fallback: Show calendar view when no users are available
@@ -2740,9 +2837,9 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                             <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                           </div>
                           <div>
-                            <h2 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">
+                            {/* <h2 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">
                               Team Calendar View
-                            </h2>
+                            </h2> */}
                             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                               No timesheet data available for the selected date
                             </p>

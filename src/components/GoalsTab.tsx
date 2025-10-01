@@ -76,21 +76,21 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   const [editingRows, setEditingRows] = useState<Set<string>>(new Set());
   const [newRows, setNewRows] = useState<EditableGoal[]>([]);
   const [editedData, setEditedData] = useState<Record<string, EditableGoal>>({});
-  
+
   // Tag input states
   const [categoryInput, setCategoryInput] = useState<Record<string, string>>({});
   const [subCategoryInput, setSubCategoryInput] = useState<Record<string, string>>({});
-  
+
   // Sections management
   const [sections, setSections] = useState<Section[]>([
     { id: 'default-section', title: '', order: 0 }
   ]);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [sectionTitleInputs, setSectionTitleInputs] = useState<Record<string, string>>({});
-  
+
   // Expand dialog states
   const [expandedContent, setExpandedContent] = useState<{ type: 'goal' | 'target'; content: string; rowId: string } | null>(null);
-  
+
   // Delete confirmation states
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ goalId: string; goalTitle: string } | null>(null);
 
@@ -123,18 +123,18 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   // Client-side filtering
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return items;
-    
+
     const query = searchQuery.toLowerCase();
     return items.filter(goal => {
       const title = (goal.title || '').toLowerCase();
       const description = (goal.description || '').toLowerCase();
       const category = (goal.category || '').toLowerCase();
       const subCategory = (goal.subCategory || '').toLowerCase();
-      
-      return title.includes(query) || 
-             description.includes(query) || 
-             category.includes(query) || 
-             subCategory.includes(query);
+
+      return title.includes(query) ||
+        description.includes(query) ||
+        category.includes(query) ||
+        subCategory.includes(query);
     });
   }, [items, searchQuery]);
 
@@ -151,7 +151,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ goalId, payload }: { goalId: string; payload: any }) => 
+    mutationFn: async ({ goalId, payload }: { goalId: string; payload: any }) =>
       updateGoal(orgId, goalId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['org-user-goals', orgId] });
@@ -207,7 +207,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
 
   const saveSection = (sectionId: string) => {
     const title = sectionTitleInputs[sectionId] || '';
-    setSections(sections.map(s => 
+    setSections(sections.map(s =>
       s.id === sectionId ? { ...s, title } : s
     ));
     setEditingSectionId(null);
@@ -215,23 +215,23 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
 
   const deleteSection = (sectionId: string) => {
     if (sectionId === 'default-section') return; // Can't delete default section
-    
+
     // Move goals from deleted section to default section
-    setNewRows(newRows.map(row => 
+    setNewRows(newRows.map(row =>
       row.sectionId === sectionId ? { ...row, sectionId: 'default-section' } : row
     ));
-    
+
     setSections(sections.filter(s => s.id !== sectionId));
   };
 
   const handleEdit = (goalId: string, goal: Goal) => {
     setEditingRows(new Set([...editingRows, goalId]));
     const assignee = goal.assignees?.[0];
-    
+
     // Parse existing categories and subcategories (stored as comma-separated in backend)
     const categories = goal.category ? goal.category.split(',').map(c => c.trim()).filter(Boolean) : [];
     const subCategories = goal.subCategory ? goal.subCategory.split(',').map(c => c.trim()).filter(Boolean) : [];
-    
+
     setEditedData({
       ...editedData,
       [goalId]: {
@@ -278,12 +278,12 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     const newEditingRows = new Set(editingRows);
     newEditingRows.delete(goalId);
     setEditingRows(newEditingRows);
-    
+
     // Clean up input states
     const newCatInput = { ...categoryInput };
     delete newCatInput[goalId];
     setCategoryInput(newCatInput);
-    
+
     const newSubCatInput = { ...subCategoryInput };
     delete newSubCatInput[goalId];
     setSubCategoryInput(newSubCatInput);
@@ -296,16 +296,16 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     const newEditingRows = new Set(editingRows);
     newEditingRows.delete(goalId);
     setEditingRows(newEditingRows);
-    
+
     const newEditedData = { ...editedData };
     delete newEditedData[goalId];
     setEditedData(newEditedData);
-    
+
     // Clean up input states
     const newCatInput = { ...categoryInput };
     delete newCatInput[goalId];
     setCategoryInput(newCatInput);
-    
+
     const newSubCatInput = { ...subCategoryInput };
     delete newSubCatInput[goalId];
     setSubCategoryInput(newSubCatInput);
@@ -317,14 +317,14 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
 
   const confirmDelete = async () => {
     if (!deleteConfirmation) return;
-    
+
     await deleteMutation.mutateAsync(deleteConfirmation.goalId);
     setDeleteConfirmation(null);
   };
 
   const updateField = (goalId: string, field: keyof EditableGoal, value: any, isNew: boolean) => {
     if (isNew) {
-      setNewRows(newRows.map(row => 
+      setNewRows(newRows.map(row =>
         row.id === goalId ? { ...row, [field]: value } : row
       ));
     } else {
@@ -342,10 +342,10 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   const addCategory = (goalId: string, isNew: boolean) => {
     const input = categoryInput[goalId]?.trim();
     if (!input) return;
-    
+
     const data = isNew ? newRows.find(r => r.id === goalId) : editedData[goalId];
     if (!data) return;
-    
+
     if (!data.categories.includes(input)) {
       updateField(goalId, 'categories', [...data.categories, input], isNew);
     }
@@ -355,17 +355,17 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   const removeCategory = (goalId: string, category: string, isNew: boolean) => {
     const data = isNew ? newRows.find(r => r.id === goalId) : editedData[goalId];
     if (!data) return;
-    
+
     updateField(goalId, 'categories', data.categories.filter(c => c !== category), isNew);
   };
 
   const addSubCategory = (goalId: string, isNew: boolean) => {
     const input = subCategoryInput[goalId]?.trim();
     if (!input) return;
-    
+
     const data = isNew ? newRows.find(r => r.id === goalId) : editedData[goalId];
     if (!data) return;
-    
+
     if (!data.subCategories.includes(input)) {
       updateField(goalId, 'subCategories', [...data.subCategories, input], isNew);
     }
@@ -375,7 +375,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   const removeSubCategory = (goalId: string, subCategory: string, isNew: boolean) => {
     const data = isNew ? newRows.find(r => r.id === goalId) : editedData[goalId];
     if (!data) return;
-    
+
     updateField(goalId, 'subCategories', data.subCategories.filter(c => c !== subCategory), isNew);
   };
 
@@ -397,7 +397,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     const assignee = goal.assignees?.[0];
     const categories = goal.category ? goal.category.split(',').map(c => c.trim()).filter(Boolean) : [];
     const subCategories = goal.subCategory ? goal.subCategory.split(',').map(c => c.trim()).filter(Boolean) : [];
-    
+
     return {
       id: goal.id,
       member: assignee?.userId || '',
@@ -432,7 +432,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
               <Target className="w-5 h-5 text-green-600 dark:text-green-400" />
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Organization Goals</h2>
             </div>
-            
+
             {/* Search Bar */}
             <div className="relative flex-1 max-w-md">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -452,7 +452,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
       </div>
 
       {/* Table Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto mb-8">
         {isLoading || isFetching ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -461,7 +461,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
             </div>
           </div>
         ) : (
-          <div className="p-4 space-y-6">
+          <div className="py-4 space-y-4 mb-6">
             {/* Render each section */}
             {sections.map((section, sectionIndex) => {
               const sectionRows = rowsBySection[section.id] || [];
@@ -472,7 +472,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                 <div key={section.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                   {/* Section Title */}
                   {!isEditingThisSection && !sectionHasTitle ? (
-                    <div 
+                    <div
                       className="px-4 py-3 bg-blue-50/20 dark:bg-blue-900/5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-all cursor-pointer border-b-2 border-dotted border-blue-400/60 dark:border-blue-600/60"
                       onClick={() => {
                         setEditingSectionId(section.id);
@@ -557,7 +557,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
 
                   {/* Table with horizontal scroll */}
                   <div className="overflow-x-auto">
-                    <Table className="min-w-[1200px]">
+                    <Table className="min-w-[1200px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
                       <TableHeader>
                         <TableRow className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
                           <TableHead className="w-[180px]">Member</TableHead>
@@ -577,7 +577,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                           const data = isEditing ? (isNew ? row : editedData[row.id!] || row) : row;
 
                           return (
-                            <TableRow 
+                            <TableRow
                               key={row.id}
                               className={isEditing ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-blue-500' : ''}
                             >
@@ -586,8 +586,8 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                                 {isEditing ? (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <Button 
-                                        variant="outline" 
+                                      <Button
+                                        variant="outline"
                                         size="sm"
                                         className="w-full justify-between h-8 text-xs"
                                       >
@@ -641,9 +641,9 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                                   <div className="w-full">
                                     <div className="flex flex-wrap gap-1 mb-1">
                                       {data.categories.map((cat, idx) => (
-                                        <Badge 
+                                        <Badge
                                           key={idx}
-                                          variant="outline" 
+                                          variant="outline"
                                           className={`${getTagColor(cat)} text-xs px-2 py-0.5 flex items-center gap-1`}
                                         >
                                           {cat}
@@ -668,9 +668,9 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                                   <div className="flex flex-wrap gap-1 items-center">
                                     {data.categories.length > 0 ? (
                                       data.categories.map((cat, idx) => (
-                                        <Badge 
+                                        <Badge
                                           key={idx}
-                                          variant="outline" 
+                                          variant="outline"
                                           className={`${getTagColor(cat)} text-xs px-2 py-0.5`}
                                         >
                                           {cat}
@@ -689,9 +689,9 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                                   <div className="w-full">
                                     <div className="flex flex-wrap gap-1 mb-1">
                                       {data.subCategories.map((subCat, idx) => (
-                                        <Badge 
+                                        <Badge
                                           key={idx}
-                                          variant="outline" 
+                                          variant="outline"
                                           className={`${getTagColor(subCat)} text-xs px-2 py-0.5 flex items-center gap-1`}
                                         >
                                           {subCat}
@@ -716,9 +716,9 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                                   <div className="flex flex-wrap gap-1 items-center">
                                     {data.subCategories.length > 0 ? (
                                       data.subCategories.map((subCat, idx) => (
-                                        <Badge 
+                                        <Badge
                                           key={idx}
-                                          variant="outline" 
+                                          variant="outline"
                                           className={`${getTagColor(subCat)} text-xs px-2 py-0.5`}
                                         >
                                           {subCat}
@@ -919,8 +919,8 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                   </div>
 
                   {/* Add New Goal Button */}
-                  <div 
-                    className="mt-4 p-4 bg-green-50/20 dark:bg-green-900/5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-all cursor-pointer border-2 border-dotted border-green-400/60 dark:border-green-600/60 rounded-lg"
+                  <div
+                    className="mt-2 p-4 bg-green-50/20 dark:bg-green-900/5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-all cursor-pointer border-2 border-dotted border-green-400/60 dark:border-green-600/60 rounded-lg"
                     onClick={() => addNewRow(section.id)}
                   >
                     <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
@@ -928,20 +928,20 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                       <span className="text-sm font-medium">Click here to add a new goal</span>
                     </div>
                   </div>
-                                </div>
-                              );
-                            })}
+                </div>
+              );
+            })}
 
-                            {/* Add New Section Placeholder */}
-                            <div 
-                              className="bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-purple-400/60 dark:border-purple-600/60 shadow-sm overflow-hidden cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-900/10 transition-all"
-                              onClick={addNewSection}
-                            >
-                              <div className="px-4 py-6 flex items-center justify-center gap-2 text-purple-600 dark:text-purple-400">
-                                <Plus className="w-5 h-5" />
-                                <span className="text-base font-semibold">Click here to add a new section</span>
-                              </div>
-                            </div>
+            {/* Add New Section Placeholder */}
+            <div
+              className="mb-8 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-purple-400/60 dark:border-purple-600/60 shadow-sm overflow-hidden cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-900/10 transition-all"
+              onClick={addNewSection}
+            >
+              <div className="px-4 py-6 flex items-center justify-center gap-2 text-purple-600 dark:text-purple-400">
+                <Plus className="w-5 h-5" />
+                <span className="text-base font-semibold">Click here to add a new section</span>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -983,7 +983,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
               <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">Delete Goal?</span>
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="py-4">
             {/* Warning Message */}
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
