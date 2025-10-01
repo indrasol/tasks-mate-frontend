@@ -164,6 +164,10 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
       clearPersistedStateFor('tester');
       clearPersistedStateFor('bugs');
     }
+    else {
+      // Default to org profile for organization switches
+      newUrl = '/org-profile';
+    }
 
     navigate(`${newUrl}?${newParams.toString()}`);
   };
@@ -182,6 +186,7 @@ const MainNavigation = ({ onNewTask, onNewMeeting, onScratchpadOpen }: MainNavig
   const navigationItems = useMemo(() => {
 
     const baseItems: NavigationItem[] = [
+      { name: 'Org Profile', path: '/org-profile', icon: Building2 },
       { name: 'Dashboard', path: '/dashboard', icon: Home },
       { name: 'Projects', path: '/projects', icon: Layers },
       { name: 'Tasks', path: '/tasks_catalog', icon: ClipboardList },
