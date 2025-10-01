@@ -11,7 +11,6 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 // import { supabase } from '@/integrations/supabase/client';
 import MainNavigation from '@/components/navigation/MainNavigation';
-import OrganizationProfileTab from '@/components/OrganizationProfileTab';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import CopyableBadge from '@/components/ui/copyable-badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -24,10 +23,8 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentOrganization } from '@/hooks/useCurrentOrganization';
 import { useCurrentOrgId } from '@/hooks/useCurrentOrgId';
-import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
 import { api } from '@/services/apiService';
 import { useAvatar } from '@/services/AvatarContext';
-import { BackendOrgMember } from '@/types/organization';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -171,32 +168,7 @@ const Settings = () => {
   const currentOrgId = useCurrentOrgId();
   const { data: org, isLoading: currentOrgLoading, refetch: refetchOrg } = useCurrentOrganization(currentOrgId);
 
-  const { data: orgMembersRaw } = useOrganizationMembers(currentOrgId);
 
-  // Real organization members (without dummy data) for dropdowns and filters
-  const realOrgMembers: BackendOrgMember[] = useMemo(() => {
-    try {
-      if (!orgMembersRaw) return [];
-
-      return orgMembersRaw.map((m: any) => ({
-        ...m,
-        name: ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id,
-      }));
-      // return [];
-    } catch (error) {
-      console.error('Error processing real orgMembers:', error);
-      return [];
-    }
-  }, [orgMembersRaw]);
-
-  const memoizedRealOrgMembers = useMemo(() => realOrgMembers, [realOrgMembers]);
-
-  // Determine if user can edit organization profile (owners and admins only)
-  const canEditProfile = useMemo(() => {
-    if (!user || !memoizedRealOrgMembers) return false;
-    const currentUserMember = memoizedRealOrgMembers.find((m) => m.user_id === user.id);
-    return currentUserMember?.role === 'owner' || currentUserMember?.role === 'admin';
-  }, [user, memoizedRealOrgMembers]);
 
   // ---------------- Organization Edit ----------------
   const openEditOrgModal = () => {
@@ -613,12 +585,6 @@ const Settings = () => {
               </CardContent>
             </Card>
 
-            {React.useMemo(() => (
-              <OrganizationProfileTab
-                orgId={currentOrgId}
-                canEdit={canEditProfile || false}
-              />
-            ), [currentOrgId, canEditProfile])}
           </div>
         </div>
       </div>
