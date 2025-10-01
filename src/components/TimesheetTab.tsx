@@ -16,6 +16,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 // Icons
 import {
@@ -28,8 +31,11 @@ import {
   Eye,
   Folder,
   Loader2,
+  Maximize2,
+  Plus,
   Save,
-  Users
+  Users,
+  X
 } from 'lucide-react';
 
 // Services and utilities
@@ -87,10 +93,140 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // AUTHENTICATION AND ROLE MANAGEMENT
   // ============================================================================
 
+  // ============================================================================
+  // STATE MANAGEMENT
+  // ============================================================================
+
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  
+  // Cache for date-specific timesheet data - moved up to avoid hoisting issues
+  const [dateSpecificData, setDateSpecificData] = useState<Record<string, any>>({});
+  
+  // Existing state...
   const [projects, setProjects] = useState<any[]>([]);
   const [isProjectsLoading, setIsProjectsLoading] = useState<boolean>(false);
+
+  // Editing state management like Goals table
+  const [editingRows, setEditingRows] = useState<Set<string>>(new Set());
+  const [editedData, setEditedData] = useState<Record<string, any>>({});
+  
+  // Add function to get timesheet content for a user and date
+  const getTimesheetContent = useCallback((user: TeamTimesheetUser, date: Date, type: 'in_progress' | 'blocked' | 'completed') => {
+    // First, try to get data from dateSpecificData cache
+    const dateKey = `${formatDateForAPI(date)}-${user.user_id}`;
+    const cachedData = dateSpecificData[dateKey];
+    
+    if (cachedData?.users?.length > 0) {
+      const userData = cachedData.users[0];
+      const content = userData[type] || [];
+      
+      if (Array.isArray(content) && content.length > 0) {
+        return convertEntriesToText(content);
+      }
+    }
+    
+    // Fallback to user object data (if available)
+    const content = user[type] || [];
+    if (Array.isArray(content) && content.length > 0) {
+      return convertEntriesToText(content);
+    }
+    
+    return '';
+  }, [dateSpecificData]);
+
+  // Add function to handle save with backend integration
+  const handleSaveRow = useCallback(async (rowId: string, user: TeamTimesheetUser, date: Date) => {
+    if (!editedData[rowId]) return;
+    
+    const userId = user.user_id;
+    const dateStr = formatDateForAPI(date);
+    
+    try {
+      // Save each field sequentially to avoid race conditions
+      const fieldsToSave = [
+        { type: 'in_progress' as const, content: editedData[rowId].in_progress },
+        { type: 'blocked' as const, content: editedData[rowId].blocked },
+        { type: 'completed' as const, content: editedData[rowId].completed }
+      ];
+      
+      for (const field of fieldsToSave) {
+        if (field.content !== undefined) {
+          await updateTimesheetField({
+            org_id: orgId,
+            user_id: userId,
+            entry_date: dateStr,
+            field_type: field.type,
+            field_content: field.content || ''
+          });
+          
+          // Small delay to prevent race conditions
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      // Update the cached data with the new values
+      const dateKey = `${dateStr}-${userId}`;
+      setDateSpecificData(prev => {
+        const existing = prev[dateKey] || { users: [{ user_id: userId }] };
+        const userData = existing.users[0] || { user_id: userId };
+        
+        // Update the user data with new values
+        const updatedUserData = {
+          ...userData,
+          in_progress: editedData[rowId].in_progress ? [{ id: 'temp-id', title: editedData[rowId].in_progress }] : [],
+          blocked: editedData[rowId].blocked ? [{ id: 'temp-id', title: editedData[rowId].blocked }] : [],
+          completed: editedData[rowId].completed ? [{ id: 'temp-id', title: editedData[rowId].completed }] : []
+        };
+        
+        return {
+          ...prev,
+          [dateKey]: {
+            ...existing,
+            users: [updatedUserData]
+          }
+        };
+      });
+      
+      // Remove from editing state
+      const newEditingRows = new Set(editingRows);
+      newEditingRows.delete(rowId);
+      setEditingRows(newEditingRows);
+      
+      // Clear edited data
+      const newEditedData = { ...editedData };
+      delete newEditedData[rowId];
+      setEditedData(newEditedData);
+      
+      toast({ title: 'Status updated successfully' });
+      
+      // Force refresh the data for this user and date
+      fetchedDataRef.current.delete(dateKey);
+      
+      // Refetch the data to get the latest from backend
+      try {
+        const refreshedData = await getTeamTimesheets(
+          orgId,
+          dateStr,
+          [userId]
+        );
+        setDateSpecificData(prev => ({ ...prev, [dateKey]: refreshedData }));
+      } catch (error) {
+        console.error('Error refreshing data after save:', error);
+      }
+      
+    } catch (error) {
+      console.error('Error saving timesheet:', error);
+      toast({ 
+        title: 'Failed to save status', 
+        description: error instanceof Error ? error.message : 'Please try again',
+        variant: 'destructive' 
+      });
+    }
+  }, [editedData, editingRows, orgId, toast, dateSpecificData]);
+
+  // Expand dialog states
+  const [expandedContent, setExpandedContent] = useState<{ type: 'in_progress' | 'blocked' | 'completed'; content: string; rowId: string } | null>(null);
 
   // Determine current user's role in the organization
   const currentUserOrgRole = useMemo(() => {
@@ -616,9 +752,6 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
   // Persist last saved content per field/date to restore on draft discard
   const [savedContentByField, setSavedContentByField] = useState<Record<string, string>>({});
 
-  // Cache for date-specific timesheet data
-  const [dateSpecificData, setDateSpecificData] = useState<Record<string, any>>({});
-  
   // Use ref to track fetched data without causing re-renders
   const fetchedDataRef = useRef<Set<string>>(new Set());
 
@@ -2226,80 +2359,70 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                     scrollbarColor: '#cbd5e1 transparent'
                   }}
                 >
-                  <div className="p-2 sm:p-3 space-y-4">
-                    {/* Filtered Members Cards */}
+                  <div className="p-4 space-y-6">
+                    {/* Group data by employee (sections) */}
                     {sortedTimesheetUsers
                       .filter(user => selectedMemberFilter === 'all' || user.user_id === selectedMemberFilter)
-                      .map((user) => {
-                        // Auto-expand when a specific member is selected, otherwise use collapsed state
-                        const isCollapsed = selectedMemberFilter === 'all'
-                          ? collapsedMembers.has(user.user_id)
-                          : false; // Always expand when viewing a specific member
-                        const toggleCollapse = () => {
-                          // Only allow toggling when in "All Members" mode
-                          if (selectedMemberFilter === 'all') {
-                            setCollapsedMembers(prev => {
-                              const newSet = new Set(prev);
-                              if (newSet.has(user.user_id)) {
-                                newSet.delete(user.user_id);
-                              } else {
-                                newSet.add(user.user_id);
-                              }
-                              return newSet;
-                            });
-                          }
-                        };
-
-                        return (
-                          <div key={user.user_id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                            {/* Member Header with Toggle */}
-                            <div
-                              className={`bg-gradient-to-r from-slate-50/80 to-blue-50/60 dark:from-gray-800/90 dark:to-gray-700/90 border-b border-slate-200 dark:border-gray-600 p-3 transition-all duration-200 ${selectedMemberFilter === 'all'
-                                ? 'cursor-pointer hover:bg-gradient-to-r hover:from-slate-100/80 hover:to-blue-100/60 dark:hover:from-gray-700/90 dark:hover:to-gray-600/90'
-                                : 'cursor-default'
-                                }`}
-                              onClick={toggleCollapse}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="w-10 h-10 ring-2 ring-offset-1 ring-blue-500">
-                                    <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-sm">
-                                      {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div>
-                                    <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">
-                                      {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
-                                    </h3>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        <span className="font-medium">{user.designation || 'Team Member'}</span> • <span className="font-medium">{user.email || user.user_id}</span>
-                                        {getEmployeeProjects(user).length > 0 && (
-                                          <span className="font-medium"> • Projects:</span>
-                                        )}
-                                      </p>
-                                      {getEmployeeProjects(user).length > 0 && (
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          {getEmployeeProjects(user).slice(0, 3)?.map((projectName, idx) => (
-                                            <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700">
-                                              <Folder className="w-3 h-3 mr-1" />
+                      .map((user) => (
+                        <div key={user.user_id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                          {/* Employee Section Title */}
+                          <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b-2 border-blue-200 dark:border-blue-700">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="w-10 h-10 ring-2 ring-offset-1 ring-blue-500">
+                                  <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-sm">
+                                    {(user.avatar_initials || String(user.name || user.user_id).slice(0, 2)).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                                    {deriveDisplayFromEmail(user.name || user.email || user.user_id).displayName}
+                                  </h3>
+                                  <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center flex-wrap gap-1">
+                                    <span>{user.designation || 'Team Member'} • {user.email || user.user_id}</span>
+                                    {getEmployeeProjects(user).length > 0 && (
+                                      <>
+                                        <span> • Projects:</span>
+                                        {getEmployeeProjects(user).length <= 3 ? (
+                                          getEmployeeProjects(user).map((projectName, idx) => (
+                                            <Badge
+                                              key={idx}
+                                              variant="outline"
+                                              className="text-xs px-2 py-0.5 bg-white text-gray-800 border-gray-300 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-400"
+                                            >
                                               {projectName}
                                             </Badge>
-                                          ))}
-                                          {getEmployeeProjects(user).length > 3 && (
+                                          ))
+                                        ) : (
+                                          <>
+                                            {getEmployeeProjects(user).slice(0, 3).map((projectName, idx) => (
+                                              <Badge
+                                                key={idx}
+                                                variant="outline"
+                                                className="text-xs px-2 py-0.5 bg-white text-gray-800 border-gray-300 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-400"
+                                              >
+                                                {projectName}
+                                              </Badge>
+                                            ))}
                                             <HoverCard>
                                               <HoverCardTrigger asChild>
-                                                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                                <Badge 
+                                                  variant="outline" 
+                                                  className="text-xs px-2 py-0.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-600 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
+                                                >
                                                   +{getEmployeeProjects(user).length - 3} more
                                                 </Badge>
                                               </HoverCardTrigger>
                                               <HoverCardContent className="w-80">
                                                 <div className="space-y-2">
-                                                  <h4 className="text-sm font-semibold">All Projects</h4>
+                                                  <h4 className="text-sm font-semibold">All Projects ({getEmployeeProjects(user).length})</h4>
                                                   <div className="flex flex-wrap gap-1">
-                                                    {getEmployeeProjects(user)?.map((projectName, idx) => (
-                                                      <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700">
-                                                        <Folder className="w-3 h-3 mr-1" />
+                                                    {getEmployeeProjects(user).map((projectName, idx) => (
+                                                      <Badge 
+                                                        key={idx} 
+                                                        variant="outline" 
+                                                        className="text-xs px-2 py-0.5 bg-white text-gray-800 border-gray-300 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-400"
+                                                      >
                                                         {projectName}
                                                       </Badge>
                                                     ))}
@@ -2307,173 +2430,275 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
                                                 </div>
                                               </HoverCardContent>
                                             </HoverCard>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
+                                          </>
+                                        )}
+                                      </>
+                                    )}
+                                  </p>
                                 </div>
-                                {selectedMemberFilter === 'all' && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-white/50 dark:hover:bg-gray-700/50"
-                                  >
-                                    <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? 'rotate-0' : 'rotate-90'}`} />
-                                  </Button>
-                                )}
                               </div>
                             </div>
+                          </div>
 
-                            {/* Member Content - Collapsible */}
-                            {!isCollapsed && (
-                              <div className="space-y-4">
-                                {/* Timeline Cards Layout */}
-                                <div className="space-y-4">
-                                  {detailDateRange?.from && detailDateRange?.to ? (
-                                    (() => {
-                                      const dates = [];
-                                      const currentDate = new Date(detailDateRange.from);
-                                      const endDate = new Date(detailDateRange.to);
+                          {/* Table with horizontal scroll */}
+                          <div className="overflow-x-auto">
+                            <Table className="min-w-[1200px]">
+                              <TableHeader>
+                                <TableRow className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+                                  <TableHead className="w-[120px]">Date</TableHead>
+                                  <TableHead className="w-[300px] text-blue-600 dark:text-blue-400 font-semibold">In Progress</TableHead>
+                                  <TableHead className="w-[300px] text-red-600 dark:text-red-400 font-semibold">Blockers</TableHead>
+                                  <TableHead className="w-[300px] text-green-600 dark:text-green-400 font-semibold">Completed</TableHead>
+                                  <TableHead className="w-[120px] text-center">Actions</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {detailDateRange?.from && detailDateRange?.to ? (
+                                  (() => {
+                                    const dates = [];
+                                    const currentDate = new Date(detailDateRange.from);
+                                    const endDate = new Date(detailDateRange.to);
 
-                                      while (currentDate <= endDate) {
-                                        dates.push(new Date(currentDate));
-                                        currentDate.setDate(currentDate.getDate() + 1);
-                                      }
+                                    while (currentDate <= endDate) {
+                                      dates.push(new Date(currentDate));
+                                      currentDate.setDate(currentDate.getDate() + 1);
+                                    }
 
-                                      return dates.reverse().map((date) => {
-                                        const isDateToday = date.toDateString() === new Date().toDateString();
-                                        const dateKey = formatDateForAPI(date);
+                                    return dates.reverse().map((date) => {
+                                      const isDateToday = date.toDateString() === new Date().toDateString();
+                                      const dateKey = formatDateForAPI(date);
+                                      const rowId = `${user.user_id}-${dateKey}`;
+                                      const isEditing = editingRows.has(rowId);
 
-                                        return (
-                                          <div key={dateKey} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                            {/* Content Grid with Date (15%) and Text Areas (85%) */}
-                                            <div className="grid grid-cols-1 lg:grid-cols-[15%_85%] gap-2 p-3">
-                                              {/* Date Column - 15% width */}
-                                              <div className="h-full flex flex-col items-center justify-center">
-                                                <div className="bg-gradient-to-br from-gray-50/80 to-slate-100/60 dark:from-gray-900/40 dark:to-gray-800/60 rounded-lg p-3 min-h-[100px] flex flex-col justify-center border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all duration-200 w-full">
-                                                  <div className="text-center space-y-2">
-                                                    {/* Compact Date Display */}
-                                                    <div className="space-y-1">
-                                                      <div className="font-bold text-sm text-gray-900 dark:text-gray-100 leading-tight">
-                                                        {date.toLocaleDateString('en-US', {
-                                                          weekday: 'short',
-                                                          month: 'short',
-                                                          day: 'numeric'
-                                                        })}
-                                                      </div>
-                                                      <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                                        {date.getFullYear()}
-                                                      </div>
-                                                    </div>
-
-                                                    {/* Status Badge - More Compact */}
-                                                    <Badge
-                                                      variant={isDateToday ? 'default' : 'secondary'}
-                                                      className={`text-xs px-2 py-0.5 inline-flex items-center gap-1 ${isDateToday
-                                                        ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
-                                                        : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
-                                                      }`}
-                                                    >
-                                                      {isDateToday ? (
-                                                        <>
-                                                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                                                          Today
-                                                        </>
-                                                      ) : (() => {
-                                                        const today = new Date();
-                                                        today.setHours(0, 0, 0, 0);
-                                                        const targetDate = new Date(date);
-                                                        targetDate.setHours(0, 0, 0, 0);
-                                                        const diffTime = today.getTime() - targetDate.getTime();
-                                                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-                                                        if (diffDays === 1) return '1d ago';
-                                                        if (diffDays === 0) return 'Today';
-                                                        if (diffDays < 0) return 'Future';
-                                                        return `${diffDays}d ago`;
-                                                      })()}
-                                                    </Badge>
-                                                  </div>
-                                                </div>
+                                      return (
+                                        <TableRow 
+                                          key={rowId}
+                                          className={isEditing ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-blue-500' : ''}
+                                        >
+                                          {/* Date Column */}
+                                          <TableCell>
+                                            <div className="text-center">
+                                              <div className="font-bold text-sm text-gray-900 dark:text-gray-100">
+                                                {date.toLocaleDateString('en-US', {
+                                                  weekday: 'short',
+                                                  month: 'short',
+                                                  day: 'numeric'
+                                                })}
                                               </div>
-
-                                              {/* Text Areas Column - 85% width */}
-                                              <div>
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                                  {/* In Progress */}
-                                                  <div className="space-y-2 flex-1">
-                                                    <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                                                      <Clock className="w-4 h-4" />
-                                                      <span className="font-xs text-xs">In Progress</span>
-                                                    </div>
-                                                    <div className="bg-blue-50/50 dark:bg-blue-900/20 rounded-lg p-3 min-h-[120px]">
-                                                      <TimesheetTextarea
-                                                        user={user}
-                                                        type="in_progress"
-                                                        color="blue"
-                                                        placeholder={isDateToday ? "What are you working on today?" : "What were you working on?"}
-                                                        selectedDate={date}
-                                                      />
-                                                    </div>
-                                                  </div>
-
-                                                  {/* Blocked */}
-                                                  <div className="space-y-2 flex-1">
-                                                    <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
-                                                      <AlertTriangle className="w-4 h-4" />
-                                                      <span className="font-xs text-xs">Blocked</span>
-                                                    </div>
-                                                    <div className="bg-red-50/50 dark:bg-red-900/20 rounded-lg p-3 min-h-[120px]">
-                                                      <TimesheetTextarea
-                                                        user={user}
-                                                        type="blocked"
-                                                        color="red"
-                                                        placeholder={isDateToday ? "Any blockers or issues today?" : "Were there any blockers?"}
-                                                        selectedDate={date}
-                                                      />
-                                                    </div>
-                                                  </div>
-
-                                                  {/* Completed */}
-                                                  <div className="space-y-2 flex-1">
-                                                    <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                                                      <CheckCircle className="w-4 h-4" />
-                                                      <span className="font-xs text-xs">Completed</span>
-                                                    </div>
-                                                    <div className="bg-green-50/50 dark:bg-green-900/20 rounded-lg p-3 min-h-[120px]">
-                                                      <TimesheetTextarea
-                                                        user={user}
-                                                        type="completed"
-                                                        color="green"
-                                                        placeholder={isDateToday ? "What did you complete today?" : "What did you complete?"}
-                                                        selectedDate={date}
-                                                      />
-                                                    </div>
-                                                  </div>
-                                                </div>
+                                              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                                {date.getFullYear()}
                                               </div>
                                             </div>
-                                          </div>
-                                        );
-                                      });
-                                    })()
-                                  ) : (
-                                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-8 text-center">
+                                          </TableCell>
+
+                                          {/* In Progress Column */}
+                                          <TableCell>
+                                            {isEditing ? (
+                                              <div className="relative w-full">
+                                                <Textarea
+                                                  value={editedData[rowId]?.in_progress || ''}
+                                                  onChange={(e) => setEditedData({
+                                                    ...editedData,
+                                                    [rowId]: { ...editedData[rowId], in_progress: e.target.value }
+                                                  })}
+                                                  placeholder={isDateToday ? "What are you working on today?" : "What were you working on?"}
+                                                  className="min-h-[48px] text-xs py-2 pr-8 resize-none"
+                                                  rows={2}
+                                                />
+                                                {editedData[rowId]?.in_progress && editedData[rowId]?.in_progress.length > 80 && (
+                                                  <button
+                                                    onClick={() => setExpandedContent({ type: 'in_progress', content: editedData[rowId]?.in_progress, rowId })}
+                                                    className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                                    title="Expand to see full content"
+                                                  >
+                                                    <Maximize2 className="w-3 h-3 text-gray-500" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <div className="relative w-full group pr-6">
+                                                <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
+                                                  {getTimesheetContent(user, date, 'in_progress') || (isDateToday ? "Click Edit to add what you're working on today" : "No work in progress")}
+                                                </div>
+                                                {/* Show maximize button only if content is long */}
+                                                {getTimesheetContent(user, date, 'in_progress') && getTimesheetContent(user, date, 'in_progress').length > 80 && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      const content = getTimesheetContent(user, date, 'in_progress');
+                                                      setExpandedContent({ type: 'in_progress', content, rowId });
+                                                    }}
+                                                    className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="View full content"
+                                                  >
+                                                    <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Blockers Column */}
+                                          <TableCell>
+                                            {isEditing ? (
+                                              <div className="relative w-full">
+                                                <Textarea
+                                                  value={editedData[rowId]?.blocked || ''}
+                                                  onChange={(e) => setEditedData({
+                                                    ...editedData,
+                                                    [rowId]: { ...editedData[rowId], blocked: e.target.value }
+                                                  })}
+                                                  placeholder={isDateToday ? "Any blockers or issues today?" : "Were there any blockers?"}
+                                                  className="min-h-[48px] text-xs py-2 pr-8 resize-none"
+                                                  rows={2}
+                                                />
+                                                {editedData[rowId]?.blocked && editedData[rowId]?.blocked.length > 80 && (
+                                                  <button
+                                                    onClick={() => setExpandedContent({ type: 'blocked', content: editedData[rowId]?.blocked, rowId })}
+                                                    className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                                    title="Expand to see full content"
+                                                  >
+                                                    <Maximize2 className="w-3 h-3 text-gray-500" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <div className="relative w-full group pr-6">
+                                                <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
+                                                  {getTimesheetContent(user, date, 'blocked') || (isDateToday ? "Click Edit to add any blockers" : "No blockers reported")}
+                                                </div>
+                                                {getTimesheetContent(user, date, 'blocked') && getTimesheetContent(user, date, 'blocked').length > 80 && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      const content = getTimesheetContent(user, date, 'blocked');
+                                                      setExpandedContent({ type: 'blocked', content, rowId });
+                                                    }}
+                                                    className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="View full content"
+                                                  >
+                                                    <Maximize2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Completed Column */}
+                                          <TableCell>
+                                            {isEditing ? (
+                                              <div className="relative w-full">
+                                                <Textarea
+                                                  value={editedData[rowId]?.completed || ''}
+                                                  onChange={(e) => setEditedData({
+                                                    ...editedData,
+                                                    [rowId]: { ...editedData[rowId], completed: e.target.value }
+                                                  })}
+                                                  placeholder={isDateToday ? "What did you complete today?" : "What did you complete?"}
+                                                  className="min-h-[48px] text-xs py-2 pr-8 resize-none"
+                                                  rows={2}
+                                                />
+                                                {editedData[rowId]?.completed && editedData[rowId]?.completed.length > 80 && (
+                                                  <button
+                                                    onClick={() => setExpandedContent({ type: 'completed', content: editedData[rowId]?.completed, rowId })}
+                                                    className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                                    title="Expand to see full content"
+                                                  >
+                                                    <Maximize2 className="w-3 h-3 text-gray-500" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <div className="relative w-full group pr-6">
+                                                <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
+                                                  {getTimesheetContent(user, date, 'completed') || (isDateToday ? "Click Edit to add completed tasks" : "No completed tasks")}
+                                                </div>
+                                                {getTimesheetContent(user, date, 'completed') && getTimesheetContent(user, date, 'completed').length > 80 && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      const content = getTimesheetContent(user, date, 'completed');
+                                                      setExpandedContent({ type: 'completed', content, rowId });
+                                                    }}
+                                                    className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="View full content"
+                                                  >
+                                                    <Maximize2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Actions Column */}
+                                          <TableCell className="text-center">
+                                            {isEditing ? (
+                                              <div className="flex items-center justify-center gap-1">
+                                                <Button
+                                                  size="sm"
+                                                  className="h-7 px-2 bg-green-500 hover:bg-green-600 text-white text-xs"
+                                                  onClick={() => handleSaveRow(rowId, user, date)}
+                                                >
+                                                  Save
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-7 px-2"
+                                                  onClick={() => {
+                                                    const newEditingRows = new Set(editingRows);
+                                                    newEditingRows.delete(rowId);
+                                                    setEditingRows(newEditingRows);
+                                                    const newEditedData = { ...editedData };
+                                                    delete newEditedData[rowId];
+                                                    setEditedData(newEditedData);
+                                                  }}
+                                                >
+                                                  <X className="w-3.5 h-3.5" />
+                                                </Button>
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-center justify-center gap-1">
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                  onClick={() => {
+                                                    setEditingRows(new Set([...editingRows, rowId]));
+                                                    // Initialize edited data with current values from timesheet
+                                                    setEditedData({
+                                                      ...editedData,
+                                                      [rowId]: {
+                                                        in_progress: getTimesheetContent(user, date, 'in_progress'),
+                                                        blocked: getTimesheetContent(user, date, 'blocked'),
+                                                        completed: getTimesheetContent(user, date, 'completed')
+                                                      }
+                                                    });
+                                                  }}
+                                                >
+                                                  Edit
+                                                </Button>
+                                              </div>
+                                            )}
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    });
+                                  })()
+                                ) : (
+                                  <TableRow>
+                                    <TableCell colSpan={7} className="text-center py-8">
                                       <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Select Date Range</h3>
                                       <p className="text-gray-500 dark:text-gray-400">Choose a date range above to view timeline data</p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
                           </div>
-                        );
-                      })}
-
-                    {/* Modern Bottom Padding and Border */}
-                    <div className="h-8 flex-shrink-0 bg-gradient-to-t from-gray-50/80 to-transparent dark:from-gray-900/50 dark:to-transparent border-t border-gray-100 dark:border-gray-700/50 mt-4"></div>
+                        </div>
+                      ))}
                   </div>
 
                   {/* Modern Scroll Indicators */}
@@ -2555,6 +2780,37 @@ const TimesheetTab: React.FC<TimesheetTabProps> = ({
           </div>
         )}
       </div>
+
+      {/* Expand Content Dialog */}
+      <Dialog open={!!expandedContent} onOpenChange={() => setExpandedContent(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {expandedContent?.type === 'in_progress' ? (
+                <>
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  In Progress Details
+                </>
+              ) : expandedContent?.type === 'blocked' ? (
+                <>
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                  Blockers Details
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  Completed Details
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto">
+            <p className="text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words leading-relaxed">
+              {expandedContent?.content}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

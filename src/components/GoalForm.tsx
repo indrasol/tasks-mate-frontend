@@ -16,6 +16,8 @@ interface GoalFormProps {
   onSubmit: (payload: {
     title: string;
     description?: string;
+    category?: string;
+    subCategory?: string;
     status: GoalStatus;
     startDate?: string;
     dueDate?: string;
@@ -36,6 +38,8 @@ const statusOptions: { value: GoalStatus; label: string; icon: any }[] = [
 export default function GoalForm({ orgId, defaultAssigneeId, onSubmit, onCancel, isSubmitting }: GoalFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [subCategory, setSubCategory] = useState('');
   const [status, setStatus] = useState<GoalStatus>('active');
 
   const [startPopover, setStartPopover] = useState(false);
@@ -69,6 +73,8 @@ export default function GoalForm({ orgId, defaultAssigneeId, onSubmit, onCancel,
     await onSubmit({
       title: title.trim(),
       description: description.trim() || undefined,
+      category: category.trim() || undefined,
+      subCategory: subCategory.trim() || undefined,
       status,
       startDate: startDate ? formatDate(startDate) : undefined,
       dueDate: dueDate ? formatDate(dueDate) : undefined,
@@ -89,6 +95,28 @@ export default function GoalForm({ orgId, defaultAssigneeId, onSubmit, onCancel,
         <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" rows={4} />
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Category</label>
+          <Input 
+            value={category} 
+            onChange={(e) => setCategory(e.target.value)} 
+            placeholder="e.g., Revenue, Marketing, Sales" 
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Sub-Category</label>
+          <Input 
+            value={subCategory} 
+            onChange={(e) => setSubCategory(e.target.value)} 
+            placeholder="e.g., AI Track, SEO, Content" 
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Status</label>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         {statusOptions.map(s => {
           const Icon = s.icon;

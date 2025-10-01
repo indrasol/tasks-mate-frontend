@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { useCurrentOrganization } from '@/hooks/useCurrentOrganization';
 
 import {
   CoreValue,
@@ -778,6 +779,9 @@ const OrganizationProfileTab: React.FC<OrganizationProfileTabProps> = ({
   canEdit
 }) => {
   const queryClient = useQueryClient();
+  
+  // Get current organization data for the name
+  const { data: currentOrg } = useCurrentOrganization(orgId);
   // Per-section editing state for all sections
   const [editingSections, setEditingSections] = useState({
     mission: false,
@@ -1379,79 +1383,75 @@ const OrganizationProfileTab: React.FC<OrganizationProfileTabProps> = ({
       <div className="flex-1 overflow-auto">
         <div className="space-y-4 p-4 pb-20">
 
-          {/* Welcome Message for Empty Profile */}
-          {
-            // profile && !profile.mission && !profile.vision && (!profile.core_values || profile.core_values.length === 0) && !Object.values(editingSections).some(Boolean) && canEdit &&
-            (
-              <Alert>
-                <Building2 className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-3">
-                    <p className="font-medium">Welcome to your Organization Profile!</p>
-                    <p className="text-xs mb-2">
-                      This is where you can define your organization's identity. Start by adding your mission statement,
-                      vision, and core values to help your team understand what drives your organization.
+          {/* Header with Action Buttons */}
+          {canEdit && (
+            <Alert>
+              <Building2 className="h-4 w-4" />
+              <AlertDescription>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <p className="font-medium">
+                      Welcome to{' '}
+                      <span className="text-green-600 dark:text-green-400 font-bold">
+                        {currentOrg?.name || 'your Organization'}
+                      </span>{' '}
+                      Profile!
                     </p>
-                    <div className="flex justify-center">
-                      {canEdit &&
-                        (profile && !profile.mission && !profile.vision && (!profile.core_values || profile.core_values.length === 0))
-                        && (
+                    <div className="flex gap-2">
+                      {Object.values(editingSections).some(Boolean) ? (
+                        <>
                           <Button
-                            className="text-xs"
-                            onClick={handleGlobalEdit}>
-                            {/* <Plus className="w-4 h-4 mr-2" /> */}
-                            Start Building Profile
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGlobalCancel}
+                            disabled={Object.values(savingSections).some(Boolean)}
+                            className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200"
+                          >
+                            ✕ Cancel All
                           </Button>
-                        )}
+                          <Button
+                            size="sm"
+                            onClick={handleGlobalSave}
+                            disabled={Object.values(savingSections).some(Boolean)}
+                            className="bg-green-500 hover:bg-green-600 text-white shadow-md hover:shadow-lg transition-all duration-200 border-0"
+                          >
+                            {Object.values(savingSections).some(Boolean) ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                Saving All...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4 mr-2" />
+                                💾 Save All Changes
+                              </>
+                            )}
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={handleGlobalEdit}
+                          className={`${
+                            profile && !profile.mission && !profile.vision && (!profile.core_values || profile.core_values.length === 0)
+                              ? "bg-green-500 hover:bg-green-600 text-white shadow-md hover:shadow-lg transition-all duration-200 border-0"
+                              : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 hover:border-gray-400 transition-all duration-200"
+                          }`}>
+                          {profile && !profile.mission && !profile.vision && (!profile.core_values || profile.core_values.length === 0)
+                            ? "✨ Start Building Profile"
+                            : "✏️ Edit All Sections"
+                          }
+                        </Button>
+                      )}
                     </div>
                   </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
-          {/* Global Action Buttons */}
-          {canEdit && (
-            <div className="flex justify-end gap-2">
-              {Object.values(editingSections).some(Boolean) ? (
-                <>
-                  <Button
-                    variant="outline"
-                    className="text-xs"
-                    onClick={handleGlobalCancel}
-                    disabled={Object.values(savingSections).some(Boolean)}
-                  >
-                    Cancel All
-                  </Button>
-                  <Button
-                    className="text-xs"
-                    onClick={handleGlobalSave}
-                    disabled={Object.values(savingSections).some(Boolean)}
-                  >
-                    {Object.values(savingSections).some(Boolean) ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        Saving All...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save All Changes
-                      </>
-                    )}
-                  </Button>
-                </>
-              ) : !(profile && !profile.mission && !profile.vision && (!profile.core_values || profile.core_values.length === 0)) && (
-                <Button
-                  className="text-xs"
-                  onClick={handleGlobalEdit}>
-                  {/* <Edit className="w-4 h-4 mr-2" /> */}
-                  {profile && !profile.mission && !profile.vision && (!profile.core_values || profile.core_values.length === 0)
-                    ? "Start Building Profile"
-                    : "Edit All Sections"
-                  }
-                </Button>
-              )}
-            </div>
+                  <p className="text-xs mb-2">
+                    This is where you can define your organization's identity. Start by adding your mission statement,
+                    vision, and core values to help your team understand what drives your organization.
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* Validation Errors */}

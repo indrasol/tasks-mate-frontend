@@ -19,6 +19,8 @@ export interface Goal {
   orgId: string;
   title: string;
   description?: string;
+  category?: string;
+  subCategory?: string;
   status: GoalStatus;
   startDate?: string;
   dueDate?: string;
