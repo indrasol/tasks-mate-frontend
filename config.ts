@@ -40,4 +40,5 @@ export const API_ENDPOINTS = {
   USER_TIMESHEETS: `${API_BASE_URL}/user-timesheets`,
   ORGANIZATIONS_PROFILE: `${API_BASE_URL}/organizations/profile`,
   GOALS: `${API_BASE_URL}/goals`,
+  GOAL_SECTIONS: `${API_BASE_URL}/goals-sections`,
 };

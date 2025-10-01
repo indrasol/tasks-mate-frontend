@@ -2,7 +2,6 @@ export type GoalStatus = 'draft' | 'active' | 'paused' | 'done';
 
 export interface GoalAssignment {
   userId: string;
-  role: 'owner' | 'contributor' | 'viewer';
 }
 
 export interface GoalUpdate {
@@ -19,14 +18,15 @@ export interface Goal {
   orgId: string;
   title: string;
   description?: string;
-  category?: string;
-  subCategory?: string;
+  category?: string[];
+  subCategory?: string[];
   status: GoalStatus;
   startDate?: string;
   dueDate?: string;
   visibility?: 'org' | 'private';
   progress?: number; // derived from latest update
   assignees: GoalAssignment[];
+  sectionId?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

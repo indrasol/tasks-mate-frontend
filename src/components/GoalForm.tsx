@@ -16,13 +16,13 @@ interface GoalFormProps {
   onSubmit: (payload: {
     title: string;
     description?: string;
-    category?: string;
-    subCategory?: string;
+    category?: string[];
+    subCategory?: string[];
     status: GoalStatus;
     startDate?: string;
     dueDate?: string;
     visibility?: 'org' | 'private';
-    assignees: { userId: string; role: 'owner' | 'contributor' | 'viewer' }[];
+    assignees: { userId: string }[];
   }) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -67,14 +67,13 @@ export default function GoalForm({ orgId, defaultAssigneeId, onSubmit, onCancel,
     const assignees =
       finalUsers.map(uid => ({
         userId: uid,
-        role: defaultAssigneeId && String(uid) === String(defaultAssigneeId) ? 'owner' as const : 'contributor' as const,
       }));
 
     await onSubmit({
       title: title.trim(),
       description: description.trim() || undefined,
-      category: category.trim() || undefined,
-      subCategory: subCategory.trim() || undefined,
+      category: category ? category.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+      subCategory: subCategory ? subCategory.split(',').map(s => s.trim()).filter(Boolean) : undefined,
       status,
       startDate: startDate ? formatDate(startDate) : undefined,
       dueDate: dueDate ? formatDate(dueDate) : undefined,

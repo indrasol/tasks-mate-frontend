@@ -1,4 +1,4 @@
-import React, { useMemo, useState, KeyboardEvent } from 'react';
+import React, { useMemo, useState, KeyboardEvent, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +18,7 @@ import type { Goal, GoalStatus } from '@/types/goal';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createGoal, updateGoal, deleteGoal } from '@/services/goalService';
 import { toast } from '@/hooks/use-toast';
+import { listSections, createSection as createSectionApi, updateSection as updateSectionApi, deleteSection as deleteSectionApi } from '@/services/goalSectionsService';
 
 interface GoalsTabProps {
   orgId: string;
@@ -50,8 +51,8 @@ const getTagColor = (tag: string): string => {
 interface EditableGoal {
   id?: string;
   member: string;
-  categories: string[];
-  subCategories: string[];
+  category: string[];
+  subCategory: string[];
   goal: string;
   target: string;
   startDate: Date | undefined;
@@ -82,11 +83,29 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   const [subCategoryInput, setSubCategoryInput] = useState<Record<string, string>>({});
 
   // Sections management
-  const [sections, setSections] = useState<Section[]>([
-    { id: 'default-section', title: '', order: 0 }
-  ]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [sectionTitleInputs, setSectionTitleInputs] = useState<Record<string, string>>({});
+  
+  // Load sections from backend
+  useEffect(() => {
+    let mounted = true;
+    async function loadSections() {
+      try {
+        const rows:any = await listSections(orgId);
+        if (!mounted) return;
+        const sorted = (rows || []).sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+        const mapped: Section[] = [
+          ...sorted.map((r: any) => ({ id: r.id, title: r.title || '', order: r.order ?? 0 }))
+        ];
+        setSections(mapped);
+      } catch (e) {
+        // ignore; default section remains
+      }
+    }
+    loadSections();
+    return () => { mounted = false; };
+  }, [orgId]);
 
   // Expand dialog states
   const [expandedContent, setExpandedContent] = useState<{ type: 'goal' | 'target'; content: string; rowId: string } | null>(null);
@@ -128,20 +147,26 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     return items.filter(goal => {
       const title = (goal.title || '').toLowerCase();
       const description = (goal.description || '').toLowerCase();
-      const category = (goal.category || '').toLowerCase();
-      const subCategory = (goal.subCategory || '').toLowerCase();
+      const category = (goal.category || []).map(c => c.toLowerCase());
+      const subCategory = (goal.subCategory || []).map(c => c.toLowerCase());
 
       return title.includes(query) ||
         description.includes(query) ||
-        category.includes(query) ||
-        subCategory.includes(query);
+        category.some(c => c.includes(query)) ||
+        subCategory.some(c => c.includes(query));
     });
   }, [items, searchQuery]);
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: async (payload: any) => createGoal(orgId, payload),
-    onSuccess: () => {
+    mutationFn: async (payload: any) => {
+      console.log('Creating goal with payload:', payload);
+      const result = await createGoal(orgId, payload);
+      console.log('Create goal response:', result);
+      return result;
+    },
+    onSuccess: (data) => {
+      console.log('Goal created successfully, response data:', data);
       queryClient.invalidateQueries({ queryKey: ['org-user-goals', orgId] });
       toast({ title: 'Goal created successfully' });
     },
@@ -151,9 +176,14 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ goalId, payload }: { goalId: string; payload: any }) =>
-      updateGoal(orgId, goalId, payload),
-    onSuccess: () => {
+    mutationFn: async ({ goalId, payload }: { goalId: string; payload: any }) => {
+      console.log('Updating goal with payload:', { goalId, payload });
+      const result = await updateGoal(orgId, goalId, payload);
+      console.log('Update goal response:', result);
+      return result;
+    },
+    onSuccess: (data) => {
+      console.log('Goal updated successfully, response data:', data);
       queryClient.invalidateQueries({ queryKey: ['org-user-goals', orgId] });
       toast({ title: 'Goal updated successfully' });
     },
@@ -178,8 +208,8 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     const newRow: EditableGoal = {
       id: tempId,
       member: '',
-      categories: [],
-      subCategories: [],
+      category: [],
+      subCategory: [],
       goal: '',
       target: '',
       startDate: undefined,
@@ -193,56 +223,80 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     setSubCategoryInput({ ...subCategoryInput, [tempId]: '' });
   };
 
-  const addNewSection = () => {
-    const newSectionId = `section-${Date.now()}`;
-    const newSection: Section = {
-      id: newSectionId,
-      title: '',
-      order: sections.length
-    };
-    setSections([...sections, newSection]);
-    setEditingSectionId(newSectionId);
-    setSectionTitleInputs({ ...sectionTitleInputs, [newSectionId]: '' });
+  const addNewSection = async () => {
+    try {
+      const response: any = await createSectionApi(orgId, { title: '', order: sections.length });
+      // Handle different possible response structures
+      const created = response.data || response;
+      const newSectionId = created.id;
+      
+      if (!newSectionId) {
+        throw new Error('Section ID not found in API response');
+      }
+      
+      const newSection: Section = {
+        id: newSectionId,
+        title: created.title || '',
+        order: created.order ?? sections.length
+      };
+      setSections([...sections, newSection]);
+      setEditingSectionId(newSectionId);
+      setSectionTitleInputs({ ...sectionTitleInputs, [newSectionId]: newSection.title });
+    } catch (e) {
+      console.error('Failed to create section:', e);
+      toast({ title: 'Failed to create section', variant: 'destructive' });
+    }
   };
 
-  const saveSection = (sectionId: string) => {
+  const saveSection = async (sectionId: string) => {
     const title = sectionTitleInputs[sectionId] || '';
-    setSections(sections.map(s =>
-      s.id === sectionId ? { ...s, title } : s
-    ));
-    setEditingSectionId(null);
+    try {
+      if (sectionId !== 'default-section') {
+        await updateSectionApi(orgId, sectionId, { title });
+      }
+      setSections(sections.map(s => 
+        s.id === sectionId ? { ...s, title } : s
+      ));
+      setEditingSectionId(null);
+    } catch (e) {
+      toast({ title: 'Failed to save section', variant: 'destructive' });
+    }
   };
 
-  const deleteSection = (sectionId: string) => {
+  const deleteSection = async (sectionId: string) => {
     if (sectionId === 'default-section') return; // Can't delete default section
-
-    // Move goals from deleted section to default section
-    setNewRows(newRows.map(row =>
-      row.sectionId === sectionId ? { ...row, sectionId: 'default-section' } : row
-    ));
-
-    setSections(sections.filter(s => s.id !== sectionId));
+    try {
+      await deleteSectionApi(orgId, sectionId);
+      // Move goals from deleted section to default section
+      setNewRows(newRows.map(row => 
+        row.sectionId === sectionId ? { ...row, sectionId: 'default-section' } : row
+      ));
+      setSections(sections.filter(s => s.id !== sectionId));
+    } catch (e) {
+      toast({ title: 'Failed to delete section', variant: 'destructive' });
+    }
   };
 
   const handleEdit = (goalId: string, goal: Goal) => {
     setEditingRows(new Set([...editingRows, goalId]));
     const assignee = goal.assignees?.[0];
 
-    // Parse existing categories and subcategories (stored as comma-separated in backend)
-    const categories = goal.category ? goal.category.split(',').map(c => c.trim()).filter(Boolean) : [];
-    const subCategories = goal.subCategory ? goal.subCategory.split(',').map(c => c.trim()).filter(Boolean) : [];
+    // Parse existing category and subcategories (stored as comma-separated in backend)
+    const category = goal.category ? goal.category?.map(c => c.trim()).filter(Boolean) : [];
+    const subCategory = goal.subCategory ? goal.subCategory?.map(c => c.trim()).filter(Boolean) : [];
 
     setEditedData({
       ...editedData,
       [goalId]: {
         id: goalId,
         member: assignee?.userId || '',
-        categories,
-        subCategories,
+        category,
+        subCategory,
         goal: goal.title || '',
         target: goal.description || '',
         startDate: goal.startDate ? new Date(goal.startDate) : undefined,
         endDate: goal.dueDate ? new Date(goal.dueDate) : undefined,
+        sectionId: (goal as any).sectionId || 'default-section',
       }
     });
     setCategoryInput({ ...categoryInput, [goalId]: '' });
@@ -259,14 +313,27 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     const payload = {
       title: data.goal.trim(),
       description: data.target.trim() || undefined,
-      category: data.categories.join(', ') || undefined,
-      subCategory: data.subCategories.join(', ') || undefined,
+      // arrays now
+      category: data.category,
+      subCategory: data.subCategory,
       status: 'active' as GoalStatus,
       startDate: data.startDate ? formatDateForAPI(data.startDate) : undefined,
       dueDate: data.endDate ? formatDateForAPI(data.endDate) : undefined,
       visibility: 'org' as const,
-      assignees: data.member ? [{ userId: data.member, role: 'owner' as const }] : [],
+      // role-less assignees
+      assignees: data.member ? [{ userId: data.member }] : [],
+      // persist section
+      sectionId: data.sectionId,
     };
+
+    // Debug: Log what's being sent
+    console.log('Saving goal with payload:', {
+      goalId,
+      isNew,
+      category: payload.category,
+      subCategory: payload.subCategory,
+      fullPayload: payload
+    });
 
     if (isNew) {
       await createMutation.mutateAsync(payload);
@@ -346,8 +413,8 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     const data = isNew ? newRows.find(r => r.id === goalId) : editedData[goalId];
     if (!data) return;
 
-    if (!data.categories.includes(input)) {
-      updateField(goalId, 'categories', [...data.categories, input], isNew);
+    if (!data.category.includes(input)) {
+      updateField(goalId, 'category', [...data.category, input], isNew);
     }
     setCategoryInput({ ...categoryInput, [goalId]: '' });
   };
@@ -356,7 +423,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     const data = isNew ? newRows.find(r => r.id === goalId) : editedData[goalId];
     if (!data) return;
 
-    updateField(goalId, 'categories', data.categories.filter(c => c !== category), isNew);
+    updateField(goalId, 'category', data.category.filter(c => c !== category), isNew);
   };
 
   const addSubCategory = (goalId: string, isNew: boolean) => {
@@ -366,8 +433,8 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     const data = isNew ? newRows.find(r => r.id === goalId) : editedData[goalId];
     if (!data) return;
 
-    if (!data.subCategories.includes(input)) {
-      updateField(goalId, 'subCategories', [...data.subCategories, input], isNew);
+    if (!data.subCategory.includes(input)) {
+      updateField(goalId, 'subCategory', [...data.subCategory, input], isNew);
     }
     setSubCategoryInput({ ...subCategoryInput, [goalId]: '' });
   };
@@ -376,7 +443,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     const data = isNew ? newRows.find(r => r.id === goalId) : editedData[goalId];
     if (!data) return;
 
-    updateField(goalId, 'subCategories', data.subCategories.filter(c => c !== subCategory), isNew);
+    updateField(goalId, 'subCategory', data.subCategory.filter(c => c !== subCategory), isNew);
   };
 
   const handleCategoryKeyDown = (e: KeyboardEvent<HTMLInputElement>, goalId: string, isNew: boolean) => {
@@ -394,21 +461,55 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   };
 
   const allRows = [...newRows, ...filteredItems.map(goal => {
+    console.log('Processing goal in allRows:', {
+      goalId: goal.id,
+      category: goal.category,
+      subCategory: goal.subCategory,
+      rawGoal: goal
+    });
+    
     const assignee = goal.assignees?.[0];
-    const categories = goal.category ? goal.category.split(',').map(c => c.trim()).filter(Boolean) : [];
-    const subCategories = goal.subCategory ? goal.subCategory.split(',').map(c => c.trim()).filter(Boolean) : [];
-
+    // Support arrays from backend; keep backward compat with comma strings
+    let category: string[] = [];
+    let subCategory: string[] = [];
+    
+    try {
+      // Handle category
+      if (Array.isArray((goal as any).category)) {
+        category = (goal as any).category as string[];
+      } else if ((goal as any).category) {
+        category = String((goal as any).category).split(',').map((c: string) => c.trim()).filter(Boolean);
+      }
+      
+      // Handle subCategory
+      if (Array.isArray((goal as any).subCategory)) {
+        subCategory = (goal as any).subCategory as string[];
+      } else if ((goal as any).subCategory) {
+        subCategory = String((goal as any).subCategory).split(',').map((c: string) => c.trim()).filter(Boolean);
+      }
+    } catch (e) {
+      console.error('Error processing category/subCategory for goal:', goal.id, e);
+      category = [];
+      subCategory = [];
+    }
+    
+    console.log('Processed category/subCategory for goal:', {
+      goalId: goal.id,
+      category,
+      subCategory
+    });
+    
     return {
       id: goal.id,
       member: assignee?.userId || '',
-      categories,
-      subCategories,
+      category,
+      subCategory,
       goal: goal.title || '',
       target: goal.description || '',
       startDate: goal.startDate ? new Date(goal.startDate) : undefined,
       endDate: goal.dueDate ? new Date(goal.dueDate) : undefined,
       isNew: false,
-      sectionId: 'default-section', // All existing goals go to default section for now
+      sectionId: (goal as any).sectionId || 'default-section',
       originalGoal: goal,
     };
   })];
@@ -640,7 +741,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                                 {isEditing ? (
                                   <div className="w-full">
                                     <div className="flex flex-wrap gap-1 mb-1">
-                                      {data.categories.map((cat, idx) => (
+                                      {data?.category?.map((cat, idx) => (
                                         <Badge
                                           key={idx}
                                           variant="outline"
@@ -666,8 +767,8 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                                   </div>
                                 ) : (
                                   <div className="flex flex-wrap gap-1 items-center">
-                                    {data.categories.length > 0 ? (
-                                      data.categories.map((cat, idx) => (
+                                    {data?.category?.length > 0 ? (
+                                      data?.category?.map((cat, idx) => (
                                         <Badge
                                           key={idx}
                                           variant="outline"
@@ -688,7 +789,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                                 {isEditing ? (
                                   <div className="w-full">
                                     <div className="flex flex-wrap gap-1 mb-1">
-                                      {data.subCategories.map((subCat, idx) => (
+                                      {data.subCategory.map((subCat, idx) => (
                                         <Badge
                                           key={idx}
                                           variant="outline"
@@ -714,8 +815,8 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                                   </div>
                                 ) : (
                                   <div className="flex flex-wrap gap-1 items-center">
-                                    {data.subCategories.length > 0 ? (
-                                      data.subCategories.map((subCat, idx) => (
+                                    {data.subCategory.length > 0 ? (
+                                      data.subCategory.map((subCat, idx) => (
                                         <Badge
                                           key={idx}
                                           variant="outline"
