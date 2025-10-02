@@ -81,19 +81,35 @@ type MemberSortType = 'name_asc' | 'name_desc';
 // UTILITY COMPONENTS
 // ============================================================================
 
-const StatusBadge = memo(({ status }: { status: string }) => {
+const StatusBadge = memo(({ status, onClick, isSelected }: { 
+  status: string; 
+  onClick?: () => void;
+  isSelected?: boolean;
+}) => {
   const meta = getStatusMeta(status);
   return (
-    <Badge variant="secondary" className={`text-xs ${meta.color}`}>
+    <Badge 
+      variant={isSelected ? "default" : "secondary"} 
+      className={`text-xs ${meta.color} ${onClick ? 'cursor-pointer hover:opacity-80' : ''} ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
+      onClick={onClick}
+    >
       {meta.label}
     </Badge>
   );
 });
 
-const PriorityBadge = memo(({ priority }: { priority: string }) => {
+const PriorityBadge = memo(({ priority, onClick, isSelected }: { 
+  priority: string; 
+  onClick?: () => void;
+  isSelected?: boolean;
+}) => {
   const colorClass = getPriorityColor(priority);
   return (
-    <Badge variant="secondary" className={`text-xs ${colorClass}`}>
+    <Badge 
+      variant={isSelected ? "default" : "secondary"} 
+      className={`text-xs ${colorClass} ${onClick ? 'cursor-pointer hover:opacity-80' : ''} ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
+      onClick={onClick}
+    >
       {capitalizeFirstLetter(priority)}
     </Badge>
   );
@@ -223,6 +239,80 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
 }) => {
   const memberName = deriveDisplayFromEmail(member.email || member.user_id).displayName;
   const memberInitials = deriveDisplayFromEmail(member.email || member.user_id).initials;
+  
+  // Filter state management - separate for tasks and bugs with multiple selection support
+  const [taskStatusFilters, setTaskStatusFilters] = useState<string[]>([]);
+  const [taskPriorityFilters, setTaskPriorityFilters] = useState<string[]>([]);
+  const [bugStatusFilters, setBugStatusFilters] = useState<string[]>([]);
+  const [bugPriorityFilters, setBugPriorityFilters] = useState<string[]>([]);
+  
+  // Filter handlers for tasks - support multiple selections
+  const handleTaskStatusClick = (status: string) => {
+    setTaskStatusFilters(prev => 
+      prev.includes(status) 
+        ? prev.filter(s => s !== status) 
+        : [...prev, status]
+    );
+  };
+  
+  const handleTaskPriorityClick = (priority: string) => {
+    setTaskPriorityFilters(prev => 
+      prev.includes(priority) 
+        ? prev.filter(p => p !== priority) 
+        : [...prev, priority]
+    );
+  };
+  
+  // Filter handlers for bugs - support multiple selections
+  const handleBugStatusClick = (status: string) => {
+    setBugStatusFilters(prev => 
+      prev.includes(status) 
+        ? prev.filter(s => s !== status) 
+        : [...prev, status]
+    );
+  };
+  
+  const handleBugPriorityClick = (priority: string) => {
+    setBugPriorityFilters(prev => 
+      prev.includes(priority) 
+        ? prev.filter(p => p !== priority) 
+        : [...prev, priority]
+    );
+  };
+  
+  // Clear all filters
+  const clearFilters = () => {
+    setTaskStatusFilters([]);
+    setTaskPriorityFilters([]);
+    setBugStatusFilters([]);
+    setBugPriorityFilters([]);
+  };
+  
+  // Filter tasks and bugs with separate filters - support multiple selections
+  const filteredTasks = useMemo(() => {
+    if (!member.tasks_items) return [];
+    
+    return member.tasks_items.filter((task: any) => {
+      const statusMatch = taskStatusFilters.length === 0 || taskStatusFilters.includes(task.status);
+      const priorityMatch = taskPriorityFilters.length === 0 || taskPriorityFilters.includes(task.priority);
+      return statusMatch && priorityMatch;
+    });
+  }, [member.tasks_items, taskStatusFilters, taskPriorityFilters]);
+  
+  const filteredBugs = useMemo(() => {
+    if (!member.bugs_items) return [];
+    
+    return member.bugs_items.filter((bug: any) => {
+      const statusMatch = bugStatusFilters.length === 0 || bugStatusFilters.includes(bug.status);
+      const priorityMatch = bugPriorityFilters.length === 0 || bugPriorityFilters.includes(bug.priority);
+      return statusMatch && priorityMatch;
+    });
+  }, [member.bugs_items, bugStatusFilters, bugPriorityFilters]);
+  
+  // Check if any filters are active - support multiple selections
+  const hasActiveTaskFilters = taskStatusFilters.length > 0 || taskPriorityFilters.length > 0;
+  const hasActiveBugFilters = bugStatusFilters.length > 0 || bugPriorityFilters.length > 0;
+  const hasActiveFilters = hasActiveTaskFilters || hasActiveBugFilters;
 
   return (
     <Card className="p-3 bg-white/70 dark:bg-gray-700/50 border-slate-200/50 dark:border-gray-600/50">
@@ -252,6 +342,68 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
         </div>
       ) : (
         <>
+          {/* Filter Controls */}
+          {/* {hasActiveFilters && (
+            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold text-blue-800 dark:text-blue-200">Active Filters</div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={clearFilters}
+                  className="h-6 px-2 text-xs"
+                >
+                  Clear All
+                </Button>
+              </div>
+              
+              
+              {hasActiveTaskFilters && (
+                <div className="mb-2">
+                  <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Task Filters:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {taskStatusFilter && (
+                      <StatusBadge 
+                        status={taskStatusFilter} 
+                        isSelected={true}
+                        onClick={() => handleTaskStatusClick(taskStatusFilter)}
+                      />
+                    )}
+                    {taskPriorityFilter && (
+                      <PriorityBadge 
+                        priority={taskPriorityFilter} 
+                        isSelected={true}
+                        onClick={() => handleTaskPriorityClick(taskPriorityFilter)}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {hasActiveBugFilters && (
+                <div>
+                  <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Bug Filters:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {bugStatusFilter && (
+                      <StatusBadge 
+                        status={bugStatusFilter} 
+                        isSelected={true}
+                        onClick={() => handleBugStatusClick(bugStatusFilter)}
+                      />
+                    )}
+                    {bugPriorityFilter && (
+                      <PriorityBadge 
+                        priority={bugPriorityFilter} 
+                        isSelected={true}
+                        onClick={() => handleBugPriorityClick(bugPriorityFilter)}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )} */}
+          
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
               <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Tasks by Status</div>
@@ -261,7 +413,11 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
                 ) : (
                   Object.entries(member.tasks_by_status || {}).map(([k, v]) => (
                     <div key={k} className="flex items-center justify-between text-xs">
-                      <StatusBadge status={k} />
+                      <StatusBadge 
+                        status={k} 
+                        onClick={() => handleTaskStatusClick(k)}
+                        isSelected={taskStatusFilters.includes(k)}
+                      />
                       <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
                     </div>
                   ))
@@ -276,7 +432,11 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
                 ) : (
                   Object.entries(member.tasks_by_priority || {}).map(([k, v]) => (
                     <div key={k} className="flex items-center justify-between text-xs">
-                      <PriorityBadge priority={k} />
+                      <PriorityBadge 
+                        priority={k} 
+                        onClick={() => handleTaskPriorityClick(k)}
+                        isSelected={taskPriorityFilters.includes(k)}
+                      />
                       <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
                     </div>
                   ))
@@ -291,7 +451,11 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
                 ) : (
                   Object.entries(member.bugs_by_status || {}).map(([k, v]) => (
                     <div key={k} className="flex items-center justify-between text-xs">
-                      <StatusBadge status={k} />
+                      <StatusBadge 
+                        status={k} 
+                        onClick={() => handleBugStatusClick(k)}
+                        isSelected={bugStatusFilters.includes(k)}
+                      />
                       <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
                     </div>
                   ))
@@ -306,7 +470,11 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
                 ) : (
                   Object.entries(member.bugs_by_priority || {}).map(([k, v]) => (
                     <div key={k} className="flex items-center justify-between text-xs">
-                      <PriorityBadge priority={k} />
+                      <PriorityBadge 
+                        priority={k} 
+                        onClick={() => handleBugPriorityClick(k)}
+                        isSelected={bugPriorityFilters.includes(k)}
+                      />
                       <span className="font-semibold text-gray-800 dark:text-gray-200">{String(v)}</span>
                     </div>
                   ))
@@ -317,12 +485,17 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
 
           <div className="space-y-3">
             <div>
-              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Recent Tasks</div>
+              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                Recent Tasks {hasActiveTaskFilters && `(${filteredTasks.length} of ${member.tasks_items?.length || 0})`}
+              </div>
               {(!member.tasks_items || member.tasks_items.length === 0) && (
                 <div className="text-xs text-gray-500 dark:text-gray-400">No tasks</div>
               )}
+              {hasActiveTaskFilters && filteredTasks.length === 0 && member.tasks_items && member.tasks_items.length > 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">No tasks match the selected filters</div>
+              )}
               <div className="space-y-1 max-h-40 overflow-y-auto pr-1 thin-scroll scroll-smooth">
-                {(member.tasks_items || []).map((t: any) => (
+                {(filteredTasks || []).map((t: any) => (
                   <div key={t.id} className={`p-2 rounded border border-gray-200 dark:border-gray-500 text-xs
                   ${t.status === 'completed'
                       ? 'bg-gray-50/60 dark:bg-gray-800/60'
@@ -339,8 +512,16 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
                         <CopyableIdBadge id={t.id} org_id={orgId} isCompleted={(t.status || '') === 'completed'} />
                       </div>
                       <div className="flex gap-1">
-                        <StatusBadge status={t.status || 'not_started'} />
-                        <PriorityBadge priority={t.priority || 'none'} />
+                        <StatusBadge 
+                          status={t.status || 'not_started'} 
+                          onClick={() => handleTaskStatusClick(t.status || 'not_started')}
+                          isSelected={taskStatusFilters.includes(t.status || 'not_started')}
+                        />
+                        <PriorityBadge 
+                          priority={t.priority || 'none'} 
+                          onClick={() => handleTaskPriorityClick(t.priority || 'none')}
+                          isSelected={taskPriorityFilters.includes(t.priority || 'none')}
+                        />
                       </div>
                     </div>
                     <div className="font-medium font-bold truncate cursor-pointer m-2 text-gray-900 dark:text-gray-100" title={t.title || t.id}
@@ -355,12 +536,17 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
             </div>
 
             <div>
-              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">Recent Bugs</div>
+              <div className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                Recent Bugs {hasActiveBugFilters && `(${filteredBugs.length} of ${member.bugs_items?.length || 0})`}
+              </div>
               {(!member.bugs_items || member.bugs_items.length === 0) && (
                 <div className="text-xs text-gray-500 dark:text-gray-400">No bugs</div>
               )}
+              {hasActiveBugFilters && filteredBugs.length === 0 && member.bugs_items && member.bugs_items.length > 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">No bugs match the selected filters</div>
+              )}
               <div className="space-y-1 max-h-40 overflow-y-auto pr-1 thin-scroll scroll-smooth">
-                {(member.bugs_items || []).map((b: any) => (
+                {(filteredBugs || []).map((b: any) => (
                   <div key={b.id} className="p-2 bg-white dark:bg-gray-600 rounded border border-gray-200 dark:border-gray-500 text-xs">
                     <div className="flex items-center gap-2 mb-1">
                       <div onClick={() => {
@@ -373,8 +559,16 @@ const MemberCard = memo(({ member, orgId, isTaskOverdue }: {
                           copyLabel="Bug" />
                       </div>
                       <div className="flex gap-1">
-                        <StatusBadge status={b.status || 'open'} />
-                        <PriorityBadge priority={b.priority || 'low'} />
+                        <StatusBadge 
+                          status={b.status || 'open'} 
+                          onClick={() => handleBugStatusClick(b.status || 'open')}
+                          isSelected={bugStatusFilters.includes(b.status || 'open')}
+                        />
+                        <PriorityBadge 
+                          priority={b.priority || 'low'} 
+                          onClick={() => handleBugPriorityClick(b.priority || 'low')}
+                          isSelected={bugPriorityFilters.includes(b.priority || 'low')}
+                        />
                       </div>
                     </div>
                     <div className="font-medium font-bold truncate m-2 cursor-pointer text-gray-900 dark:text-gray-100" title={b.title || b.id}
