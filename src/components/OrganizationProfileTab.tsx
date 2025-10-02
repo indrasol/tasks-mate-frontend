@@ -1381,7 +1381,7 @@ const OrganizationProfileTab: React.FC<OrganizationProfileTabProps> = ({
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 overflow-auto">
-        <div className="space-y-4 p-4 pb-20">
+        <div className="space-y-4 p-4">
 
           {/* Header with Action Buttons */}
           {canEdit && (
@@ -1559,7 +1559,7 @@ const OrganizationProfileTab: React.FC<OrganizationProfileTabProps> = ({
           </div>
 
           {/* Last Updated Info */}
-          {profile?.updated_at && (
+          {/* {profile?.updated_at && (
             <div className="text-xs text-gray-500 dark:text-gray-400 text-center pt-4 border-t">
               <div className="flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
@@ -1572,7 +1572,7 @@ const OrganizationProfileTab: React.FC<OrganizationProfileTabProps> = ({
                 })}
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>
