@@ -54,6 +54,7 @@ import {
   Calendar,
   CalendarRange,
   Check,
+  ChevronDown,
   Grid3X3,
   Loader2,
   Maximize2,
@@ -115,9 +116,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const [view, setView] = usePersistedParam<ViewMode>('view', 'table', { pageKey, urlKey: 'view', storage: 'local', serialize: v => v === 'table' ? null : v, deserialize: v => (v as ViewMode) || 'table' });
   const [searchQuery, setSearchQuery] = usePersistedParam<string>('q', "", { pageKey, urlKey: 'q', storage: 'local', serialize: v => v?.trim() ? v : null, deserialize: v => v });
   const [filterStatuses, setFilterStatuses] = usePersistedParam<string[]>('statuses', [], { pageKey, urlKey: 'statuses', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any });
-  const [filterOwner, setFilterOwner] = usePersistedParam<string>('owner', 'all', { pageKey, urlKey: 'owner', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
+  const [filterOwner, setFilterOwner] = usePersistedParam<string[]>('owner', [], { pageKey, urlKey: 'owner', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any });
   const [filterPriorities, setFilterPriorities] = usePersistedParam<string[]>('priorities', [], { pageKey, urlKey: 'priorities', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any });
-  const [filterProject, setFilterProject] = usePersistedParam<string>('proj', 'all', { pageKey, urlKey: 'proj', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
+  const [filterProject, setFilterProject] = usePersistedParam<string[]>('proj', [], { pageKey, urlKey: 'proj', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any });
   const [createdDateFilter, setCreatedDateFilter] = usePersistedParam<string>('cdate', 'all', { pageKey, urlKey: 'cdate', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' });
   const [createdDateRange, setCreatedDateRange] = useState<{
     from: Date | undefined;
@@ -143,6 +144,57 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   });
 
   const [restoreCompletion, setRestoreCompletion] = useState<string | null>(null);
+
+  // Available columns configuration
+  const availableColumns = [
+    { key: 'id', label: 'ID', alwaysVisible: false },
+    { key: 'title', label: 'Title', alwaysVisible: true },
+    { key: 'status', label: 'Status', alwaysVisible: false },
+    { key: 'priority', label: 'Priority', alwaysVisible: false },
+    { key: 'assignedTo', label: 'Assigned To', alwaysVisible: false },
+    { key: 'startDate', label: 'Start Date', alwaysVisible: false },
+    { key: 'dueDate', label: 'Due Date', alwaysVisible: false },
+    { key: 'project', label: 'Project', alwaysVisible: false },
+    { key: 'tags', label: 'Tags', alwaysVisible: false },
+    { key: 'dependencies', label: 'Dependencies', alwaysVisible: false },
+    { key: 'tracker', label: 'Tracker', alwaysVisible: false },
+    { key: 'bug', label: 'Bug', alwaysVisible: false },
+    { key: 'createdDate', label: 'Created Date', alwaysVisible: false },
+    { key: 'createdBy', label: 'Created By', alwaysVisible: false },
+  ];
+
+  const [visibleColumns, setVisibleColumns] = usePersistedParam<string[]>(
+    'visibleColumns',
+    availableColumns.map(col => col.key), // Default to all columns
+    { pageKey: pageKey, urlKey: 'cols', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any }
+  );
+
+  // Temporary state for column selection before applying
+  const [tempVisibleColumns, setTempVisibleColumns] = useState<string[]>(visibleColumns);
+  const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
+
+  // Temporary state for project selection before applying
+  const [tempFilterProject, setTempFilterProject] = useState<string[]>(filterProject);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+
+  // Temporary state for owner selection before applying
+  const [tempFilterOwner, setTempFilterOwner] = useState<string[]>(filterOwner);
+  const [isOwnerDropdownOpen, setIsOwnerDropdownOpen] = useState(false);
+
+  // Update temp state when actual visible columns change
+  useEffect(() => {
+    setTempVisibleColumns(visibleColumns);
+  }, [visibleColumns]);
+
+  // Update temp state when actual project filter changes
+  useEffect(() => {
+    setTempFilterProject(filterProject);
+  }, [filterProject]);
+
+  // Update temp state when actual owner filter changes
+  useEffect(() => {
+    setTempFilterOwner(filterOwner);
+  }, [filterOwner]);
 
   useEffect(() => {
     if (completionFilter === 'hide') {
@@ -195,7 +247,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   const { projectId } = useParams();
   useEffect(() => {
     if (projectId) {
-      setFilterProject(projectId);
+      setFilterProject([projectId]);
     }
   }, [projectId]);
 
@@ -242,6 +294,23 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  // Set default selection to all projects when projects are loaded
+  useEffect(() => {
+    if (projects.length > 0 && filterProject.length === 0) {
+      const allProjectIds = projects.map(p => p.id);
+      setFilterProject(allProjectIds);
+    }
+  }, [projects, filterProject.length, setFilterProject]);
+
+  // Set default selection to all owners when owners are loaded  
+  useEffect(() => {
+    const uniqueOwners = getUniqueOwners();
+    if (uniqueOwners.length > 0 && filterOwner.length === 0) {
+      const allOwnerIds = uniqueOwners.map(owner => owner.id);
+      setFilterOwner(allOwnerIds);
+    }
+  }, [tasks, orgMembers, filterOwner.length, setFilterOwner]);
 
   const fetchTasks = async () => {
     if (!currentOrgId) return;
@@ -526,15 +595,13 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
         filterStatuses.length === 0 || filterStatuses.map(m => m.replace("in_progress", "in-progress").toLowerCase()).includes(task.status.replace("in_progress", "in-progress").toLowerCase());
 
       // Owner filter
-      const matchesOwner = filterOwner === "all" ||
-        (
-          getUniqueOwners().filter(m => m.id.toLowerCase() === filterOwner.toLowerCase()).some(owner => (owner.id === task.owner || owner.username === task.owner || owner.email === task.owner))
-        )
+      const matchesOwner = filterOwner.length === 0 ||
+        getUniqueOwners().filter(m => filterOwner.includes(m.id)).some(owner => (owner.id === task.owner || owner.username === task.owner || owner.email === task.owner));
       const matchesPriority =
         filterPriorities.length === 0 || filterPriorities.map(m => m.toLowerCase()).includes((task.priority ?? 'none').toLowerCase());
 
       // Project filter
-      const matchesProject = filterProject === "all" || task.projectId === filterProject;
+      const matchesProject = filterProject.length === 0 || filterProject.includes(task.projectId);
 
       // Created date filter - Check createdDate
       const matchesCreatedDate =
@@ -591,24 +658,6 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
     }
-  }, [currentPage, totalPages]);
-
-  // Keyboard navigation for pagination
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'ArrowLeft' && currentPage > 1) {
-          e.preventDefault();
-          setCurrentPage(prev => prev - 1);
-        } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
-          e.preventDefault();
-          setCurrentPage(prev => prev + 1);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
   }, [currentPage, totalPages]);
 
   const getStatusColor = (status: string) => {
@@ -773,8 +822,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
 
   const clearFilters = () => {
     setFilterStatuses([]);
-    setFilterOwner("all");
-    setFilterProject("all");
+    setFilterOwner([]);
+    setFilterProject([]);
     setFilterPriorities([]);
     setCreatedDateFilter("all");
     setIsCustomCreatedDateRange(false);
@@ -881,16 +930,109 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between w-full">
-              {/* Search bar moved above */}
+              {/* Search bar and Column Filter - Left side */}
+              <div className="flex items-center gap-2 mr-auto">
+                <div className="relative w-80">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by keyword or ID (e.g. T1234)"
+                    className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-300 dark:border-gray-600 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end dark:text-white dark:placeholder-gray-400"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
 
-              <div className="relative w-80 mr-auto">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search by keyword or ID (e.g. T1234)"
-                  className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-300 dark:border-gray-600 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end dark:text-white dark:placeholder-gray-400"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+                {/* Column Filter – Multi-select */}
+                <DropdownMenu open={isColumnDropdownOpen} onOpenChange={setIsColumnDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <span className="flex-1 text-left">
+                        Columns to Display {availableColumns.length - visibleColumns.length > 0 ? `(${visibleColumns.length}/${availableColumns.length})` : ''}
+                      </span>
+                      <ChevronDown className="w-4 h-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-48 p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
+                    {/* Sticky header */}
+                    <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
+                      <DropdownMenuLabel className="text-xs p-2">
+                        <div className="flex items-center justify-end">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTempVisibleColumns(availableColumns.map(col => col.key));
+                              }}
+                            >
+                              All
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTempVisibleColumns(availableColumns.filter(col => col.alwaysVisible).map(col => col.key));
+                              }}
+                            >
+                              Clear
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setVisibleColumns(tempVisibleColumns); // Apply the changes
+                                setIsColumnDropdownOpen(false);
+                              }}
+                            >
+                              Apply
+                            </Button>
+                          </div>
+                        </div>
+                      </DropdownMenuLabel>
+                    </div>
+                    
+                    {/* Scrollable content */}
+                    <div className="max-h-64 overflow-y-auto">
+                      {availableColumns.map(col => (
+                        <DropdownMenuItem
+                          key={col.key}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (col.alwaysVisible) return; // Prevent hiding always visible columns
+                            const isCurrentlyVisible = tempVisibleColumns.includes(col.key);
+                            setTempVisibleColumns(isCurrentlyVisible 
+                              ? tempVisibleColumns.filter(c => c !== col.key)
+                              : [...tempVisibleColumns, col.key]
+                            );
+                          }}
+                          className="cursor-pointer mx-2"
+                          disabled={col.alwaysVisible}
+                          onSelect={(e) => e.preventDefault()} // Prevent dropdown from closing
+                        >
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                              tempVisibleColumns.includes(col.key) 
+                                ? 'bg-blue-600 border-blue-600' 
+                                : 'border-gray-300'
+                            } ${col.alwaysVisible ? 'bg-gray-300 border-gray-300' : ''}`}>
+                              {tempVisibleColumns.includes(col.key) && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs ${col.alwaysVisible ? 'bg-gray-200 text-gray-500' : 'bg-blue-100 text-blue-800'}`}>
+                              {col.label}
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Search + Filters and Controls */}
@@ -964,39 +1106,198 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Project Filter */}
-                <Select value={filterProject} onValueChange={setFilterProject}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
-                    </SelectItem>
-                    {projects?.sort((a, b) => a.name.localeCompare(b.name)).map((project, idx) => (
-                      <SelectItem key={idx} value={project.id}>
-                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{project.name}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Project Filter – Multi-select */}
+                <DropdownMenu open={isProjectDropdownOpen} onOpenChange={setIsProjectDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-40">
+                      <span className="flex-1 text-left">
+                        {filterProject.length === projects.length && projects.length > 0
+                          ? "All Projects"
+                          : filterProject.length > 0
+                          ? "Selected Projects"
+                          : "Projects"
+                        }
+                      </span>
+                      <ChevronDown className="w-4 h-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-48 p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
+                    {/* Sticky header */}
+                    <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
+                      <DropdownMenuLabel className="text-xs p-2">
+                        <div className="flex items-center justify-end">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTempFilterProject(projects.map(p => p.id));
+                              }}
+                            >
+                              All
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTempFilterProject([]);
+                              }}
+                            >
+                              Clear
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFilterProject(tempFilterProject); // Apply the changes
+                                setIsProjectDropdownOpen(false);
+                              }}
+                            >
+                              Apply
+                            </Button>
+                          </div>
+                        </div>
+                      </DropdownMenuLabel>
+                    </div>
+                    
+                    {/* Scrollable content */}
+                    <div className="max-h-64 overflow-y-auto">
+                      {projects.sort((a, b) => a.name.localeCompare(b.name)).map(project => (
+                        <DropdownMenuItem
+                          key={project.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const isCurrentlySelected = tempFilterProject.includes(project.id);
+                            setTempFilterProject(isCurrentlySelected 
+                              ? tempFilterProject.filter(id => id !== project.id)
+                              : [...tempFilterProject, project.id]
+                            );
+                          }}
+                          className="cursor-pointer mx-2"
+                          onSelect={(e) => e.preventDefault()} // Prevent dropdown from closing
+                        >
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                              tempFilterProject.includes(project.id) 
+                                ? 'bg-blue-600 border-blue-600' 
+                                : 'border-gray-300'
+                            }`}>
+                              {tempFilterProject.includes(project.id) && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">
+                              {project.name}
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                {/* Owner Filter */}
-                <Select value={filterOwner} onValueChange={setFilterOwner}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Owner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Owners</span>
-                    </SelectItem>
-                    {getUniqueOwners().sort((a, b) => a.displayName.localeCompare(b.displayName)).map((owner, idx) => (
-                      <SelectItem key={idx} value={owner.id}>
-                        <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">{owner.displayName}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Owner Filter – Multi-select */}
+                <DropdownMenu open={isOwnerDropdownOpen} onOpenChange={setIsOwnerDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-32">
+                      <span className="flex-1 text-left">
+                        {(() => {
+                          const uniqueOwners = getUniqueOwners();
+                          return filterOwner.length === uniqueOwners.length && uniqueOwners.length > 0
+                            ? "All Owners"
+                            : filterOwner.length > 0
+                            ? "Selected Owners"
+                            : "Owners";
+                        })()}
+                      </span>
+                      <ChevronDown className="w-4 h-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-48 p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
+                    {/* Sticky header */}
+                    <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
+                      <DropdownMenuLabel className="text-xs p-2">
+                        <div className="flex items-center justify-end">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const uniqueOwners = getUniqueOwners();
+                                setTempFilterOwner(uniqueOwners.map(owner => owner.id));
+                              }}
+                            >
+                              All
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTempFilterOwner([]);
+                              }}
+                            >
+                              Clear
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFilterOwner(tempFilterOwner); // Apply the changes
+                                setIsOwnerDropdownOpen(false);
+                              }}
+                            >
+                              Apply
+                            </Button>
+                          </div>
+                        </div>
+                      </DropdownMenuLabel>
+                    </div>
+                    
+                    {/* Scrollable content */}
+                    <div className="max-h-64 overflow-y-auto">
+                      {getUniqueOwners().sort((a, b) => a.displayName.localeCompare(b.displayName)).map(owner => (
+                        <DropdownMenuItem
+                          key={owner.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const isCurrentlySelected = tempFilterOwner.includes(owner.id);
+                            setTempFilterOwner(isCurrentlySelected 
+                              ? tempFilterOwner.filter(id => id !== owner.id)
+                              : [...tempFilterOwner, owner.id]
+                            );
+                          }}
+                          className="cursor-pointer mx-2"
+                          onSelect={(e) => e.preventDefault()} // Prevent dropdown from closing
+                        >
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                              tempFilterOwner.includes(owner.id) 
+                                ? 'bg-blue-600 border-blue-600' 
+                                : 'border-gray-300'
+                            }`}>
+                              {tempFilterOwner.includes(owner.id) && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">
+                              {owner.displayName}
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 {/* Created Date Filter with Calendar */}
                 <Popover open={isCreatedDatePopoverOpen} onOpenChange={setIsCreatedDatePopoverOpen}>
@@ -1151,13 +1452,108 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
           </div>
         </div>
 
-        {/* Results count */}
+        {/* Top Pagination and Task Count */}
         <div className="px-6 py-2">
           <div className="w-full">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Showing {startIndex + 1}-{Math.min(endIndex, filteredTasks.length)} of {filteredTasks.length} tasks
-              {filteredTasks.length !== tasks.length && ` (filtered from ${tasks.length} total)`}
-            </p>
+            {filteredTasks.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredTasks.length)} of {filteredTasks.length} tasks
+                </div>
+
+                <div className="flex items-center space-x-2 flex-wrap justify-center">
+                  {/* Previous button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1"
+                  >
+                    Previous
+                  </Button>
+
+                  {/* Page numbers */}
+                  <div className="flex items-center space-x-1">
+                    {(() => {
+                      const pages = [];
+                      const maxVisiblePages = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+                      // Adjust start if we're near the end
+                      if (endPage - startPage < maxVisiblePages - 1) {
+                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                      }
+
+                      // First page + ellipsis
+                      if (startPage > 1) {
+                        pages.push(
+                          <Button
+                            key={1}
+                            variant={1 === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(1)}
+                            className="w-8 h-8 p-0"
+                          >
+                            1
+                          </Button>
+                        );
+                        if (startPage > 2) {
+                          pages.push(<span key="ellipsis1" className="text-gray-400 px-2">...</span>);
+                        }
+                      }
+
+                      // Visible page numbers
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <Button
+                            key={i}
+                            variant={i === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(i)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {i}
+                          </Button>
+                        );
+                      }
+
+                      // Last page + ellipsis
+                      if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                          pages.push(<span key="ellipsis2" className="text-gray-400 px-2">...</span>);
+                        }
+                        pages.push(
+                          <Button
+                            key={totalPages}
+                            variant={totalPages === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {totalPages}
+                          </Button>
+                        );
+                      }
+
+                      return pages;
+                    })()}
+                  </div>
+
+                  {/* Next button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1192,7 +1588,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                     </div>
                     <p className="text-gray-500 dark:text-gray-300 text-lg mb-2">No tasks found</p>
                     <p className="text-gray-400 dark:text-gray-500 mb-4">
-                      {searchQuery || filterStatuses.length > 0 || filterOwner !== "all" || createdDateFilter !== "all" || dueDateFilter !== "all" || completionFilter !== 'hide'
+                      {searchQuery || filterStatuses.length > 0 || filterOwner.length > 0 || createdDateFilter !== "all" || dueDateFilter !== "all" || completionFilter !== 'hide'
                         ? "Try adjusting your filters or search query"
                         : "Create your first task to get started"
                       }
@@ -1214,20 +1610,20 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         <TableHeader className="bg-gray-50 dark:bg-gray-800">
                           <TableRow>
                             <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
-                            <TableHead className="w-20 sm:w-24 md:w-28 text-center min-w-[5rem]">ID</TableHead>
-                            <TableHead className="min-w-[200px] sm:min-w-[300px] md:w-80">Title</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-32 text-center">Status</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-32 text-center">Priority</TableHead>
-                            <TableHead className="w-auto text-center">Assigned To</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Start Date</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Due Date</TableHead>
-                            <TableHead className="w-24 sm:w-28 md:w-40 text-center">Project</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Tags</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Dependencies</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Tracker</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Bug</TableHead>
-                            <TableHead className="w-28 sm:w-32 md:w-40 text-center">Created Date</TableHead>
-                            <TableHead className="w-auto text-center">Created By</TableHead>
+                            {visibleColumns.includes('id') && <TableHead className="w-20 sm:w-24 md:w-28 text-center min-w-[5rem]">ID</TableHead>}
+                            {visibleColumns.includes('title') && <TableHead className="min-w-[200px] sm:min-w-[300px] md:w-80">Title</TableHead>}
+                            {visibleColumns.includes('status') && <TableHead className="w-24 sm:w-28 md:w-32 text-center">Status</TableHead>}
+                            {visibleColumns.includes('priority') && <TableHead className="w-24 sm:w-28 md:w-32 text-center">Priority</TableHead>}
+                            {visibleColumns.includes('assignedTo') && <TableHead className="w-auto text-center">Assigned To</TableHead>}
+                            {visibleColumns.includes('startDate') && <TableHead className="w-28 sm:w-32 md:w-40 text-center">Start Date</TableHead>}
+                            {visibleColumns.includes('dueDate') && <TableHead className="w-28 sm:w-32 md:w-40 text-center">Due Date</TableHead>}
+                            {visibleColumns.includes('project') && <TableHead className="w-24 sm:w-28 md:w-40 text-center">Project</TableHead>}
+                            {visibleColumns.includes('tags') && <TableHead className="w-28 sm:w-32 md:w-40 text-center">Tags</TableHead>}
+                            {visibleColumns.includes('dependencies') && <TableHead className="w-28 sm:w-32 md:w-40 text-center">Dependencies</TableHead>}
+                            {visibleColumns.includes('tracker') && <TableHead className="w-28 sm:w-32 md:w-40 text-center">Tracker</TableHead>}
+                            {visibleColumns.includes('bug') && <TableHead className="w-28 sm:w-32 md:w-40 text-center">Bug</TableHead>}
+                            {visibleColumns.includes('createdDate') && <TableHead className="w-28 sm:w-32 md:w-40 text-center">Created Date</TableHead>}
+                            {visibleColumns.includes('createdBy') && <TableHead className="w-auto text-center">Created By</TableHead>}
                             <TableHead className="w-20 sm:w-24 text-center flex-shrink-0">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1259,369 +1655,397 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                   )}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-center p-2">
-                                <div onClick={(e) => e.stopPropagation()} className="flex justify-center min-w-0">
-                                  <CopyableIdBadge id={task.id} org_id={currentOrgId} isCompleted={task.status === 'completed'} />
-                                </div>
-                              </TableCell>
-                              <TableCell className="font-medium w-80">
-                                <div className="flex items-center">
-                                  <div
-                                    className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400 cursor-pointer' : 'hover:underline cursor-pointer'}`}
-                                    ref={(el) => {
-                                      if (el) {
-                                        // Check if text is truncated
-                                        const isTrunc = el.scrollWidth > el.clientWidth;
-                                        if (isTruncated[task.id] !== isTrunc) {
-                                          setIsTruncated(prev => ({ ...prev, [task.id]: isTrunc }));
-                                        }
-                                      }
-                                    }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTaskClick(task.id);
-                                    }}
-                                  >
-                                    {task.name}
+                              {visibleColumns.includes('id') && (
+                                <TableCell className="text-center p-2">
+                                  <div onClick={(e) => e.stopPropagation()} className="flex justify-center min-w-0">
+                                    <CopyableIdBadge id={task.id} org_id={currentOrgId} isCompleted={task.status === 'completed'} />
                                   </div>
-                                  {isTruncated[task.id] && (
-                                    <Button
-                                      variant="ghost"
-                                      className="ml-1 p-0 h-6 w-6 shrink-0"
+                                </TableCell>
+                              )}
+                              {visibleColumns.includes('title') && (
+                                <TableCell className="font-medium w-80">
+                                  <div className="flex items-center">
+                                    <div
+                                      className={`truncate max-w-[260px] ${task.status === 'completed' ? 'line-through text-gray-400 cursor-pointer' : 'hover:underline cursor-pointer'}`}
+                                      ref={(el) => {
+                                        if (el) {
+                                          // Check if text is truncated
+                                          const isTrunc = el.scrollWidth > el.clientWidth;
+                                          if (isTruncated[task.id] !== isTrunc) {
+                                            setIsTruncated(prev => ({ ...prev, [task.id]: isTrunc }));
+                                          }
+                                        }
+                                      }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setSelectedTask(task);
-                                        setIsDialogOpen(true);
+                                        handleTaskClick(task.id);
                                       }}
                                     >
-                                      <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Select
-                                    value={task.status}
-                                    onValueChange={(value) => {
-                                      // Optimistic update
-                                      setTasks(prev =>
-                                        prev.map(t => t.id === task.id ? { ...t, status: value } : t)
-                                      );
-                                      toast({
-                                        title: "Updating task status",
-                                        description: "Please wait...",
-                                      });
-                                      // API update
-                                      taskService.updateTask(task.id, {
-                                        status: value,
-                                        project_id: task.projectId,
-                                        title: task.name
-                                      }).then(() => {
-                                        toast({
-                                          title: "Success",
-                                          description: "Task status updated successfully",
-                                          variant: "default"
-                                        });
-                                      })
-                                        .catch(error => {
-                                          console.error('Failed to update status:', error);
-                                          // Revert on error
-                                          setTasks(prev =>
-                                            prev.map(t => t.id === task.id ? { ...t, status: task.status } : t)
-                                          );
-                                          toast({
-                                            title: "Error",
-                                            description: "Failed to update status",
-                                            variant: "destructive"
-                                          });
-                                        });
-                                    }}
-                                  >
-                                    <SelectTrigger
-                                      className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${(() => {
-                                        const s = task.status.replace('in_progress', 'in-progress');
-                                        if (s === 'completed') return 'bg-green-100 text-green-800';
-                                        if (s === 'in-progress') return 'bg-blue-100 text-blue-800';
-                                        if (s === 'blocked') return 'bg-red-100 text-red-800';
-                                        if (s === 'on_hold') return 'bg-yellow-100 text-yellow-800';
-                                        if (s === 'archived') return 'bg-black text-white';
-                                        return 'bg-gray-100 text-gray-800';
-                                      })()}`}
-                                    >
-                                      <SelectValue>{getStatusText(task.status)}</SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {[
-                                        { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
-                                        { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
-                                        { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
-                                        { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
-                                        { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
-                                        { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
-                                      ].map((opt, idx) => (
-                                        <SelectItem key={idx} value={opt.value}>
-                                          <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Select
-                                    value={task.priority ?? 'none'}
-                                    onValueChange={(value) => {
-                                      // Optimistic update
-                                      setTasks(prev =>
-                                        prev.map(t => t.id === task.id ? { ...t, priority: value } : t)
-                                      );
-                                      toast({
-                                        title: "Updating task priority",
-                                        description: "Please wait...",
-                                      });
-                                      // API update
-                                      taskService.updateTask(task.id, {
-                                        priority: value,
-                                        project_id: task.projectId,
-                                        title: task.name
-                                      }).then(() => {
-                                        toast({
-                                          title: "Success",
-                                          description: "Task priority updated successfully",
-                                          variant: "default"
-                                        });
-                                      })
-                                        .catch(error => {
-                                          console.error('Failed to update priority:', error);
-                                          // Revert on error
-                                          setTasks(prev =>
-                                            prev.map(t => t.id === task.id ? { ...t, priority: task.priority } : t)
-                                          );
-                                          toast({
-                                            title: "Error",
-                                            description: "Failed to update priority",
-                                            variant: "destructive"
-                                          });
-                                        });
-                                    }}
-                                  >
-                                    <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(task.priority ?? 'none')}`}>
-                                      <SelectValue>{(task.priority ?? 'NONE').toUpperCase()}</SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {['critical', 'high', 'medium', 'low', 'none'].map((p, idx) => (
-                                        <SelectItem key={idx} value={p}>
-                                          <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center" title={capitalizeFirstLetter(task.owner)}>
-
-                                  <Select value={task.owner} onValueChange={(value) => {
-                                    // Optimistic update
-                                    setTasks(prev =>
-                                      prev.map(t => t.id === task.id ? { ...t, owner: value } : t)
-                                    );
-                                    toast({
-                                      title: "Updating task owner",
-                                      description: "Please wait...",
-                                    });
-                                    // API update
-                                    taskService.updateTask(task.id, {
-                                      assignee: value,
-                                      project_id: task.projectId,
-                                      title: task.name
-                                    })
-                                      .then(() => {
-                                        toast({
-                                          title: "Success",
-                                          description: "Task owner updated successfully",
-                                          variant: "default"
-                                        });
-                                      })
-                                      .catch(error => {
-                                        console.error('Failed to update owner:', error);
-                                        // Revert on error
+                                      {task.name}
+                                    </div>
+                                    {isTruncated[task.id] && (
+                                      <Button
+                                        variant="ghost"
+                                        className="ml-1 p-0 h-6 w-6 shrink-0"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedTask(task);
+                                          setIsDialogOpen(true);
+                                        }}
+                                      >
+                                        <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              )}
+                              {visibleColumns.includes('status') && (
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Select
+                                      value={task.status}
+                                      onValueChange={(value) => {
+                                        // Optimistic update
                                         setTasks(prev =>
-                                          prev.map(t => t.id === task.id ? { ...t, owner: task.owner } : t)
+                                          prev.map(t => t.id === task.id ? { ...t, status: value } : t)
                                         );
                                         toast({
-                                          title: "Error",
-                                          description: "Failed to update owner",
-                                          variant: "destructive"
+                                          title: "Updating task status",
+                                          description: "Please wait...",
                                         });
-                                      });
-                                  }}>
-                                    <SelectTrigger className="h-8 px-2 py-0 w-fit min-w-[5rem] border-0">
-                                      <SelectValue placeholder="Select owner" className="text-xs text-left" >
-                                        {(() => {
-                                          const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
-                                          return `👤 ${displayName}`;
-                                        })()}
-                                      </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent className="w-fit min-w-[5rem]">
-
-                                      {orgMembers?.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m, idx) => {
-                                        // const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
-                                        // const { displayName } = deriveDisplayFromEmail(username);
-                                        return (
-                                          <SelectItem key={idx} value={String(m.name)}>
-                                            {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
+                                        // API update
+                                        taskService.updateTask(task.id, {
+                                          status: value,
+                                          project_id: task.projectId,
+                                          title: task.name
+                                        }).then(() => {
+                                          toast({
+                                            title: "Success",
+                                            description: "Task status updated successfully",
+                                            variant: "default"
+                                          });
+                                        })
+                                          .catch(error => {
+                                            console.error('Failed to update status:', error);
+                                            // Revert on error
+                                            setTasks(prev =>
+                                              prev.map(t => t.id === task.id ? { ...t, status: task.status } : t)
+                                            );
+                                            toast({
+                                              title: "Error",
+                                              description: "Failed to update status",
+                                              variant: "destructive"
+                                            });
+                                          });
+                                      }}
+                                    >
+                                      <SelectTrigger
+                                        className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${(() => {
+                                          const s = task.status.replace('in_progress', 'in-progress');
+                                          if (s === 'completed') return 'bg-green-100 text-green-800';
+                                          if (s === 'in-progress') return 'bg-blue-100 text-blue-800';
+                                          if (s === 'blocked') return 'bg-red-100 text-red-800';
+                                          if (s === 'on_hold') return 'bg-yellow-100 text-yellow-800';
+                                          if (s === 'archived') return 'bg-black text-white';
+                                          return 'bg-gray-100 text-gray-800';
+                                        })()}`}
+                                      >
+                                        <SelectValue>{getStatusText(task.status)}</SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {[
+                                          { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
+                                          { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
+                                          { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
+                                          { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
+                                          { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
+                                          { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
+                                        ].map((opt, idx) => (
+                                          <SelectItem key={idx} value={opt.value}>
+                                            <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
                                           </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </TableCell>
+                              )}
+                              {visibleColumns.includes('priority') && (
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Select
+                                      value={task.priority ?? 'none'}
+                                      onValueChange={(value) => {
+                                        // Optimistic update
+                                        setTasks(prev =>
+                                          prev.map(t => t.id === task.id ? { ...t, priority: value } : t)
                                         );
-                                      })}
+                                        toast({
+                                          title: "Updating task priority",
+                                          description: "Please wait...",
+                                        });
+                                        // API update
+                                        taskService.updateTask(task.id, {
+                                          priority: value,
+                                          project_id: task.projectId,
+                                          title: task.name
+                                        }).then(() => {
+                                          toast({
+                                            title: "Success",
+                                            description: "Task priority updated successfully",
+                                            variant: "default"
+                                          });
+                                        })
+                                          .catch(error => {
+                                            console.error('Failed to update priority:', error);
+                                            // Revert on error
+                                            setTasks(prev =>
+                                              prev.map(t => t.id === task.id ? { ...t, priority: task.priority } : t)
+                                            );
+                                            toast({
+                                              title: "Error",
+                                              description: "Failed to update priority",
+                                              variant: "destructive"
+                                            });
+                                          });
+                                      }}
+                                    >
+                                      <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(task.priority ?? 'none')}`}>
+                                        <SelectValue>{(task.priority ?? 'NONE').toUpperCase()}</SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {['critical', 'high', 'medium', 'low', 'none'].map((p, idx) => (
+                                          <SelectItem key={idx} value={p}>
+                                            <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </TableCell>
+                              )}
+                              {visibleColumns.includes('assignedTo') && (
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center" title={capitalizeFirstLetter(task.owner)}>
 
-                                    </SelectContent>
-                                  </Select>
+                                    <Select value={task.owner} onValueChange={(value) => {
+                                      // Optimistic update
+                                      setTasks(prev =>
+                                        prev.map(t => t.id === task.id ? { ...t, owner: value } : t)
+                                      );
+                                      toast({
+                                        title: "Updating task owner",
+                                        description: "Please wait...",
+                                      });
+                                      // API update
+                                      taskService.updateTask(task.id, {
+                                        assignee: value,
+                                        project_id: task.projectId,
+                                        title: task.name
+                                      })
+                                        .then(() => {
+                                          toast({
+                                            title: "Success",
+                                            description: "Task owner updated successfully",
+                                            variant: "default"
+                                          });
+                                        })
+                                        .catch(error => {
+                                          console.error('Failed to update owner:', error);
+                                          // Revert on error
+                                          setTasks(prev =>
+                                            prev.map(t => t.id === task.id ? { ...t, owner: task.owner } : t)
+                                          );
+                                          toast({
+                                            title: "Error",
+                                            description: "Failed to update owner",
+                                            variant: "destructive"
+                                          });
+                                        });
+                                    }}>
+                                      <SelectTrigger className="h-8 px-2 py-0 w-fit min-w-[5rem] border-0">
+                                        <SelectValue placeholder="Select owner" className="text-xs text-left" >
+                                          {(() => {
+                                            const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
+                                            return `👤 ${displayName}`;
+                                          })()}
+                                        </SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent className="w-fit min-w-[5rem]">
 
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <DateBadge date={task.startDate ? task.startDate : task.createdDate} className="text-xs bg-blue-100 text-blue-800" />
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <DateBadge
-                                  date={task.targetDate}
-                                  className={`text-xs ${isTaskOverdue(task)
-                                    ? 'bg-red-100 text-red-800 font-semibold border border-red-300'
-                                    : 'bg-rose-100 text-rose-800'
-                                    }`}
-                                />
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800 cursor-pointer"
-                                    onClick={() => {
-                                      handleProjectNavigation((task as any).projectId);
-                                    }}
-                                  >
-                                    {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
-                                  </Badge>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  {/* decrease scroll-bar height or width */}
-                                  <div className="max-w-[200px] overflow-x-auto whitespace-nowrap py-1"
-                                    style={{
-                                      scrollbarWidth: "thin",
-                                      scrollBehavior: "smooth",
+                                        {orgMembers?.sort((a, b) => a.displayName.localeCompare(b.displayName)).map((m, idx) => {
+                                          // const username = ((m as any)?.username) || (m.email ? m.email.split("@")[0] : undefined) || m.user_id;
+                                          // const { displayName } = deriveDisplayFromEmail(username);
+                                          return (
+                                            <SelectItem key={idx} value={String(m.name)}>
+                                              {m.displayName} {m.designation ? `(${capitalizeFirstLetter(m.designation)})` : ""}
+                                            </SelectItem>
+                                          );
+                                        })}
 
-                                      // scrollbarColor: "#ccc #f1f1f1"
-                                    }}
-                                  >
-                                    <div className="inline-flex gap-1">
-                                      {task.tags && task.tags.length > 0 ? (
-                                        task.tags.map((tag, idx) => (
-                                          <Badge key={idx} variant="outline" className="text-xs bg-purple-100 text-purple-800 whitespace-nowrap">
-                                            {tag}
-                                          </Badge>
-                                        ))
-                                      ) : (
-                                        <span className="text-xs text-gray-400">—</span>
-                                      )}
+                                      </SelectContent>
+                                    </Select>
+
+                                  </div>
+                                </TableCell>
+                              )}
+                              {visibleColumns.includes('startDate') && (
+                                <TableCell className="text-center">
+                                  <DateBadge date={task.startDate ? task.startDate : task.createdDate} className="text-xs bg-blue-100 text-blue-800" />
+                                </TableCell>
+                              )}
+                              {visibleColumns.includes('dueDate') && (
+                                <TableCell className="text-center">
+                                  <DateBadge
+                                    date={task.targetDate}
+                                    className={`text-xs ${isTaskOverdue(task)
+                                      ? 'bg-red-100 text-red-800 font-semibold border border-red-300'
+                                      : 'bg-rose-100 text-rose-800'
+                                      }`}
+                                  />
+                                </TableCell>
+                              )}
+                              {visibleColumns.includes('project') && (
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Badge variant="secondary" className="text-xs bg-cyan-100 text-cyan-800 cursor-pointer"
+                                      onClick={() => {
+                                        handleProjectNavigation((task as any).projectId);
+                                      }}
+                                    >
+                                      {projects.find(p => p.id === (task as any).projectId)?.name ?? "—"}
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                              )}
+                              {visibleColumns.includes('tags') && (
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    {/* decrease scroll-bar height or width */}
+                                    <div className="max-w-[200px] overflow-x-auto whitespace-nowrap py-1"
+                                      style={{
+                                        scrollbarWidth: "thin",
+                                        scrollBehavior: "smooth",
+
+                                        // scrollbarColor: "#ccc #f1f1f1"
+                                      }}
+                                    >
+                                      <div className="inline-flex gap-1">
+                                        {task.tags && task.tags.length > 0 ? (
+                                          task.tags.map((tag, idx) => (
+                                            <Badge key={idx} variant="outline" className="text-xs bg-purple-100 text-purple-800 whitespace-nowrap">
+                                              {tag}
+                                            </Badge>
+                                          ))
+                                        ) : (
+                                          <span className="text-xs text-gray-400">—</span>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              </TableCell>
+                                </TableCell>
+                              )}
 
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  {/* decrease scroll-bar height or width */}
-                                  <div className="max-w-[200px] overflow-x-auto whitespace-nowrap py-1"
-                                    style={{
-                                      scrollbarWidth: "thin",
-                                      scrollBehavior: "smooth",
+                              {visibleColumns.includes('dependencies') && (
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    {/* decrease scroll-bar height or width */}
+                                    <div className="max-w-[200px] overflow-x-auto whitespace-nowrap py-1"
+                                      style={{
+                                        scrollbarWidth: "thin",
+                                        scrollBehavior: "smooth",
 
-                                      // scrollbarColor: "#ccc #f1f1f1"
-                                    }}
-                                  >
-                                    <div className="inline-flex gap-1">
-                                      {task.dependencies?.length > 0 ? (
-                                        task.dependencies.map((dependency, idx) => (
-                                          <Badge key={idx} variant="outline"
-                                            className="text-xs font-mono cursor-pointer whitespace-nowrap bg-green-700 hover:bg-green-600 text-white"
-                                            onClick={() => {
-                                              handleDependencyNavigation(dependency);
-                                            }}
-                                          >
-                                            {dependency}
-                                          </Badge>
-                                        ))
-                                      ) : (
-                                        <span className="text-xs text-gray-400">—</span>
-                                      )}
+                                        // scrollbarColor: "#ccc #f1f1f1"
+                                      }}
+                                    >
+                                      <div className="inline-flex gap-1">
+                                        {task.dependencies?.length > 0 ? (
+                                          task.dependencies.map((dependency, idx) => (
+                                            <Badge key={idx} variant="outline"
+                                              className="text-xs font-mono cursor-pointer whitespace-nowrap bg-green-700 hover:bg-green-600 text-white"
+                                              onClick={() => {
+                                                handleDependencyNavigation(dependency);
+                                              }}
+                                            >
+                                              {dependency}
+                                            </Badge>
+                                          ))
+                                        ) : (
+                                          <span className="text-xs text-gray-400">—</span>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              </TableCell>
+                                </TableCell>
+                              )}
 
-                              <TableCell className="text-center">
-                                {task.tracker_id ? (
-                                  <Badge variant="outline"
-                                    className="text-xs bg-orange-600 hover:bg-orange-700 whitespace-nowrap text-white cursor-pointer"
-                                    onClick={() => {
-                                      handleTrackerNavigation(task.tracker_id);
-                                    }}
-                                  >
-                                    {task.tracker_id}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-xs text-gray-400">—</span>
-                                )}
-                              </TableCell>
+                              {visibleColumns.includes('tracker') && (
+                                <TableCell className="text-center">
+                                  {task.tracker_id ? (
+                                    <Badge variant="outline"
+                                      className="text-xs bg-orange-600 hover:bg-orange-700 whitespace-nowrap text-white cursor-pointer"
+                                      onClick={() => {
+                                        handleTrackerNavigation(task.tracker_id);
+                                      }}
+                                    >
+                                      {task.tracker_id}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">—</span>
+                                  )}
+                                </TableCell>
+                              )}
 
-                              <TableCell className="text-center">
-                                {task.bug_id ? (
-                                  <Badge variant="outline" 
-                                  className="text-xs bg-red-600 hover:bg-red-700 whitespace-nowrap text-white cursor-pointer"
-                                    onClick={() => {
-                                      handleBugNavigation(task.bug_id);
-                                    }}
-                                  >
-                                    {task.bug_id}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-xs text-gray-400">—</span>
-                                )}
-                              </TableCell>
+                              {visibleColumns.includes('bug') && (
+                                <TableCell className="text-center">
+                                  {task.bug_id ? (
+                                    <Badge variant="outline" 
+                                    className="text-xs bg-red-600 hover:bg-red-700 whitespace-nowrap text-white cursor-pointer"
+                                      onClick={() => {
+                                        handleBugNavigation(task.bug_id);
+                                      }}
+                                    >
+                                      {task.bug_id}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">—</span>
+                                  )}
+                                </TableCell>
+                              )}
 
-                              <TableCell className="text-center">
-                                <DateBadge date={task.createdDate} className="text-xs bg-blue-100 text-blue-800" />
-                              </TableCell>
+                              {visibleColumns.includes('createdDate') && (
+                                <TableCell className="text-center">
+                                  <DateBadge date={task.createdDate} className="text-xs bg-blue-100 text-blue-800" />
+                                </TableCell>
+                              )}
 
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  {orgMembers?.filter((m: any) => (m.name === task.createdBy))?.map((m, idx) => {
-                                    return (
-                                      <HoverCard>
-                                        <HoverCardTrigger>
-                                          <Badge key={idx} variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                                            {m.displayName}
-                                          </Badge>
-                                        </HoverCardTrigger>
-                                        <HoverCardContent className="text-sm p-2">
-                                          <div className="flex flex-col items-center gap-2">
-                                            <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+                              {visibleColumns.includes('createdBy') && (
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    {orgMembers?.filter((m: any) => (m.name === task.createdBy))?.map((m, idx) => {
+                                      return (
+                                        <HoverCard>
+                                          <HoverCardTrigger>
+                                            <Badge key={idx} variant="secondary" className="text-xs bg-gray-100 text-gray-600">
                                               {m.displayName}
                                             </Badge>
-                                            <p className="text-xs">{m.email}</p>
-                                            <p className="text-xs">{m.designation}</p>
-                                          </div>
-                                        </HoverCardContent>
-                                      </HoverCard>
-                                    );
-                                  })}
+                                          </HoverCardTrigger>
+                                          <HoverCardContent className="text-sm p-2">
+                                            <div className="flex flex-col items-center gap-2">
+                                              <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+                                                {m.displayName}
+                                              </Badge>
+                                              <p className="text-xs">{m.email}</p>
+                                              <p className="text-xs">{m.designation}</p>
+                                            </div>
+                                          </HoverCardContent>
+                                        </HoverCard>
+                                      );
+                                    })}
 
-                                </div>
-                              </TableCell>
+                                  </div>
+                                </TableCell>
+                              )}
                               <TableCell className="text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button
@@ -1643,18 +2067,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                 )}
 
             {/* Pagination */}
-            {filteredTasks.length > 0 && totalPages > 1 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between mt-6 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-sm gap-4">
-                <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                  <span>
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                    ({startIndex + 1}-{Math.min(endIndex, filteredTasks.length)} of {filteredTasks.length})
-                  </span>
-                  <span className="ml-2 text-xs text-gray-400 dark:text-gray-500 hidden sm:inline" title="Use Ctrl/Cmd + Arrow keys to navigate">
-                    • Use Ctrl+← → to navigate
-                  </span>
+            {filteredTasks.length > 0 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredTasks.length)} of {filteredTasks.length} tasks
                 </div>
 
                 <div className="flex items-center space-x-2 flex-wrap justify-center">
