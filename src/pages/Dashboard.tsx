@@ -821,7 +821,7 @@ const Dashboard = () => {
               <div className="flex items-center justify-between">
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{userKpis.total_tasks}</p>
                 <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <ClipboardList className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </CardContent>
