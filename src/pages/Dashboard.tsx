@@ -31,6 +31,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Clock,
   Crown,
   FolderOpen,
@@ -761,6 +762,7 @@ const Dashboard = () => {
   // Extract KPI data
   const kpis = dashboardData?.kpis || {
     total_tasks: 0,
+    completed_tasks: 0,
     active_projects: 0,
     completed_projects: 0,
     blocked_projects: 0,
@@ -1134,63 +1136,98 @@ const Dashboard = () => {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
                   <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => handleEmptyStateAction('/tasks_catalog')}>
-                    <CardContent className="p-6 space-y-3">
-                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Total Tasks</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.total_tasks}</p>
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                          <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    <CardContent className="p-4 sm:p-6 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center flex-shrink-0">
+                          <ClipboardList className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Tasks Status</p>
+                      </div>
+                      <div className="flex flex-col items-center text-center">
+                        {/* Main stats with percentage */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+                            ({kpis.completed_tasks || 0}/{kpis.total_tasks})
+                          </p>
+                          <span className={`text-xs sm:text-sm font-semibold px-2 py-1 rounded-full whitespace-nowrap ${
+                            kpis.total_tasks > 0 
+                              ? Math.round(((kpis.completed_tasks || 0) / kpis.total_tasks) * 100) >= 80
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                : Math.round(((kpis.completed_tasks || 0) / kpis.total_tasks) * 100) >= 50
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {kpis.total_tasks > 0 ? Math.round(((kpis.completed_tasks || 0) / kpis.total_tasks) * 100) : 0}%
+                          </span>
+                        </div>
+                        
+                        {/* Progress bar */}
+                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
+                          <div
+                            className="h-1.5 rounded-full bg-gradient-to-r from-tasksmate-green-start to-tasksmate-green-end transition-all duration-300 ease-in-out"
+                            style={{ width: `${kpis.total_tasks > 0 ? Math.round(((kpis.completed_tasks || 0) / kpis.total_tasks) * 100) : 0}%` }}
+                          />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=in_progress,planning`)}>
-                    <CardContent className="p-6 space-y-3">
-                      <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1 font-medium whitespace-nowrap">Active Projects <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400 dark:text-gray-500" /></span></p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.active_projects}</p>
-                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                          <FolderOpen className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    <CardContent className="p-4 sm:p-6 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 bg-green-100 dark:bg-green-900/30 rounded flex items-center justify-center flex-shrink-0">
+                          <FolderOpen className="w-3 h-3 text-green-600 dark:text-green-400" />
                         </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Active Projects</p>
+                        <span title="In Progress or Planning"><Info className="w-3 h-3 text-gray-400 dark:text-gray-500" /></span>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">{kpis.active_projects}</p>
                       </div>
                     </CardContent>
                   </Card>
 
                   {/* Completed Projects KPI */}
                   <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=completed`)}>
-                    <CardContent className="p-6 space-y-3">
-                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Completed Projects</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.completed_projects}</p>
-                        <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
-                          <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                    <CardContent className="p-4 sm:p-6 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 bg-emerald-100 dark:bg-emerald-900/30 rounded flex items-center justify-center flex-shrink-0">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                         </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Completed Projects</p>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">{kpis.completed_projects}</p>
                       </div>
                     </CardContent>
                   </Card>
 
                   {/* Blocked Projects KPI */}
                   <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => navigate(`/projects${currentOrgId ? `?org_id=${currentOrgId}&` : '?'}statuses=blocked`)}>
-                    <CardContent className="p-6 space-y-3">
-                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Blocked Projects</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.blocked_projects}</p>
-                        <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
-                          <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                    <CardContent className="p-4 sm:p-6 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center flex-shrink-0">
+                          <AlertCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
                         </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Blocked Projects</p>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">{kpis.blocked_projects}</p>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-tasksmate cursor-pointer" onClick={() => handleEmptyStateAction(`/team-members`)}>
-                    <CardContent className="p-6 space-y-3">
-                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Team Members</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpis.team_members}</p>
-                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                          <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                    <CardContent className="p-4 sm:p-6 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 bg-purple-100 dark:bg-purple-900/30 rounded flex items-center justify-center flex-shrink-0">
+                          <Users className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                         </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">Team Members</p>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">{kpis.team_members}</p>
                       </div>
                     </CardContent>
                   </Card>
