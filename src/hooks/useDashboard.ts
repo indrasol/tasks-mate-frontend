@@ -6,6 +6,7 @@ import { API_ENDPOINTS } from '@/config';
 export type DashboardData = {
   kpis: {
     total_tasks: number;
+    completed_tasks: number;
     active_projects: number;
     completed_projects: number;
     blocked_projects: number;
