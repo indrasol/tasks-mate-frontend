@@ -45,6 +45,7 @@ import {
   CalendarRange,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
   FolderOpen,
   Loader2,
@@ -95,15 +96,20 @@ const Projects = () => {
     [],
     { pageKey: pageKey, urlKey: 'priorities', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any }
   );
-  const [filterProjectName, setFilterProjectName] = usePersistedParam<string>(
+  const [filterProjectName, setFilterProjectName] = usePersistedParam<string[]>(
     'proj',
-    "all",
-    { pageKey: pageKey, urlKey: 'proj', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' }
+    [],
+    { pageKey: pageKey, urlKey: 'proj', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any }
   );
-  const [dateFilter, setDateFilter] = usePersistedParam<string>(
-    'date',
-    "all",
-    { pageKey: pageKey, urlKey: 'date', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => v || 'all' }
+  const [startDateFilter, setStartDateFilter] = usePersistedParam<string>(
+    'startDate',
+    "",
+    { pageKey: pageKey, urlKey: 'startDate', storage: 'local', serialize: v => v || null, deserialize: v => v || '' }
+  );
+  const [endDateFilter, setEndDateFilter] = usePersistedParam<string>(
+    'endDate',
+    "",
+    { pageKey: pageKey, urlKey: 'endDate', storage: 'local', serialize: v => v || null, deserialize: v => v || '' }
   );
   const [completionFilter, setCompletionFilter] = usePersistedParam<string>('completion', 'hide', {
     pageKey, urlKey: 'completion', storage: 'local',
@@ -130,6 +136,44 @@ const Projects = () => {
     { pageKey: pageKey, urlKey: 'tab', storage: 'local', serialize: v => v === 'all' ? null : v, deserialize: v => (v as 'all' | 'mine') || 'all' }
   );
 
+  // Available columns configuration
+  const availableColumns = [
+    { key: 'id', label: 'ID', alwaysVisible: false },
+    { key: 'title', label: 'Title', alwaysVisible: true },
+    { key: 'description', label: 'Description', alwaysVisible: false },
+    { key: 'progress', label: 'Progress', alwaysVisible: false },
+    { key: 'status', label: 'Status', alwaysVisible: false },
+    { key: 'priority', label: 'Priority', alwaysVisible: false },
+    { key: 'owner', label: 'Owner', alwaysVisible: false },
+    { key: 'startDate', label: 'Start Date', alwaysVisible: false },
+    { key: 'dueDate', label: 'Due Date', alwaysVisible: false },
+    { key: 'members', label: 'Members', alwaysVisible: false },
+  ];
+
+  const [visibleColumns, setVisibleColumns] = usePersistedParam<string[]>(
+    'visibleColumns',
+    availableColumns.map(col => col.key), // Default to all columns
+    { pageKey: pageKey, urlKey: 'cols', storage: 'local', serialize: stringArraySerialize, deserialize: stringArrayDeserialize as any }
+  );
+
+  // Temporary state for column selection before applying
+  const [tempVisibleColumns, setTempVisibleColumns] = useState<string[]>(visibleColumns);
+  const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
+
+  // Temporary state for project selection before applying
+  const [tempFilterProjectName, setTempFilterProjectName] = useState<string[]>(filterProjectName);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+
+  // Update temp state when actual visible columns change
+  useEffect(() => {
+    setTempVisibleColumns(visibleColumns);
+  }, [visibleColumns]);
+
+  // Update temp state when actual project filter changes
+  useEffect(() => {
+    setTempFilterProjectName(filterProjectName);
+  }, [filterProjectName]);
+
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const { data: organizations } = useOrganizations();
   const currentOrgId = useCurrentOrgId() ?? organizations?.[0]?.id;
@@ -146,6 +190,14 @@ const Projects = () => {
 
   // Projects state populated from backend
   const [projects, setProjects] = useState<Project[]>([]);
+
+  // Set default selection to all projects when projects are loaded
+  useEffect(() => {
+    if (projects.length > 0 && filterProjectName.length === 0) {
+      const allProjectIds = projects.map(p => p.id);
+      setFilterProjectName(allProjectIds);
+    }
+  }, [projects, filterProjectName.length, setFilterProjectName]);
 
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -335,25 +387,35 @@ const Projects = () => {
 
 
 
-  const isDateInRange = (projectDate: string, filter: string) => {
-    const date = new Date(projectDate);
-    const now = new Date();
-
-    switch (filter) {
-      case "thisWeek":
-        const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-        const weekEnd = new Date(now.setDate(now.getDate() - now.getDay() + 6));
-        return date >= weekStart && date <= weekEnd;
-      case "thisMonth":
-        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-      case "nextMonth":
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1);
-        return date.getMonth() === nextMonth.getMonth() && date.getFullYear() === nextMonth.getFullYear();
-      case "overdue":
-        return date < now && projects.find(p => p.endDate === projectDate)?.status !== 'completed';
-      default:
-        return true;
+  const isDateInRange = (project: Project) => {
+    if (!startDateFilter && !endDateFilter) return true;
+    
+    // Use project start date or created date for comparison
+    const projectStartDate = project.startDate || project.createdAt;
+    const projectEndDate = project.endDate || project.createdAt;
+    
+    if (!projectStartDate) return true;
+    
+    const projectStart = new Date(projectStartDate);
+    const projectEnd = new Date(projectEndDate);
+    
+    let isInRange = true;
+    
+    // Check start date filter
+    if (startDateFilter) {
+      const filterStartDate = new Date(startDateFilter);
+      // Project should end after or on the filter start date
+      isInRange = isInRange && (projectEnd >= filterStartDate);
     }
+    
+    // Check end date filter  
+    if (endDateFilter) {
+      const filterEndDate = new Date(endDateFilter);
+      // Project should start before or on the filter end date
+      isInRange = isInRange && (projectStart <= filterEndDate);
+    }
+    
+    return isInRange;
   };
 
   const sortProjects = (projects: Project[]) => {
@@ -403,9 +465,9 @@ const Projects = () => {
 
       const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(project.status);
       const matchesPriority = filterPriorities.length === 0 || filterPriorities.includes(project.priority);
-      const matchesDate = dateFilter === "all" || isDateInRange(project.endDate, dateFilter);
-      // For Projects page, optional project-name filter (mainly to spotlight one project)
-      const matchesName = filterProjectName === "all" || project.id === filterProjectName;
+      const matchesDate = isDateInRange(project);
+      // For Projects page, optional project-name filter (mainly to spotlight selected projects)
+      const matchesName = filterProjectName.length === 0 || filterProjectName.includes(project.id);
 
       const matchesCompletion =
         completionFilter === 'show' ||
@@ -413,7 +475,7 @@ const Projects = () => {
 
       return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesName && matchesCompletion;
     }));
-  }, [projects, searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab, sortBy, sortDirection, userIdentifiers, completionFilter]);
+  }, [projects, searchQuery, filterStatuses, filterPriorities, startDateFilter, endDateFilter, filterProjectName, tab, sortBy, sortDirection, userIdentifiers, completionFilter]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
@@ -424,7 +486,7 @@ const Projects = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterStatuses, filterPriorities, dateFilter, filterProjectName, tab, completionFilter]);
+  }, [searchQuery, filterStatuses, filterPriorities, startDateFilter, endDateFilter, filterProjectName, tab, completionFilter]);
 
   // Reset to last valid page if current page exceeds total pages
   useEffect(() => {
@@ -938,15 +1000,109 @@ const Projects = () => {
           <div className="w-full">
             {/* All Controls in One Line */}
             <div className="flex items-center justify-between">
-              {/* Search Bar - Left side */}
-              <div className="relative w-80 mr-auto">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search projects..."
-                  className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-300 dark:border-gray-600 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end dark:text-white dark:placeholder-gray-400"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+              {/* Search Bar and Columns Filter - Left side */}
+              <div className="flex items-center gap-2 mr-auto">
+                <div className="relative w-80">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search projects..."
+                    className="pl-10 bg-white/80 dark:bg-gray-700/80 border-gray-300 dark:border-gray-600 focus:border-tasksmate-green-end focus:ring-tasksmate-green-end dark:text-white dark:placeholder-gray-400"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+
+                {/* Column Filter – Multi-select */}
+                <DropdownMenu open={isColumnDropdownOpen} onOpenChange={setIsColumnDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <span className="flex-1 text-left">
+                        Columns to Display {availableColumns.length - visibleColumns.length > 0 ? `(${visibleColumns.length}/${availableColumns.length})` : ''}
+                      </span>
+                      <ChevronDown className="w-4 h-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-48 p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
+                    {/* Sticky header */}
+                    <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
+                      <DropdownMenuLabel className="text-xs p-2">
+                        <div className="flex items-center justify-end">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTempVisibleColumns(availableColumns.map(col => col.key));
+                              }}
+                            >
+                              All
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTempVisibleColumns(availableColumns.filter(col => col.alwaysVisible).map(col => col.key));
+                              }}
+                            >
+                              Clear
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setVisibleColumns(tempVisibleColumns); // Apply the changes
+                                setIsColumnDropdownOpen(false);
+                              }}
+                            >
+                              Apply
+                            </Button>
+                          </div>
+                        </div>
+                      </DropdownMenuLabel>
+                    </div>
+                    
+                    {/* Scrollable content */}
+                    <div className="max-h-64 overflow-y-auto">
+                      {availableColumns.map(col => (
+                        <DropdownMenuItem
+                          key={col.key}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (col.alwaysVisible) return; // Prevent hiding always visible columns
+                            const isCurrentlyVisible = tempVisibleColumns.includes(col.key);
+                            setTempVisibleColumns(isCurrentlyVisible 
+                              ? tempVisibleColumns.filter(c => c !== col.key)
+                              : [...tempVisibleColumns, col.key]
+                            );
+                          }}
+                          className="cursor-pointer mx-2"
+                          disabled={col.alwaysVisible}
+                          onSelect={(e) => e.preventDefault()} // Prevent dropdown from closing
+                        >
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                              tempVisibleColumns.includes(col.key) 
+                                ? 'bg-blue-600 border-blue-600' 
+                                : 'border-gray-300'
+                            } ${col.alwaysVisible ? 'bg-gray-300 border-gray-300' : ''}`}>
+                              {tempVisibleColumns.includes(col.key) && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs ${col.alwaysVisible ? 'bg-gray-200 text-gray-500' : 'bg-blue-100 text-blue-800'}`}>
+                              {col.label}
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Filters and Controls - Right side */}
@@ -1009,47 +1165,139 @@ const Projects = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Project Filter (focus on a single project) */}
-                <Select value={filterProjectName} onValueChange={setFilterProjectName}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Projects</span>
-                    </SelectItem>
-                    {projects.sort((a, b) => a.name.localeCompare(b.name)).map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">{p.name}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Project Filter – Multi-select */}
+                <DropdownMenu open={isProjectDropdownOpen} onOpenChange={setIsProjectDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-40">
+                      <span className="flex-1 text-left">
+                        {filterProjectName.length === projects.length && projects.length > 0
+                          ? "All Projects"
+                          : filterProjectName.length > 0
+                          ? "Selected Projects"
+                          : "Projects"
+                        }
+                      </span>
+                      <ChevronDown className="w-4 h-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-48 p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
+                    {/* Sticky header */}
+                    <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
+                      <DropdownMenuLabel className="text-xs p-2">
+                        <div className="flex items-center justify-end">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTempFilterProjectName(projects.map(p => p.id));
+                              }}
+                            >
+                              All
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTempFilterProjectName([]);
+                              }}
+                            >
+                              Clear
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFilterProjectName(tempFilterProjectName); // Apply the changes
+                                setIsProjectDropdownOpen(false);
+                              }}
+                            >
+                              Apply
+                            </Button>
+                          </div>
+                        </div>
+                      </DropdownMenuLabel>
+                    </div>
+                    
+                    {/* Scrollable content */}
+                    <div className="max-h-64 overflow-y-auto">
+                      {projects.sort((a, b) => a.name.localeCompare(b.name)).map(project => (
+                        <DropdownMenuItem
+                          key={project.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const isCurrentlySelected = tempFilterProjectName.includes(project.id);
+                            setTempFilterProjectName(isCurrentlySelected 
+                              ? tempFilterProjectName.filter(id => id !== project.id)
+                              : [...tempFilterProjectName, project.id]
+                            );
+                          }}
+                          className="cursor-pointer mx-2"
+                          onSelect={(e) => e.preventDefault()} // Prevent dropdown from closing
+                        >
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                              tempFilterProjectName.includes(project.id) 
+                                ? 'bg-blue-600 border-blue-600' 
+                                : 'border-gray-300'
+                            }`}>
+                              {tempFilterProjectName.includes(project.id) && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <span className="px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">
+                              {project.name}
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                {/* Date Filter */}
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="w-36">
-                    <CalendarRange className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="Date Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">All Dates</span>
-                    </SelectItem>
-                    <SelectItem value="thisWeek">
-                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">This Week</span>
-                    </SelectItem>
-                    <SelectItem value="thisMonth">
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">This Month</span>
-                    </SelectItem>
-                    <SelectItem value="nextMonth">
-                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Next Month</span>
-                    </SelectItem>
-                    <SelectItem value="overdue">
-                      <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">Overdue</span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Date Range Filters */}
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
+                    <CalendarRange className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm text-gray-600 whitespace-nowrap">Start:</span>
+                    <Input
+                      type="date"
+                      value={startDateFilter}
+                      onChange={(e) => setStartDateFilter(e.target.value)}
+                      className="w-36 h-8 text-xs"
+                      placeholder="Start date"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-sm text-gray-600 whitespace-nowrap">End:</span>
+                    <Input
+                      type="date"
+                      value={endDateFilter}
+                      onChange={(e) => setEndDateFilter(e.target.value)}
+                      className="w-36 h-8 text-xs"
+                      placeholder="End date"
+                    />
+                  </div>
+                  {(startDateFilter || endDateFilter) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setStartDateFilter('');
+                        setEndDateFilter('');
+                      }}
+                      className="h-8 px-2 text-xs text-gray-500 hover:text-gray-700"
+                      title="Clear date filters"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
 
                 {/* Sort Options */}
                 <DropdownMenu>
@@ -1097,9 +1345,106 @@ const Projects = () => {
 
         <div className="px-6 py-2">
           <div className="w-full">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Showing {filteredProjects.length} of {projects.length} projects
-            </p>
+            {/* Top Pagination and Project Count */}
+            {filteredProjects.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredProjects.length)} of {filteredProjects.length} projects
+                </div>
+
+                <div className="flex items-center space-x-2 flex-wrap justify-center">
+                  {/* Previous button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1"
+                  >
+                    Previous
+                  </Button>
+
+                  {/* Page numbers */}
+                  <div className="flex items-center space-x-1">
+                    {(() => {
+                      const pages = [];
+                      const maxVisiblePages = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+                      // Adjust start if we're near the end
+                      if (endPage - startPage < maxVisiblePages - 1) {
+                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                      }
+
+                      // First page + ellipsis
+                      if (startPage > 1) {
+                        pages.push(
+                          <Button
+                            key={1}
+                            variant={1 === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(1)}
+                            className="w-8 h-8 p-0"
+                          >
+                            1
+                          </Button>
+                        );
+                        if (startPage > 2) {
+                          pages.push(<span key="ellipsis1" className="text-gray-400 px-2">...</span>);
+                        }
+                      }
+
+                      // Visible page numbers
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <Button
+                            key={i}
+                            variant={i === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(i)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {i}
+                          </Button>
+                        );
+                      }
+
+                      // Last page + ellipsis
+                      if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                          pages.push(<span key="ellipsis2" className="text-gray-400 px-2">...</span>);
+                        }
+                        pages.push(
+                          <Button
+                            key={totalPages}
+                            variant={totalPages === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {totalPages}
+                          </Button>
+                        );
+                      }
+
+                      return pages;
+                    })()}
+                  </div>
+
+                  {/* Next button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1133,7 +1478,7 @@ const Projects = () => {
                     </div>
                     <p className="text-gray-500 dark:text-gray-300 text-lg mb-2">No projects found</p>
                     <p className="text-gray-400 dark:text-gray-500 mb-4">
-                      {searchQuery || filterStatuses.length > 0 || filterPriorities.length > 0 || dateFilter !== "all" || filterProjectName !== "all"
+                      {searchQuery || filterStatuses.length > 0 || filterPriorities.length > 0 || startDateFilter || endDateFilter || filterProjectName.length > 0
                         ? "Try adjusting your filters or search query"
                         : "Create your first project to get started"
                       }
@@ -1153,16 +1498,16 @@ const Projects = () => {
                           <TableHeader className="bg-gray-50 dark:bg-gray-800">
                             <TableRow>
                               <TableHead className="w-12 text-center flex-shrink-0"></TableHead>
-                              <TableHead className="w-20 sm:w-24 md:w-28 text-center min-w-[5rem]">ID</TableHead>
-                              <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60">Title</TableHead>
-                              <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80">Description</TableHead>
-                              <TableHead className="w-50 sm:w-50 md:w-50 text-center">Progress</TableHead>
-                              <TableHead className="w-24 sm:w-28 md:w-32 text-center">Status</TableHead>
-                              <TableHead className="w-24 sm:w-28 md:w-32 text-center">Priority</TableHead>
-                              <TableHead className="w-28 sm:w-32 md:w-40 text-center">Owner</TableHead>
-                              <TableHead className="w-32 sm:w-32 md:w-40 text-center">Start Date</TableHead>
-                              <TableHead className="w-32 sm:w-32 md:w-40 text-center">Due Date</TableHead>
-                              <TableHead className="w-32 sm:w-32 md:w-40 text-center">Members</TableHead>
+                              {visibleColumns.includes('id') && <TableHead className="w-20 sm:w-24 md:w-28 text-center min-w-[5rem]">ID</TableHead>}
+                              {visibleColumns.includes('title') && <TableHead className="min-w-[150px] sm:min-w-[180px] md:w-60">Title</TableHead>}
+                              {visibleColumns.includes('description') && <TableHead className="min-w-[200px] sm:min-w-[250px] md:w-80">Description</TableHead>}
+                              {visibleColumns.includes('progress') && <TableHead className="w-50 sm:w-50 md:w-50 text-center">Progress</TableHead>}
+                              {visibleColumns.includes('status') && <TableHead className="w-24 sm:w-28 md:w-32 text-center">Status</TableHead>}
+                              {visibleColumns.includes('priority') && <TableHead className="w-24 sm:w-28 md:w-32 text-center">Priority</TableHead>}
+                              {visibleColumns.includes('owner') && <TableHead className="w-28 sm:w-32 md:w-40 text-center">Owner</TableHead>}
+                              {visibleColumns.includes('startDate') && <TableHead className="w-32 sm:w-32 md:w-40 text-center">Start Date</TableHead>}
+                              {visibleColumns.includes('dueDate') && <TableHead className="w-32 sm:w-32 md:w-40 text-center">Due Date</TableHead>}
+                              {visibleColumns.includes('members') && <TableHead className="w-32 sm:w-32 md:w-40 text-center">Members</TableHead>}
                               {/* <TableHead className="w-40 text-center font-bold">Tags</TableHead> */}
                               <TableHead className="w-20 sm:w-24 text-center flex-shrink-0">Actions</TableHead>
                             </TableRow>
@@ -1202,265 +1547,285 @@ const Projects = () => {
                                     )}
                                   </div>
                                 </TableCell>
-                                <TableCell className="text-center p-2">
-                                  <div className="flex justify-center min-w-0">
-                                    <CopyableBadge copyText={project.id} org_id={currentOrgId ?? ''} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white max-w-full min-w-0 flex-shrink">
-                                      {project.id}
-                                    </CopyableBadge>
-                                  </div>
-                                </TableCell>
-
-                                <TableCell className="font-medium">
-                                  <div className="flex items-center">
-                                    <div
-                                      className={`truncate ${project.status === 'completed' ? 'line-through text-gray-400 cursor-pointer' : 'hover:underline cursor-pointer'}`}
-                                      ref={(el) => {
-                                        if (el) {
-                                          // Check if text is truncated
-                                          const isTrunc = el.scrollWidth > el.clientWidth;
-                                          if (isTruncated[project.id] !== isTrunc) {
-                                            setIsTruncated(prev => ({ ...prev, [project.id]: isTrunc }));
-                                          }
-                                        }
-                                      }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (
-                                          // check for project membership or project creation
-                                          !(project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
-                                            || userDisplayMap[user?.id]?.isOwner)
-                                        ) {
-                                          toast({
-                                            title: "Access Denied",
-                                            description: "You do not have permission to view this project",
-                                            variant: "destructive"
-                                          });
-                                          return;
-                                        }
-                                        handleProjectClick(project.id);
-                                      }}
-                                    >
-                                      {project.name}
+                                {visibleColumns.includes('id') && (
+                                  <TableCell className="text-center p-2">
+                                    <div className="flex justify-center min-w-0">
+                                      <CopyableBadge copyText={project.id} org_id={currentOrgId ?? ''} variant="default" className="text-xs font-mono bg-blue-600 text-white hover:bg-blue-600 hover:text-white max-w-full min-w-0 flex-shrink">
+                                        {project.id}
+                                      </CopyableBadge>
                                     </div>
-                                    {isTruncated[project.id] && (
-                                      <Button
-                                        variant="ghost"
-                                        className="ml-1 p-0 h-6 w-6 shrink-0"
+                                  </TableCell>
+                                )}
+
+                                {visibleColumns.includes('title') && (
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center">
+                                      <div
+                                        className={`truncate ${project.status === 'completed' ? 'line-through text-gray-400 cursor-pointer' : 'hover:underline cursor-pointer'}`}
+                                        ref={(el) => {
+                                          if (el) {
+                                            // Check if text is truncated
+                                            const isTrunc = el.scrollWidth > el.clientWidth;
+                                            if (isTruncated[project.id] !== isTrunc) {
+                                              setIsTruncated(prev => ({ ...prev, [project.id]: isTrunc }));
+                                            }
+                                          }
+                                        }}
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setSelectedProject(project);
-                                          setIsDialogOpen(true);
+                                          if (
+                                            // check for project membership or project creation
+                                            !(project.teamMembers.some(member => member === user?.id || member === user?.user_metadata?.username)
+                                              || userDisplayMap[user?.id]?.isOwner)
+                                          ) {
+                                            toast({
+                                              title: "Access Denied",
+                                              description: "You do not have permission to view this project",
+                                              variant: "destructive"
+                                            });
+                                            return;
+                                          }
+                                          handleProjectClick(project.id);
                                         }}
                                       >
-                                        <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  <div className="min-w-0 max-w-xs">
-                                    <div
-                                      className="text-sm text-gray-600 dark:text-gray-300 break-words overflow-hidden"
-                                      style={{
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 2,
-                                        WebkitBoxOrient: 'vertical',
-                                        lineHeight: '1.4em',
-                                        maxHeight: '2.8em'
-                                      }}
-                                      title={project.description}
-                                    >
-                                      {project.description}
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center" onClick={() => handleNavigation('tasks_catalog', project.id)}>
-                                  <div className="flex flex-col items-center">
-                                    <div className="w-full items-center space-x-2">
-                                      <div className="flex items-center space-x-2">
-                                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                                          <div
-                                            className="bg-tasksmate-gradient h-2 rounded-full"
-                                            style={{ width: `${project.progress}%` }}
-                                          />
-                                        </div>
-                                        <span className="text-xs text-gray-600 dark:text-gray-300 w-20">{project.progress}%</span>
+                                        {project.name}
                                       </div>
-                                    </div>
-                                    <div className="w-full items-center text-xs text-gray-500 mt-2">
-                                      <span>(<span className="font-semibold text-xs">{project.completedTasks}</span>/<span className="font-semibold text-xs">{project.tasksCount}</span>
-                                        <span className="ml-1 font-semibold text-xs">Tasks Completed</span>)</span>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex justify-center">
-                                    <Select
-                                      value={project.status}
-                                      onValueChange={(value) => {
-                                        // Optimistic update
-                                        setProjects(prev =>
-                                          prev.map(p => p.id === project.id ? { ...p, status: value } : p)
-                                        );
-                                        toast({
-                                          title: "Updating project status",
-                                          description: "Please wait...",
-                                        });
-                                        // API update
-                                        api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { status: value })
-                                          .then(() => {
-                                            toast({
-                                              title: "Success",
-                                              description: "Project status updated successfully!",
-                                              variant: "default"
-                                            });
-                                          })
-                                          .catch(error => {
-                                            console.error('Failed to update status:', error);
-                                            // Revert on error
-                                            setProjects(prev =>
-                                              prev.map(p => p.id === project.id ? { ...p, status: project.status } : p)
-                                            );
-                                            toast({
-                                              title: "Error",
-                                              description: "Failed to update status",
-                                              variant: "destructive"
-                                            });
-                                          });
-                                      }}
-
-                                      disabled={
-                                        // check for project membership or project creation
-                                        !((project.owner === user?.user_metadata?.username || project.owner === user?.id)
-                                          || userDisplayMap[user?.id]?.isOwner)
-                                      }
-                                    >
-                                      <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${getStatusMeta(project.status).color}`}>
-                                        <SelectValue>{getStatusMeta(project.status).label}</SelectValue>
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {[
-                                          { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
-                                          { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
-                                          { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
-                                          { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
-                                          { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
-                                          { value: 'planning', label: 'Planning', cls: 'bg-purple-100 text-purple-800' },
-                                          { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
-                                          { value: 'active', label: 'Active', cls: 'bg-blue-100 text-blue-800' },
-                                        ].map(opt => (
-                                          <SelectItem key={opt.value} value={opt.value}>
-                                            <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex justify-center">
-                                    <Select
-                                      value={project.priority}
-                                      onValueChange={(value) => {
-                                        // Optimistic update
-                                        setProjects(prev =>
-                                          prev.map(p => p.id === project.id ? { ...p, priority: value } : p)
-                                        );
-                                        toast({
-                                          title: "Updating project priority",
-                                          description: "Please wait...",
-                                        });
-                                        // API update
-                                        api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { priority: value })
-                                          .then(() => {
-                                            toast({
-                                              title: "Success",
-                                              description: "Project priority updated successfully!",
-                                              variant: "default"
-                                            });
-                                          })
-                                          .catch(error => {
-                                            console.error('Failed to update priority:', error);
-                                            // Revert on error
-                                            setProjects(prev =>
-                                              prev.map(p => p.id === project.id ? { ...p, priority: project.priority } : p)
-                                            );
-                                            toast({
-                                              title: "Error",
-                                              description: "Failed to update priority",
-                                              variant: "destructive"
-                                            });
-                                          });
-                                      }}
-                                      disabled={
-                                        // check for project membership or project creation
-                                        !((project.owner === user?.user_metadata?.username || project.owner === user?.id)
-                                          || userDisplayMap[user?.id]?.isOwner)
-                                      }
-                                    >
-                                      <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(project.priority)}`}>
-                                        <SelectValue>{project.priority?.toUpperCase()}</SelectValue>
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {['critical', 'high', 'medium', 'low', 'none'].map(p => (
-                                          <SelectItem key={p} value={p}>
-                                            <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex justify-center">
-                                    <Badge className="text-xs bg-indigo-100 text-indigo-800">
-                                      {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
-                                    </Badge>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <DateBadge date={project.startDate ? project.startDate : project.createdAt} className="text-xs bg-blue-100 text-blue-800" />
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <DateBadge date={project.endDate ? project.endDate : project.createdAt} className="text-xs bg-rose-100 text-rose-800" />
-                                </TableCell>
-
-                                <TableCell className="text-center">
-                                  <div className="flex justify-center">
-                                    <div className="flex -space-x-2">
-                                      {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
-                                      {project.teamMembers.length > 3 && (
-                                        <HoverCard>
-                                          <HoverCardTrigger asChild>
-                                            <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
-                                              <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
-                                            </div>
-                                          </HoverCardTrigger>
-                                          <HoverCardContent className="p-2 bg-white w-fit max-w-[280px]">
-                                            <div className="text-sm font-medium mb-1">Team Members</div>
-                                            <div className="grid grid-cols-2 gap-2">
-                                              {project.teamMembers.slice(3).map((memberId, idx) => {
-                                                const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
-                                                return info && (
-                                                  <div key={idx} className="flex items-center gap-2">
-                                                    <Avatar className="w-8 h-8 border-2 border-white">
-                                                      <AvatarFallback className="text-xs bg-tasksmate-gradient text-gray-200">
-                                                        {info.initials}
-                                                      </AvatarFallback>
-                                                    </Avatar>
-                                                    <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
-                                                      {info.displayName}
-                                                    </Badge>
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          </HoverCardContent>
-                                        </HoverCard>
+                                      {isTruncated[project.id] && (
+                                        <Button
+                                          variant="ghost"
+                                          className="ml-1 p-0 h-6 w-6 shrink-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedProject(project);
+                                            setIsDialogOpen(true);
+                                          }}
+                                        >
+                                          <Maximize2 className="h-4 w-4 text-gray-400 hover:text-gray-700" />
+                                        </Button>
                                       )}
                                     </div>
-                                  </div>
-                                </TableCell>
+                                  </TableCell>
+                                )}
+                                {visibleColumns.includes('description') && (
+                                  <TableCell className="font-medium">
+                                    <div className="min-w-0 max-w-xs">
+                                      <div
+                                        className="text-sm text-gray-600 dark:text-gray-300 break-words overflow-hidden"
+                                        style={{
+                                          display: '-webkit-box',
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: 'vertical',
+                                          lineHeight: '1.4em',
+                                          maxHeight: '2.8em'
+                                        }}
+                                        title={project.description}
+                                      >
+                                        {project.description}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                )}
+                                {visibleColumns.includes('progress') && (
+                                  <TableCell className="text-center" onClick={() => handleNavigation('tasks_catalog', project.id)}>
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-full items-center space-x-2">
+                                        <div className="flex items-center space-x-2">
+                                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                            <div
+                                              className="bg-tasksmate-gradient h-2 rounded-full"
+                                              style={{ width: `${project.progress}%` }}
+                                            />
+                                          </div>
+                                          <span className="text-xs text-gray-600 dark:text-gray-300 w-20">{project.progress}%</span>
+                                        </div>
+                                      </div>
+                                      <div className="w-full items-center text-xs text-gray-500 mt-2">
+                                        <span>(<span className="font-semibold text-xs">{project.completedTasks}</span>/<span className="font-semibold text-xs">{project.tasksCount}</span>
+                                          <span className="ml-1 font-semibold text-xs">Tasks Completed</span>)</span>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                )}
+                                {visibleColumns.includes('status') && (
+                                  <TableCell className="text-center">
+                                    <div className="flex justify-center">
+                                      <Select
+                                        value={project.status}
+                                        onValueChange={(value) => {
+                                          // Optimistic update
+                                          setProjects(prev =>
+                                            prev.map(p => p.id === project.id ? { ...p, status: value } : p)
+                                          );
+                                          toast({
+                                            title: "Updating project status",
+                                            description: "Please wait...",
+                                          });
+                                          // API update
+                                          api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { status: value })
+                                            .then(() => {
+                                              toast({
+                                                title: "Success",
+                                                description: "Project status updated successfully!",
+                                                variant: "default"
+                                              });
+                                            })
+                                            .catch(error => {
+                                              console.error('Failed to update status:', error);
+                                              // Revert on error
+                                              setProjects(prev =>
+                                                prev.map(p => p.id === project.id ? { ...p, status: project.status } : p)
+                                              );
+                                              toast({
+                                                title: "Error",
+                                                description: "Failed to update status",
+                                                variant: "destructive"
+                                              });
+                                            });
+                                        }}
+
+                                        disabled={
+                                          // check for project membership or project creation
+                                          !((project.owner === user?.user_metadata?.username || project.owner === user?.id)
+                                            || userDisplayMap[user?.id]?.isOwner)
+                                        }
+                                      >
+                                        <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[7rem] border-0 ${getStatusMeta(project.status).color}`}>
+                                          <SelectValue>{getStatusMeta(project.status).label}</SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {[
+                                            { value: 'not_started', label: 'Not Started', cls: 'bg-gray-100 text-gray-800' },
+                                            { value: 'in_progress', label: 'In Progress', cls: 'bg-blue-100 text-blue-800' },
+                                            { value: 'completed', label: 'Completed', cls: 'bg-green-100 text-green-800' },
+                                            { value: 'blocked', label: 'Blocked', cls: 'bg-red-100 text-red-800' },
+                                            { value: 'on_hold', label: 'On Hold', cls: 'bg-yellow-100 text-yellow-800' },
+                                            { value: 'planning', label: 'Planning', cls: 'bg-purple-100 text-purple-800' },
+                                            { value: 'archived', label: 'Archived', cls: 'bg-black text-white' },
+                                            { value: 'active', label: 'Active', cls: 'bg-blue-100 text-blue-800' },
+                                          ].map(opt => (
+                                            <SelectItem key={opt.value} value={opt.value}>
+                                              <span className={`px-2 py-1 rounded-full text-xs ${opt.cls}`}>{opt.label}</span>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </TableCell>
+                                )}
+                                {visibleColumns.includes('priority') && (
+                                  <TableCell className="text-center">
+                                    <div className="flex justify-center">
+                                      <Select
+                                        value={project.priority}
+                                        onValueChange={(value) => {
+                                          // Optimistic update
+                                          setProjects(prev =>
+                                            prev.map(p => p.id === project.id ? { ...p, priority: value } : p)
+                                          );
+                                          toast({
+                                            title: "Updating project priority",
+                                            description: "Please wait...",
+                                          });
+                                          // API update
+                                          api.put(`${API_ENDPOINTS.PROJECTS}/${project.id}`, { priority: value })
+                                            .then(() => {
+                                              toast({
+                                                title: "Success",
+                                                description: "Project priority updated successfully!",
+                                                variant: "default"
+                                              });
+                                            })
+                                            .catch(error => {
+                                              console.error('Failed to update priority:', error);
+                                              // Revert on error
+                                              setProjects(prev =>
+                                                prev.map(p => p.id === project.id ? { ...p, priority: project.priority } : p)
+                                              );
+                                              toast({
+                                                title: "Error",
+                                                description: "Failed to update priority",
+                                                variant: "destructive"
+                                              });
+                                            });
+                                        }}
+                                        disabled={
+                                          // check for project membership or project creation
+                                          !((project.owner === user?.user_metadata?.username || project.owner === user?.id)
+                                            || userDisplayMap[user?.id]?.isOwner)
+                                        }
+                                      >
+                                        <SelectTrigger className={`h-8 px-2 py-0 w-fit min-w-[5rem] border-0 ${getPriorityColor(project.priority)}`}>
+                                          <SelectValue>{project.priority?.toUpperCase()}</SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {['critical', 'high', 'medium', 'low', 'none'].map(p => (
+                                            <SelectItem key={p} value={p}>
+                                              <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(p)}`}>{p.toUpperCase()}</span>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </TableCell>
+                                )}
+                                {visibleColumns.includes('owner') && (
+                                  <TableCell className="text-center">
+                                    <div className="flex justify-center">
+                                      <Badge className="text-xs bg-indigo-100 text-indigo-800">
+                                        {userDisplayMap[project.owner]?.displayName ?? deriveDisplayFromEmail(project.owner).displayName}
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                )}
+                                {visibleColumns.includes('startDate') && (
+                                  <TableCell className="text-center">
+                                    <DateBadge date={project.startDate ? project.startDate : project.createdAt} className="text-xs bg-blue-100 text-blue-800" />
+                                  </TableCell>
+                                )}
+                                {visibleColumns.includes('dueDate') && (
+                                  <TableCell className="text-center">
+                                    <DateBadge date={project.endDate ? project.endDate : project.createdAt} className="text-xs bg-rose-100 text-rose-800" />
+                                  </TableCell>
+                                )}
+
+                                {visibleColumns.includes('members') && (
+                                  <TableCell className="text-center">
+                                    <div className="flex justify-center">
+                                      <div className="flex -space-x-2">
+                                        {project.teamMembers.slice(0, 3).map((m, idx) => renderMemberAvatar(m, idx))}
+                                        {project.teamMembers.length > 3 && (
+                                          <HoverCard>
+                                            <HoverCardTrigger asChild>
+                                              <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center cursor-pointer">
+                                                <span className="text-xs text-gray-600">+{project.teamMembers.length - 3}</span>
+                                              </div>
+                                            </HoverCardTrigger>
+                                            <HoverCardContent className="p-2 bg-white w-fit max-w-[280px]">
+                                              <div className="text-sm font-medium mb-1">Team Members</div>
+                                              <div className="grid grid-cols-2 gap-2">
+                                                {project.teamMembers.slice(3).map((memberId, idx) => {
+                                                  const info = userDisplayMap[memberId] ?? deriveDisplayFromEmail(memberId);
+                                                  return info && (
+                                                    <div key={idx} className="flex items-center gap-2">
+                                                      <Avatar className="w-8 h-8 border-2 border-white">
+                                                        <AvatarFallback className="text-xs bg-tasksmate-gradient text-gray-200">
+                                                          {info.initials}
+                                                        </AvatarFallback>
+                                                      </Avatar>
+                                                      <Badge className="text-xs bg-indigo-100 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-800">
+                                                        {info.displayName}
+                                                      </Badge>
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                            </HoverCardContent>
+                                          </HoverCard>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                )}
 
                                 {/* <TableCell className="text-center">
                         <div className="flex flex-wrap justify-center gap-1">
