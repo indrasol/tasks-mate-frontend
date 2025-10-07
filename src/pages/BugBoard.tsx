@@ -50,6 +50,7 @@ type Bug = {
   closedDate?: string;  // date when bug was closed
   tracker_id?: string;
   creator?: string;
+  assignee?: string;
 };
 
 const BugBoard = () => {
@@ -193,6 +194,7 @@ const BugBoard = () => {
             closedDate: closedDate,
             tracker_id: bug.tracker_id || '',
             creator: bug.creator || bug.reporter || '',
+            assignee: bug.assignee || '',
           };
         });
 
@@ -636,6 +638,7 @@ const BugBoard = () => {
               <TableHead className="text-center">Title</TableHead>
               <TableHead className="text-center">Severity</TableHead>
               <TableHead className="text-center">Tags</TableHead>
+              <TableHead className="text-center">Assigned To</TableHead>
               <TableHead className="text-center">Created By</TableHead>
               <TableHead className="text-center">Created Date</TableHead>
               <TableHead className="text-center">Closed Date</TableHead>
@@ -706,6 +709,13 @@ const BugBoard = () => {
                         +{bug?.tags?.length - 2}
                       </Badge>
                     )}
+                  </div>
+                </TableCell>
+                <TableCell className="text-center">
+                  <div className="flex justify-center">
+                    <Badge className="text-xs bg-indigo-100 text-indigo-800">
+                      {userDisplayMap[bug.assignee]?.displayName ?? deriveDisplayFromEmail(bug.assignee).displayName}
+                    </Badge>
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
