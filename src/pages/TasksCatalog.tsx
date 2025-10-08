@@ -80,11 +80,11 @@ const TasksCatalog = () => {
   useEffect(() => {
     if (!loading && !user) {
       navigate('/', {
-                      state: {
-                          redirectTo: location.pathname + location.search
-                      },
-                      replace: true
-                  });
+        state: {
+          redirectTo: location.pathname + location.search
+        },
+        replace: true
+      });
     }
   }, [user, loading, navigate]);
 
@@ -995,7 +995,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         </div>
                       </DropdownMenuLabel>
                     </div>
-                    
+
                     {/* Scrollable content */}
                     <div className="max-h-64 overflow-y-auto">
                       {availableColumns.map(col => (
@@ -1005,7 +1005,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                             e.stopPropagation();
                             if (col.alwaysVisible) return; // Prevent hiding always visible columns
                             const isCurrentlyVisible = tempVisibleColumns.includes(col.key);
-                            setTempVisibleColumns(isCurrentlyVisible 
+                            setTempVisibleColumns(isCurrentlyVisible
                               ? tempVisibleColumns.filter(c => c !== col.key)
                               : [...tempVisibleColumns, col.key]
                             );
@@ -1015,11 +1015,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           onSelect={(e) => e.preventDefault()} // Prevent dropdown from closing
                         >
                           <div className="flex items-center space-x-2">
-                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                              tempVisibleColumns.includes(col.key) 
-                                ? 'bg-blue-600 border-blue-600' 
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${tempVisibleColumns.includes(col.key)
+                                ? 'bg-blue-600 border-blue-600'
                                 : 'border-gray-300'
-                            } ${col.alwaysVisible ? 'bg-gray-300 border-gray-300' : ''}`}>
+                              } ${col.alwaysVisible ? 'bg-gray-300 border-gray-300' : ''}`}>
                               {tempVisibleColumns.includes(col.key) && (
                                 <Check className="w-3 h-3 text-white" />
                               )}
@@ -1114,8 +1113,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         {filterProject.length === projects.length && projects.length > 0
                           ? "All Projects"
                           : filterProject.length > 0
-                          ? "Selected Projects"
-                          : "Projects"
+                            ? `Projects (${filterProject.length})`
+                            : "Projects"
                         }
                       </span>
                       <ChevronDown className="w-4 h-4 ml-2" />
@@ -1164,7 +1163,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         </div>
                       </DropdownMenuLabel>
                     </div>
-                    
+
                     {/* Scrollable content */}
                     <div className="max-h-64 overflow-y-auto">
                       {projects.sort((a, b) => a.name.localeCompare(b.name)).map(project => (
@@ -1173,7 +1172,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           onClick={(e) => {
                             e.stopPropagation();
                             const isCurrentlySelected = tempFilterProject.includes(project.id);
-                            setTempFilterProject(isCurrentlySelected 
+                            setTempFilterProject(isCurrentlySelected
                               ? tempFilterProject.filter(id => id !== project.id)
                               : [...tempFilterProject, project.id]
                             );
@@ -1182,11 +1181,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           onSelect={(e) => e.preventDefault()} // Prevent dropdown from closing
                         >
                           <div className="flex items-center space-x-2">
-                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                              tempFilterProject.includes(project.id) 
-                                ? 'bg-blue-600 border-blue-600' 
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${tempFilterProject.includes(project.id)
+                                ? 'bg-blue-600 border-blue-600'
                                 : 'border-gray-300'
-                            }`}>
+                              }`}>
                               {tempFilterProject.includes(project.id) && (
                                 <Check className="w-3 h-3 text-white" />
                               )}
@@ -1208,11 +1206,16 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                       <span className="flex-1 text-left">
                         {(() => {
                           const uniqueOwners = getUniqueOwners();
-                          return filterOwner.length === uniqueOwners.length && uniqueOwners.length > 0
+                          const uniqueOwnerIds = new Set(uniqueOwners.map(owner => owner.id));
+                          const allSelected = uniqueOwners.length > 0 &&
+                            filterOwner.length === uniqueOwners.length &&
+                            filterOwner.every(id => uniqueOwnerIds.has(id));
+
+                          return allSelected
                             ? "All Owners"
                             : filterOwner.length > 0
-                            ? "Selected Owners"
-                            : "Owners";
+                              ? `Owners (${filterOwner.length})`
+                              : "Owners";
                         })()}
                       </span>
                       <ChevronDown className="w-4 h-4 ml-2" />
@@ -1262,7 +1265,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                         </div>
                       </DropdownMenuLabel>
                     </div>
-                    
+
                     {/* Scrollable content */}
                     <div className="max-h-64 overflow-y-auto">
                       {getUniqueOwners().sort((a, b) => a.displayName.localeCompare(b.displayName)).map(owner => (
@@ -1271,7 +1274,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           onClick={(e) => {
                             e.stopPropagation();
                             const isCurrentlySelected = tempFilterOwner.includes(owner.id);
-                            setTempFilterOwner(isCurrentlySelected 
+                            setTempFilterOwner(isCurrentlySelected
                               ? tempFilterOwner.filter(id => id !== owner.id)
                               : [...tempFilterOwner, owner.id]
                             );
@@ -1280,11 +1283,10 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                           onSelect={(e) => e.preventDefault()} // Prevent dropdown from closing
                         >
                           <div className="flex items-center space-x-2">
-                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                              tempFilterOwner.includes(owner.id) 
-                                ? 'bg-blue-600 border-blue-600' 
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${tempFilterOwner.includes(owner.id)
+                                ? 'bg-blue-600 border-blue-600'
                                 : 'border-gray-300'
-                            }`}>
+                              }`}>
                               {tempFilterOwner.includes(owner.id) && (
                                 <Check className="w-3 h-3 text-white" />
                               )}
@@ -1828,7 +1830,9 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                 <TableCell className="text-center">
                                   <div className="flex justify-center" title={capitalizeFirstLetter(task.owner)}>
 
-                                    <Select value={task.owner} onValueChange={(value) => {
+                                    <Select
+                                  
+                                    value={task.owner} onValueChange={(value) => {
                                       // Optimistic update
                                       setTasks(prev =>
                                         prev.map(t => t.id === task.id ? { ...t, owner: value } : t)
@@ -1863,7 +1867,7 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                                           });
                                         });
                                     }}>
-                                      <SelectTrigger className="h-8 px-2 py-0 w-fit min-w-[5rem] border-0">
+                                      <SelectTrigger className="h-8 px-2 py-0 w-full min-w-[5rem] border-0">
                                         <SelectValue placeholder="Select owner" className="text-xs text-left" >
                                           {(() => {
                                             const { displayName } = deriveDisplayFromEmail((task.owner ?? '') as string);
@@ -1999,8 +2003,8 @@ const TasksCatalogContent = ({ navigate, user, signOut }: { navigate: any, user:
                               {visibleColumns.includes('bug') && (
                                 <TableCell className="text-center">
                                   {task.bug_id ? (
-                                    <Badge variant="outline" 
-                                    className="text-xs bg-red-600 hover:bg-red-700 whitespace-nowrap text-white cursor-pointer"
+                                    <Badge variant="outline"
+                                      className="text-xs bg-red-600 hover:bg-red-700 whitespace-nowrap text-white cursor-pointer"
                                       onClick={() => {
                                         handleBugNavigation(task.bug_id);
                                       }}

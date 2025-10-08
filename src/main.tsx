@@ -4,6 +4,39 @@ import ErrorBoundary from './components/ErrorBoundary.tsx'
 import './index.css'
 import { toast, Toaster } from 'sonner'
 
+const GTAG_DISABLE = import.meta.env.VITE_GTAG_DISABLE || 'false';
+const GA_ID = import.meta.env.VITE_GTAG_ID || 'G-GKEB4TKN5X';
+
+declare global {
+  interface Window {
+    dataLayer: any[];
+  }
+}
+let gtagScript: HTMLScriptElement | null = null;
+
+if ((GTAG_DISABLE.toLowerCase() === 'false' || GTAG_DISABLE.toLowerCase() === '0' || GTAG_DISABLE.toLowerCase() === 'off') && GA_ID) {
+  gtagScript = document.createElement('script');
+  gtagScript.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
+  gtagScript.async = true;
+  gtagScript.onload = () => {
+    window.dataLayer = window.dataLayer || [];
+    function gtag(...args: any[]) {
+      window.dataLayer.push(args);
+    }
+
+    gtag('js', new Date());
+    gtag('config', GA_ID);
+  };
+
+  document.head.appendChild(gtagScript);
+}
+else if (gtagScript && document.head.contains(gtagScript)) {
+  document.head.removeChild(gtagScript);
+  gtagScript = null;
+  // Optional: reset dataLayer
+  window.dataLayer = [];
+}
+
 const BUILD_ID = (import.meta.env.VITE_BUILD_ID as string) || '';
 
 function shouldDeferUpdate() {
