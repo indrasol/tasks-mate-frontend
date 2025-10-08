@@ -139,6 +139,7 @@ const TestRunDetail = ({
           // lowTasks: tracker.low_tasks || 0,
           // criticalTasks: tracker.critical_tasks || 0,
           // blockerTasks: tracker.blocker_tasks || 0,
+          closed: tracker?.completed_bugs || 0,
         }
       };
       setTestRun(mapped);

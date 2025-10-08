@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Target, Plus, Search, Calendar, X, Users, ChevronDown, Trash2, Maximize2, AlertTriangle } from 'lucide-react';
+import { Loader2, Target, Plus, Search, Calendar, X, Users, ChevronDown, Trash2, Maximize2, AlertTriangle, ChevronUp } from 'lucide-react';
 import { useOrgUserGoals } from '@/hooks/useOrgUserGoals';
 import { useOrganizationMembers } from '@/hooks/useOrganizationMembers';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +19,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createGoal, updateGoal, deleteGoal } from '@/services/goalService';
 import { toast } from '@/hooks/use-toast';
 import { listSections, createSection as createSectionApi, updateSection as updateSectionApi, deleteSection as deleteSectionApi } from '@/services/goalSectionsService';
+import DateBadge from './ui/date-badge';
 
 interface GoalsTabProps {
   orgId: string;
@@ -86,17 +87,27 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   const [sections, setSections] = useState<Section[]>([]);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [sectionTitleInputs, setSectionTitleInputs] = useState<Record<string, string>>({});
-  
+
+  // Expand/Collapse state
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [allExpanded, setAllExpanded] = useState<boolean>(true);
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
+
   // Load sections from backend
   useEffect(() => {
     let mounted = true;
     async function loadSections() {
       try {
-        const rows:any = await listSections(orgId);
+        const rows: any = await listSections(orgId);
         if (!mounted) return;
         const sorted = (rows || []).sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
         const mapped: Section[] = [
-          ...sorted.map((r: any) => ({ id: r.id, title: r.title || '', order: r.order ?? 0 }))
+          ...sorted.map((r: any) => ({ id: r.id, title: r.title ? (r.title.trim().length > 0 ? r.title.trim() : 'Title') : 'Title', order: r.order ?? 0 }))
         ];
         setSections(mapped);
       } catch (e) {
@@ -117,6 +128,41 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     () => (realOrgMembers?.length ? realOrgMembers : (membersFromHook || [])),
     [realOrgMembers, membersFromHook]
   );
+
+  const toggleSectionExpansion = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId);
+        setAllExpanded(false);
+      } else {
+        newSet.add(sectionId);
+        if (newSet.size === sections.length) {
+          setAllExpanded(true);
+        }
+      }
+      return newSet;
+    });
+  };
+
+  const expandAllSections = () => {
+    const allSectionIds = new Set(sections.map(section => section.id));
+    setExpandedSections(allSectionIds);
+    setAllExpanded(true);
+  };
+
+  const collapseAllSections = () => {
+    setExpandedSections(new Set());
+    setAllExpanded(false);
+  };
+
+  const toggleExpandCollapseAll = () => {
+    if (allExpanded) {
+      collapseAllSections();
+    } else {
+      expandAllSections();
+    }
+  };
 
   // Fetch all goals
   const filters = useMemo(() => ({
@@ -141,21 +187,60 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
 
   // Client-side filtering
   const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return items;
+    const bySearch = (arr: any[]) => {
+      if (!searchQuery.trim()) return arr;
+      const query = searchQuery.toLowerCase();
+      return arr.filter(goal => {
+        const title = (goal.title || '').toLowerCase();
+        const description = (goal.description || '').toLowerCase();
+        const category = (goal.category || []).map((c: string) => c.toLowerCase());
+        const subCategory = (goal.subCategory || []).map((c: string) => c.toLowerCase());
 
-    const query = searchQuery.toLowerCase();
-    return items.filter(goal => {
-      const title = (goal.title || '').toLowerCase();
-      const description = (goal.description || '').toLowerCase();
-      const category = (goal.category || []).map(c => c.toLowerCase());
-      const subCategory = (goal.subCategory || []).map(c => c.toLowerCase());
+        return (
+          title.includes(query) ||
+          description.includes(query) ||
+          category.some((c: string) => c.includes(query)) ||
+          subCategory.some((c: string) => c.includes(query))
+        );
+      });
+    };
 
-      return title.includes(query) ||
-        description.includes(query) ||
-        category.some(c => c.includes(query)) ||
-        subCategory.some(c => c.includes(query));
-    });
-  }, [items, searchQuery]);
+    const byMembers = (arr: any[]) => {
+      if (!selectedMembers.length) return arr;
+      const set = new Set(selectedMembers.map(String));
+      return arr.filter(g => {
+        const assignee = g?.assignees?.[0]?.userId;
+        return assignee ? set.has(String(assignee)) : false;
+      });
+    };
+
+    const byDateRange = (arr: any[]) => {
+      const from = dateRange.from ? new Date(dateRange.from) : undefined;
+      const to = dateRange.to ? new Date(dateRange.to) : undefined;
+      if (!from && !to) return arr;
+
+      const overlaps = (g: any) => {
+        const start = g.startDate ? new Date(g.startDate) : undefined;
+        const end = g.dueDate ? new Date(g.dueDate) : undefined;
+
+        const s = start ?? end ?? undefined;
+        const e = end ?? start ?? undefined;
+        if (!s && !e) return false;
+
+        if (from && !to) {
+          return (e ?? s) >= from;
+        }
+        if (!from && to) {
+          return (s ?? e) <= to;
+        }
+        return (s ?? e) <= to! && (e ?? s) >= from!;
+      };
+
+      return arr.filter(overlaps);
+    };
+
+    return byDateRange(byMembers(bySearch(items)));
+  }, [items, searchQuery, selectedMembers, dateRange]);
 
   // Mutations
   const createMutation = useMutation({
@@ -225,23 +310,25 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
 
   const addNewSection = async () => {
     try {
-      const response: any = await createSectionApi(orgId, { title: '', order: sections.length });
+      const response: any = await createSectionApi(orgId, { title: 'Title', order: sections.length });
       // Handle different possible response structures
       const created = response.data || response;
-      const newSectionId = created.id;
-      
+
+      const newSectionId = created && created.length > 0 ? created[0].id : created.id;
+
       if (!newSectionId) {
         throw new Error('Section ID not found in API response');
       }
-      
+
       const newSection: Section = {
         id: newSectionId,
-        title: created.title || '',
+        title: created.title ? (created.title.trim().length > 0 ? created.title.trim() : 'Title') : 'Title',
         order: created.order ?? sections.length
       };
       setSections([...sections, newSection]);
       setEditingSectionId(newSectionId);
       setSectionTitleInputs({ ...sectionTitleInputs, [newSectionId]: newSection.title });
+      setExpandedSections(new Set([...expandedSections, newSectionId]));
     } catch (e) {
       console.error('Failed to create section:', e);
       toast({ title: 'Failed to create section', variant: 'destructive' });
@@ -254,8 +341,8 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
       if (sectionId !== 'default-section') {
         await updateSectionApi(orgId, sectionId, { title });
       }
-      setSections(sections.map(s => 
-        s.id === sectionId ? { ...s, title } : s
+      setSections(sections.map(s =>
+        s.id === sectionId ? { ...s, title: title ? (title.trim().length > 0 ? title.trim() : 'Title') : 'Title' } : s
       ));
       setEditingSectionId(null);
     } catch (e) {
@@ -268,9 +355,9 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
     try {
       await deleteSectionApi(orgId, sectionId);
       // Move goals from deleted section to default section
-      setNewRows(newRows.map(row => 
-        row.sectionId === sectionId ? { ...row, sectionId: 'default-section' } : row
-      ));
+      const filteredRows = newRows.filter(row => row.sectionId !== sectionId);
+      setNewRows(filteredRows);
+      setExpandedSections(new Set([...expandedSections].filter(s => s !== sectionId)));
       setSections(sections.filter(s => s.id !== sectionId));
     } catch (e) {
       toast({ title: 'Failed to delete section', variant: 'destructive' });
@@ -408,6 +495,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   // Tag management functions
   const addCategory = (goalId: string, isNew: boolean) => {
     const input = categoryInput[goalId]?.trim();
+    console.log(input, "addCategory");
     if (!input) return;
 
     const data = isNew ? newRows.find(r => r.id === goalId) : editedData[goalId];
@@ -461,18 +549,18 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
   };
 
   const allRows = [...newRows, ...filteredItems.map(goal => {
-    console.log('Processing goal in allRows:', {
-      goalId: goal.id,
-      category: goal.category,
-      subCategory: goal.subCategory,
-      rawGoal: goal
-    });
-    
+    // console.log('Processing goal in allRows:', {
+    //   goalId: goal.id,
+    //   category: goal.category,
+    //   subCategory: goal.subCategory,
+    //   rawGoal: goal
+    // });
+
     const assignee = goal.assignees?.[0];
     // Support arrays from backend; keep backward compat with comma strings
     let category: string[] = [];
     let subCategory: string[] = [];
-    
+
     try {
       // Handle category
       if (Array.isArray((goal as any).category)) {
@@ -480,7 +568,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
       } else if ((goal as any).category) {
         category = String((goal as any).category).split(',').map((c: string) => c.trim()).filter(Boolean);
       }
-      
+
       // Handle subCategory
       if (Array.isArray((goal as any).subCategory)) {
         subCategory = (goal as any).subCategory as string[];
@@ -492,13 +580,13 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
       category = [];
       subCategory = [];
     }
-    
-    console.log('Processed category/subCategory for goal:', {
-      goalId: goal.id,
-      category,
-      subCategory
-    });
-    
+
+    // console.log('Processed category/subCategory for goal:', {
+    //   goalId: goal.id,
+    //   category,
+    //   subCategory
+    // });
+
     return {
       id: goal.id,
       member: assignee?.userId || '',
@@ -544,12 +632,96 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+
           </div>
 
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            {allRows.length} {allRows.length === 1 ? 'goal' : 'goals'}
+          <div className="flex gap-2 justify-end align-items-end text-right">
+
+            {/* Member Filter */}
+            <DropdownMenu open={isMemberDropdownOpen} onOpenChange={setIsMemberDropdownOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="justify-between h-9">
+                  <span className="truncate">
+                    {selectedMembers.length
+                      ? `${selectedMembers.length} member${selectedMembers.length > 1 ? 's' : ''} selected`
+                      : 'Filter by member'}
+                  </span>
+                  <ChevronDown className="w-4 h-4 ml-2 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
+                {effectiveMembers.map(m => {
+                  const id = String(m.user_id);
+                  const checked = selectedMembers.includes(id);
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={id}
+                      checked={checked}
+                      onCheckedChange={(v) => {
+                        setSelectedMembers(prev => {
+                          const set = new Set(prev);
+                          if (v) set.add(id); else set.delete(id);
+                          return Array.from(set);
+                        });
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Avatar className="w-5 h-5">
+                          <AvatarFallback className="text-xs">{m.initials}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs">{m.displayName}</span>
+                      </div>
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Date Range */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="justify-start h-9">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  {dateRange.from || dateRange.to
+                    ? `${dateRange.from ? formatDate(dateRange.from) : '...'} - ${dateRange.to ? formatDate(dateRange.to) : '...'}`
+                    : 'Start Date - End Date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="range"
+                  selected={dateRange as any}
+                  onSelect={(range: any) => setDateRange(range ?? { from: undefined, to: undefined })}
+                />
+              </PopoverContent>
+            </Popover>
+
+
+
+            {/* {allRows.length} {allRows.length === 1 ? 'goal' : 'goals'} */}
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleExpandCollapseAll}
+                className="h-8"
+              >
+                {allExpanded ? (
+                  <>
+                    <ChevronUp className="h-4 w-4 mr-1" />
+                    Collapse All
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4 mr-1" />
+                    Expand All
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
+
       </div>
 
       {/* Table Content */}
@@ -569,12 +741,16 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
               const isEditingThisSection = editingSectionId === section.id;
               const sectionHasTitle = section.title.trim().length > 0;
 
+              const isExpanded = expandedSections.has(section.id) || allExpanded;
+              // const sectionGoals = allRows.filter(goal => goal.sectionId === section.id);
+
+
               return (
                 <div key={section.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                   {/* Section Title */}
                   {!isEditingThisSection && !sectionHasTitle ? (
                     <div
-                      className="px-4 py-3 bg-blue-50/20 dark:bg-blue-900/5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-all cursor-pointer border-b-2 border-dotted border-blue-400/60 dark:border-blue-600/60"
+                      className="px-4 py-2 bg-blue-50/20 dark:bg-blue-900/5 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-all cursor-pointer border-b-2 border-dotted border-blue-400/60 dark:border-blue-600/60"
                       onClick={() => {
                         setEditingSectionId(section.id);
                         setSectionTitleInputs({ ...sectionTitleInputs, [section.id]: section.title });
@@ -586,7 +762,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                       </div>
                     </div>
                   ) : (
-                    <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b-2 border-blue-200 dark:border-blue-700">
+                    <div className="px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b-2 border-blue-200 dark:border-blue-700">
                       {isEditingThisSection ? (
                         <div className="flex items-center gap-2">
                           <Input
@@ -612,11 +788,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              if (section.id !== 'default-section') {
-                                deleteSection(section.id);
-                              } else {
-                                setEditingSectionId(null);
-                              }
+                              setEditingSectionId(null);
                             }}
                             className="h-9"
                           >
@@ -625,10 +797,10 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                         </div>
                       ) : (
                         <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
-                            {section.title}
-                          </h3>
-                          <div className="flex gap-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                              {section.title}
+                            </h3>
                             <Button
                               size="sm"
                               variant="ghost"
@@ -651,384 +823,410 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
                               </Button>
                             )}
                           </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => toggleSectionExpansion(section.id)}
+                              className="text-xs"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="w-4 h-4 mr-1" />
+                                  Collapse
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-4 h-4 mr-1" />
+                                  Expand
+                                </>
+                              )}
+                            </Button>
+
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Table with horizontal scroll */}
-                  <div className="overflow-x-auto">
-                    <Table className="min-w-[1200px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-                      <TableHeader>
-                        <TableRow className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
-                          <TableHead className="w-[180px]">Member</TableHead>
-                          <TableHead className="w-[150px]">Category</TableHead>
-                          <TableHead className="w-[150px]">Sub-Category</TableHead>
-                          <TableHead className="w-[250px]">Goal</TableHead>
-                          <TableHead className="w-[200px]">Target</TableHead>
-                          <TableHead className="w-[120px]">Start Date</TableHead>
-                          <TableHead className="w-[120px]">End Date</TableHead>
-                          <TableHead className="w-[120px] text-center">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sectionRows.map((row, index) => {
-                          const isEditing = editingRows.has(row.id!);
-                          const isNew = row.isNew || newRows.some(r => r.id === row.id);
-                          const data = isEditing ? (isNew ? row : editedData[row.id!] || row) : row;
+                  {/* Section Body */}
+                  {isExpanded && (
+                    <>
+                      {/* Table with horizontal scroll */}
+                      {
+                        sectionRows && sectionRows.length > 0 &&
+                        <div className="rounded-md border dark:border-gray-700 shadow-tasksmate overflow-x-auto">
+                          <Table className="w-full">
+                            <TableHeader className="bg-gray-50 dark:bg-gray-800">
+                              <TableRow>
+                                <TableHead className="w-60 p-2">Member</TableHead>
+                                <TableHead className="w-80 p-2">Goal</TableHead>
+                                <TableHead className="w-80 p-2">Target</TableHead>
+                                <TableHead className="w-60 p-2">Category</TableHead>
+                                <TableHead className="w-60 p-2">Sub-Category</TableHead>
+                                <TableHead className="w-48 p-2 text-center">Start Date</TableHead>
+                                <TableHead className="w-48 p-2 text-center">End Date</TableHead>
+                                <TableHead className="w-24 p-2 text-center">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {sectionRows.map((row, index) => {
+                                const isEditing = editingRows.has(row.id!);
+                                const isNew = row.isNew || newRows.some(r => r.id === row.id);
+                                const data = isEditing ? (isNew ? row : editedData[row.id!] || row) : row;
 
-                          return (
-                            <TableRow
-                              key={row.id}
-                              className={isEditing ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-blue-500' : ''}
-                            >
-                              {/* Member Column */}
-                              <TableCell>
-                                {isEditing ? (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full justify-between h-8 text-xs"
-                                      >
-                                        <div className="flex items-center gap-1 truncate">
-                                          <Users className="w-3 h-3 flex-shrink-0" />
-                                          <span className="truncate">
-                                            {data.member ? memberIndex[data.member]?.displayName || 'Select' : 'Select'}
-                                          </span>
+                                return (
+                                  <TableRow
+                                    key={row.id}
+                                    className={isEditing ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-blue-500' : ''}
+                                  >
+                                    {/* Member Column */}
+                                    <TableCell className="p-2 align-top">
+                                      {isEditing ? (
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="w-full justify-between h-8 text-xs"
+                                            >
+                                              <div className="flex items-center gap-1 truncate">
+                                                <Users className="w-3 h-3 flex-shrink-0" />
+                                                <span className="truncate">
+                                                  {data.member ? memberIndex[data.member]?.displayName || 'Select' : 'Select'}
+                                                </span>
+                                              </div>
+                                              <ChevronDown className="w-3 h-3 flex-shrink-0" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent className="w-56">
+                                            {effectiveMembers.map(m => (
+                                              <DropdownMenuCheckboxItem
+                                                key={m.user_id}
+                                                checked={data.member === String(m.user_id)}
+                                                onCheckedChange={(checked) => {
+                                                  if (checked) {
+                                                    updateField(row.id!, 'member', String(m.user_id), isNew);
+                                                  }
+                                                }}
+                                              >
+                                                <div className="flex items-center gap-2">
+                                                  <Avatar className="w-5 h-5">
+                                                    <AvatarFallback className="text-xs">{m.initials}</AvatarFallback>
+                                                  </Avatar>
+                                                  <span className="text-xs">{m.displayName}</span>
+                                                </div>
+                                              </DropdownMenuCheckboxItem>
+                                            ))}
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      ) : data.member ? (
+                                        <div className="flex items-center gap-2">
+                                          <Avatar className="w-6 h-6">
+                                            <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+                                              {memberIndex[data.member]?.initials || '??'}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="text-sm truncate">{memberIndex[data.member]?.displayName || 'Unknown'}</span>
                                         </div>
-                                        <ChevronDown className="w-3 h-3 flex-shrink-0" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-56">
-                                      {effectiveMembers.map(m => (
-                                        <DropdownMenuCheckboxItem
-                                          key={m.user_id}
-                                          checked={data.member === String(m.user_id)}
-                                          onCheckedChange={(checked) => {
-                                            if (checked) {
-                                              updateField(row.id!, 'member', String(m.user_id), isNew);
-                                            }
-                                          }}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <Avatar className="w-5 h-5">
-                                              <AvatarFallback className="text-xs">{m.initials}</AvatarFallback>
-                                            </Avatar>
-                                            <span className="text-xs">{m.displayName}</span>
+                                      ) : (
+                                        <span className="text-xs text-gray-400 italic">No member</span>
+                                      )}
+                                    </TableCell>
+
+
+
+                                    {/* Goal Column */}
+                                    <TableCell className="p-2 align-top">
+                                      {isEditing ? (
+                                        <div className="relative w-full">
+                                          <Textarea
+                                            value={data.goal}
+                                            onChange={(e) => updateField(row.id!, 'goal', e.target.value, isNew)}
+                                            placeholder="Enter goal..."
+                                            className="min-h-[48px] text-xs py-2 pr-8 resize-none"
+                                            rows={2}
+                                          />
+                                          {data.goal && data.goal.length > 80 && (
+                                            <button
+                                              onClick={() => setExpandedContent({ type: 'goal', content: data.goal, rowId: row.id! })}
+                                              className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                              title="Expand to see full content"
+                                            >
+                                              <Maximize2 className="w-3 h-3 text-gray-500" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="relative w-full group pr-6">
+                                          <div className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2 pr-1">
+                                            {data.goal || <span className="text-gray-400 italic">No goal</span>}
                                           </div>
-                                        </DropdownMenuCheckboxItem>
-                                      ))}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                ) : data.member ? (
-                                  <div className="flex items-center gap-2">
-                                    <Avatar className="w-6 h-6">
-                                      <AvatarFallback className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                                        {memberIndex[data.member]?.initials || '??'}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-sm truncate">{memberIndex[data.member]?.displayName || 'Unknown'}</span>
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400 italic">No member</span>
-                                )}
-                              </TableCell>
+                                          {data.goal && data.goal.length > 80 && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedContent({ type: 'goal', content: data.goal, rowId: row.id! });
+                                              }}
+                                              className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600"
+                                              title="View full content"
+                                            >
+                                              <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </TableCell>
 
-                              {/* Category Column */}
-                              <TableCell>
-                                {isEditing ? (
-                                  <div className="w-full">
-                                    <div className="flex flex-wrap gap-1 mb-1">
-                                      {data?.category?.map((cat, idx) => (
-                                        <Badge
-                                          key={idx}
-                                          variant="outline"
-                                          className={`${getTagColor(cat)} text-xs px-2 py-0.5 flex items-center gap-1`}
-                                        >
-                                          {cat}
-                                          <button
-                                            onClick={() => removeCategory(row.id!, cat, isNew)}
-                                            className="hover:bg-black/10 rounded-full p-0.5"
+                                    {/* Target Column */}
+                                    <TableCell className="p-2 align-top">
+                                      {isEditing ? (
+                                        <div className="relative w-full">
+                                          <Textarea
+                                            value={data.target}
+                                            onChange={(e) => updateField(row.id!, 'target', e.target.value, isNew)}
+                                            placeholder="Target..."
+                                            className="min-h-[48px] text-xs py-2 pr-8 resize-none"
+                                            rows={2}
+                                          />
+                                          {data.target && data.target.length > 80 && (
+                                            <button
+                                              onClick={() => setExpandedContent({ type: 'target', content: data.target, rowId: row.id! })}
+                                              className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                              title="Expand to see full content"
+                                            >
+                                              <Maximize2 className="w-3 h-3 text-gray-500" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="relative w-full group pr-6">
+                                          <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
+                                            {data.target || <span className="text-gray-400 italic">-</span>}
+                                          </div>
+                                          {data.target && data.target.length > 80 && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedContent({ type: 'target', content: data.target, rowId: row.id! });
+                                              }}
+                                              className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600"
+                                              title="View full content"
+                                            >
+                                              <Maximize2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </TableCell>
+
+                                    {/* Category Column */}
+                                    <TableCell className="p-2 align-top">
+                                      {isEditing ? (
+                                        <div className="w-full">
+
+                                          <Input
+                                            value={categoryInput[row.id!] || ''}
+                                            onChange={(e) => setCategoryInput({ ...categoryInput, [row.id!]: e.target.value })}
+                                            onKeyDown={(e) => handleCategoryKeyDown(e, row.id!, isNew)}
+                                            placeholder="Type & press Enter"
+                                            className="h-8 text-xs w-full"
+                                          />
+                                          <div className="max-w-[14rem] sm:max-w-[16rem] md:max-w-[18rem] overflow-x-auto whitespace-nowrap py-1 pr-1">
+                                            {data?.category?.map((cat, idx) => (
+                                              <Badge
+                                                key={idx}
+                                                variant="outline"
+                                                className={`${getTagColor(cat)} rounded-full text-[11px] h-6 leading-5 px-2.5 py-0 inline-flex items-center mr-1 whitespace-nowrap`}
+                                              >
+                                                {cat}
+                                                <button
+                                                  onClick={() => removeCategory(row.id!, cat, isNew)}
+                                                  className="hover:bg-black/10 rounded-full p-0.5"
+                                                >
+                                                  <X className="w-2.5 h-2.5" />
+                                                </button>
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="max-w-[14rem] sm:max-w-[16rem] md:max-w-[18rem] overflow-x-auto whitespace-nowrap py-1 pr-1">
+                                          {data?.category?.length > 0 ? (
+                                            data?.category?.map((cat, idx) => (
+                                              <Badge
+                                                key={idx}
+                                                variant="outline"
+                                                className={`${getTagColor(cat)} rounded-full text-[11px] h-6 leading-5 px-2.5 py-0 inline-flex mr-1 whitespace-nowrap`}
+                                              >
+                                                {cat}
+                                              </Badge>
+                                            ))
+                                          ) : (
+                                            <span className="text-xs text-gray-400 italic">No category</span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </TableCell>
+
+                                    {/* Sub-Category Column */}
+                                    <TableCell className="p-2 align-top">
+                                      {isEditing ? (
+                                        <div className="w-full">
+
+                                          <Input
+                                            value={subCategoryInput[row.id!] || ''}
+                                            onChange={(e) => setSubCategoryInput({ ...subCategoryInput, [row.id!]: e.target.value })}
+                                            onKeyDown={(e) => handleSubCategoryKeyDown(e, row.id!, isNew)}
+                                            placeholder="Type & press Enter"
+                                            className="h-8 text-xs w-full"
+                                          />
+                                          <div className="max-w-[14rem] sm:max-w-[16rem] md:max-w-[18rem] overflow-x-auto whitespace-nowrap py-1 pr-1">
+                                            {data.subCategory.map((subCat, idx) => (
+                                              <Badge
+                                                key={idx}
+                                                variant="outline"
+                                                className={`${getTagColor(subCat)} rounded-full text-[11px] h-6 leading-5 px-2.5 py-0 inline-flex items-center mr-1 whitespace-nowrap`}
+                                              >
+                                                {subCat}
+                                                <button
+                                                  onClick={() => removeSubCategory(row.id!, subCat, isNew)}
+                                                  className="hover:bg-black/10 rounded-full p-0.5"
+                                                >
+                                                  <X className="w-2.5 h-2.5" />
+                                                </button>
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="max-w-[14rem] sm:max-w-[16rem] md:max-w-[18rem] overflow-x-auto whitespace-nowrap py-1 pr-1">
+                                          {data.subCategory.length > 0 ? (
+                                            data.subCategory.map((subCat, idx) => (
+                                              <Badge
+                                                key={idx}
+                                                variant="outline"
+                                                className={`${getTagColor(subCat)} rounded-full text-[11px] h-6 leading-5 px-2.5 py-0 inline-flex mr-1 whitespace-nowrap`}
+                                              >
+                                                {subCat}
+                                              </Badge>
+                                            ))
+                                          ) : (
+                                            <span className="text-xs text-gray-400 italic">-</span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </TableCell>
+
+                                    {/* Start Date Column */}
+                                    <TableCell className="p-2 text-center align-top">
+                                      {isEditing ? (
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button variant="outline" size="sm" className="h-7 w-full text-xs justify-start px-2">
+                                              <Calendar className="w-3 h-3 mr-1" />
+                                              {data.startDate ? formatDate(data.startDate) : 'Date'}
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0" align="start">
+                                            <CalendarComponent
+                                              mode="single"
+                                              selected={data.startDate}
+                                              onSelect={(date) => updateField(row.id!, 'startDate', date, isNew)}
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
+                                      ) : <DateBadge date={data.startDate} className="text-xs bg-blue-100 text-blue-800" />
+                                      }
+                                    </TableCell>
+
+                                    {/* End Date Column */}
+                                    <TableCell className="p-2 text-center align-top">
+                                      {isEditing ? (
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button variant="outline" size="sm" className="h-7 w-full text-xs justify-start px-2">
+                                              <Calendar className="w-3 h-3 mr-1" />
+                                              {data.endDate ? formatDate(data.endDate) : 'Date'}
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0" align="start">
+                                            <CalendarComponent
+                                              mode="single"
+                                              selected={data.endDate}
+                                              onSelect={(date) => updateField(row.id!, 'endDate', date, isNew)}
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
+                                      ) :
+                                        <DateBadge
+                                          date={data.endDate}
+                                          className={`text-xs bg-rose-100 text-rose-800`}
+                                        />
+                                      }
+                                    </TableCell>
+
+                                    {/* Actions Column */}
+                                    <TableCell className="p-2 text-center align-top">
+                                      {isEditing ? (
+                                        <div className="flex items-center justify-center gap-1">
+                                          <Button
+                                            size="sm"
+                                            className="h-7 px-2 bg-green-500 hover:bg-green-600 text-white text-xs"
+                                            onClick={() => handleSave(row.id!, isNew)}
+                                            disabled={createMutation.isPending || updateMutation.isPending}
                                           >
-                                            <X className="w-2.5 h-2.5" />
-                                          </button>
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                    <Input
-                                      value={categoryInput[row.id!] || ''}
-                                      onChange={(e) => setCategoryInput({ ...categoryInput, [row.id!]: e.target.value })}
-                                      onKeyDown={(e) => handleCategoryKeyDown(e, row.id!, isNew)}
-                                      placeholder="Type & press Enter"
-                                      className="h-8 text-xs w-full"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-wrap gap-1 items-center">
-                                    {data?.category?.length > 0 ? (
-                                      data?.category?.map((cat, idx) => (
-                                        <Badge
-                                          key={idx}
-                                          variant="outline"
-                                          className={`${getTagColor(cat)} text-xs px-2 py-0.5`}
-                                        >
-                                          {cat}
-                                        </Badge>
-                                      ))
-                                    ) : (
-                                      <span className="text-xs text-gray-400 italic">No category</span>
-                                    )}
-                                  </div>
-                                )}
-                              </TableCell>
-
-                              {/* Sub-Category Column */}
-                              <TableCell>
-                                {isEditing ? (
-                                  <div className="w-full">
-                                    <div className="flex flex-wrap gap-1 mb-1">
-                                      {data.subCategory.map((subCat, idx) => (
-                                        <Badge
-                                          key={idx}
-                                          variant="outline"
-                                          className={`${getTagColor(subCat)} text-xs px-2 py-0.5 flex items-center gap-1`}
-                                        >
-                                          {subCat}
-                                          <button
-                                            onClick={() => removeSubCategory(row.id!, subCat, isNew)}
-                                            className="hover:bg-black/10 rounded-full p-0.5"
+                                            Save
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-7 px-2"
+                                            onClick={() => handleCancel(row.id!, isNew)}
                                           >
-                                            <X className="w-2.5 h-2.5" />
-                                          </button>
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                    <Input
-                                      value={subCategoryInput[row.id!] || ''}
-                                      onChange={(e) => setSubCategoryInput({ ...subCategoryInput, [row.id!]: e.target.value })}
-                                      onKeyDown={(e) => handleSubCategoryKeyDown(e, row.id!, isNew)}
-                                      placeholder="Type & press Enter"
-                                      className="h-8 text-xs w-full"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-wrap gap-1 items-center">
-                                    {data.subCategory.length > 0 ? (
-                                      data.subCategory.map((subCat, idx) => (
-                                        <Badge
-                                          key={idx}
-                                          variant="outline"
-                                          className={`${getTagColor(subCat)} text-xs px-2 py-0.5`}
-                                        >
-                                          {subCat}
-                                        </Badge>
-                                      ))
-                                    ) : (
-                                      <span className="text-xs text-gray-400 italic">-</span>
-                                    )}
-                                  </div>
-                                )}
-                              </TableCell>
-
-                              {/* Goal Column */}
-                              <TableCell>
-                                {isEditing ? (
-                                  <div className="relative w-full">
-                                    <Textarea
-                                      value={data.goal}
-                                      onChange={(e) => updateField(row.id!, 'goal', e.target.value, isNew)}
-                                      placeholder="Enter goal..."
-                                      className="min-h-[48px] text-xs py-2 pr-8 resize-none"
-                                      rows={2}
-                                    />
-                                    {data.goal && data.goal.length > 80 && (
-                                      <button
-                                        onClick={() => setExpandedContent({ type: 'goal', content: data.goal, rowId: row.id! })}
-                                        className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                        title="Expand to see full content"
-                                      >
-                                        <Maximize2 className="w-3 h-3 text-gray-500" />
-                                      </button>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="relative w-full group pr-6">
-                                    <div className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2 pr-1">
-                                      {data.goal || <span className="text-gray-400 italic">No goal</span>}
-                                    </div>
-                                    {data.goal && data.goal.length > 80 && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setExpandedContent({ type: 'goal', content: data.goal, rowId: row.id! });
-                                        }}
-                                        className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600"
-                                        title="View full content"
-                                      >
-                                        <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </TableCell>
-
-                              {/* Target Column */}
-                              <TableCell>
-                                {isEditing ? (
-                                  <div className="relative w-full">
-                                    <Textarea
-                                      value={data.target}
-                                      onChange={(e) => updateField(row.id!, 'target', e.target.value, isNew)}
-                                      placeholder="Target..."
-                                      className="min-h-[48px] text-xs py-2 pr-8 resize-none"
-                                      rows={2}
-                                    />
-                                    {data.target && data.target.length > 80 && (
-                                      <button
-                                        onClick={() => setExpandedContent({ type: 'target', content: data.target, rowId: row.id! })}
-                                        className="absolute top-1 right-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                        title="Expand to see full content"
-                                      >
-                                        <Maximize2 className="w-3 h-3 text-gray-500" />
-                                      </button>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="relative w-full group pr-6">
-                                    <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 pr-1">
-                                      {data.target || <span className="text-gray-400 italic">-</span>}
-                                    </div>
-                                    {data.target && data.target.length > 80 && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setExpandedContent({ type: 'target', content: data.target, rowId: row.id! });
-                                        }}
-                                        className="absolute top-0 right-0 p-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shadow-sm border border-gray-200 dark:border-gray-600"
-                                        title="View full content"
-                                      >
-                                        <Maximize2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </TableCell>
-
-                              {/* Start Date Column */}
-                              <TableCell>
-                                {isEditing ? (
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <Button variant="outline" size="sm" className="h-7 w-full text-xs justify-start px-2">
-                                        <Calendar className="w-3 h-3 mr-1" />
-                                        {data.startDate ? formatDate(data.startDate) : 'Date'}
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                      <CalendarComponent
-                                        mode="single"
-                                        selected={data.startDate}
-                                        onSelect={(date) => updateField(row.id!, 'startDate', date, isNew)}
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                ) : data.startDate ? (
-                                  <div className="text-xs text-gray-700 dark:text-gray-300">
-                                    {formatDate(data.startDate)}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400 italic">-</span>
-                                )}
-                              </TableCell>
-
-                              {/* End Date Column */}
-                              <TableCell>
-                                {isEditing ? (
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <Button variant="outline" size="sm" className="h-7 w-full text-xs justify-start px-2">
-                                        <Calendar className="w-3 h-3 mr-1" />
-                                        {data.endDate ? formatDate(data.endDate) : 'Date'}
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                      <CalendarComponent
-                                        mode="single"
-                                        selected={data.endDate}
-                                        onSelect={(date) => updateField(row.id!, 'endDate', date, isNew)}
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                ) : data.endDate ? (
-                                  <div className="text-xs text-gray-700 dark:text-gray-300">
-                                    {formatDate(data.endDate)}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400 italic">-</span>
-                                )}
-                              </TableCell>
-
-                              {/* Actions Column */}
-                              <TableCell className="text-center">
-                                {isEditing ? (
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Button
-                                      size="sm"
-                                      className="h-7 px-2 bg-green-500 hover:bg-green-600 text-white text-xs"
-                                      onClick={() => handleSave(row.id!, isNew)}
-                                      disabled={createMutation.isPending || updateMutation.isPending}
-                                    >
-                                      Save
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 px-2"
-                                      onClick={() => handleCancel(row.id!, isNew)}
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                      onClick={() => handleEdit(row.id!, (row as any).originalGoal)}
-                                    >
-                                      Edit
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 px-2 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                      onClick={() => handleDelete(row.id!, data.goal)}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                                    </Button>
-                                  </div>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  {/* Add New Goal Button */}
-                  <div
-                    className="mt-2 p-4 bg-green-50/20 dark:bg-green-900/5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-all cursor-pointer border-2 border-dotted border-green-400/60 dark:border-green-600/60 rounded-lg"
-                    onClick={() => addNewRow(section.id)}
-                  >
-                    <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
-                      <Plus className="w-4 h-4" />
-                      <span className="text-sm font-medium">Click here to add a new goal</span>
-                    </div>
-                  </div>
+                                            <X className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center justify-center gap-1">
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                            onClick={() => handleEdit(row.id!, (row as any).originalGoal)}
+                                          >
+                                            Edit
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-7 px-2 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                            onClick={() => handleDelete(row.id!, data.goal)}
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      }
+                      {/* Add New Goal Button */}
+                      <div
+                        className="mt-2 p-2 bg-green-50/20 dark:bg-green-900/5 hover:bg-green-50/40 dark:hover:bg-green-900/10 transition-all cursor-pointer border-2 border-dotted border-green-400/60 dark:border-green-600/60 rounded-lg"
+                        onClick={() => addNewRow(section.id)}
+                      >
+                        <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
+                          <Plus className="w-4 h-4" />
+                          <span className="text-sm font-medium">Click here to add a new goal</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}
@@ -1038,7 +1236,7 @@ export default function GoalsTab({ orgId, realOrgMembers }: GoalsTabProps) {
               className="mb-8 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-purple-400/60 dark:border-purple-600/60 shadow-sm overflow-hidden cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-900/10 transition-all"
               onClick={addNewSection}
             >
-              <div className="px-4 py-6 flex items-center justify-center gap-2 text-purple-600 dark:text-purple-400">
+              <div className="px-4 py-4 flex items-center justify-center gap-2 text-purple-600 dark:text-purple-400">
                 <Plus className="w-5 h-5" />
                 <span className="text-base font-semibold">Click here to add a new section</span>
               </div>
